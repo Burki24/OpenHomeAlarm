@@ -167,15 +167,17 @@ foreach ($readyOptions as $option) {
     }
 }
 
-$existingInstance = new OpenHomeAlarm([
-    'Mode'       => false,
-    'State'      => false,
-    'ReadyToArm' => false
-]);
+$existingInstance = new OpenHomeAlarm(
+    [
+        'Mode'       => false,
+        'State'      => false,
+        'ReadyToArm' => false
+    ]
+);
 $existingInstance->Create();
 assertStateModel(
     $existingInstance->TestWrittenValues() === [],
-    'Existing operational state must not be reset during Create().' 
+    'Existing operational state must not be reset during Create().'
 );
 
 $locale = json_decode(
