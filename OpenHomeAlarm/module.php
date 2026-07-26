@@ -1,15 +1,15 @@
 <?php
 
 declare(strict_types=1);
-	class OpenHomeAlarm extends IPSModule
+	class OpenHomeAlarm extends IPSModuleStrict
 	{
-		public function Create()
+		public function Create(): void
 		{
 			//Never delete this line!
 			parent::Create();
 		}
 
-		public function Destroy()
+		public function Destroy(): void
 		{
 			//Never delete this line!
 			parent::Destroy();

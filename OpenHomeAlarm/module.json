@@ -2,11 +2,11 @@
     "id": "{763D545E-C8B3-A3E2-130A-006A10D6181F}",
     "name": "OpenHomeAlarm",
     "type": 3,
-    "vendor": "Burkhard nNeiseler",
+    "vendor": "Burkhard Kneiseler",
     "aliases": [],
     "parentRequirements": [],
     "childRequirements": [],
     "implemented": [],
     "prefix": "OHA",
-    "url": "https://github.com/Burki24/OpenHomeAlarm"
+    "url": "https://github.com/Burki24/OpenHomeAlarm/OpenHomeAlarm",
 }
