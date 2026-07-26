@@ -1,0 +1,49 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Verify vendored helper integrity
+        run: python3 tests/helper_integrity.py
+
+      - name: Lint PHP files
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file" > /dev/null
+          done < <(find . -type f -name '*.php' -not -path './.git/*' -print0)
+
+      - name: Validate JSON files
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -r 'json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);' "$file"
+          done < <(find . -type f -name '*.json' -not -path './.git/*' -print0)
+
+      - name: Check Symcon Strict foundation
+        run: php tests/symcon-strict.php
+
+      - name: Check alarm state model
+        run: php tests/state-model.php

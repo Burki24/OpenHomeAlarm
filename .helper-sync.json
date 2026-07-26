@@ -1,0 +1,11 @@
+{
+    "schema": 1,
+    "source_repository": "Burki24/Symcon_ModuleHelper",
+    "base_branch": "dev",
+    "readme_language": "de",
+    "helpers": {
+        "VariablePresentationHelper": {
+            "target": "libs/helper/VariablePresentationHelper.php"
+        }
+    }
+}

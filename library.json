@@ -1,0 +1,12 @@
+{
+    "id": "{C5D5848C-2A04-1250-63C6-2FE105C1CA84}",
+    "name": "OpenHomeAlarm",
+    "author": "Burkhard Kneiseler",
+    "url": "https://github.com/Burki24/OpenHomeAlarm",
+    "compatibility": {
+        "version": "9.0"
+    },
+    "version": "1.0",
+    "build": 0,
+    "date": 0
+}
