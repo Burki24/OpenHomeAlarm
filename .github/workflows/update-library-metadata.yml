@@ -1,0 +1,115 @@
+name: Update library metadata
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-library-metadata-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update-library-metadata:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Validate Symcon module structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f tests/validate_structure.py ]]; then
+            python3 tests/validate_structure.py
+          fi
+
+      - name: Test metadata updater
+        run: python3 tests/test_update_library_metadata.py
+
+      - name: Determine source commit metadata
+        id: source
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$BEFORE_SHA" =~ ^0+$ ]] || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            base_ref=$(git rev-parse "${SOURCE_SHA}^" 2>/dev/null || true)
+          else
+            base_ref="$BEFORE_SHA"
+          fi
+
+          if [[ -n "$base_ref" ]] && git cat-file -e "${base_ref}:library.json" 2>/dev/null; then
+            base_version=$(git show "${base_ref}:library.json" | python3 -c 'import json, sys; print(json.load(sys.stdin)["version"])')
+          else
+            base_version=$(python3 -c 'import json; print(json.load(open("library.json", encoding="utf-8"))["version"])')
+          fi
+
+          if [[ "$BEFORE_SHA" =~ ^0+$ ]] || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            increment=1
+          else
+            increment=$(
+              git log --format=%s "${BEFORE_SHA}..${SOURCE_SHA}" \
+                | grep -vc '^CHORE: Update library metadata' \
+                || true
+            )
+            if (( increment < 1 )); then
+              increment=1
+            fi
+          fi
+
+          commit_date=$(git show -s --format=%ct "$SOURCE_SHA")
+          short_sha=${SOURCE_SHA:0:7}
+
+          echo "base_version=$base_version" >> "$GITHUB_OUTPUT"
+          echo "increment=$increment" >> "$GITHUB_OUTPUT"
+          echo "commit_date=$commit_date" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Update library.json
+        shell: bash
+        run: |
+          python3 .github/scripts/update_library_metadata.py \
+            --file library.json \
+            --sha "${{ github.sha }}" \
+            --date "${{ steps.source.outputs.commit_date }}" \
+            --increment "${{ steps.source.outputs.increment }}" \
+            --base-version "${{ steps.source.outputs.base_version }}"
+
+      - name: Commit and push metadata
+        shell: bash
+        env:
+          SHORT_SHA: ${{ steps.source.outputs.short_sha }}
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- library.json; then
+            echo "library.json is already up to date."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          version=$(
+            python3 -c 'import json; print(json.load(open("library.json", encoding="utf-8"))["version"])'
+          )
+
+          git add library.json
+          git commit -m "CHORE: Update library metadata to v${version} (${SHORT_SHA})"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
