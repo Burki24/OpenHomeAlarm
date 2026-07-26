@@ -1,67 +1,45 @@
 # OpenHomeAlarm
-Beschreibung des Moduls.
+
+OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
+
+> **Entwicklungsstatus:** Das Modul befindet sich im Neuaufbau. Die Alarmfunktionen werden schrittweise implementiert.
 
 ### Inhaltsverzeichnis
 
 1. [Funktionsumfang](#1-funktionsumfang)
 2. [Voraussetzungen](#2-voraussetzungen)
 3. [Software-Installation](#3-software-installation)
-4. [Einrichten der Instanzen in Symcon](#4-einrichten-der-instanzen-in-symcon)
-5. [Statusvariablen und Profile](#5-statusvariablen-und-profile)
-6. [WebFront](#6-webfront)
+4. [Einrichten der Instanz in Symcon](#4-einrichten-der-instanz-in-symcon)
+5. [Statusvariablen und Darstellungen](#5-statusvariablen-und-darstellungen)
+6. [Visualisierung](#6-visualisierung)
 7. [PHP-Befehlsreferenz](#7-php-befehlsreferenz)
 
 ### 1. Funktionsumfang
 
-*
+Die fachlichen Alarmfunktionen werden derzeit neu konzipiert und sind im aktuellen Entwicklungsstand noch nicht implementiert.
 
 ### 2. Voraussetzungen
 
-- Symcon ab Version 7.1
+- Symcon ab Version 9.0
 
 ### 3. Software-Installation
 
-* Über den Module Store das 'OpenHomeAlarm'-Modul installieren.
-* Alternativ über das Module Control folgende URL hinzufügen
+Die Library kann über die Modulverwaltung von Symcon aus dem GitHub-Repository `Burki24/OpenHomeAlarm` installiert werden.
 
-### 4. Einrichten der Instanzen in Symcon
+### 4. Einrichten der Instanz in Symcon
 
- Unter 'Instanz hinzufügen' kann das 'OpenHomeAlarm'-Modul mithilfe des Schnellfilters gefunden werden.  
-	- Weitere Informationen zum Hinzufügen von Instanzen in der [Dokumentation der Instanzen](https://www.symcon.de/service/dokumentation/konzepte/instanzen/#Instanz_hinzufügen)
+Unter **Instanz hinzufügen** kann das Modul **OpenHomeAlarm** gefunden und angelegt werden.
 
-__Konfigurationsseite__:
+Die eigentliche Alarmkonfiguration wird in den folgenden Entwicklungsschritten ergänzt.
 
-Name     | Beschreibung
--------- | ------------------
-         |
-         |
+### 5. Statusvariablen und Darstellungen
 
-### 5. Statusvariablen und Profile
-
-Die Statusvariablen/Kategorien werden automatisch angelegt. Das Löschen einzelner kann zu Fehlfunktionen führen.
-
-#### Statusvariablen
-
-Name   | Typ     | Beschreibung
------- | ------- | ------------
-       |         |
-       |         |
-
-#### Profile
-
-Name   | Typ
------- | -------
-       |
-       |
+Im aktuellen Grundgerüst werden noch keine Statusvariablen angelegt. Neue Statusvariablen werden mit den aktuellen Symcon-Darstellungen umgesetzt; klassische Variablenprofile sind für die Neuentwicklung nicht vorgesehen.
 
 ### 6. Visualisierung
 
-Die Funktionalität, die das Modul in der Visualisierung bietet.
+Eine eigene Visualisierung einschließlich der vorgesehenen Code-Eingabe zum Deaktivieren der Alarmanlage wird in einem späteren Entwicklungsschritt umgesetzt.
 
 ### 7. PHP-Befehlsreferenz
 
-`boolean OHA_BeispielFunktion(integer $InstanzID);`
-Erklärung der Funktion.
-
-Beispiel:
-`OHA_BeispielFunktion(12345);`
+Im aktuellen Grundgerüst stehen noch keine öffentlichen Modulbefehle zur Verfügung.
