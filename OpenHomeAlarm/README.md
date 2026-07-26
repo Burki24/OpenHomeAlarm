@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Das Modul befindet sich im Neuaufbau. Die Alarmfunktionen werden schrittweise implementiert.
+> **Entwicklungsstatus:** Das Modul befindet sich im Neuaufbau. Das grundlegende Zustandsmodell ist implementiert; Sensoren, Scharfschaltlogik und Code-Eingabe folgen schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -16,7 +16,9 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 ### 1. Funktionsumfang
 
-Die fachlichen Alarmfunktionen werden derzeit neu konzipiert und sind im aktuellen Entwicklungsstand noch nicht implementiert.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+
+Die eigentliche Sensor-, Scharfschalt-, Alarm- und Code-Logik wird in den folgenden Entwicklungsschritten ergänzt.
 
 ### 2. Voraussetzungen
 
@@ -30,11 +32,19 @@ Die Library kann über die Modulverwaltung von Symcon aus dem GitHub-Repository 
 
 Unter **Instanz hinzufügen** kann das Modul **OpenHomeAlarm** gefunden und angelegt werden.
 
-Die eigentliche Alarmkonfiguration wird in den folgenden Entwicklungsschritten ergänzt.
+Die Alarmkonfiguration wird in den folgenden Entwicklungsschritten ergänzt.
 
 ### 5. Statusvariablen und Darstellungen
 
-Im aktuellen Grundgerüst werden noch keine Statusvariablen angelegt. Neue Statusvariablen werden mit den aktuellen Symcon-Darstellungen umgesetzt; klassische Variablenprofile sind für die Neuentwicklung nicht vorgesehen.
+OpenHomeAlarm legt derzeit drei schreibgeschützte Statusvariablen an:
+
+| Variable | Bedeutung | Initialwert |
+| --- | --- | --- |
+| `Mode` | Gewählter Scharfmodus: Kein Scharfmodus, Zuhause, Abwesend oder Nacht | Kein Scharfmodus |
+| `State` | Aktuelle Systemphase: Unscharf, Ausgangsverzögerung, Scharf, Eingangsverzögerung oder Alarm | Unscharf |
+| `ReadyToArm` | Zeigt an, ob die Anlage scharfschaltbereit ist | Bereit |
+
+Die Variablen verwenden native Symcon-Darstellungen. Bereits vorhandene Betriebszustände werden bei einem Modulupdate nicht auf die Initialwerte zurückgesetzt.
 
 ### 6. Visualisierung
 
@@ -42,4 +52,4 @@ Eine eigene Visualisierung einschließlich der vorgesehenen Code-Eingabe zum Dea
 
 ### 7. PHP-Befehlsreferenz
 
-Im aktuellen Grundgerüst stehen noch keine öffentlichen Modulbefehle zur Verfügung.
+Im aktuellen Entwicklungsstand stehen noch keine öffentlichen Modulbefehle zur Verfügung.

@@ -1,5 +1,20 @@
 {
     "translations": {
-        "de": {}
+        "de": {
+            "Mode": "Modus",
+            "State": "Status",
+            "Ready to arm": "Scharfschaltbereit",
+            "No arming mode": "Kein Scharfmodus",
+            "Home": "Zuhause",
+            "Away": "Abwesend",
+            "Night": "Nacht",
+            "Disarmed": "Unscharf",
+            "Exit delay": "Ausgangsverzögerung",
+            "Armed": "Scharf",
+            "Entry delay": "Eingangsverzögerung",
+            "Alarm": "Alarm",
+            "Ready": "Bereit",
+            "Not ready": "Nicht bereit"
+        }
     }
 }

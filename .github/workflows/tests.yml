@@ -23,6 +23,9 @@ jobs:
           php-version: '8.5'
           coverage: none
 
+      - name: Verify vendored helper integrity
+        run: python3 tests/helper_integrity.py
+
       - name: Lint PHP files
         shell: bash
         run: |
@@ -41,3 +44,6 @@ jobs:
 
       - name: Check Symcon Strict foundation
         run: php tests/symcon-strict.php
+
+      - name: Check alarm state model
+        run: php tests/state-model.php
