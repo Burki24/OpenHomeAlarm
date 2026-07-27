@@ -914,7 +914,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $value;
     }
 
-
     /**
      * Keeps VM_UPDATE subscriptions in sync with the enabled sensor configuration.
      *
