@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, 24/7-Sensoren, Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis sind implementiert. Die eigene Visualisierung folgt schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis sind implementiert. Die eigene Visualisierung folgt schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -20,7 +20,7 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, eine optionale Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, eine optionale Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich kann ein Sensor als **24/7 aktiv** markiert werden und löst dann unabhängig vom Scharfmodus sofort aus. Sensortyp, Auslösewert und die Nutzung der Eingangsverzögerung werden ebenfalls gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
@@ -55,6 +55,7 @@ OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
 | `BlockingHomeSensors` | Namen der Sensoren, die Zuhause aktuell blockieren | leer |
 | `BlockingAwaySensors` | Namen der Sensoren, die Abwesend aktuell blockieren | leer |
 | `BlockingNightSensors` | Namen der Sensoren, die Nacht aktuell blockieren | leer |
+| `BypassedSensors` | Namen der aktuell temporär überbrückten Sensoren | leer |
 | `AlarmMemory` | Zeigt an, ob seit der letzten Quittierung ein Alarm gespeichert ist | Kein Alarm gespeichert |
 | `LastAlarmSource` | Name des Sensors, der den letzten Alarm ausgelöst hat | leer |
 | `LastAlarmTime` | Zeitpunkt des letzten Alarms im Format `TT.MM.JJJJ HH:MM:SS` | leer |
@@ -90,6 +91,8 @@ Nach erfolgreicher Scharfschaltprüfung wechselt OpenHomeAlarm bei einer Ausgang
 
 Löst im Zustand **Scharf** ein für den aktiven Modus relevanter Sensor aus, startet ein mit `EntryDelay` markierter Sensor die konfigurierte **Eingangsverzögerung**. Der Countdown wird durch das erneute Schließen des Sensors nicht abgebrochen und bei weiteren verzögerten Sensorereignissen nicht neu gestartet. Ein Sensor ohne Eingangsverzögerung wechselt unmittelbar in den Zustand **Alarm**. Das gilt ebenfalls, wenn während einer laufenden Eingangsverzögerung ein sofort auslösender Sensor anspricht. Nach Ablauf der Eingangsverzögerung wird ebenfalls **Alarm** gesetzt. Beim erstmaligen Eintritt in den Alarmzustand wird die konfigurierte Aktion **Bei Alarm** genau einmal ausgeführt.
 
+
+Temporäre Sensorüberbrückungen können ausschließlich im Zustand **Unscharf** gesetzt oder entfernt werden. Eine Überbrückung wirkt auf alle Scharfmodi, denen die betreffende Variable zugeordnet ist, und wird bei der Scharfschaltbereitschaft, den Blockierlisten sowie der späteren Alarmauswertung ignoriert. Dadurch kann beispielsweise ein bewusst geöffnetes Fenster für genau einen Scharfschaltzyklus ausgeblendet werden. 24/7 aktive Sensoren können aus Sicherheitsgründen nicht überbrückt werden. Die Überbrückungen werden persistent gespeichert, überstehen daher `ApplyChanges()` und einen Symcon-Neustart, werden aber beim Unscharfschalten nach einem Scharfschaltzyklus automatisch vollständig gelöscht. `BypassedSensors` zeigt die derzeit überbrückten Sensoren an.
 
 24/7 aktive Sensoren sind von den Scharfmodi unabhängig. Sie lösen sowohl im Zustand **Unscharf** als auch während Ausgangsverzögerung, **Scharf** oder Eingangsverzögerung unmittelbar den Zustand **Alarm** aus. Für solche Sensoren werden die Moduszuordnungen sowie `EntryDelay` bewusst ignoriert. Ist ein 24/7-Sensor bei `ApplyChanges()` oder nach einem Symcon-Neustart bereits ausgelöst, wird dieser Zustand unmittelbar erkannt, sodass keine Überwachungslücke bis zur nächsten Variablenänderung entsteht. Typische Anwendungsfälle sind Rauch-, Wasser- oder Panikauslöser; die Aktivierung bleibt jedoch bewusst eine explizite Benutzereinstellung.
 
@@ -128,6 +131,9 @@ Folgende öffentliche Modulbefehle stehen zur Verfügung:
 | `OHA_ArmHome($InstanzID)` | `bool` | Prüft die für **Zuhause** relevanten Sensoren und startet bei Erfolg die Scharfschaltung |
 | `OHA_ArmAway($InstanzID)` | `bool` | Prüft die für **Abwesend** relevanten Sensoren und startet bei Erfolg die Scharfschaltung |
 | `OHA_ArmNight($InstanzID)` | `bool` | Prüft die für **Nacht** relevanten Sensoren und startet bei Erfolg die Scharfschaltung |
+| `OHA_BypassSensor($InstanzID, $VariableID)` | `bool` | Überbrückt einen normalen konfigurierten Scharfsensor temporär; nur im Zustand **Unscharf** möglich |
+| `OHA_RemoveSensorBypass($InstanzID, $VariableID)` | `bool` | Entfernt eine einzelne temporäre Sensorüberbrückung; nur im Zustand **Unscharf** möglich |
+| `OHA_ClearSensorBypasses($InstanzID)` | `bool` | Entfernt alle temporären Sensorüberbrückungen; nur im Zustand **Unscharf** möglich |
 | `OHA_Disarm($InstanzID)` | `bool` | Schaltet die Anlage als vertrauenswürdige direkte API ohne Code-Prüfung unscharf und setzt den Scharfmodus zurück |
 | `OHA_DisarmWithCode($InstanzID, $Code)` | `bool` | Prüft den optionalen Unscharfschaltcode und schaltet bei Erfolg unscharf |
 | `OHA_ClearAlarmMemory($InstanzID)` | `bool` | Quittiert das gespeicherte Alarmgedächtnis; während eines aktiven Alarms wird `false` zurückgegeben |

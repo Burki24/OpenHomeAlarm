@@ -64,7 +64,7 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $properties = [];
 
-    /** @var array<string,int> */
+    /** @var array<string,int|string> */
     private array $attributes = [];
 
     /** @var array<string,array{interval:int,script:string}> */
@@ -169,16 +169,32 @@ class IPSModuleStrict
         }
     }
 
+    protected function RegisterAttributeString(string $name, string $default): void
+    {
+        if (!array_key_exists($name, $this->attributes)) {
+            $this->attributes[$name] = $default;
+        }
+    }
     protected function ReadAttributeInteger(string $name): int
     {
         return $this->attributes[$name] ?? 0;
     }
 
+    protected function ReadAttributeString(string $name): string
+    {
+        $value = $this->attributes[$name] ?? '';
+
+        return is_string($value) ? $value : '';
+    }
     protected function WriteAttributeInteger(string $name, int $value): void
     {
         $this->attributes[$name] = $value;
     }
 
+    protected function WriteAttributeString(string $name, string $value): void
+    {
+        $this->attributes[$name] = $value;
+    }
     protected function RegisterTimer(string $name, int $interval, string $script): bool
     {
         $this->timers[$name] = ['interval' => $interval, 'script' => $script];

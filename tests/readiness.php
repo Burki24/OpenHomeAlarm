@@ -63,6 +63,9 @@ function GetValue(int $variableID): mixed
 
 class IPSModuleStrict
 {
+    /** @var array<string,int|string> */
+    private array $attributes = [];
+
     /** @var array<string,mixed> */
     private array $values = [];
 
@@ -93,6 +96,24 @@ class IPSModuleStrict
 
     protected function RegisterAttributeInteger(string $name, int $default): void
     {
+    }
+
+    protected function RegisterAttributeString(string $name, string $default): void
+    {
+        if (!array_key_exists($name, $this->attributes)) {
+            $this->attributes[$name] = $default;
+        }
+    }
+    protected function ReadAttributeString(string $name): string
+    {
+        $value = $this->attributes[$name] ?? '';
+
+        return is_string($value) ? $value : '';
+    }
+
+    protected function WriteAttributeString(string $name, string $value): void
+    {
+        $this->attributes[$name] = $value;
     }
 
     protected function RegisterTimer(string $name, int $interval, string $script): bool

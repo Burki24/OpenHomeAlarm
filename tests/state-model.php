@@ -6,6 +6,9 @@ const VARIABLE_PRESENTATION_VALUE_PRESENTATION = '{3319437D-7CDE-699D-750A-3C6A3
 
 class IPSModuleStrict
 {
+    /** @var array<string,int|string> */
+    private array $attributes = [];
+
     /** @var array<string,bool> */
     private array $creationResults;
 
@@ -61,6 +64,24 @@ class IPSModuleStrict
 
     protected function RegisterAttributeInteger(string $name, int $default): void
     {
+    }
+
+    protected function RegisterAttributeString(string $name, string $default): void
+    {
+        if (!array_key_exists($name, $this->attributes)) {
+            $this->attributes[$name] = $default;
+        }
+    }
+    protected function ReadAttributeString(string $name): string
+    {
+        $value = $this->attributes[$name] ?? '';
+
+        return is_string($value) ? $value : '';
+    }
+
+    protected function WriteAttributeString(string $name, string $value): void
+    {
+        $this->attributes[$name] = $value;
     }
 
     protected function RegisterTimer(string $name, int $interval, string $script): bool
@@ -129,7 +150,7 @@ $newInstance->Create();
 
 $variables = $newInstance->TestRegisteredVariables();
 assertStateModel(
-    array_keys($variables) === ['Mode', 'State', 'ReadyToArm', 'ReadyHome', 'ReadyAway', 'ReadyNight', 'BlockingHomeSensors', 'BlockingAwaySensors', 'BlockingNightSensors', 'AlarmMemory', 'LastAlarmSource', 'LastAlarmTime'],
+    array_keys($variables) === ['Mode', 'State', 'ReadyToArm', 'ReadyHome', 'ReadyAway', 'ReadyNight', 'BlockingHomeSensors', 'BlockingAwaySensors', 'BlockingNightSensors', 'BypassedSensors', 'AlarmMemory', 'LastAlarmSource', 'LastAlarmTime'],
     'Unexpected status variables.'
 );
 assertStateModel($variables['Mode']['type'] === 'integer', 'Mode must be an integer variable.');
@@ -141,6 +162,7 @@ assertStateModel($variables['ReadyNight']['type'] === 'boolean', 'ReadyNight mus
 assertStateModel($variables['BlockingHomeSensors']['type'] === 'string', 'BlockingHomeSensors must be a string variable.');
 assertStateModel($variables['BlockingAwaySensors']['type'] === 'string', 'BlockingAwaySensors must be a string variable.');
 assertStateModel($variables['BlockingNightSensors']['type'] === 'string', 'BlockingNightSensors must be a string variable.');
+assertStateModel($variables['BypassedSensors']['type'] === 'string', 'BypassedSensors must be a string variable.');
 assertStateModel($variables['AlarmMemory']['type'] === 'boolean', 'AlarmMemory must be a boolean variable.');
 assertStateModel($variables['LastAlarmSource']['type'] === 'string', 'LastAlarmSource must be a string variable.');
 assertStateModel($variables['LastAlarmTime']['type'] === 'string', 'LastAlarmTime must be a string variable.');
@@ -153,6 +175,7 @@ assertStateModel($variables['ReadyNight']['position'] === 33, 'ReadyNight must u
 assertStateModel($variables['BlockingHomeSensors']['position'] === 34, 'BlockingHomeSensors must use position 34.');
 assertStateModel($variables['BlockingAwaySensors']['position'] === 35, 'BlockingAwaySensors must use position 35.');
 assertStateModel($variables['BlockingNightSensors']['position'] === 36, 'BlockingNightSensors must use position 36.');
+assertStateModel($variables['BypassedSensors']['position'] === 37, 'BypassedSensors must use position 37.');
 assertStateModel($variables['AlarmMemory']['position'] === 40, 'AlarmMemory must use position 40.');
 assertStateModel($variables['LastAlarmSource']['position'] === 50, 'LastAlarmSource must use position 50.');
 assertStateModel($variables['LastAlarmTime']['position'] === 60, 'LastAlarmTime must use position 60.');
@@ -169,6 +192,7 @@ assertStateModel(
         'BlockingHomeSensors'  => '',
         'BlockingAwaySensors'  => '',
         'BlockingNightSensors' => '',
+        'BypassedSensors'      => '',
         'AlarmMemory'          => false,
         'LastAlarmSource'      => '',
         'LastAlarmTime'        => ''
@@ -256,6 +280,7 @@ $existingInstance = new OpenHomeAlarm(
         'BlockingHomeSensors'  => false,
         'BlockingAwaySensors'  => false,
         'BlockingNightSensors' => false,
+        'BypassedSensors'      => false,
         'AlarmMemory'          => false,
         'LastAlarmSource'      => false,
         'LastAlarmTime'        => false
@@ -284,6 +309,7 @@ foreach ([
     'Blocking sensors Home',
     'Blocking sensors Away',
     'Blocking sensors Night',
+    'Bypassed sensors',
     'No arming mode',
     'Home',
     'Away',

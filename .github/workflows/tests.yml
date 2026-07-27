@@ -74,3 +74,6 @@ jobs:
 
       - name: Check 24/7 sensors
         run: php tests/always-active.php
+
+      - name: Check temporary sensor bypasses
+        run: php tests/bypass.php

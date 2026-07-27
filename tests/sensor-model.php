@@ -9,7 +9,7 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $properties = [];
 
-    /** @var array<string,int> */
+    /** @var array<string,int|string> */
     private array $attributes = [];
 
     /** @var array<string,array<string,mixed>> */
@@ -85,6 +85,24 @@ class IPSModuleStrict
         if (!array_key_exists($name, $this->attributes)) {
             $this->attributes[$name] = $default;
         }
+    }
+
+    protected function RegisterAttributeString(string $name, string $default): void
+    {
+        if (!array_key_exists($name, $this->attributes)) {
+            $this->attributes[$name] = $default;
+        }
+    }
+    protected function ReadAttributeString(string $name): string
+    {
+        $value = $this->attributes[$name] ?? '';
+
+        return is_string($value) ? $value : '';
+    }
+
+    protected function WriteAttributeString(string $name, string $value): void
+    {
+        $this->attributes[$name] = $value;
     }
 
     protected function RegisterTimer(string $name, int $interval, string $script): bool
@@ -324,6 +342,7 @@ assertSensorModel(
         'BlockingHomeSensors',
         'BlockingAwaySensors',
         'BlockingNightSensors',
+        'BypassedSensors',
         'AlarmMemory',
         'LastAlarmSource',
         'LastAlarmTime'

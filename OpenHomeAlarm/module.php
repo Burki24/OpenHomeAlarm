@@ -62,6 +62,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
     private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
     private const ATTRIBUTE_PENDING_ALARM_SOURCE_ID = 'PendingAlarmSourceID';
+    private const ATTRIBUTE_BYPASSED_SENSOR_IDS = 'BypassedSensorIDs';
 
     private const TIMER_EXIT_DELAY = 'ExitDelay';
     private const TIMER_ENTRY_DELAY = 'EntryDelay';
@@ -74,6 +75,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const IDENT_BLOCKING_HOME_SENSORS = 'BlockingHomeSensors';
     private const IDENT_BLOCKING_AWAY_SENSORS = 'BlockingAwaySensors';
     private const IDENT_BLOCKING_NIGHT_SENSORS = 'BlockingNightSensors';
+    private const IDENT_BYPASSED_SENSORS = 'BypassedSensors';
     private const IDENT_ALARM_MEMORY = 'AlarmMemory';
     private const IDENT_LAST_ALARM_SOURCE = 'LastAlarmSource';
     private const IDENT_LAST_ALARM_TIME = 'LastAlarmTime';
@@ -92,6 +94,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
+        $this->RegisterAttributeString(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, '[]');
 
         $this->RegisterTimer(
             self::TIMER_EXIT_DELAY,
@@ -159,6 +162,12 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->TextPresentation(),
             36
         );
+        $bypassedSensorsCreated = $this->RegisterVariableString(
+            self::IDENT_BYPASSED_SENSORS,
+            $this->Translate('Bypassed sensors'),
+            $this->TextPresentation(),
+            37
+        );
         $alarmMemoryCreated = $this->RegisterVariableBoolean(
             self::IDENT_ALARM_MEMORY,
             $this->Translate('Alarm memory'),
@@ -222,6 +231,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($blockingNightSensorsCreated) {
             $this->SetBlockingNightSensors('');
         }
+        if ($bypassedSensorsCreated) {
+            $this->SetBypassedSensors('');
+        }
         if ($alarmMemoryCreated) {
             $this->SetAlarmMemory(false);
         }
@@ -243,6 +255,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         parent::ApplyChanges();
 
         $sensors = $this->ReadConfiguredSensors();
+        $this->NormalizeSensorBypasses($sensors);
         $this->SynchronizeSensorMessages($sensors);
         $this->UpdateReadinessFromSensors($sensors);
         $this->EvaluateAlwaysActiveSensors($sensors);
@@ -339,6 +352,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->CancelDelayTimers();
         $this->SetAlarmState(self::STATE_DISARMED);
         $this->SetAlarmMode(self::MODE_NONE);
+        $this->ClearSensorBypassesInternal();
 
         if ($wasAlarm) {
             $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
@@ -374,6 +388,88 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $this->Disarm();
+    }
+
+    /**
+     * Temporarily bypasses one configured arming sensor for the next arming cycle.
+     *
+     * Bypassing is only allowed while disarmed. 24/7 sensors cannot be bypassed.
+     * The bypass survives ApplyChanges and restarts, but is cleared automatically
+     * when the system is disarmed after an arming cycle.
+     */
+    public function BypassSensor(int $variableID): bool
+    {
+        if ($this->ReadAlarmState() !== self::STATE_DISARMED || $variableID <= 0) {
+            return false;
+        }
+
+        $sensors = $this->ReadConfiguredSensors();
+        $bypassable = false;
+        foreach ($sensors as $sensor) {
+            if (
+                $sensor['Enabled']
+                && !$sensor['AlwaysActive']
+                && $sensor['VariableID'] === $variableID
+                && $this->IsSensorUsedForArming($sensor)
+            ) {
+                $bypassable = true;
+                break;
+            }
+        }
+
+        if (!$bypassable) {
+            return false;
+        }
+
+        $bypassedIDs = $this->ReadBypassedSensorIDs();
+        $bypassedIDs[] = $variableID;
+        $this->WriteBypassedSensorIDs($bypassedIDs);
+        $this->UpdateBypassedSensorStatus($sensors);
+        $this->UpdateReadinessFromSensors($sensors);
+
+        return true;
+    }
+
+    /**
+     * Removes one temporary sensor bypass while the system is disarmed.
+     */
+    public function RemoveSensorBypass(int $variableID): bool
+    {
+        if ($this->ReadAlarmState() !== self::STATE_DISARMED || $variableID <= 0) {
+            return false;
+        }
+
+        $bypassedIDs = $this->ReadBypassedSensorIDs();
+        if (!in_array($variableID, $bypassedIDs, true)) {
+            return false;
+        }
+
+        $this->WriteBypassedSensorIDs(
+            array_values(array_filter(
+                $bypassedIDs,
+                static fn (int $bypassedID): bool => $bypassedID !== $variableID
+            ))
+        );
+
+        $sensors = $this->ReadConfiguredSensors();
+        $this->UpdateBypassedSensorStatus($sensors);
+        $this->UpdateReadinessFromSensors($sensors);
+
+        return true;
+    }
+
+    /**
+     * Clears every temporary sensor bypass while the system is disarmed.
+     */
+    public function ClearSensorBypasses(): bool
+    {
+        if ($this->ReadAlarmState() !== self::STATE_DISARMED) {
+            return false;
+        }
+
+        $this->ClearSensorBypassesInternal();
+
+        return true;
     }
 
     /**
@@ -1362,6 +1458,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             if (!$sensor['Enabled'] || !$this->IsSensorMonitored($sensor)) {
                 continue;
             }
+            if ($this->IsSensorBypassed($sensor)) {
+                continue;
+            }
 
             $variableID = $sensor['VariableID'];
             if ($variableID === 0) {
@@ -1632,6 +1731,181 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * @return list<int>
+     */
+    private function ReadBypassedSensorIDs(): array
+    {
+        $encodedIDs = $this->ReadAttributeString(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
+
+        try {
+            $decodedIDs = json_decode($encodedIDs, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        if (!is_array($decodedIDs) || !array_is_list($decodedIDs)) {
+            return [];
+        }
+
+        $bypassedIDs = [];
+        foreach ($decodedIDs as $variableID) {
+            if (is_int($variableID) && $variableID > 0) {
+                $bypassedIDs[] = $variableID;
+            }
+        }
+
+        sort($bypassedIDs, SORT_NUMERIC);
+
+        return array_values(array_unique($bypassedIDs));
+    }
+
+    /**
+     * @param list<int> $variableIDs
+     */
+    private function WriteBypassedSensorIDs(array $variableIDs): void
+    {
+        $normalizedIDs = [];
+        foreach ($variableIDs as $variableID) {
+            if ($variableID > 0) {
+                $normalizedIDs[] = $variableID;
+            }
+        }
+
+        sort($normalizedIDs, SORT_NUMERIC);
+        $normalizedIDs = array_values(array_unique($normalizedIDs));
+
+        $this->WriteAttributeString(
+            self::ATTRIBUTE_BYPASSED_SENSOR_IDS,
+            json_encode($normalizedIDs, JSON_THROW_ON_ERROR)
+        );
+    }
+
+    /**
+     * Removes stale or no-longer-bypassable entries after configuration changes.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function NormalizeSensorBypasses(array $sensors): void
+    {
+        $validIDs = [];
+        foreach ($sensors as $sensor) {
+            if (
+                $sensor['Enabled']
+                && !$sensor['AlwaysActive']
+                && $sensor['VariableID'] > 0
+                && $this->IsSensorUsedForArming($sensor)
+            ) {
+                $validIDs[] = $sensor['VariableID'];
+            }
+        }
+
+        $currentIDs = $this->ReadBypassedSensorIDs();
+        $normalizedIDs = array_values(array_intersect($currentIDs, array_values(array_unique($validIDs))));
+        sort($normalizedIDs, SORT_NUMERIC);
+
+        if ($normalizedIDs !== $currentIDs) {
+            $this->WriteBypassedSensorIDs($normalizedIDs);
+        }
+
+        if ($currentIDs !== [] || $normalizedIDs !== []) {
+            $this->UpdateBypassedSensorStatus($sensors);
+        }
+    }
+
+    /**
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * } $sensor
+     */
+    private function IsSensorBypassed(array $sensor): bool
+    {
+        if ($sensor['AlwaysActive'] || $sensor['VariableID'] <= 0) {
+            return false;
+        }
+
+        return in_array($sensor['VariableID'], $this->ReadBypassedSensorIDs(), true);
+    }
+
+    /**
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function UpdateBypassedSensorStatus(array $sensors): void
+    {
+        $bypassedIDs = $this->ReadBypassedSensorIDs();
+        $names = [];
+
+        foreach ($bypassedIDs as $variableID) {
+            $matched = false;
+            foreach ($sensors as $sensor) {
+                if (
+                    !$sensor['Enabled']
+                    || $sensor['AlwaysActive']
+                    || $sensor['VariableID'] !== $variableID
+                    || !$this->IsSensorUsedForArming($sensor)
+                ) {
+                    continue;
+                }
+
+                $names[] = $this->ResolveSensorDisplayName($sensor);
+                $matched = true;
+            }
+
+            if (!$matched) {
+                $names[] = sprintf($this->Translate('Variable #%d'), $variableID);
+            }
+        }
+
+        $this->SetBypassedSensors(implode(', ', array_values(array_unique($names))));
+    }
+
+    private function ClearSensorBypassesInternal(): void
+    {
+        if ($this->ReadBypassedSensorIDs() === []) {
+            return;
+        }
+
+        $this->WriteBypassedSensorIDs([]);
+        $this->SetBypassedSensors('');
+
+        try {
+            $this->UpdateReadinessFromSensors($this->ReadConfiguredSensors());
+        } catch (\Throwable $exception) {
+            $this->SendDebug(__FUNCTION__, 'Unable to refresh readiness after clearing sensor bypasses: ' . $exception->getMessage(), 0);
+        }
+    }
+
+    /**
      * Evaluates already active 24/7 sensors after ApplyChanges or a restart.
      *
      * This closes the restart gap where no VM_UPDATE would arrive for a sensor that
@@ -1749,6 +2023,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             if (
                 !$sensor['Enabled']
                 || $sensor['AlwaysActive']
+                || $this->IsSensorBypassed($sensor)
                 || $sensor['VariableID'] !== $variableID
                 || !$this->IsSensorRelevantForMode($sensor, $mode)
             ) {
@@ -2098,6 +2373,11 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function SetBlockingNightSensors(string $sensors): void
     {
         $this->SetValue(self::IDENT_BLOCKING_NIGHT_SENSORS, $sensors);
+    }
+
+    private function SetBypassedSensors(string $sensors): void
+    {
+        $this->SetValue(self::IDENT_BYPASSED_SENSORS, $sensors);
     }
 
     private function SetAlarmMemory(bool $active): void
