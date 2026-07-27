@@ -80,3 +80,6 @@ jobs:
 
       - name: Check restart-safe armed sensor recovery
         run: php tests/restart-recovery.php
+
+      - name: Check persistent security event history
+        run: php tests/event-history.php

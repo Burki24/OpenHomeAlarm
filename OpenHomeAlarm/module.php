@@ -27,6 +27,21 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const SENSOR_TYPE_PANIC = 5;
     private const SENSOR_TYPE_OTHER = 6;
 
+    private const EVENT_ARM_REJECTED = 'arm_rejected';
+    private const EVENT_ARM_CANCELLED = 'arm_cancelled';
+    private const EVENT_EXIT_DELAY_STARTED = 'exit_delay_started';
+    private const EVENT_ARMED = 'armed';
+    private const EVENT_ENTRY_DELAY_STARTED = 'entry_delay_started';
+    private const EVENT_ALARM = 'alarm';
+    private const EVENT_DISARMED = 'disarmed';
+    private const EVENT_DISARM_CODE_REJECTED = 'disarm_code_rejected';
+    private const EVENT_SENSOR_BYPASSED = 'sensor_bypassed';
+    private const EVENT_SENSOR_BYPASS_REMOVED = 'sensor_bypass_removed';
+    private const EVENT_SENSOR_BYPASSES_CLEARED = 'sensor_bypasses_cleared';
+    private const EVENT_ALARM_MEMORY_CLEARED = 'alarm_memory_cleared';
+
+    private const EVENT_HISTORY_LIMIT = 100;
+
     private const VALID_MODES = [
         self::MODE_NONE,
         self::MODE_HOME,
@@ -63,6 +78,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
     private const ATTRIBUTE_PENDING_ALARM_SOURCE_ID = 'PendingAlarmSourceID';
     private const ATTRIBUTE_BYPASSED_SENSOR_IDS = 'BypassedSensorIDs';
+    private const ATTRIBUTE_EVENT_HISTORY = 'EventHistory';
 
     private const TIMER_EXIT_DELAY = 'ExitDelay';
     private const TIMER_ENTRY_DELAY = 'EntryDelay';
@@ -98,6 +114,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
         $this->RegisterAttributeString(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, '[]');
+        $this->RegisterAttributeString(self::ATTRIBUTE_EVENT_HISTORY, '[]');
 
         $this->RegisterTimer(
             self::TIMER_EXIT_DELAY,
@@ -374,7 +391,10 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function Disarm(): bool
     {
-        $wasAlarm = $this->ReadAlarmState() === self::STATE_ALARM;
+        $previousState = $this->ReadAlarmState();
+        $previousMode = $this->ReadAlarmMode();
+        $wasAlarm = $previousState === self::STATE_ALARM;
+        $hadActiveState = $previousState !== self::STATE_DISARMED || $previousMode !== self::MODE_NONE;
 
         $this->CancelDelayTimers();
         $this->SetAlarmState(self::STATE_DISARMED);
@@ -383,6 +403,9 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         if ($wasAlarm) {
             $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
+        }
+        if ($hadActiveState) {
+            $this->AppendEvent(self::EVENT_DISARMED);
         }
 
         return true;
@@ -410,6 +433,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         if (!hash_equals($configuredCode, trim($code))) {
             $this->SendDebug(__FUNCTION__, 'Disarm code rejected.', 0);
+            $this->AppendEvent(self::EVENT_DISARM_CODE_REJECTED);
 
             return false;
         }
@@ -453,6 +477,10 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->WriteBypassedSensorIDs($bypassedIDs);
         $this->UpdateBypassedSensorStatus($sensors);
         $this->UpdateReadinessFromSensors($sensors);
+        $this->AppendEvent(
+            self::EVENT_SENSOR_BYPASSED,
+            $this->ResolveSensorNameByVariableID($variableID, $sensors)
+        );
 
         return true;
     }
@@ -481,6 +509,10 @@ class OpenHomeAlarm extends IPSModuleStrict
         $sensors = $this->ReadConfiguredSensors();
         $this->UpdateBypassedSensorStatus($sensors);
         $this->UpdateReadinessFromSensors($sensors);
+        $this->AppendEvent(
+            self::EVENT_SENSOR_BYPASS_REMOVED,
+            $this->ResolveSensorNameByVariableID($variableID, $sensors)
+        );
 
         return true;
     }
@@ -494,7 +526,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
+        $hadBypasses = $this->ReadBypassedSensorIDs() !== [];
         $this->ClearSensorBypassesInternal();
+        if ($hadBypasses) {
+            $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED);
+        }
 
         return true;
     }
@@ -511,9 +547,34 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
+        $hadAlarmMemory = $this->GetValue(self::IDENT_ALARM_MEMORY) === true;
         $this->SetAlarmMemory(false);
         $this->SetLastAlarmSource('');
         $this->SetLastAlarmTime('');
+        if ($hadAlarmMemory) {
+            $this->AppendEvent(self::EVENT_ALARM_MEMORY_CLEARED);
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns the persistent security-event history as JSON, newest event first.
+     */
+    public function GetEventHistory(): string
+    {
+        return json_encode(
+            $this->ReadEventHistory(),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+    }
+
+    /**
+     * Clears the persistent security-event history.
+     */
+    public function ClearEventHistory(): bool
+    {
+        $this->WriteAttributeString(self::ATTRIBUTE_EVENT_HISTORY, '[]');
 
         return true;
     }
@@ -542,6 +603,11 @@ class OpenHomeAlarm extends IPSModuleStrict
         $sensors = $this->ReadConfiguredSensors();
         $readiness = $this->UpdateReadinessFromSensors($sensors);
         if (!$this->IsModeReady($mode, $readiness)) {
+            $this->AppendEvent(
+                self::EVENT_ARM_CANCELLED,
+                $this->ResolveBlockingSensorsForMode($mode, $sensors),
+                $mode
+            );
             $this->Disarm();
 
             return;
@@ -549,6 +615,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $this->ClearDelayStatus();
         $this->SetAlarmState(self::STATE_ARMED);
+        $this->AppendEvent(self::EVENT_ARMED);
     }
 
     /**
@@ -1591,6 +1658,58 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function ResolveSensorNameByVariableID(int $variableID, array $sensors): string
+    {
+        foreach ($sensors as $sensor) {
+            if ($sensor['VariableID'] === $variableID) {
+                return $this->ResolveSensorDisplayName($sensor);
+            }
+        }
+
+        return sprintf($this->Translate('Variable #%d'), $variableID);
+    }
+
+    /**
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function ResolveBlockingSensorsForMode(int $mode, array $sensors): string
+    {
+        $status = $this->EvaluateReadinessStatus($sensors);
+        $blockingSensors = match ($mode) {
+            self::MODE_HOME  => $status['blockingHome'],
+            self::MODE_AWAY  => $status['blockingAway'],
+            self::MODE_NIGHT => $status['blockingNight'],
+            default          => throw new InvalidArgumentException('Unsupported arming target mode.')
+        };
+
+        return implode(', ', $blockingSensors);
+    }
+
+    /**
      * Tries to arm one concrete mode. Only sensors assigned to the requested mode
      * plus all 24/7 sensors participate in this decision.
      *
@@ -1606,6 +1725,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         $readiness = $this->UpdateReadinessFromSensors($sensors);
 
         if (!$this->IsModeReady($mode, $readiness)) {
+            $this->AppendEvent(
+                self::EVENT_ARM_REJECTED,
+                $this->ResolveBlockingSensorsForMode($mode, $sensors),
+                $mode
+            );
+
             return false;
         }
 
@@ -1615,6 +1740,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $exitDelaySeconds = $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS);
         if ($exitDelaySeconds === 0) {
             $this->SetAlarmState(self::STATE_ARMED);
+            $this->AppendEvent(self::EVENT_ARMED);
 
             return true;
         }
@@ -1625,6 +1751,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::ATTRIBUTE_EXIT_DELAY_DEADLINE,
             $exitDelaySeconds
         );
+        $this->AppendEvent(self::EVENT_EXIT_DELAY_STARTED);
 
         return true;
     }
@@ -2174,6 +2301,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::ATTRIBUTE_ENTRY_DELAY_DEADLINE,
             $entryDelaySeconds
         );
+        $this->AppendEvent(
+            self::EVENT_ENTRY_DELAY_STARTED,
+            $this->ResolveSensorDisplayName($entryDelaySensor)
+        );
     }
 
     /**
@@ -2199,6 +2330,10 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RememberAlarm($sourceSensor, $fallbackVariableID);
         $this->CancelDelayTimers();
         $this->SetAlarmState(self::STATE_ALARM);
+        $this->AppendEvent(
+            self::EVENT_ALARM,
+            $this->ResolveAlarmEventSource($sourceSensor, $fallbackVariableID)
+        );
         $this->RunConfiguredAction(self::PROPERTY_ALARM_ACTION);
     }
 
@@ -2219,6 +2354,29 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function RememberAlarm(?array $sourceSensor, int $fallbackVariableID): void
     {
         $timestamp = time();
+        $sourceName = $this->ResolveAlarmEventSource($sourceSensor, $fallbackVariableID);
+
+        $this->SetAlarmMemory(true);
+        $this->SetLastAlarmSource($sourceName);
+        $this->SetLastAlarmTime(date('d.m.Y H:i:s', $timestamp));
+    }
+
+    /**
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * }|null $sourceSensor
+     */
+    private function ResolveAlarmEventSource(?array $sourceSensor, int $fallbackVariableID): string
+    {
         $sourceName = '';
         if ($sourceSensor !== null) {
             $sourceName = trim($sourceSensor['Name']);
@@ -2231,9 +2389,83 @@ class OpenHomeAlarm extends IPSModuleStrict
             $sourceName = $this->Translate('Unknown trigger');
         }
 
-        $this->SetAlarmMemory(true);
-        $this->SetLastAlarmSource($sourceName);
-        $this->SetLastAlarmTime(date('d.m.Y H:i:s', $timestamp));
+        return $sourceName;
+    }
+
+    /**
+     * @return list<array{Time:int,Event:string,Mode:int,State:int,Source:string}>
+     */
+    private function ReadEventHistory(): array
+    {
+        $encodedHistory = $this->ReadAttributeString(self::ATTRIBUTE_EVENT_HISTORY);
+
+        try {
+            $decodedHistory = json_decode($encodedHistory, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        if (!is_array($decodedHistory) || !array_is_list($decodedHistory)) {
+            return [];
+        }
+
+        $history = [];
+        foreach ($decodedHistory as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $time = $entry['Time'] ?? null;
+            $event = $entry['Event'] ?? null;
+            $mode = $entry['Mode'] ?? null;
+            $state = $entry['State'] ?? null;
+            $source = $entry['Source'] ?? null;
+            if (
+                !is_int($time)
+                || !is_string($event)
+                || !is_int($mode)
+                || !in_array($mode, self::VALID_MODES, true)
+                || !is_int($state)
+                || !in_array($state, self::VALID_STATES, true)
+                || !is_string($source)
+            ) {
+                continue;
+            }
+
+            $history[] = [
+                'Time'   => $time,
+                'Event'  => $event,
+                'Mode'   => $mode,
+                'State'  => $state,
+                'Source' => $source
+            ];
+        }
+
+        return array_slice($history, 0, self::EVENT_HISTORY_LIMIT);
+    }
+
+    private function AppendEvent(
+        string $event,
+        string $source = '',
+        ?int $mode = null,
+        ?int $state = null
+    ): void {
+        $history = $this->ReadEventHistory();
+        array_unshift($history, [
+            'Time'   => time(),
+            'Event'  => $event,
+            'Mode'   => $mode ?? $this->ReadAlarmMode(),
+            'State'  => $state ?? $this->ReadAlarmState(),
+            'Source' => $source
+        ]);
+
+        $this->WriteAttributeString(
+            self::ATTRIBUTE_EVENT_HISTORY,
+            json_encode(
+                array_slice($history, 0, self::EVENT_HISTORY_LIMIT),
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            )
+        );
     }
 
     /**
