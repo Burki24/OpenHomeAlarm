@@ -119,8 +119,29 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         parent::ApplyChanges();
 
-        // Validate the persisted sensor configuration before it is used by runtime logic.
-        $this->ReadConfiguredSensors();
+        $sensors = $this->ReadConfiguredSensors();
+        $this->SynchronizeSensorMessages($sensors);
+        $this->UpdateReadyToArmFromSensors($sensors);
+    }
+
+    /**
+     * Reacts to updates of configured sensor variables.
+     *
+     * A3 only observes and evaluates sensor states. Arming/disarming and alarm
+     * transitions deliberately remain part of the following development step.
+     */
+    public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
+    {
+        if ($Message !== VM_UPDATE) {
+            return;
+        }
+
+        $sensors = $this->ReadConfiguredSensors();
+        if (!$this->IsMonitoredSensorVariable($SenderID, $sensors)) {
+            return;
+        }
+
+        $this->UpdateReadyToArmFromSensors($sensors);
     }
 
     /**
@@ -775,6 +796,226 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $value;
+    }
+
+
+    /**
+     * Keeps VM_UPDATE subscriptions in sync with the enabled sensor configuration.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function SynchronizeSensorMessages(array $sensors): void
+    {
+        $wantedVariableIDs = [];
+        foreach ($sensors as $sensor) {
+            if (!$sensor['Enabled'] || !$this->IsSensorUsedForArming($sensor)) {
+                continue;
+            }
+
+            $variableID = $sensor['VariableID'];
+            if ($variableID > 0 && $this->IsExistingVariable($variableID)) {
+                $wantedVariableIDs[$variableID] = true;
+            }
+        }
+
+        $registeredVariableIDs = [];
+        foreach ($this->GetMessageList() as $senderID => $messages) {
+            if (!is_array($messages) || !in_array(VM_UPDATE, $messages, true)) {
+                continue;
+            }
+
+            $registeredVariableIDs[(int) $senderID] = true;
+        }
+
+        foreach (array_diff_key($registeredVariableIDs, $wantedVariableIDs) as $variableID => $_) {
+            $this->UnregisterMessage((int) $variableID, VM_UPDATE);
+        }
+
+        foreach (array_diff_key($wantedVariableIDs, $registeredVariableIDs) as $variableID => $_) {
+            $this->RegisterMessage((int) $variableID, VM_UPDATE);
+        }
+    }
+
+    /**
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function IsMonitoredSensorVariable(int $variableID, array $sensors): bool
+    {
+        foreach ($sensors as $sensor) {
+            if (
+                $sensor['Enabled']
+                && $this->IsSensorUsedForArming($sensor)
+                && $sensor['VariableID'] === $variableID
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Updates the global A3 readiness state from all enabled sensors which are used
+     * by at least one arming mode. A4 will later refine this check for the requested
+     * target mode while performing the actual arming operation.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function UpdateReadyToArmFromSensors(array $sensors): void
+    {
+        foreach ($sensors as $sensor) {
+            if (!$sensor['Enabled'] || !$this->IsSensorUsedForArming($sensor)) {
+                continue;
+            }
+
+            $variableID = $sensor['VariableID'];
+            if ($variableID === 0) {
+                continue;
+            }
+            if (!$this->IsExistingVariable($variableID)) {
+                $this->SetReadyToArm(false);
+
+                return;
+            }
+
+            $triggered = $this->GetSensorTriggerState($sensor);
+            if ($triggered !== false) {
+                // Fail safe: a triggered sensor and an unreadable/invalid sensor state
+                // both prevent the system from being reported as ready to arm.
+                $this->SetReadyToArm(false);
+
+                return;
+            }
+        }
+
+        $this->SetReadyToArm(true);
+    }
+
+    /**
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * } $sensor
+     */
+    private function IsSensorUsedForArming(array $sensor): bool
+    {
+        return $sensor['ArmHome'] || $sensor['ArmAway'] || $sensor['ArmNight'];
+    }
+
+    /**
+     * Returns true when the current variable value equals the configured trigger
+     * value, false when it does not, and null when the state cannot be evaluated.
+     *
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * } $sensor
+     */
+    private function GetSensorTriggerState(array $sensor): ?bool
+    {
+        $variable = $this->GetSymconVariable($sensor['VariableID']);
+        if ($variable === null || !isset($variable['VariableType']) || !is_int($variable['VariableType'])) {
+            return null;
+        }
+
+        try {
+            $currentValue = GetValue($sensor['VariableID']);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $this->TriggerValueMatchesCurrentValue(
+            $variable['VariableType'],
+            $sensor['TriggerValue'],
+            $currentValue
+        );
+    }
+
+    private function TriggerValueMatchesCurrentValue(int $variableType, string $triggerValue, mixed $currentValue): ?bool
+    {
+        switch ($variableType) {
+            case 0:
+                if (!is_bool($currentValue)) {
+                    return null;
+                }
+
+                $normalizedTrigger = strtolower(trim($triggerValue));
+                if (in_array($normalizedTrigger, ['true', '1'], true)) {
+                    return $currentValue === true;
+                }
+                if (in_array($normalizedTrigger, ['false', '0'], true)) {
+                    return $currentValue === false;
+                }
+
+                return null;
+
+            case 1:
+                if (!is_int($currentValue) || preg_match('/^-?\d+$/', trim($triggerValue)) !== 1) {
+                    return null;
+                }
+
+                return $currentValue === (int) $triggerValue;
+
+            case 2:
+                if (!is_float($currentValue) || !is_numeric(trim($triggerValue))) {
+                    return null;
+                }
+
+                return $currentValue === (float) $triggerValue;
+
+            case 3:
+                if (!is_string($currentValue)) {
+                    return null;
+                }
+
+                return $currentValue === $triggerValue;
+        }
+
+        return null;
     }
 
     private function SetAlarmMode(int $mode): void

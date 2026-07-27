@@ -50,3 +50,6 @@ jobs:
 
       - name: Check sensor and trigger model
         run: php tests/sensor-model.php
+
+      - name: Check active sensor monitoring
+        run: php tests/sensor-monitoring.php

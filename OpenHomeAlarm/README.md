@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Das grundlegende Zustandsmodell und das persistente Sensor-/Trigger-Datenmodell sind implementiert. Die aktive Sensorauswertung, Scharfschaltlogik und Code-Eingabe folgen schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell und aktive Sensorüberwachung sind implementiert. Die Scharf-/Unscharf-Logik und Code-Eingabe folgen schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -17,11 +17,11 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage sowie ein herstellerunabhängiges Sensor-/Trigger-Datenmodell bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell und die aktive Sensorüberwachung bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich werden Sensortyp, Auslösewert und die spätere Nutzung einer Eingangsverzögerung gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
-Die aktive Sensorauswertung, Scharfschalt-, Alarm- und Code-Logik wird in den folgenden Entwicklungsschritten ergänzt.
+Die Scharf-/Unscharf-, Alarm- und Code-Logik wird in den folgenden Entwicklungsschritten ergänzt.
 
 ### 2. Voraussetzungen
 
@@ -67,7 +67,11 @@ Jeder konfigurierte Eintrag enthält folgende Daten:
 
 Beim Bearbeiten eines Eintrags liest OpenHomeAlarm die aktuelle Symcon-Variablendarstellung aus. Definierte Optionen einer Boolean- oder String-Wertanzeige, Aufzählungen sowie diskrete numerische Intervalle erscheinen immer als dieselbe Auswahlliste. Für ältere Variablen werden vorhandene Profil-Assoziationen ebenfalls übernommen. Nur wenn eine Variable keine diskreten Zustände bereitstellt, bleibt eine direkte Rohwerteingabe als Fallback sichtbar. Gespeichert wird weiterhin der Rohwert als String, damit das Sensor-Datenmodell stabil bleibt.
 
-Dieser Entwicklungsschritt speichert und validiert das Datenmodell. Es werden noch keine Variablen-Nachrichten registriert und Änderungen an den ausgewählten Sensorvariablen lösen noch keinen Alarm aus.
+Aktive, mindestens einem Scharfmodus zugeordnete Sensoren werden per `VM_UPDATE` überwacht. OpenHomeAlarm vergleicht den aktuellen Variablenwert typgerecht mit dem gespeicherten Rohwert. Boolean-, Integer-, Float- und Stringwerte werden entsprechend ihrem tatsächlichen Variablentyp ausgewertet.
+
+`ReadyToArm` ist in diesem Entwicklungsschritt eine globale Bereitschaftsanzeige: Sie ist nur dann **Bereit**, wenn kein aktivierter, einem Scharfmodus zugeordneter Sensor ausgelöst ist. Nicht mehr vorhandene oder nicht auswertbare konfigurierte Sensorvariablen führen aus Sicherheitsgründen ebenfalls zu **Nicht bereit**. Ein noch nicht vollständig konfigurierter Eintrag mit `VariableID = 0` wird ignoriert.
+
+A3 verändert weder `Mode` noch `State` und löst noch keinen Alarm aus. Die zielmodusabhängige Scharfschaltprüfung sowie die eigentliche Scharf-/Unscharf-Logik folgen in A4.
 
 ### 7. Visualisierung
 

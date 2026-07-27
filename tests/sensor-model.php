@@ -684,15 +684,6 @@ foreach ([
 
 $moduleSource = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/module.php');
 assertSensorModel(
-    !str_contains($moduleSource, 'RegisterMessage('),
-    'A2 must not subscribe to sensor changes yet.'
-);
-assertSensorModel(
-    !str_contains($moduleSource, 'MessageSink('),
-    'A2 must not evaluate sensor messages yet.'
-);
-
-assertSensorModel(
     !str_contains($moduleSource, "'type'       => 'SelectValue'")
         && !str_contains($moduleSource, "'type' => 'SelectValue'"),
     'A2 trigger editing must not fall back to the inconsistent SelectValue control.'
