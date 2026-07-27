@@ -55,6 +55,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_SENSORS = 'Sensors';
     private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
+    private const PROPERTY_ALARM_ACTION = 'AlarmAction';
+    private const PROPERTY_DISARM_AFTER_ALARM_ACTION = 'DisarmAfterAlarmAction';
 
     private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
     private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
@@ -72,6 +74,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
+        $this->RegisterPropertyString(self::PROPERTY_ALARM_ACTION, '');
+        $this->RegisterPropertyString(self::PROPERTY_DISARM_AFTER_ALARM_ACTION, '');
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
@@ -230,9 +234,15 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function Disarm(): bool
     {
+        $wasAlarm = $this->ReadAlarmState() === self::STATE_ALARM;
+
         $this->CancelDelayTimers();
         $this->SetAlarmState(self::STATE_DISARMED);
         $this->SetAlarmMode(self::MODE_NONE);
+
+        if ($wasAlarm) {
+            $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
+        }
 
         return true;
     }
@@ -268,8 +278,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Completes a running entry delay. A later development step will attach
-     * sirens, notifications and other alarm actions to this Alarm state.
+     * Completes a running entry delay and enters the Alarm state.
      */
     public function CompleteEntryDelay(): void
     {
@@ -279,7 +288,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $this->SetAlarmState(self::STATE_ALARM);
+        $this->EnterAlarmState();
     }
 
     /**
@@ -1377,8 +1386,57 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function EnterAlarmState(): void
     {
+        if ($this->ReadAlarmState() === self::STATE_ALARM) {
+            return;
+        }
+
         $this->CancelDelayTimers();
         $this->SetAlarmState(self::STATE_ALARM);
+        $this->RunConfiguredAction(self::PROPERTY_ALARM_ACTION);
+    }
+
+    private function RunConfiguredAction(string $propertyName): bool
+    {
+        $encodedAction = trim($this->ReadPropertyString($propertyName));
+        if ($encodedAction === '' || $encodedAction === '{}') {
+            return true;
+        }
+
+        try {
+            $action = json_decode($encodedAction, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            $this->SendDebug(__FUNCTION__, 'Invalid configured action: ' . $exception->getMessage(), 0);
+
+            return false;
+        }
+
+        if (!is_array($action)) {
+            $this->SendDebug(__FUNCTION__, 'Configured action must decode to an object.', 0);
+
+            return false;
+        }
+
+        $actionID = $action['actionID'] ?? null;
+        $parameters = $action['parameters'] ?? null;
+        if (!is_string($actionID) || $actionID === '' || !is_array($parameters)) {
+            $this->SendDebug(__FUNCTION__, 'Configured action is missing actionID or parameters.', 0);
+
+            return false;
+        }
+
+        try {
+            $executed = IPS_RunAction($actionID, $parameters);
+        } catch (Throwable $exception) {
+            $this->SendDebug(__FUNCTION__, 'Configured action failed: ' . $exception->getMessage(), 0);
+
+            return false;
+        }
+
+        if (!$executed) {
+            $this->SendDebug(__FUNCTION__, 'Configured action could not be started.', 0);
+        }
+
+        return $executed;
     }
 
     private function ReadAlarmMode(): int

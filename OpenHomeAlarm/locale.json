@@ -39,7 +39,11 @@
             "Delays": "Verzögerungen",
             "Exit delay (seconds)": "Ausgangsverzögerung (Sekunden)",
             "Entry delay (seconds)": "Eingangsverzögerung (Sekunden)",
-            "A value of 0 disables the corresponding delay.": "Der Wert 0 deaktiviert die jeweilige Verzögerung."
+            "A value of 0 disables the corresponding delay.": "Der Wert 0 deaktiviert die jeweilige Verzögerung.",
+            "Alarm actions": "Alarmaktionen",
+            "Configure optional Symcon actions that run when an alarm starts and when an active alarm is disarmed.": "Konfigurieren Sie optionale Symcon-Aktionen, die beim Start eines Alarms und beim Unscharfschalten eines aktiven Alarms ausgeführt werden.",
+            "On alarm": "Bei Alarm",
+            "On disarm after alarm": "Beim Unscharfschalten nach Alarm"
         }
     }
 }

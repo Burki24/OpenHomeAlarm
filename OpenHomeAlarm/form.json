@@ -35,6 +35,31 @@
             ]
         },
         {
+            "type": "ExpansionPanel",
+            "caption": "Alarm actions",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Configure optional Symcon actions that run when an alarm starts and when an active alarm is disarmed."
+                },
+                {
+                    "type": "SelectAction",
+                    "name": "AlarmAction",
+                    "caption": "On alarm",
+                    "targetID": -2,
+                    "width": "100%"
+                },
+                {
+                    "type": "SelectAction",
+                    "name": "DisarmAfterAlarmAction",
+                    "caption": "On disarm after alarm",
+                    "targetID": -2,
+                    "width": "100%"
+                }
+            ]
+        },
+        {
             "type": "List",
             "name": "Sensors",
             "caption": "Sensors and triggers",
