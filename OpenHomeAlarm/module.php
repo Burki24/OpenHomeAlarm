@@ -601,11 +601,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $sensors = $this->ReadConfiguredSensors();
-        $readiness = $this->UpdateReadinessFromSensors($sensors);
-        if (!$this->IsModeReady($mode, $readiness)) {
+        $this->UpdateReadinessFromSensors($sensors);
+        $strictReadiness = $this->EvaluateReadinessStatus($sensors, true)['readiness'];
+        if (!$this->IsModeReady($mode, $strictReadiness)) {
             $this->AppendEvent(
                 self::EVENT_ARM_CANCELLED,
-                $this->ResolveBlockingSensorsForMode($mode, $sensors),
+                $this->ResolveBlockingSensorsForMode($mode, $sensors, true),
                 $mode
             );
             $this->Disarm();
@@ -764,12 +765,21 @@ class OpenHomeAlarm extends IPSModuleStrict
             ],
             [
                 'type'    => 'CheckBox',
+                'name'    => 'ExitDelay',
+                'caption' => $this->Translate('Exit route')
+            ],
+            [
+                'type'    => 'CheckBox',
                 'name'    => 'EntryDelay',
                 'caption' => $this->Translate('Entry delay')
             ],
             [
                 'type'    => 'Label',
-                'caption' => $this->Translate('24/7 sensors trigger immediately in every system state; mode assignments and entry delay are ignored.')
+                'caption' => $this->Translate('Exit-route sensors may be open when arming starts if an exit delay is configured, but must be ready when the countdown ends.')
+            ],
+            [
+                'type'    => 'Label',
+                'caption' => $this->Translate('24/7 sensors trigger immediately in every system state; mode assignments and entry/exit delay are ignored.')
             ]
         ];
     }
@@ -1293,6 +1303,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }>
      */
@@ -1338,6 +1349,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }
      */
@@ -1363,6 +1375,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             'ArmAway'      => $this->ReadSensorBoolean($sensor, 'ArmAway', true),
             'ArmNight'     => $this->ReadSensorBoolean($sensor, 'ArmNight', false),
             'AlwaysActive' => $this->ReadSensorBoolean($sensor, 'AlwaysActive', false),
+            'ExitDelay'    => $this->ReadSensorBoolean($sensor, 'ExitDelay', false),
             'EntryDelay'   => $this->ReadSensorBoolean($sensor, 'EntryDelay', false)
         ];
     }
@@ -1419,6 +1432,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -1465,6 +1479,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -1486,11 +1501,13 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Evaluates and publishes the global and mode-specific arming readiness.
      *
-     * ReadyToArm remains the conservative global summary: every monitored sensor
-     * must be ready. ReadyHome, ReadyAway and ReadyNight only consider sensors
-     * assigned to the respective mode plus every 24/7 sensor. The matching
-     * blocking-sensor variables expose the concrete sensor names for diagnostics
-     * and the later visualization.
+     * ReadyToArm remains the global summary for starting an arming cycle.
+     * ReadyHome, ReadyAway and ReadyNight only consider sensors assigned to the
+     * respective mode plus every 24/7 sensor. When a positive
+     * exit delay is configured, sensors marked as exit route may still be active
+     * while arming is initiated; they must be ready when the countdown ends. The
+     * matching blocking-sensor variables expose the concrete sensor names for
+     * diagnostics and the later visualization.
      *
      * @param list<array{
      *     Enabled: bool,
@@ -1502,6 +1519,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      *
@@ -1534,6 +1552,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      *
@@ -1557,6 +1576,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      *
@@ -1567,8 +1587,9 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     blockingNight: list<string>
      * }
      */
-    private function EvaluateReadinessStatus(array $sensors): array
+    private function EvaluateReadinessStatus(array $sensors, bool $strict = false): array
     {
+        $allowActiveExitRoute = !$strict && $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS) > 0;
         $readiness = [
             'global' => true,
             'home'   => true,
@@ -1592,10 +1613,20 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
-            $sensorReady = $this->IsExistingVariable($variableID)
-                && $this->GetSensorTriggerState($sensor) === false;
+            $triggerState = $this->IsExistingVariable($variableID)
+                ? $this->GetSensorTriggerState($sensor)
+                : null;
 
-            if ($sensorReady) {
+            if ($triggerState === false) {
+                continue;
+            }
+
+            if (
+                $allowActiveExitRoute
+                && !$sensor['AlwaysActive']
+                && $sensor['ExitDelay']
+                && $triggerState === true
+            ) {
                 continue;
             }
 
@@ -1645,6 +1676,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * } $sensor
      */
@@ -1668,6 +1700,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -1693,12 +1726,13 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
-    private function ResolveBlockingSensorsForMode(int $mode, array $sensors): string
+    private function ResolveBlockingSensorsForMode(int $mode, array $sensors, bool $strict = false): string
     {
-        $status = $this->EvaluateReadinessStatus($sensors);
+        $status = $this->EvaluateReadinessStatus($sensors, $strict);
         $blockingSensors = match ($mode) {
             self::MODE_HOME  => $status['blockingHome'],
             self::MODE_AWAY  => $status['blockingAway'],
@@ -1780,6 +1814,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * } $sensor
      */
@@ -1804,6 +1839,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * } $sensor
      */
@@ -1827,6 +1863,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * } $sensor
      */
@@ -1849,6 +1886,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * } $sensor
      */
@@ -1978,6 +2016,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -2019,6 +2058,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * } $sensor
      */
@@ -2042,6 +2082,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -2106,6 +2147,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -2154,6 +2196,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -2201,6 +2244,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -2241,6 +2285,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -2318,6 +2363,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }|null $sourceSensor
      */
@@ -2348,6 +2394,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }|null $sourceSensor
      */
@@ -2372,6 +2419,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }|null $sourceSensor
      */
@@ -2479,6 +2527,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }> $sensors
      *
@@ -2492,6 +2541,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     ExitDelay: bool,
      *     EntryDelay: bool
      * }|null
      */

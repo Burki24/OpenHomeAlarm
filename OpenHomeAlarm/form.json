@@ -217,6 +217,15 @@
                     }
                 },
                 {
+                    "caption": "Exit route",
+                    "name": "ExitDelay",
+                    "width": "115px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
                     "caption": "Entry delay",
                     "name": "EntryDelay",
                     "width": "130px",
@@ -236,7 +245,7 @@
         },
         {
             "type": "Label",
-            "caption": "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry delay are ignored."
+            "caption": "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored."
         }
     ],
     "actions": [],

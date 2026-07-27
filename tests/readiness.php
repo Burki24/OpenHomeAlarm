@@ -94,6 +94,11 @@ class IPSModuleStrict
     {
     }
 
+    protected function ReadPropertyInteger(string $name): int
+    {
+        return 0;
+    }
+
     protected function RegisterAttributeInteger(string $name, int $default): void
     {
     }

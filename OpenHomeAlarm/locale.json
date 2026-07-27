@@ -21,6 +21,7 @@
             "Exit delay": "Ausgangsverzögerung",
             "Armed": "Scharf",
             "Entry delay": "Eingangsverzögerung",
+            "Exit route": "Ausgangsweg",
             "Alarm": "Alarm",
             "Ready": "Bereit",
             "Not ready": "Nicht bereit",
@@ -65,8 +66,9 @@
             "Variable #%d": "Variable #%d",
             "Unknown trigger": "Unbekannter Auslöser",
             "24/7 active": "24/7 aktiv",
-            "24/7 sensors trigger immediately in every system state; mode assignments and entry delay are ignored.": "24/7-Sensoren lösen in jedem Systemzustand sofort aus; Moduszuordnungen und Eingangsverzögerung werden ignoriert.",
-            "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry delay are ignored.": "24/7-Sensoren lösen unabhängig vom aktuellen Scharfmodus sofort aus; Moduszuordnungen und Eingangsverzögerung werden ignoriert."
+            "Exit-route sensors may be open when arming starts if an exit delay is configured, but must be ready when the countdown ends.": "Sensoren des Ausgangswegs dürfen beim Start der Scharfschaltung geöffnet sein, wenn eine Ausgangsverzögerung konfiguriert ist, müssen aber am Ende des Countdowns bereit sein.",
+            "24/7 sensors trigger immediately in every system state; mode assignments and entry/exit delay are ignored.": "24/7-Sensoren lösen in jedem Systemzustand sofort aus; Moduszuordnungen sowie Ein-/Ausgangsverzögerung werden ignoriert.",
+            "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored.": "24/7-Sensoren lösen unabhängig vom aktuellen Scharfmodus sofort aus; Moduszuordnungen sowie Ein-/Ausgangsverzögerung werden ignoriert."
         }
     }
 }
