@@ -62,20 +62,17 @@ assertCodepad(
 );
 assertCodepad(
     !str_contains($html, 'onclick=')
-        && str_contains($javascript, 'function ohaFindInteractiveControl(event)')
-        && str_contains($javascript, '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm]')
-        && str_contains($javascript, '#disarmButton, #refreshButton, #codepadClose')
-        && str_contains($javascript, "document.addEventListener('click', ohaHandleInteractiveClick, true);")
-        && !str_contains($javascript, "document.addEventListener('pointerdown'")
-        && !str_contains($javascript, 'event.detail === 0'),
-    'All dashboard controls must use one capture-phase click path without depending on pointer events.'
+        && str_contains($javascript, "target.closest('[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm]')")
+        && str_contains($javascript, "document.addEventListener('pointerdown', ohaHandleCodeControlPointer, true);")
+        && str_contains($javascript, "document.addEventListener('click', ohaHandleCodeControlClick, true);")
+        && !str_contains($javascript, "button.onclick = () => ohaAppendCodeDigit"),
+    'Codepad controls must use delegated capture-phase pointer handling instead of fragile per-button click handlers.'
 );
 assertCodepad(
     str_contains($javascript, 'function ohaBindInteractions()')
         && str_contains($javascript, 'ohaBindInteractions();')
-        && str_contains($javascript, "if (control.id === 'disarmButton')")
-        && str_contains($javascript, 'ohaHandleDisarmButton();'),
-    'Deactivate must be handled by the same capture-phase click dispatcher as the codepad.'
+        && str_contains($javascript, 'event.detail === 0'),
+    'Visualization controls must be bound after the HTML has been created and keep keyboard activation available.'
 );
 assertCodepad(
     !str_contains($javascript, 'button.disabled = !inputAllowed')
@@ -136,6 +133,12 @@ assertCodepad(
         && str_contains($javascript, "return stateName !== 'disarmed' || modeName !== 'none';")
         && !str_contains($javascript, 'Capabilities?.CanDisarm'),
     'Disarming controls must stay available for every active alarm state even if a timer-driven capability update is stale.'
+);
+assertCodepad(
+    str_contains($javascript, 'function ohaIsControlStatePayload(state)')
+        && str_contains($javascript, 'if (!ohaIsControlStatePayload(nextState))')
+        && strpos($javascript, 'if (!ohaIsControlStatePayload(nextState))') < strpos($javascript, 'ohaState = nextState;'),
+    'Invalid or partial HTML-SDK messages must be rejected before they can replace the last valid control state.'
 );
 assertCodepad(str_contains($javascript, "window.matchMedia('(min-width: 900px)')"), 'Switching to the wide layout must close a previously opened popup codepad.');
 assertCodepad(str_contains($css, '.oha-codepad-overlay'), 'The codepad overlay must be styled.');
