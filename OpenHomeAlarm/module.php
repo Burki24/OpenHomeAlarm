@@ -286,6 +286,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->UpdateReadinessFromSensors($sensors);
         $this->EvaluateAlwaysActiveSensors($sensors);
         $this->RestoreDelayTimers();
+        $this->EvaluateArmedSensorsAfterApplyChanges($sensors);
     }
 
     public function GetConfigurationForm(): string
@@ -2001,6 +2002,59 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->EnterAlarmState($sensor, $sensor['VariableID']);
 
             return;
+        }
+    }
+
+    /**
+     * Re-evaluates armed sensors after ApplyChanges or a Symcon restart.
+     *
+     * A sensor may have changed while the module was not running. In that case no
+     * VM_UPDATE is delivered after startup because the variable already contains
+     * its new value. Replaying the current state through the regular armed-sensor
+     * handler closes this gap without introducing a second alarm path.
+     *
+     * Existing entry-delay state is preserved. A currently active immediate sensor
+     * still escalates such a restored countdown to Alarm, while a newly detected
+     * delayed sensor starts the configured entry delay from the current time.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function EvaluateArmedSensorsAfterApplyChanges(array $sensors): void
+    {
+        if (!in_array($this->ReadAlarmState(), [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)) {
+            return;
+        }
+
+        $variableIDs = [];
+        foreach ($sensors as $sensor) {
+            if (
+                !$sensor['Enabled']
+                || $sensor['AlwaysActive']
+                || $sensor['VariableID'] <= 0
+                || !$this->IsSensorUsedForArming($sensor)
+            ) {
+                continue;
+            }
+
+            $variableIDs[$sensor['VariableID']] = true;
+        }
+
+        foreach (array_keys($variableIDs) as $variableID) {
+            $this->HandleSensorUpdateWhileArmed((int) $variableID, $sensors);
+            if ($this->ReadAlarmState() === self::STATE_ALARM) {
+                return;
+            }
         }
     }
 

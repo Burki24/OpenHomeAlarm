@@ -77,3 +77,6 @@ jobs:
 
       - name: Check temporary sensor bypasses
         run: php tests/bypass.php
+
+      - name: Check restart-safe armed sensor recovery
+        run: php tests/restart-recovery.php
