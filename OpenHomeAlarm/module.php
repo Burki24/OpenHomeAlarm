@@ -19,6 +19,14 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const STATE_ENTRY_DELAY = 3;
     private const STATE_ALARM = 4;
 
+    private const SENSOR_TYPE_OPENING = 0;
+    private const SENSOR_TYPE_MOTION = 1;
+    private const SENSOR_TYPE_GLASS_BREAK = 2;
+    private const SENSOR_TYPE_SMOKE = 3;
+    private const SENSOR_TYPE_WATER = 4;
+    private const SENSOR_TYPE_PANIC = 5;
+    private const SENSOR_TYPE_OTHER = 6;
+
     private const VALID_MODES = [
         self::MODE_NONE,
         self::MODE_HOME,
@@ -34,6 +42,17 @@ class OpenHomeAlarm extends IPSModuleStrict
         self::STATE_ALARM
     ];
 
+    private const VALID_SENSOR_TYPES = [
+        self::SENSOR_TYPE_OPENING,
+        self::SENSOR_TYPE_MOTION,
+        self::SENSOR_TYPE_GLASS_BREAK,
+        self::SENSOR_TYPE_SMOKE,
+        self::SENSOR_TYPE_WATER,
+        self::SENSOR_TYPE_PANIC,
+        self::SENSOR_TYPE_OTHER
+    ];
+
+    private const PROPERTY_SENSORS = 'Sensors';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
     private const IDENT_READY_TO_ARM = 'ReadyToArm';
@@ -41,6 +60,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function Create(): void
     {
         parent::Create();
+
+        $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
 
         $modeCreated = $this->RegisterVariableInteger(
             self::IDENT_MODE,
@@ -97,6 +118,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+
+        // Validate the persisted sensor configuration before it is used by runtime logic.
+        $this->ReadConfiguredSensors();
     }
 
     /**
@@ -156,6 +180,127 @@ class OpenHomeAlarm extends IPSModuleStrict
             'ColorActive'      => false,
             'ColorValue'       => -1
         ];
+    }
+
+    /**
+     * @return list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }>
+     */
+    private function ReadConfiguredSensors(): array
+    {
+        try {
+            $sensors = json_decode(
+                $this->ReadPropertyString(self::PROPERTY_SENSORS),
+                true,
+                512,
+                JSON_THROW_ON_ERROR
+            );
+        } catch (JsonException $exception) {
+            throw new UnexpectedValueException('Invalid sensor configuration JSON.', 0, $exception);
+        }
+
+        if (!is_array($sensors) || !array_is_list($sensors)) {
+            throw new UnexpectedValueException('Sensor configuration must be a list.');
+        }
+
+        $normalizedSensors = [];
+        foreach ($sensors as $sensor) {
+            if (!is_array($sensor)) {
+                throw new UnexpectedValueException('Every sensor configuration must be an object.');
+            }
+
+            $normalizedSensors[] = $this->NormalizeSensor($sensor);
+        }
+
+        return $normalizedSensors;
+    }
+
+    /**
+     * @param array<string,mixed> $sensor
+     *
+     * @return array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }
+     */
+    private function NormalizeSensor(array $sensor): array
+    {
+        $variableID = $this->ReadSensorInteger($sensor, 'VariableID', 0);
+        if ($variableID < 0) {
+            throw new UnexpectedValueException('Sensor VariableID must not be negative.');
+        }
+
+        $sensorType = $this->ReadSensorInteger($sensor, 'SensorType', self::SENSOR_TYPE_OPENING);
+        if (!in_array($sensorType, self::VALID_SENSOR_TYPES, true)) {
+            throw new UnexpectedValueException('Unsupported sensor type.');
+        }
+
+        return [
+            'Enabled'      => $this->ReadSensorBoolean($sensor, 'Enabled', true),
+            'Name'         => trim($this->ReadSensorString($sensor, 'Name', '')),
+            'VariableID'   => $variableID,
+            'SensorType'   => $sensorType,
+            'TriggerValue' => $this->ReadSensorString($sensor, 'TriggerValue', '1'),
+            'ArmHome'      => $this->ReadSensorBoolean($sensor, 'ArmHome', false),
+            'ArmAway'      => $this->ReadSensorBoolean($sensor, 'ArmAway', true),
+            'ArmNight'     => $this->ReadSensorBoolean($sensor, 'ArmNight', false),
+            'EntryDelay'   => $this->ReadSensorBoolean($sensor, 'EntryDelay', false)
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $sensor
+     */
+    private function ReadSensorBoolean(array $sensor, string $key, bool $default): bool
+    {
+        $value = $sensor[$key] ?? $default;
+        if (!is_bool($value)) {
+            throw new UnexpectedValueException(sprintf('Sensor field %s must be boolean.', $key));
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param array<string,mixed> $sensor
+     */
+    private function ReadSensorInteger(array $sensor, string $key, int $default): int
+    {
+        $value = $sensor[$key] ?? $default;
+        if (!is_int($value)) {
+            throw new UnexpectedValueException(sprintf('Sensor field %s must be integer.', $key));
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param array<string,mixed> $sensor
+     */
+    private function ReadSensorString(array $sensor, string $key, string $default): string
+    {
+        $value = $sensor[$key] ?? $default;
+        if (!is_string($value)) {
+            throw new UnexpectedValueException(sprintf('Sensor field %s must be string.', $key));
+        }
+
+        return $value;
     }
 
     private function SetAlarmMode(int $mode): void

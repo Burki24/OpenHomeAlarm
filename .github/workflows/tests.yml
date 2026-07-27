@@ -47,3 +47,6 @@ jobs:
 
       - name: Check alarm state model
         run: php tests/state-model.php
+
+      - name: Check sensor and trigger model
+        run: php tests/sensor-model.php

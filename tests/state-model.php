@@ -51,6 +51,10 @@ class IPSModuleStrict
         return $this->writtenValues;
     }
 
+    protected function RegisterPropertyString(string $name, string $default): void
+    {
+    }
+
     protected function RegisterVariableInteger(string $ident, string $name, array $presentation, int $position): bool
     {
         $this->registeredVariables[$ident] = [

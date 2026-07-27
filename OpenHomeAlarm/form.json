@@ -1,5 +1,135 @@
 {
-    "elements": [],
+    "elements": [
+        {
+            "type": "Label",
+            "caption": "Configure the Symcon variables that can act as alarm sensors or triggers."
+        },
+        {
+            "type": "List",
+            "name": "Sensors",
+            "caption": "Sensors and triggers",
+            "rowCount": 8,
+            "add": true,
+            "delete": true,
+            "columns": [
+                {
+                    "caption": "Enabled",
+                    "name": "Enabled",
+                    "width": "70px",
+                    "add": true,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Name",
+                    "name": "Name",
+                    "width": "auto",
+                    "add": "",
+                    "edit": {
+                        "type": "ValidationTextBox"
+                    }
+                },
+                {
+                    "caption": "Variable",
+                    "name": "VariableID",
+                    "width": "180px",
+                    "add": 0,
+                    "edit": {
+                        "type": "SelectVariable"
+                    }
+                },
+                {
+                    "caption": "Sensor type",
+                    "name": "SensorType",
+                    "width": "150px",
+                    "add": 0,
+                    "edit": {
+                        "type": "Select",
+                        "options": [
+                            {
+                                "caption": "Opening contact",
+                                "value": 0
+                            },
+                            {
+                                "caption": "Motion detector",
+                                "value": 1
+                            },
+                            {
+                                "caption": "Glass break detector",
+                                "value": 2
+                            },
+                            {
+                                "caption": "Smoke detector",
+                                "value": 3
+                            },
+                            {
+                                "caption": "Water detector",
+                                "value": 4
+                            },
+                            {
+                                "caption": "Panic trigger",
+                                "value": 5
+                            },
+                            {
+                                "caption": "Other trigger",
+                                "value": 6
+                            }
+                        ]
+                    }
+                },
+                {
+                    "caption": "Trigger value",
+                    "name": "TriggerValue",
+                    "width": "100px",
+                    "add": "1",
+                    "edit": {
+                        "type": "ValidationTextBox"
+                    }
+                },
+                {
+                    "caption": "Home",
+                    "name": "ArmHome",
+                    "width": "65px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Away",
+                    "name": "ArmAway",
+                    "width": "65px",
+                    "add": true,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Night",
+                    "name": "ArmNight",
+                    "width": "65px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Entry delay",
+                    "name": "EntryDelay",
+                    "width": "100px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": "The trigger value is stored as text. Type-aware evaluation is added with the sensor evaluation logic."
+        }
+    ],
     "actions": [],
     "status": []
 }

@@ -14,7 +14,22 @@
             "Entry delay": "Eingangsverzögerung",
             "Alarm": "Alarm",
             "Ready": "Bereit",
-            "Not ready": "Nicht bereit"
+            "Not ready": "Nicht bereit",
+            "Configure the Symcon variables that can act as alarm sensors or triggers.": "Konfigurieren Sie die Symcon-Variablen, die als Alarmsensoren oder Auslöser dienen können.",
+            "Sensors and triggers": "Sensoren und Auslöser",
+            "Enabled": "Aktiv",
+            "Name": "Name",
+            "Variable": "Variable",
+            "Sensor type": "Sensortyp",
+            "Trigger value": "Auslösewert",
+            "Opening contact": "Öffnungskontakt",
+            "Motion detector": "Bewegungsmelder",
+            "Glass break detector": "Glasbruchmelder",
+            "Smoke detector": "Rauchmelder",
+            "Water detector": "Wassermelder",
+            "Panic trigger": "Panikauslöser",
+            "Other trigger": "Sonstiger Auslöser",
+            "The trigger value is stored as text. Type-aware evaluation is added with the sensor evaluation logic.": "Der Auslösewert wird als Text gespeichert. Die typgerechte Auswertung wird mit der Sensorauswertung ergänzt."
         }
     }
 }
