@@ -67,8 +67,17 @@ function GetValue(int $variableID): mixed
 
 class IPSModuleStrict
 {
-    /** @var array<string,string> */
+    /** @var array<string,mixed> */
     private array $properties = [];
+
+    /** @var array<string,int> */
+    private array $attributes = [];
+
+    /** @var array<string,array{interval:int,script:string}> */
+    private array $timers = [];
+
+    /** @var array<string,mixed> */
+    private array $currentValues = [];
 
     /** @var array<int,list<int>> */
     private array $messages = [];
@@ -119,6 +128,51 @@ class IPSModuleStrict
         }
     }
 
+    protected function RegisterPropertyInteger(string $name, int $default): void
+    {
+        if (!array_key_exists($name, $this->properties)) {
+            $this->properties[$name] = $default;
+        }
+    }
+
+    protected function ReadPropertyInteger(string $name): int
+    {
+        $value = $this->properties[$name] ?? 0;
+
+        return is_int($value) ? $value : 0;
+    }
+
+    protected function RegisterAttributeInteger(string $name, int $default): void
+    {
+        if (!array_key_exists($name, $this->attributes)) {
+            $this->attributes[$name] = $default;
+        }
+    }
+
+    protected function ReadAttributeInteger(string $name): int
+    {
+        return $this->attributes[$name] ?? 0;
+    }
+
+    protected function WriteAttributeInteger(string $name, int $value): void
+    {
+        $this->attributes[$name] = $value;
+    }
+
+    protected function RegisterTimer(string $name, int $interval, string $script): bool
+    {
+        $this->timers[$name] = ['interval' => $interval, 'script' => $script];
+
+        return true;
+    }
+
+    protected function SetTimerInterval(string $name, int $interval): bool
+    {
+        $this->timers[$name]['interval'] = $interval;
+
+        return true;
+    }
+
     protected function ReadPropertyString(string $name): string
     {
         return $this->properties[$name] ?? '';
@@ -137,6 +191,12 @@ class IPSModuleStrict
     protected function SetValue(string $ident, mixed $value): void
     {
         $this->writtenValues[$ident] = $value;
+        $this->currentValues[$ident] = $value;
+    }
+
+    protected function GetValue(string $ident): mixed
+    {
+        return $this->currentValues[$ident] ?? null;
     }
 
     protected function Translate(string $text): string

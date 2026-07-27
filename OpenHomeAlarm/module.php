@@ -53,6 +53,14 @@ class OpenHomeAlarm extends IPSModuleStrict
     ];
 
     private const PROPERTY_SENSORS = 'Sensors';
+    private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
+    private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
+
+    private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
+    private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
+
+    private const TIMER_EXIT_DELAY = 'ExitDelay';
+    private const TIMER_ENTRY_DELAY = 'EntryDelay';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
     private const IDENT_READY_TO_ARM = 'ReadyToArm';
@@ -62,6 +70,22 @@ class OpenHomeAlarm extends IPSModuleStrict
         parent::Create();
 
         $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
+        $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
+        $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
+
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
+
+        $this->RegisterTimer(
+            self::TIMER_EXIT_DELAY,
+            0,
+            'OHA_CompleteExitDelay($_IPS[\'TARGET\']);'
+        );
+        $this->RegisterTimer(
+            self::TIMER_ENTRY_DELAY,
+            0,
+            'OHA_CompleteEntryDelay($_IPS[\'TARGET\']);'
+        );
 
         $modeCreated = $this->RegisterVariableInteger(
             self::IDENT_MODE,
@@ -122,6 +146,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $sensors = $this->ReadConfiguredSensors();
         $this->SynchronizeSensorMessages($sensors);
         $this->UpdateReadyToArmFromSensors($sensors);
+        $this->RestoreDelayTimers();
     }
 
     public function GetConfigurationForm(): string
@@ -157,8 +182,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Reacts to updates of configured sensor variables.
      *
-     * Sensor updates keep the readiness state current. Alarm and delay transitions
-     * deliberately remain part of later development steps.
+     * Sensor updates keep the readiness state current and, while armed, start the
+     * configured entry delay or move the state to Alarm. External alarm actions
+     * deliberately remain part of a later development step.
      */
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
@@ -172,6 +198,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->UpdateReadyToArmFromSensors($sensors);
+        $this->HandleSensorUpdateWhileArmed($SenderID, $sensors);
     }
 
     /**
@@ -203,10 +230,56 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function Disarm(): bool
     {
+        $this->CancelDelayTimers();
         $this->SetAlarmState(self::STATE_DISARMED);
         $this->SetAlarmMode(self::MODE_NONE);
 
         return true;
+    }
+
+    /**
+     * Completes a running exit delay. The system is armed only if the selected
+     * mode is still ready at the end of the countdown.
+     */
+    public function CompleteExitDelay(): void
+    {
+        $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
+
+        if ($this->ReadAlarmState() !== self::STATE_EXIT_DELAY) {
+            return;
+        }
+
+        $mode = $this->ReadAlarmMode();
+        if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
+            $this->Disarm();
+
+            return;
+        }
+
+        $sensors = $this->ReadConfiguredSensors();
+        $this->UpdateReadyToArmFromSensors($sensors);
+        if (!$this->IsModeReadyToArm($mode, $sensors)) {
+            $this->Disarm();
+
+            return;
+        }
+
+        $this->SetAlarmState(self::STATE_ARMED);
+    }
+
+    /**
+     * Completes a running entry delay. A later development step will attach
+     * sirens, notifications and other alarm actions to this Alarm state.
+     */
+    public function CompleteEntryDelay(): void
+    {
+        $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
+
+        if ($this->ReadAlarmState() !== self::STATE_ENTRY_DELAY) {
+            return;
+        }
+
+        $this->SetAlarmState(self::STATE_ALARM);
     }
 
     /**
@@ -1055,8 +1128,22 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
+        $this->CancelDelayTimers();
         $this->SetAlarmMode($mode);
-        $this->SetAlarmState(self::STATE_ARMED);
+
+        $exitDelaySeconds = $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS);
+        if ($exitDelaySeconds === 0) {
+            $this->SetAlarmState(self::STATE_ARMED);
+
+            return true;
+        }
+
+        $this->SetAlarmState(self::STATE_EXIT_DELAY);
+        $this->StartDelayTimer(
+            self::TIMER_EXIT_DELAY,
+            self::ATTRIBUTE_EXIT_DELAY_DEADLINE,
+            $exitDelaySeconds
+        );
 
         return true;
     }
@@ -1215,6 +1302,184 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return null;
+    }
+
+    /**
+     * Reacts to one monitored sensor update while the system is armed or already
+     * counting down an entry delay.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function HandleSensorUpdateWhileArmed(int $variableID, array $sensors): void
+    {
+        $state = $this->ReadAlarmState();
+        if (!in_array($state, [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)) {
+            return;
+        }
+
+        $mode = $this->ReadAlarmMode();
+        if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
+            return;
+        }
+
+        $startEntryDelay = false;
+        foreach ($sensors as $sensor) {
+            if (
+                !$sensor['Enabled']
+                || $sensor['VariableID'] !== $variableID
+                || !$this->IsSensorRelevantForMode($sensor, $mode)
+            ) {
+                continue;
+            }
+
+            $triggered = $this->GetSensorTriggerState($sensor);
+            if ($triggered === false) {
+                continue;
+            }
+
+            if ($triggered === null || !$sensor['EntryDelay']) {
+                $this->EnterAlarmState();
+
+                return;
+            }
+
+            $startEntryDelay = true;
+        }
+
+        if (!$startEntryDelay || $state === self::STATE_ENTRY_DELAY) {
+            return;
+        }
+
+        $entryDelaySeconds = $this->ReadDelaySeconds(self::PROPERTY_ENTRY_DELAY_SECONDS);
+        if ($entryDelaySeconds === 0) {
+            $this->EnterAlarmState();
+
+            return;
+        }
+
+        $this->SetAlarmState(self::STATE_ENTRY_DELAY);
+        $this->StartDelayTimer(
+            self::TIMER_ENTRY_DELAY,
+            self::ATTRIBUTE_ENTRY_DELAY_DEADLINE,
+            $entryDelaySeconds
+        );
+    }
+
+    private function EnterAlarmState(): void
+    {
+        $this->CancelDelayTimers();
+        $this->SetAlarmState(self::STATE_ALARM);
+    }
+
+    private function ReadAlarmMode(): int
+    {
+        $mode = $this->GetValue(self::IDENT_MODE);
+        if (!is_int($mode) || !in_array($mode, self::VALID_MODES, true)) {
+            throw new UnexpectedValueException('Invalid alarm mode value.');
+        }
+
+        return $mode;
+    }
+
+    private function ReadAlarmState(): int
+    {
+        $state = $this->GetValue(self::IDENT_STATE);
+        if (!is_int($state) || !in_array($state, self::VALID_STATES, true)) {
+            throw new UnexpectedValueException('Invalid alarm state value.');
+        }
+
+        return $state;
+    }
+
+    private function ReadDelaySeconds(string $propertyName): int
+    {
+        return max(0, $this->ReadPropertyInteger($propertyName));
+    }
+
+    private function StartDelayTimer(string $timerName, string $deadlineAttribute, int $seconds): void
+    {
+        $this->WriteAttributeInteger($deadlineAttribute, time() + $seconds);
+        $this->SetTimerInterval($timerName, $seconds * 1000);
+    }
+
+    private function StopDelayTimer(string $timerName, string $deadlineAttribute): void
+    {
+        $this->SetTimerInterval($timerName, 0);
+        $this->WriteAttributeInteger($deadlineAttribute, 0);
+    }
+
+    private function CancelDelayTimers(): void
+    {
+        $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
+        $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
+    }
+
+    /**
+     * Restores a running delay after ApplyChanges or a Symcon restart. Registered
+     * timers are stateless, therefore the persisted deadline is the source of truth.
+     */
+    private function RestoreDelayTimers(): void
+    {
+        $state = $this->ReadAlarmState();
+
+        if ($state === self::STATE_EXIT_DELAY) {
+            $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
+            $this->RestoreDelayTimer(
+                self::TIMER_EXIT_DELAY,
+                self::ATTRIBUTE_EXIT_DELAY_DEADLINE,
+                function (): void
+                {
+                    $this->CompleteExitDelay();
+                }
+            );
+
+            return;
+        }
+
+        if ($state === self::STATE_ENTRY_DELAY) {
+            $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
+            $this->RestoreDelayTimer(
+                self::TIMER_ENTRY_DELAY,
+                self::ATTRIBUTE_ENTRY_DELAY_DEADLINE,
+                function (): void
+                {
+                    $this->CompleteEntryDelay();
+                }
+            );
+
+            return;
+        }
+
+        $this->CancelDelayTimers();
+    }
+
+    private function RestoreDelayTimer(string $timerName, string $deadlineAttribute, Closure $expiredCallback): void
+    {
+        $deadline = $this->ReadAttributeInteger($deadlineAttribute);
+        if ($deadline <= 0) {
+            $expiredCallback();
+
+            return;
+        }
+
+        $remainingSeconds = $deadline - time();
+        if ($remainingSeconds <= 0) {
+            $expiredCallback();
+
+            return;
+        }
+
+        $this->SetTimerInterval($timerName, $remainingSeconds * 1000);
     }
 
     private function SetAlarmMode(int $mode): void

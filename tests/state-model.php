@@ -55,6 +55,19 @@ class IPSModuleStrict
     {
     }
 
+    protected function RegisterPropertyInteger(string $name, int $default): void
+    {
+    }
+
+    protected function RegisterAttributeInteger(string $name, int $default): void
+    {
+    }
+
+    protected function RegisterTimer(string $name, int $interval, string $script): bool
+    {
+        return true;
+    }
+
     protected function RegisterVariableInteger(string $ident, string $name, array $presentation, int $position): bool
     {
         $this->registeredVariables[$ident] = [

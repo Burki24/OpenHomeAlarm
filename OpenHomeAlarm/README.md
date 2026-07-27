@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung sowie die zielmodusabhängige Scharf-/Unscharf-Logik sind implementiert. Verzögerungen, Alarmauslösung und Code-Eingabe folgen schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung, zielmodusabhängige Scharf-/Unscharf-Logik sowie Ein-/Ausgangsverzögerungen sind implementiert. Externe Alarmaktionen und Code-Eingabe folgen schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -17,11 +17,11 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung und die zielmodusabhängige Scharf-/Unscharf-Logik bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die zielmodusabhängige Scharf-/Unscharf-Logik sowie timerbasierte Ein-/Ausgangsverzögerungen bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
-Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich werden Sensortyp, Auslösewert und die spätere Nutzung einer Eingangsverzögerung gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
+Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich werden Sensortyp, Auslösewert und die Nutzung der Eingangsverzögerung gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
-Ein-/Ausgangsverzögerung, Alarmauslösung und Code-Logik werden in den folgenden Entwicklungsschritten ergänzt.
+Ausgangs- und Eingangsverzögerung sind global in Sekunden konfigurierbar. Der Wert `0` deaktiviert die jeweilige Verzögerung. Externe Alarmaktionen wie Sirenen oder Benachrichtigungen sowie die Code-Logik werden in den folgenden Entwicklungsschritten ergänzt.
 
 ### 2. Voraussetzungen
 
@@ -35,7 +35,7 @@ Die Library kann über die Modulverwaltung von Symcon aus dem GitHub-Repository 
 
 Unter **Instanz hinzufügen** kann das Modul **OpenHomeAlarm** gefunden und angelegt werden.
 
-Im Konfigurationsformular steht eine Liste **Sensoren und Auslöser** zur Verfügung. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
+Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
 
 ### 5. Statusvariablen und Darstellungen
 
@@ -63,7 +63,7 @@ Jeder konfigurierte Eintrag enthält folgende Daten:
 | `ArmHome` | Im Scharfmodus Zuhause relevant |
 | `ArmAway` | Im Scharfmodus Abwesend relevant |
 | `ArmNight` | Im Scharfmodus Nacht relevant |
-| `EntryDelay` | Soll später eine Eingangsverzögerung statt eines unmittelbaren Alarms starten |
+| `EntryDelay` | Startet bei Auslösung im scharfen Betrieb die konfigurierte Eingangsverzögerung statt unmittelbar den Alarmzustand |
 
 Beim Bearbeiten eines Eintrags liest OpenHomeAlarm die aktuelle Symcon-Variablendarstellung aus. Definierte Optionen einer Boolean- oder String-Wertanzeige, Aufzählungen sowie diskrete numerische Intervalle erscheinen immer als dieselbe Auswahlliste. Für ältere Variablen werden vorhandene Profil-Assoziationen ebenfalls übernommen. Nur wenn eine Variable keine diskreten Zustände bereitstellt, bleibt eine direkte Rohwerteingabe als Fallback sichtbar. Gespeichert wird weiterhin der Rohwert als String, damit das Sensor-Datenmodell stabil bleibt.
 
@@ -73,7 +73,11 @@ Aktive, mindestens einem Scharfmodus zugeordnete Sensoren werden per `VM_UPDATE`
 
 Beim Scharfschalten prüft OpenHomeAlarm nur die Sensoren, die dem angeforderten Zielmodus zugeordnet sind. Ein ausgelöster Sensor, der beispielsweise ausschließlich für **Abwesend** gilt, verhindert deshalb nicht das Scharfschalten von **Zuhause**. Fehlende oder nicht auswertbare Sensoren des angeforderten Modus blockieren die Scharfschaltung aus Sicherheitsgründen. Unvollständige Listeneinträge mit `VariableID = 0` bleiben weiterhin ohne Wirkung.
 
-A4 schaltet nach erfolgreicher Prüfung unmittelbar in den Zustand **Scharf**. Ein-/Ausgangsverzögerung sowie die Reaktion auf einen ausgelösten Sensor während des scharfen Betriebs folgen in den nächsten Entwicklungsschritten.
+Nach erfolgreicher Scharfschaltprüfung wechselt OpenHomeAlarm bei einer Ausgangsverzögerung größer als `0` zunächst in **Ausgangsverzögerung**. Erst nach Ablauf des Timers wird erneut geprüft, ob der gewählte Modus scharfschaltbereit ist. Sind dann noch relevante Sensoren ausgelöst oder nicht auswertbar, wird der Scharfschaltvorgang sicher abgebrochen und die Anlage auf **Unscharf** zurückgesetzt. Bei `0` Sekunden wird unmittelbar scharfgeschaltet.
+
+Löst im Zustand **Scharf** ein für den aktiven Modus relevanter Sensor aus, startet ein mit `EntryDelay` markierter Sensor die konfigurierte **Eingangsverzögerung**. Der Countdown wird durch das erneute Schließen des Sensors nicht abgebrochen und bei weiteren verzögerten Sensorereignissen nicht neu gestartet. Ein Sensor ohne Eingangsverzögerung wechselt unmittelbar in den internen Zustand **Alarm**. Das gilt ebenfalls, wenn während einer laufenden Eingangsverzögerung ein sofort auslösender Sensor anspricht. Nach Ablauf der Eingangsverzögerung wird ebenfalls **Alarm** gesetzt. Externe Alarmaktionen werden in einem späteren Schritt ergänzt.
+
+Beim Unscharfschalten werden laufende Ein- und Ausgangsverzögerungen immer beendet. Die Timer verwenden persistierte Ablaufzeitpunkte und werden nach `ApplyChanges()` bzw. einem Symcon-Neustart mit der verbleibenden Zeit wiederhergestellt.
 
 ### 7. Visualisierung
 
@@ -85,9 +89,9 @@ Folgende öffentliche Modulbefehle stehen zur Verfügung:
 
 | PHP-Befehl | Rückgabe | Bedeutung |
 | --- | --- | --- |
-| `OHA_ArmHome($InstanzID)` | `bool` | Prüft die für **Zuhause** relevanten Sensoren und schaltet bei Erfolg scharf |
-| `OHA_ArmAway($InstanzID)` | `bool` | Prüft die für **Abwesend** relevanten Sensoren und schaltet bei Erfolg scharf |
-| `OHA_ArmNight($InstanzID)` | `bool` | Prüft die für **Nacht** relevanten Sensoren und schaltet bei Erfolg scharf |
+| `OHA_ArmHome($InstanzID)` | `bool` | Prüft die für **Zuhause** relevanten Sensoren und startet bei Erfolg die Scharfschaltung |
+| `OHA_ArmAway($InstanzID)` | `bool` | Prüft die für **Abwesend** relevanten Sensoren und startet bei Erfolg die Scharfschaltung |
+| `OHA_ArmNight($InstanzID)` | `bool` | Prüft die für **Nacht** relevanten Sensoren und startet bei Erfolg die Scharfschaltung |
 | `OHA_Disarm($InstanzID)` | `bool` | Schaltet die Anlage unscharf und setzt den Scharfmodus zurück |
 
 Die drei Scharfschaltbefehle liefern `false`, wenn mindestens ein für den Zielmodus relevanter Sensor ausgelöst, nicht vorhanden oder nicht auswertbar ist. In diesem Fall bleiben `Mode` und `State` unverändert.

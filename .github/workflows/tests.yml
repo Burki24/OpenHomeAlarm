@@ -56,3 +56,6 @@ jobs:
 
       - name: Check arming and disarming logic
         run: php tests/arming.php
+
+      - name: Check entry and exit delays
+        run: php tests/delays.php

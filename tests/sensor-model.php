@@ -6,8 +6,11 @@ const VARIABLE_PRESENTATION_VALUE_PRESENTATION = '{3319437D-7CDE-699D-750A-3C6A3
 
 class IPSModuleStrict
 {
-    /** @var array<string,string> */
+    /** @var array<string,mixed> */
     private array $properties = [];
+
+    /** @var array<string,int> */
+    private array $attributes = [];
 
     /** @var array<string,array<string,mixed>> */
     private array $registeredVariables = [];
@@ -68,6 +71,25 @@ class IPSModuleStrict
         if (!array_key_exists($name, $this->properties)) {
             $this->properties[$name] = $default;
         }
+    }
+
+    protected function RegisterPropertyInteger(string $name, int $default): void
+    {
+        if (!array_key_exists($name, $this->properties)) {
+            $this->properties[$name] = $default;
+        }
+    }
+
+    protected function RegisterAttributeInteger(string $name, int $default): void
+    {
+        if (!array_key_exists($name, $this->attributes)) {
+            $this->attributes[$name] = $default;
+        }
+    }
+
+    protected function RegisterTimer(string $name, int $interval, string $script): bool
+    {
+        return true;
     }
 
     protected function ReadPropertyString(string $name): string
