@@ -77,47 +77,12 @@
                     "caption": "A value of 0 keeps the alarm output active until it is reset manually or the system is disarmed."
                 },
                 {
-                    "type": "Select",
-                    "name": "AlarmActionEnabled",
-                    "caption": "Alarm start action",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Use action",
-                            "value": 1
-                        }
-                    ],
-                    "onChange": "OHA_SetOptionalActionFieldEnabled($id, 'AlarmAction', $AlarmActionEnabled === 1);",
-                    "width": "250px"
-                },
-                {
                     "type": "SelectAction",
                     "name": "AlarmAction",
                     "caption": "On alarm",
                     "targetID": -2,
                     "width": "100%",
-                    "enabled": false,
-                    "visible": false
-                },
-                {
-                    "type": "Select",
-                    "name": "AlarmResetActionEnabled",
-                    "caption": "Alarm output reset action",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Use action",
-                            "value": 1
-                        }
-                    ],
-                    "onChange": "OHA_SetOptionalActionFieldEnabled($id, 'AlarmResetAction', $AlarmResetActionEnabled === 1);",
-                    "width": "250px"
+                    "value": false
                 },
                 {
                     "type": "SelectAction",
@@ -125,25 +90,7 @@
                     "caption": "On alarm output reset",
                     "targetID": -2,
                     "width": "100%",
-                    "enabled": false,
-                    "visible": false
-                },
-                {
-                    "type": "Select",
-                    "name": "DisarmAfterAlarmActionEnabled",
-                    "caption": "Disarm-after-alarm action",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Use action",
-                            "value": 1
-                        }
-                    ],
-                    "onChange": "OHA_SetOptionalActionFieldEnabled($id, 'DisarmAfterAlarmAction', $DisarmAfterAlarmActionEnabled === 1);",
-                    "width": "250px"
+                    "value": false
                 },
                 {
                     "type": "SelectAction",
@@ -151,8 +98,7 @@
                     "caption": "On disarm after alarm",
                     "targetID": -2,
                     "width": "100%",
-                    "enabled": false,
-                    "visible": false
+                    "value": false
                 }
             ]
         },
@@ -166,47 +112,12 @@
                     "caption": "Configure optional 24/7 inputs for tamper, battery/power, communication or device faults."
                 },
                 {
-                    "type": "Select",
-                    "name": "FaultActionEnabled",
-                    "caption": "New fault action",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Use action",
-                            "value": 1
-                        }
-                    ],
-                    "onChange": "OHA_SetOptionalActionFieldEnabled($id, 'FaultAction', $FaultActionEnabled === 1);",
-                    "width": "250px"
-                },
-                {
                     "type": "SelectAction",
                     "name": "FaultAction",
                     "caption": "On new fault",
                     "targetID": -2,
                     "width": "100%",
-                    "enabled": false,
-                    "visible": false
-                },
-                {
-                    "type": "Select",
-                    "name": "FaultClearedActionEnabled",
-                    "caption": "Fault cleared action",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Use action",
-                            "value": 1
-                        }
-                    ],
-                    "onChange": "OHA_SetOptionalActionFieldEnabled($id, 'FaultClearedAction', $FaultClearedActionEnabled === 1);",
-                    "width": "250px"
+                    "value": false
                 },
                 {
                     "type": "SelectAction",
@@ -214,8 +125,7 @@
                     "caption": "On fault cleared",
                     "targetID": -2,
                     "width": "100%",
-                    "enabled": false,
-                    "visible": false
+                    "value": false
                 },
                 {
                     "type": "List",

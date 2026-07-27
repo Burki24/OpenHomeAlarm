@@ -353,9 +353,7 @@ $faultClearedAction = json_encode([
 $instance = new OpenHomeAlarm();
 $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$instance->TestSetPropertyInteger('FaultActionEnabled', 1);
 $instance->TestSetPropertyString('FaultAction', $faultAction);
-$instance->TestSetPropertyInteger('FaultClearedActionEnabled', 1);
 $instance->TestSetPropertyString('FaultClearedAction', $faultClearedAction);
 $instance->TestSetPropertyString(
     'FaultInputs',

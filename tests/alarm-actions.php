@@ -349,9 +349,7 @@ $instance = new OpenHomeAlarm();
 $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $instance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$instance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $instance->TestSetPropertyString('AlarmAction', $alarmAction);
-$instance->TestSetPropertyInteger('DisarmAfterAlarmActionEnabled', 1);
 $instance->TestSetPropertyString('DisarmAfterAlarmAction', $disarmAction);
 $instance->TestSetPropertyString(
     'Sensors',
@@ -395,22 +393,21 @@ assertAlarmAction(
 $instance->Disarm();
 assertAlarmAction(count($testActions) === 2, 'Disarming an already disarmed system must not rerun the reset action.');
 
-// A configured action remains inert until its explicit optional-action switch is enabled.
+// The native SelectAction false value represents a valid, deliberately unconfigured optional action.
 $testActions = [];
 $testValues[4001] = false;
-$disabledActionInstance = new OpenHomeAlarm();
-$disabledActionInstance->Create();
-$disabledActionInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$disabledActionInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$disabledActionInstance->TestSetPropertyString('AlarmAction', $alarmAction);
-$disabledActionInstance->TestSetPropertyString(
+$noActionInstance = new OpenHomeAlarm();
+$noActionInstance->Create();
+$noActionInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$noActionInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$noActionInstance->TestSetPropertyString(
     'Sensors',
     json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
 );
-assertAlarmAction($disabledActionInstance->ArmAway() === true, 'Disabled optional-action test must arm successfully.');
+assertAlarmAction($noActionInstance->ArmAway() === true, 'Unconfigured optional-action test must arm successfully.');
 $testValues[4001] = true;
-$disabledActionInstance->MessageSink(20, 4001, VM_UPDATE, [true, true, false]);
-assertAlarmAction($testActions === [], 'An optional action with its switch disabled must not call IPS_RunAction.');
+$noActionInstance->MessageSink(20, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction($testActions === [], 'A native SelectAction false value must behave as no configured action.');
 
 // Entry-delay completion must use the same central Alarm transition and therefore run the alarm action.
 $testActions = [];
@@ -420,7 +417,6 @@ $delayedInstance = new OpenHomeAlarm();
 $delayedInstance->Create();
 $delayedInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $delayedInstance->TestSetPropertyInteger('EntryDelaySeconds', 10);
-$delayedInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $delayedInstance->TestSetPropertyString('AlarmAction', $alarmAction);
 $delayedInstance->TestSetPropertyString(
     'Sensors',
@@ -441,7 +437,6 @@ $brokenInstance = new OpenHomeAlarm();
 $brokenInstance->Create();
 $brokenInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $brokenInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$brokenInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $brokenInstance->TestSetPropertyString('AlarmAction', '{invalid json');
 $brokenInstance->TestSetPropertyString(
     'Sensors',
@@ -487,9 +482,14 @@ assertAlarmAction(
     'A6 SelectAction fields must let the user choose their target.'
 );
 assertAlarmAction(
-    ($actionFields['AlarmAction']['enabled'] ?? null) === false
-    && ($actionFields['AlarmAction']['visible'] ?? null) === false,
-    'Optional SelectAction fields must be disabled and hidden in form.json until explicitly enabled.'
+    ($actionFields['AlarmAction']['value'] ?? null) === false
+    && ($actionFields['DisarmAfterAlarmAction']['value'] ?? null) === false,
+    'Optional SelectAction fields must use native false as the no-action value.'
+);
+assertAlarmAction(
+    !array_key_exists('enabled', $actionFields['AlarmAction'])
+    && !array_key_exists('visible', $actionFields['AlarmAction']),
+    'Optional SelectAction fields must remain native, visible selectors without wrapper switches.'
 );
 
 $dynamicFormInstance = new OpenHomeAlarm();
@@ -498,18 +498,9 @@ $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 5
 $dynamicAlarmAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction');
 assertAlarmAction(
     is_array($dynamicAlarmAction)
-    && ($dynamicAlarmAction['enabled'] ?? null) === false
-    && ($dynamicAlarmAction['visible'] ?? null) === false,
-    'An unconfigured optional alarm action must remain outside native SelectAction validation.'
-);
-$dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$enabledDynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
-$enabledAlarmAction = findAlarmActionFormField($enabledDynamicForm['elements'] ?? [], 'AlarmAction');
-assertAlarmAction(
-    is_array($enabledAlarmAction)
-    && ($enabledAlarmAction['enabled'] ?? null) === true
-    && ($enabledAlarmAction['visible'] ?? null) === true,
-    'Enabling an optional alarm action must expose its native SelectAction selector.'
+    && ($dynamicAlarmAction['type'] ?? null) === 'SelectAction'
+    && ($dynamicAlarmAction['value'] ?? null) === false,
+    'GetConfigurationForm must preserve the native optional SelectAction no-action value.'
 );
 
 $locale = json_decode(
@@ -519,7 +510,7 @@ $locale = json_decode(
     JSON_THROW_ON_ERROR
 );
 $translations = $locale['translations']['de'] ?? [];
-foreach (['Alarm actions', 'On alarm', 'On disarm after alarm', 'No action', 'Use action', 'Alarm start action'] as $translationKey) {
+foreach (['Alarm actions', 'On alarm', 'On disarm after alarm'] as $translationKey) {
     assertAlarmAction(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }
 
