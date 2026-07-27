@@ -157,7 +157,18 @@
             "No response from the alarm system. Please try again.": "Keine Rückmeldung von der Alarmanlage. Bitte erneut versuchen.",
             "Inactive": "Inaktiv",
             "Code protection is not enabled.": "Code-Schutz ist nicht aktiviert.",
-            "Code entry becomes available when disarming is possible.": "Die Code-Eingabe wird verfügbar, sobald die Anlage unscharf geschaltet werden kann."
+            "Code entry becomes available when disarming is possible.": "Die Code-Eingabe wird verfügbar, sobald die Anlage unscharf geschaltet werden kann.",
+            "Arming mode": "Scharfmodus",
+            "Monitoring": "Überwachung",
+            "System status": "Systemstatus",
+            "Fault active": "Störung aktiv",
+            "No fault": "Keine Störung",
+            "Stored": "Gespeichert",
+            "Empty": "Leer",
+            "Security zones": "Sicherheitsbereiche",
+            "Monitoring overview": "Überwachungsübersicht",
+            "Active mode": "Aktiver Modus",
+            "Clear code entry": "Code-Eingabe löschen"
         }
     }
 }

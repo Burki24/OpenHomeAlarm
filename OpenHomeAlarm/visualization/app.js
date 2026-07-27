@@ -194,19 +194,65 @@ function ohaRenderMode(modeName, modeState) {
 function ohaRenderArming(state) {
     const section = document.getElementById('armingSection');
     const isDisarmed = state.State.Name === 'disarmed';
+    const activeMode = state.Mode?.Name ?? 'none';
 
-    section.hidden = !isDisarmed;
-    if (!isDisarmed) {
-        return;
+    section.hidden = false;
+    document.getElementById('armingKicker').textContent = ohaTranslate(isDisarmed ? 'Arming modes' : 'Security zones');
+    document.getElementById('armingTitle').textContent = ohaTranslate(isDisarmed ? 'Select security mode' : 'Monitoring overview');
+    document.getElementById('armingHint').textContent = isDisarmed
+        ? ohaTranslate('Select a ready mode to arm')
+        : `${ohaTranslate('Active mode')}: ${ohaModeCaption(activeMode)}`;
+
+    for (const modeName of ['home', 'away', 'night']) {
+        const card = document.querySelector(`.oha-mode-card[data-mode="${modeName}"]`);
+        if (card) {
+            card.dataset.active = !isDisarmed && activeMode === modeName ? 'true' : 'false';
+        }
+        ohaRenderMode(modeName, state.Modes[modeName]);
+        const button = card?.querySelector('[data-action="arm"]');
+        if (button) {
+            button.hidden = !isDisarmed;
+        }
+    }
+}
+
+function ohaRenderSummary(state) {
+    const activeMode = state.Mode?.Name ?? 'none';
+    const activeModeState = state.Modes?.[activeMode] ?? null;
+    const monitoringActive = state.State?.Name !== 'disarmed';
+
+    document.getElementById('summaryModeLabel').textContent = ohaTranslate('Arming mode');
+    document.getElementById('summaryModeValue').textContent = ohaModeCaption(activeMode);
+
+    document.getElementById('summaryMonitoringLabel').textContent = ohaTranslate('Monitoring');
+    document.getElementById('summaryMonitoringValue').textContent = ohaTranslate(
+        monitoringActive ? 'Active' : (ohaAnyModeReady(state) ? 'Ready' : 'Not ready')
+    );
+
+    document.getElementById('summaryFaultLabel').textContent = ohaTranslate('System status');
+    document.getElementById('summaryFaultValue').textContent = ohaTranslate(
+        state.Faults?.Active ? 'Fault active' : 'No fault'
+    );
+
+    document.getElementById('summaryMemoryLabel').textContent = ohaTranslate('Alarm memory');
+    document.getElementById('summaryMemoryValue').textContent = ohaTranslate(
+        state.Alarm?.MemoryActive ? 'Stored' : 'Empty'
+    );
+
+    const monitoringCard = document.getElementById('summaryMonitoringValue').closest('.oha-status-card');
+    if (monitoringCard) {
+        monitoringCard.dataset.tone = monitoringActive || activeModeState?.Ready ? 'success' : 'warning';
     }
 
-    document.getElementById('armingKicker').textContent = ohaTranslate('Arming modes');
-    document.getElementById('armingTitle').textContent = ohaTranslate('Select security mode');
-    document.getElementById('armingHint').textContent = ohaTranslate('Select a ready mode to arm');
+    const faultCard = document.getElementById('summaryFaultValue').closest('.oha-status-card');
+    if (faultCard) {
+        faultCard.dataset.tone = state.Faults?.Active ? 'warning' : 'success';
+    }
 
-    ohaRenderMode('home', state.Modes.home);
-    ohaRenderMode('away', state.Modes.away);
-    ohaRenderMode('night', state.Modes.night);
+    const memoryCard = document.getElementById('summaryMemoryValue').closest('.oha-status-card');
+    if (memoryCard) {
+        memoryCard.dataset.tone = state.Alarm?.MemoryActive ? 'warning' : 'neutral';
+    }
 }
 
 function ohaRenderAlarmMemory(state) {
@@ -280,11 +326,7 @@ function ohaRenderInlineCodepad(state) {
         document.getElementById('inlineCodepadHint').textContent = ohaTranslate('Code protection is not enabled.');
     }
 
-    if (!enabled && (ohaCodeBuffer !== '' || ohaCodeBusy)) {
-        ohaResetCodeEntry();
-        return;
-    }
-
+    document.getElementById('inlineDisarmLabel').textContent = ohaTranslate('Disarm system');
     ohaUpdateCodepad();
 }
 
@@ -319,11 +361,14 @@ function ohaRenderStaticText() {
     document.getElementById('codepadHint').textContent = ohaTranslate('Enter the 4 to 8 digit disarm code.');
     document.getElementById('codepadClose').setAttribute('aria-label', ohaTranslate('Cancel code entry'));
     document.getElementById('codepadDelete').setAttribute('aria-label', ohaTranslate('Delete last digit'));
-    document.getElementById('codepadConfirm').setAttribute('aria-label', ohaTranslate('Confirm code'));
+    document.getElementById('codepadClear').setAttribute('aria-label', ohaTranslate('Clear code entry'));
+    document.getElementById('codepadConfirm').setAttribute('aria-label', ohaTranslate('Disarm system'));
+    document.getElementById('modalDisarmLabel').textContent = ohaTranslate('Disarm system');
     document.getElementById('codepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('inlineCodepad').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('inlineCodepadDelete').setAttribute('aria-label', ohaTranslate('Delete last digit'));
-    document.getElementById('inlineCodepadConfirm').setAttribute('aria-label', ohaTranslate('Confirm code'));
+    document.getElementById('inlineCodepadClear').setAttribute('aria-label', ohaTranslate('Clear code entry'));
+    document.getElementById('inlineCodepadConfirm').setAttribute('aria-label', ohaTranslate('Disarm system'));
     document.getElementById('inlineCodepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
 }
 
@@ -334,6 +379,7 @@ function ohaRender() {
 
     ohaRenderStaticText();
     ohaRenderHero(ohaState);
+    ohaRenderSummary(ohaState);
     ohaRenderAlarmMemory(ohaState);
     ohaRenderFaults(ohaState);
     ohaRenderBypasses(ohaState);
@@ -380,7 +426,7 @@ function ohaUpdateCodepad() {
         button.disabled = !inputAllowed || ohaCodeBusy || ohaCodeBuffer.length < 4 || ohaCodeBuffer.length > 8;
     }
 
-    for (const button of document.querySelectorAll('[data-code-delete]')) {
+    for (const button of document.querySelectorAll('[data-code-delete], [data-code-clear]')) {
         button.disabled = !inputAllowed || ohaCodeBusy || ohaCodeBuffer.length === 0;
     }
 
@@ -441,6 +487,16 @@ function ohaDeleteCodeDigit() {
     ohaUpdateCodepad();
 }
 
+function ohaClearCodeEntry() {
+    if (!ohaCodeInputAllowed() || ohaCodeBusy || ohaCodeBuffer.length === 0) {
+        return;
+    }
+
+    ohaCodeBuffer = '';
+    ohaSetCodeError('');
+    ohaUpdateCodepad();
+}
+
 function ohaSubmitCode() {
     if (!ohaCodeInputAllowed() || ohaCodeBusy || ohaCodeBuffer.length < 4 || ohaCodeBuffer.length > 8) {
         return;
@@ -491,7 +547,14 @@ function handleMessage(data) {
         }
     }
 
+    const previousStateName = ohaState?.State?.Name ?? null;
+    const nextStateName = nextState?.State?.Name ?? null;
     ohaState = nextState;
+
+    if (nextStateName === 'disarmed' && previousStateName !== 'disarmed') {
+        ohaResetCodeEntry();
+    }
+
     ohaRender();
     ohaHandleInteraction(nextState?.Interaction);
 }
@@ -502,19 +565,52 @@ for (const button of document.querySelectorAll('[data-action="arm"]')) {
     });
 }
 
-for (const button of document.querySelectorAll('[data-code-digit]')) {
-    button.addEventListener('click', () => {
-        ohaAppendCodeDigit(button.dataset.codeDigit ?? '');
-    });
+function ohaHandleCodeControlEvent(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) {
+        return false;
+    }
+
+    const digitButton = target.closest('[data-code-digit]');
+    if (digitButton) {
+        event.preventDefault();
+        ohaAppendCodeDigit(digitButton.getAttribute('data-code-digit') ?? '');
+        return true;
+    }
+
+    if (target.closest('[data-code-delete]')) {
+        event.preventDefault();
+        ohaDeleteCodeDigit();
+        return true;
+    }
+
+    if (target.closest('[data-code-clear]')) {
+        event.preventDefault();
+        ohaClearCodeEntry();
+        return true;
+    }
+
+    if (target.closest('[data-code-confirm]')) {
+        event.preventDefault();
+        ohaSubmitCode();
+        return true;
+    }
+
+    return false;
 }
 
-for (const button of document.querySelectorAll('[data-code-delete]')) {
-    button.addEventListener('click', ohaDeleteCodeDigit);
-}
+document.addEventListener('pointerup', (event) => {
+    ohaHandleCodeControlEvent(event);
+});
 
-for (const button of document.querySelectorAll('[data-code-confirm]')) {
-    button.addEventListener('click', ohaSubmitCode);
-}
+document.addEventListener('click', (event) => {
+    // Pointer interaction is handled on pointerup. Keyboard-activated buttons
+    // emit a click with detail === 0 and are handled here for accessibility.
+    if (event.detail === 0) {
+        ohaHandleCodeControlEvent(event);
+    }
+});
+
 
 document.getElementById('disarmButton').addEventListener('click', () => {
     if (ohaState?.Capabilities?.CodeRequired) {

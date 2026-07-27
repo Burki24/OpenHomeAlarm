@@ -77,12 +77,14 @@ button:focus-visible {
     display: grid;
     gap: 14px;
     width: 100%;
+    min-height: 100vh;
+    align-content: start;
     padding: 16px;
     background: var(--oha-bg);
 }
 
 .oha-topbar,
-.oha-brand,
+.oha-topbar-status,
 .oha-mode-card-head,
 .oha-control-bar,
 .oha-context-card,
@@ -97,35 +99,24 @@ button:focus-visible {
     min-height: 38px;
 }
 
-.oha-brand {
-    gap: 10px;
+.oha-topbar-status {
+    gap: 8px;
     min-width: 0;
-}
-
-.oha-brand-mark {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 auto;
-    place-items: center;
-    border: 1px solid var(--oha-border);
-    border-radius: 10px;
-    background: var(--oha-surface);
-    color: var(--oha-accent);
-}
-
-.oha-brand-name {
-    overflow: hidden;
-    font-size: 0.95rem;
-    font-weight: 760;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.oha-brand-subtitle {
-    margin-top: 1px;
+    padding: 0 2px;
     color: var(--oha-muted);
-    font-size: 0.72rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+.oha-live-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--oha-success);
+    box-shadow: 0 0 0 4px var(--oha-success-soft);
 }
 
 .oha-icon-button,
@@ -287,6 +278,68 @@ button:focus-visible {
     text-transform: uppercase;
 }
 
+.oha-status-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.oha-status-card {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 13px;
+    border: 1px solid var(--oha-border);
+    border-radius: 13px;
+    background: var(--oha-surface);
+}
+
+.oha-status-card-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--oha-surface-soft);
+    color: var(--oha-muted);
+}
+
+.oha-status-card > div {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.oha-status-card-label {
+    overflow: hidden;
+    color: var(--oha-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.035em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.oha-status-card strong {
+    overflow: hidden;
+    font-size: 0.86rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oha-status-card[data-tone="success"] .oha-status-card-icon {
+    background: var(--oha-success-soft);
+    color: var(--oha-success);
+}
+
+.oha-status-card[data-tone="warning"] .oha-status-card-icon {
+    background: var(--oha-warning-soft);
+    color: var(--oha-warning);
+}
+
 .oha-context-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -387,6 +440,17 @@ button:focus-visible {
 
 .oha-mode-card[data-ready="true"] {
     border-color: var(--oha-success-border);
+}
+
+.oha-mode-card[data-active="true"] {
+    border-color: var(--oha-accent);
+    background: linear-gradient(135deg, var(--oha-accent-soft), var(--oha-surface));
+    box-shadow: inset 0 0 0 1px var(--oha-accent-soft), var(--oha-shadow);
+}
+
+.oha-mode-card[data-active="true"] .oha-mode-icon {
+    background: var(--oha-accent);
+    color: #ffffff;
 }
 
 .oha-mode-card:hover {
@@ -543,6 +607,43 @@ button:focus-visible {
 }
 
 
+.oha-inline-disarm-button,
+.oha-modal-disarm-button {
+    display: inline-flex;
+    width: 100%;
+    min-height: 46px;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    margin-top: 12px;
+    border: 1px solid rgba(196, 49, 49, 0.30);
+    border-radius: 12px;
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 800;
+    transition: transform 100ms ease, background 120ms ease, color 120ms ease, opacity 120ms ease;
+}
+
+.oha-inline-disarm-button:hover:not(:disabled),
+.oha-modal-disarm-button:hover:not(:disabled) {
+    background: var(--oha-danger);
+    color: #ffffff;
+}
+
+.oha-inline-disarm-button:active:not(:disabled),
+.oha-modal-disarm-button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.oha-inline-disarm-button:disabled,
+.oha-modal-disarm-button:disabled {
+    cursor: default;
+    opacity: 0.38;
+}
+
+
 .oha-inline-codepad {
     display: none;
 }
@@ -609,7 +710,7 @@ button:focus-visible {
 
 @media (min-width: 900px) {
     .oha-shell {
-        grid-template-columns: minmax(0, 1fr) 292px;
+        grid-template-columns: minmax(0, 1fr) 330px;
         align-items: start;
     }
 
@@ -618,6 +719,7 @@ button:focus-visible {
     }
 
     .oha-hero,
+    .oha-status-grid,
     .oha-context-grid,
     .oha-arm-section,
     .oha-control-bar {
@@ -629,10 +731,10 @@ button:focus-visible {
         top: 16px;
         display: grid;
         grid-column: 2;
-        grid-row: 2 / span 4;
+        grid-row: 2 / span 6;
         gap: 0;
         align-self: start;
-        padding: 16px;
+        padding: 18px;
         border: 1px solid var(--oha-border);
         border-radius: 18px;
         background: var(--oha-surface);
@@ -645,6 +747,10 @@ button:focus-visible {
 }
 
 @media (max-width: 860px) {
+    .oha-status-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .oha-context-grid,
     .oha-mode-grid {
         grid-template-columns: 1fr;
@@ -676,9 +782,12 @@ button:focus-visible {
         padding: 11px;
     }
 
-    .oha-brand-subtitle,
     .oha-section-hint {
         display: none;
+    }
+
+    .oha-status-grid {
+        grid-template-columns: 1fr 1fr;
     }
 
     .oha-hero {

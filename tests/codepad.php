@@ -45,12 +45,29 @@ assertCodepad(str_contains($html, 'data-code-surface="inline"'), 'Integrated cod
 assertCodepad(str_contains($html, 'role="dialog"'), 'The codepad must be exposed as a dialog.');
 assertCodepad(substr_count($html, 'data-code-digit=') === 20, 'Inline and popup codepads must each provide digits 0 through 9.');
 assertCodepad(str_contains($html, 'id="codepadDelete"'), 'The codepad must provide a delete key.');
-assertCodepad(str_contains($html, 'id="codepadConfirm"'), 'The codepad must provide a confirm key.');
+assertCodepad(str_contains($html, 'id="codepadClear"'), 'The popup codepad must provide a clear key.');
+assertCodepad(str_contains($html, 'id="inlineCodepadClear"'), 'The inline codepad must provide a clear key.');
+assertCodepad(str_contains($html, 'id="codepadConfirm"'), 'The popup codepad must provide an explicit disarm button.');
+assertCodepad(str_contains($html, 'id="inlineCodepadConfirm"'), 'The inline codepad must provide an explicit disarm button.');
+assertCodepad(substr_count($html, 'data-code-confirm') === 2, 'Both codepad surfaces must provide an explicit disarm action.');
 assertCodepad(substr_count($html, 'class="oha-code-dot"') === 16, 'Both code displays must support up to eight digits.');
 
 assertCodepad(
     str_contains($javascript, "ohaRequestAction('DisarmWithCode', code);"),
     'The codepad must submit the entered code through the HTML-SDK RequestAction channel.'
+);
+assertCodepad(
+    str_contains($javascript, 'ohaCodeBuffer += digit;'),
+    'Each accepted digit must be appended to the existing code buffer instead of replacing it.'
+);
+assertCodepad(
+    str_contains($javascript, "document.addEventListener('pointerup'")
+        && str_contains($javascript, 'function ohaHandleCodeControlEvent(event)'),
+    'Repeated pointer input must use delegated codepad handling that survives dashboard rerenders.'
+);
+assertCodepad(
+    str_contains($javascript, 'function ohaClearCodeEntry()'),
+    'The codepad must provide a dedicated clear operation.'
 );
 assertCodepad(
     str_contains($javascript, 'ohaState?.Capabilities?.CodeRequired'),
@@ -78,6 +95,7 @@ assertCodepad(
 );
 
 assertCodepad(str_contains($css, '.oha-inline-codepad'), 'The permanently integrated codepad must be styled.');
+assertCodepad(str_contains($css, '.oha-inline-disarm-button'), 'The integrated codepad must style its explicit disarm button.');
 assertCodepad(str_contains($css, '@media (min-width: 900px)'), 'The integrated codepad must use a tile-width breakpoint.');
 assertCodepad(str_contains($css, '.oha-control-bar[data-code-required="true"]'), 'The popup trigger must be hidden on wide code-protected views.');
 assertCodepad(str_contains($javascript, 'function ohaRenderInlineCodepad(state)'), 'The inline codepad must be rendered from the current control state.');
@@ -93,6 +111,7 @@ foreach ([
     'Enter the 4 to 8 digit disarm code.',
     'Cancel code entry',
     'Delete last digit',
+    'Clear code entry',
     'Confirm code',
     'Code pad',
     'Code entry',

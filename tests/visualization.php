@@ -61,7 +61,13 @@ assertVisualization(str_contains($html, 'class="oha-hero"'), 'Visualization must
 assertVisualization(str_contains($html, 'id="armingSection"'), 'Visualization must provide a dedicated arming section.');
 assertVisualization(str_contains($html, 'id="contextGrid"'), 'Visualization must provide contextual status cards.');
 assertVisualization(str_contains($javascript, 'function ohaRenderHero(state)'), 'Visualization must render the main state contextually.');
-assertVisualization(str_contains($javascript, 'section.hidden = !isDisarmed;'), 'Arming controls must only be shown while disarmed.');
+assertVisualization(
+    str_contains($javascript, 'button.hidden = !isDisarmed;')
+        && str_contains($javascript, 'card.dataset.active = !isDisarmed'),
+    'Mode status cards must remain visible while armed, while arming buttons are hidden outside the disarmed state.'
+);
+assertVisualization(str_contains($html, 'id="statusGrid"'), 'Visualization must provide a compact always-visible system overview.');
+assertVisualization(str_contains($javascript, 'function ohaRenderSummary(state)'), 'Visualization must render the system overview from the control state.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
 assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');
