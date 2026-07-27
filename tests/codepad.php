@@ -62,15 +62,17 @@ assertCodepad(
 );
 assertCodepad(
     !str_contains($html, 'onclick=')
-        && str_contains($javascript, "button.onclick = () => ohaAppendCodeDigit(button.getAttribute('data-code-digit') ?? '');")
-        && str_contains($javascript, 'button.onclick = ohaSubmitCode;')
-        && str_contains($javascript, 'button.onclick = ohaDeleteCodeDigit;'),
-    'Codepad controls must be bound by the visualization script instead of depending on inline custom-function handlers.'
+        && str_contains($javascript, "target.closest('[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm]')")
+        && str_contains($javascript, "document.addEventListener('pointerdown', ohaHandleCodeControlPointer, true);")
+        && str_contains($javascript, "document.addEventListener('click', ohaHandleCodeControlClick, true);")
+        && !str_contains($javascript, "button.onclick = () => ohaAppendCodeDigit"),
+    'Codepad controls must use delegated capture-phase pointer handling instead of fragile per-button click handlers.'
 );
 assertCodepad(
     str_contains($javascript, 'function ohaBindInteractions()')
-        && str_contains($javascript, 'ohaBindInteractions();'),
-    'All visualization controls must be bound after the HTML has been created.'
+        && str_contains($javascript, 'ohaBindInteractions();')
+        && str_contains($javascript, 'event.detail === 0'),
+    'Visualization controls must be bound after the HTML has been created and keep keyboard activation available.'
 );
 assertCodepad(
     !str_contains($javascript, 'button.disabled = !inputAllowed')

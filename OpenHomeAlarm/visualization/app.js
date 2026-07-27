@@ -593,6 +593,70 @@ function ohaHandleInteraction(interaction) {
     ohaUpdateCodepad();
 }
 
+function ohaFindCodeControl(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) {
+        return null;
+    }
+
+    return target.closest('[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm]');
+}
+
+function ohaActivateCodeControl(control) {
+    if (!(control instanceof HTMLElement)) {
+        return;
+    }
+
+    if (control.matches('[data-code-digit]')) {
+        ohaAppendCodeDigit(control.getAttribute('data-code-digit') ?? '');
+        return;
+    }
+
+    if (control.matches('[data-code-delete]')) {
+        ohaDeleteCodeDigit();
+        return;
+    }
+
+    if (control.matches('[data-code-clear]')) {
+        ohaClearCodeEntry();
+        return;
+    }
+
+    if (control.matches('[data-code-confirm]')) {
+        ohaSubmitCode();
+    }
+}
+
+function ohaHandleCodeControlPointer(event) {
+    const control = ohaFindCodeControl(event);
+    if (!control || event.isPrimary === false || event.button !== 0) {
+        return;
+    }
+
+    // Symcon's tile surface also observes pointer gestures. Handle keypad input
+    // in the capture phase on pointerdown so the digit is accepted before a
+    // parent gesture handler can consume the later click event.
+    event.preventDefault();
+    event.stopPropagation();
+    control.focus({preventScroll: true});
+    ohaActivateCodeControl(control);
+}
+
+function ohaHandleCodeControlClick(event) {
+    const control = ohaFindCodeControl(event);
+    if (!control) {
+        return;
+    }
+
+    // Pointer input is already handled on pointerdown. Keep click only for
+    // keyboard-activated buttons, whose synthetic click has detail === 0.
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.detail === 0) {
+        ohaActivateCodeControl(control);
+    }
+}
+
 function ohaBindInteractions() {
     const refreshButton = document.getElementById('refreshButton');
     if (refreshButton) {
@@ -601,22 +665,6 @@ function ohaBindInteractions() {
 
     for (const button of document.querySelectorAll('[data-action="arm"]')) {
         button.onclick = () => ohaHandleModeButton(button);
-    }
-
-    for (const button of document.querySelectorAll('[data-code-digit]')) {
-        button.onclick = () => ohaAppendCodeDigit(button.getAttribute('data-code-digit') ?? '');
-    }
-
-    for (const button of document.querySelectorAll('[data-code-delete]')) {
-        button.onclick = ohaDeleteCodeDigit;
-    }
-
-    for (const button of document.querySelectorAll('[data-code-clear]')) {
-        button.onclick = ohaClearCodeEntry;
-    }
-
-    for (const button of document.querySelectorAll('[data-code-confirm]')) {
-        button.onclick = ohaSubmitCode;
     }
 
     const disarmButton = document.getElementById('disarmButton');
@@ -628,6 +676,9 @@ function ohaBindInteractions() {
     if (codepadClose) {
         codepadClose.onclick = ohaCloseCodepad;
     }
+
+    document.addEventListener('pointerdown', ohaHandleCodeControlPointer, true);
+    document.addEventListener('click', ohaHandleCodeControlClick, true);
 }
 
 function handleMessage(data) {
