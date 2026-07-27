@@ -57,6 +57,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
     private const PROPERTY_ALARM_ACTION = 'AlarmAction';
     private const PROPERTY_DISARM_AFTER_ALARM_ACTION = 'DisarmAfterAlarmAction';
+    private const PROPERTY_DISARM_CODE = 'DisarmCode';
 
     private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
     private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
@@ -76,6 +77,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_AFTER_ALARM_ACTION, '');
+        $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
@@ -187,8 +189,8 @@ class OpenHomeAlarm extends IPSModuleStrict
      * Reacts to updates of configured sensor variables.
      *
      * Sensor updates keep the readiness state current and, while armed, start the
-     * configured entry delay or move the state to Alarm. External alarm actions
-     * deliberately remain part of a later development step.
+     * configured entry delay or move the state to Alarm. Configured external
+     * actions are executed centrally when the Alarm state is entered.
      */
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
@@ -245,6 +247,35 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return true;
+    }
+
+    /**
+     * Disarms the system after validating the optional numeric disarm code.
+     *
+     * An empty configured code keeps code validation disabled. This method is
+     * intended for user-facing controls; trusted automations can continue to use
+     * Disarm() directly.
+     */
+    public function DisarmWithCode(string $code): bool
+    {
+        $configuredCode = trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE));
+        if ($configuredCode === '') {
+            return $this->Disarm();
+        }
+
+        if (preg_match('/^[0-9]{4,8}$/', $configuredCode) !== 1) {
+            $this->SendDebug(__FUNCTION__, 'Configured disarm code is invalid.', 0);
+
+            return false;
+        }
+
+        if (!hash_equals($configuredCode, trim($code))) {
+            $this->SendDebug(__FUNCTION__, 'Disarm code rejected.', 0);
+
+            return false;
+        }
+
+        return $this->Disarm();
     }
 
     /**

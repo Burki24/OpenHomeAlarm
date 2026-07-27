@@ -36,6 +36,28 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Code protection",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Configure an optional numeric code for disarming from user-facing controls."
+                },
+                {
+                    "type": "PasswordTextBox",
+                    "name": "DisarmCode",
+                    "caption": "Disarm code (4-8 digits)",
+                    "validate": "^(?:[0-9]{4,8})?$",
+                    "width": "250px"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Leave empty to allow disarming without a code."
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "Alarm actions",
             "expanded": true,
             "items": [

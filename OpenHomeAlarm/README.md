@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung, zielmodusabhängige Scharf-/Unscharf-Logik, Ein-/Ausgangsverzögerungen sowie konfigurierbare Alarmaktionen sind implementiert. Die Code-Eingabe folgt schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung, zielmodusabhängige Scharf-/Unscharf-Logik, Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen sowie die Code-Prüfung zum Unscharfschalten sind implementiert. Die eigene Visualisierung folgt schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -12,17 +12,18 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 4. [Einrichten der Instanz in Symcon](#4-einrichten-der-instanz-in-symcon)
 5. [Statusvariablen und Darstellungen](#5-statusvariablen-und-darstellungen)
 6. [Sensoren und Auslöser](#6-sensoren-und-auslöser)
-7. [Alarmaktionen](#7-alarmaktionen)
-8. [Visualisierung](#8-visualisierung)
-9. [PHP-Befehlsreferenz](#9-php-befehlsreferenz)
+7. [Code-Schutz](#7-code-schutz)
+8. [Alarmaktionen](#8-alarmaktionen)
+9. [Visualisierung](#9-visualisierung)
+10. [PHP-Befehlsreferenz](#10-php-befehlsreferenz)
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die zielmodusabhängige Scharf-/Unscharf-Logik, timerbasierte Ein-/Ausgangsverzögerungen sowie konfigurierbare Alarmaktionen bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die zielmodusabhängige Scharf-/Unscharf-Logik, timerbasierte Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen sowie eine optionale Code-Prüfung zum Unscharfschalten bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich werden Sensortyp, Auslösewert und die Nutzung der Eingangsverzögerung gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
-Ausgangs- und Eingangsverzögerung sind global in Sekunden konfigurierbar. Der Wert `0` deaktiviert die jeweilige Verzögerung. Zusätzlich können zwei native Symcon-Aktionen hinterlegt werden: eine Aktion beim Eintritt in den Alarmzustand und eine Aktion beim Unscharfschalten eines bereits aktiven Alarms. Dadurch lassen sich unter anderem Sirenen, Benachrichtigungen, Skripte oder Ablaufpläne ohne hardwarespezifische Kopplung anbinden. Die Code-Logik wird in einem folgenden Entwicklungsschritt ergänzt.
+Ausgangs- und Eingangsverzögerung sind global in Sekunden konfigurierbar. Der Wert `0` deaktiviert die jeweilige Verzögerung. Zusätzlich können zwei native Symcon-Aktionen hinterlegt werden: eine Aktion beim Eintritt in den Alarmzustand und eine Aktion beim Unscharfschalten eines bereits aktiven Alarms. Dadurch lassen sich unter anderem Sirenen, Benachrichtigungen, Skripte oder Ablaufpläne ohne hardwarespezifische Kopplung anbinden. Für benutzerseitiges Unscharfschalten kann optional ein vier- bis achtstelliger Zahlencode hinterlegt werden.
 
 ### 2. Voraussetzungen
 
@@ -36,7 +37,7 @@ Die Library kann über die Modulverwaltung von Symcon aus dem GitHub-Repository 
 
 Unter **Instanz hinzufügen** kann das Modul **OpenHomeAlarm** gefunden und angelegt werden.
 
-Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Im Abschnitt **Alarmaktionen** können optional eine Aktion **Bei Alarm** und eine Aktion **Beim Unscharfschalten nach Alarm** gewählt werden. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
+Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Im Abschnitt **Code-Schutz** kann optional ein vier- bis achtstelliger **Unscharfschaltcode** hinterlegt werden. Im Abschnitt **Alarmaktionen** können optional eine Aktion **Bei Alarm** und eine Aktion **Beim Unscharfschalten nach Alarm** gewählt werden. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
 
 ### 5. Statusvariablen und Darstellungen
 
@@ -80,7 +81,13 @@ Löst im Zustand **Scharf** ein für den aktiven Modus relevanter Sensor aus, st
 
 Beim Unscharfschalten werden laufende Ein- und Ausgangsverzögerungen immer beendet. Wird ein bereits aktiver Alarm unscharf geschaltet, wird anschließend einmalig die konfigurierte Aktion **Beim Unscharfschalten nach Alarm** ausgeführt. Ein Abbruch während Ein- oder Ausgangsverzögerung löst diese Rücksetzaktion nicht aus. Die Timer verwenden persistierte Ablaufzeitpunkte und werden nach `ApplyChanges()` bzw. einem Symcon-Neustart mit der verbleibenden Zeit wiederhergestellt.
 
-### 7. Alarmaktionen
+### 7. Code-Schutz
+
+Für die spätere benutzerseitige Bedienung kann im Konfigurationsformular ein vier- bis achtstelliger Zahlencode hinterlegt werden. Das Feld wird als Passwortfeld dargestellt. Ein leerer Wert deaktiviert die Code-Prüfung.
+
+`OHA_DisarmWithCode($InstanzID, $Code)` prüft den übergebenen Code und schaltet nur bei Übereinstimmung unscharf. Ein falscher Code verändert weder Modus noch Zustand. Die Prüfung erfolgt ohne Protokollierung des eingegebenen Codes. Der bestehende Befehl `OHA_Disarm($InstanzID)` bleibt als vertrauenswürdige direkte API für Automationen erhalten und umgeht bewusst die Code-Prüfung.
+
+### 8. Alarmaktionen
 
 OpenHomeAlarm verwendet für externe Reaktionen die nativen Symcon-Aktionen. Im Feld **Bei Alarm** kann ein beliebiges Ziel samt passender Aktion gewählt werden. Die Aktion wird genau einmal ausgeführt, wenn das System erstmals in den Zustand **Alarm** wechselt.
 
@@ -88,11 +95,11 @@ Optional kann unter **Beim Unscharfschalten nach Alarm** eine zweite Aktion hint
 
 Da die Zielauswahl Bestandteil der Symcon-Aktion ist, können sowohl einzelne Gerätevariablen als auch Skripte, Ablaufpläne und andere von Symcon angebotene Aktionsziele verwendet werden. Nicht konfigurierte Alarmaktionen haben keine Wirkung auf die Kernlogik. Auch eine fehlerhafte optionale Aktion verhindert nicht den Wechsel des Alarmzustands oder das Unscharfschalten.
 
-### 8. Visualisierung
+### 9. Visualisierung
 
-Eine eigene Visualisierung einschließlich der vorgesehenen Code-Eingabe zum Deaktivieren der Alarmanlage wird in einem späteren Entwicklungsschritt umgesetzt.
+Eine eigene Visualisierung mit Code-Eingabe zum Unscharfschalten wird in einem späteren Entwicklungsschritt umgesetzt. Sie verwendet dafür die bereits vorhandene Code-Prüfung des Moduls.
 
-### 9. PHP-Befehlsreferenz
+### 10. PHP-Befehlsreferenz
 
 Folgende öffentliche Modulbefehle stehen zur Verfügung:
 
@@ -101,6 +108,7 @@ Folgende öffentliche Modulbefehle stehen zur Verfügung:
 | `OHA_ArmHome($InstanzID)` | `bool` | Prüft die für **Zuhause** relevanten Sensoren und startet bei Erfolg die Scharfschaltung |
 | `OHA_ArmAway($InstanzID)` | `bool` | Prüft die für **Abwesend** relevanten Sensoren und startet bei Erfolg die Scharfschaltung |
 | `OHA_ArmNight($InstanzID)` | `bool` | Prüft die für **Nacht** relevanten Sensoren und startet bei Erfolg die Scharfschaltung |
-| `OHA_Disarm($InstanzID)` | `bool` | Schaltet die Anlage unscharf und setzt den Scharfmodus zurück |
+| `OHA_Disarm($InstanzID)` | `bool` | Schaltet die Anlage als vertrauenswürdige direkte API ohne Code-Prüfung unscharf und setzt den Scharfmodus zurück |
+| `OHA_DisarmWithCode($InstanzID, $Code)` | `bool` | Prüft den optionalen Unscharfschaltcode und schaltet bei Erfolg unscharf |
 
 Die drei Scharfschaltbefehle liefern `false`, wenn mindestens ein für den Zielmodus relevanter Sensor ausgelöst, nicht vorhanden oder nicht auswertbar ist. In diesem Fall bleiben `Mode` und `State` unverändert.

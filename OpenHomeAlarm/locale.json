@@ -43,7 +43,11 @@
             "Alarm actions": "Alarmaktionen",
             "Configure optional Symcon actions that run when an alarm starts and when an active alarm is disarmed.": "Konfigurieren Sie optionale Symcon-Aktionen, die beim Start eines Alarms und beim Unscharfschalten eines aktiven Alarms ausgeführt werden.",
             "On alarm": "Bei Alarm",
-            "On disarm after alarm": "Beim Unscharfschalten nach Alarm"
+            "On disarm after alarm": "Beim Unscharfschalten nach Alarm",
+            "Code protection": "Code-Schutz",
+            "Configure an optional numeric code for disarming from user-facing controls.": "Konfigurieren Sie einen optionalen Zahlencode zum Unscharfschalten über Bedienelemente.",
+            "Disarm code (4-8 digits)": "Unscharfschaltcode (4-8 Ziffern)",
+            "Leave empty to allow disarming without a code.": "Leer lassen, um das Unscharfschalten ohne Code zu erlauben."
         }
     }
 }
