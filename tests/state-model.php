@@ -92,6 +92,18 @@ class IPSModuleStrict
         return $this->creationResults[$ident] ?? true;
     }
 
+    protected function RegisterVariableString(string $ident, string $name, array $presentation, int $position): bool
+    {
+        $this->registeredVariables[$ident] = [
+            'type'         => 'string',
+            'name'         => $name,
+            'presentation' => $presentation,
+            'position'     => $position
+        ];
+
+        return $this->creationResults[$ident] ?? true;
+    }
+
     protected function SetValue(string $ident, mixed $value): void
     {
         $this->writtenValues[$ident] = $value;
@@ -116,20 +128,32 @@ $newInstance = new OpenHomeAlarm();
 $newInstance->Create();
 
 $variables = $newInstance->TestRegisteredVariables();
-assertStateModel(array_keys($variables) === ['Mode', 'State', 'ReadyToArm'], 'Unexpected A1 status variables.');
+assertStateModel(
+    array_keys($variables) === ['Mode', 'State', 'ReadyToArm', 'AlarmMemory', 'LastAlarmSource', 'LastAlarmTime'],
+    'Unexpected status variables.'
+);
 assertStateModel($variables['Mode']['type'] === 'integer', 'Mode must be an integer variable.');
 assertStateModel($variables['State']['type'] === 'integer', 'State must be an integer variable.');
 assertStateModel($variables['ReadyToArm']['type'] === 'boolean', 'ReadyToArm must be a boolean variable.');
+assertStateModel($variables['AlarmMemory']['type'] === 'boolean', 'AlarmMemory must be a boolean variable.');
+assertStateModel($variables['LastAlarmSource']['type'] === 'string', 'LastAlarmSource must be a string variable.');
+assertStateModel($variables['LastAlarmTime']['type'] === 'string', 'LastAlarmTime must be a string variable.');
 assertStateModel($variables['Mode']['position'] === 10, 'Mode must use position 10.');
 assertStateModel($variables['State']['position'] === 20, 'State must use position 20.');
 assertStateModel($variables['ReadyToArm']['position'] === 30, 'ReadyToArm must use position 30.');
+assertStateModel($variables['AlarmMemory']['position'] === 40, 'AlarmMemory must use position 40.');
+assertStateModel($variables['LastAlarmSource']['position'] === 50, 'LastAlarmSource must use position 50.');
+assertStateModel($variables['LastAlarmTime']['position'] === 60, 'LastAlarmTime must use position 60.');
 
 $initialValues = $newInstance->TestWrittenValues();
 assertStateModel(
     $initialValues === [
-        'Mode'       => 0,
-        'State'      => 0,
-        'ReadyToArm' => true
+        'Mode'            => 0,
+        'State'           => 0,
+        'ReadyToArm'      => true,
+        'AlarmMemory'     => false,
+        'LastAlarmSource' => '',
+        'LastAlarmTime'   => ''
     ],
     'A new instance must start without an arming mode, disarmed and ready to arm.'
 );
@@ -137,6 +161,7 @@ assertStateModel(
 $modePresentation = $variables['Mode']['presentation'];
 $statePresentation = $variables['State']['presentation'];
 $readyPresentation = $variables['ReadyToArm']['presentation'];
+$alarmMemoryPresentation = $variables['AlarmMemory']['presentation'];
 
 assertStateModel(
     ($modePresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
@@ -150,12 +175,17 @@ assertStateModel(
     ($readyPresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
     'ReadyToArm must use the native value presentation.'
 );
+assertStateModel(
+    ($alarmMemoryPresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+    'AlarmMemory must use the native value presentation.'
+);
 assertStateModel(($modePresentation['INTERVALS_ACTIVE'] ?? false) === true, 'Mode intervals must be active.');
 assertStateModel(($statePresentation['INTERVALS_ACTIVE'] ?? false) === true, 'State intervals must be active.');
 
 $modeIntervals = json_decode((string) $modePresentation['INTERVALS'], true, 512, JSON_THROW_ON_ERROR);
 $stateIntervals = json_decode((string) $statePresentation['INTERVALS'], true, 512, JSON_THROW_ON_ERROR);
 $readyOptions = json_decode((string) $readyPresentation['OPTIONS'], true, 512, JSON_THROW_ON_ERROR);
+$alarmMemoryOptions = json_decode((string) $alarmMemoryPresentation['OPTIONS'], true, 512, JSON_THROW_ON_ERROR);
 
 assertStateModel(
     array_column($modeIntervals, 'ConstantValue') === ['No arming mode', 'Home', 'Away', 'Night'],
@@ -169,13 +199,17 @@ assertStateModel(
     array_column($readyOptions, 'Caption') === ['Not ready', 'Ready'],
     'ReadyToArm presentation captions are incomplete.'
 );
+assertStateModel(
+    array_column($alarmMemoryOptions, 'Caption') === ['No alarm stored', 'Alarm stored'],
+    'AlarmMemory presentation captions are incomplete.'
+);
 foreach ([...$modeIntervals, ...$stateIntervals] as $interval) {
     assertStateModel(
         array_key_exists('ColorValue', $interval),
         'Every value-presentation interval must contain ColorValue.'
     );
 }
-foreach ($readyOptions as $option) {
+foreach ([...$readyOptions, ...$alarmMemoryOptions] as $option) {
     foreach (['Value', 'Caption', 'IconActive', 'IconValue', 'ColorActive', 'ColorValue'] as $requiredKey) {
         assertStateModel(
             array_key_exists($requiredKey, $option),
@@ -186,9 +220,12 @@ foreach ($readyOptions as $option) {
 
 $existingInstance = new OpenHomeAlarm(
     [
-        'Mode'       => false,
-        'State'      => false,
-        'ReadyToArm' => false
+        'Mode'            => false,
+        'State'           => false,
+        'ReadyToArm'      => false,
+        'AlarmMemory'     => false,
+        'LastAlarmSource' => false,
+        'LastAlarmTime'   => false
     ]
 );
 $existingInstance->Create();
@@ -218,7 +255,12 @@ foreach ([
     'Entry delay',
     'Alarm',
     'Ready',
-    'Not ready'
+    'Not ready',
+    'Alarm memory',
+    'No alarm stored',
+    'Alarm stored',
+    'Last alarm source',
+    'Last alarm time'
 ] as $translationKey) {
     assertStateModel(
         isset($translations[$translationKey]),

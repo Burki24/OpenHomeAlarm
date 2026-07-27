@@ -7,18 +7,14 @@ const VM_UPDATE = 10603;
 
 /** @var array<int,array<string,mixed>> */
 $testVariables = [
-    2001 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    2002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    2003 => ['VariableType' => 3, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    2004 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    5001 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    5002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
 $testValues = [
-    2001 => false,
-    2002 => false,
-    2003 => 'IDLE',
-    2004 => 0
+    5001 => false,
+    5002 => false
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -63,6 +59,12 @@ function GetValue(int $variableID): mixed
     return $testValues[$variableID];
 }
 
+/** @param array<string,mixed> $parameters */
+function IPS_RunAction(string $actionID, array $parameters): bool
+{
+    return true;
+}
+
 class IPSModuleStrict
 {
     /** @var array<string,mixed> */
@@ -74,14 +76,14 @@ class IPSModuleStrict
     /** @var array<string,array{interval:int,script:string}> */
     private array $timers = [];
 
-    /** @var array<string,mixed> */
-    private array $currentValues = [];
-
     /** @var array<int,list<int>> */
     private array $messages = [];
 
     /** @var array<string,mixed> */
     private array $writtenValues = [];
+
+    /** @var array<string,mixed> */
+    private array $currentValues = [];
 
     public function Create(): void
     {
@@ -130,6 +132,13 @@ class IPSModuleStrict
         }
     }
 
+    protected function ReadPropertyString(string $name): string
+    {
+        $value = $this->properties[$name] ?? '';
+
+        return is_string($value) ? $value : '';
+    }
+
     protected function ReadPropertyInteger(string $name): int
     {
         $value = $this->properties[$name] ?? 0;
@@ -166,11 +175,6 @@ class IPSModuleStrict
         $this->timers[$name]['interval'] = $interval;
 
         return true;
-    }
-
-    protected function ReadPropertyString(string $name): string
-    {
-        return $this->properties[$name] ?? '';
     }
 
     protected function RegisterVariableInteger(string $ident, string $name, array $presentation, int $position): bool
@@ -229,9 +233,14 @@ class IPSModuleStrict
     {
         return true;
     }
+
+    protected function SendDebug(string $message, string $data, int $format): bool
+    {
+        return true;
+    }
 }
 
-function assertArming(bool $condition, string $message): void
+function assertAlarmMemory(bool $condition, string $message): void
 {
     if (!$condition) {
         throw new RuntimeException($message);
@@ -241,24 +250,18 @@ function assertArming(bool $condition, string $message): void
 require_once dirname(__DIR__) . '/OpenHomeAlarm/module.php';
 
 /** @return array<string,mixed> */
-function armingSensor(
-    int $variableID,
-    string $triggerValue,
-    bool $enabled = true,
-    bool $armHome = false,
-    bool $armAway = false,
-    bool $armNight = false
-): array {
+function alarmMemorySensor(int $variableID, string $name, bool $entryDelay): array
+{
     return [
-        'Enabled'      => $enabled,
-        'Name'         => 'Test ' . $variableID,
+        'Enabled'      => true,
+        'Name'         => $name,
         'VariableID'   => $variableID,
         'SensorType'   => 0,
-        'TriggerValue' => $triggerValue,
-        'ArmHome'      => $armHome,
-        'ArmAway'      => $armAway,
-        'ArmNight'     => $armNight,
-        'EntryDelay'   => false
+        'TriggerValue' => 'true',
+        'ArmHome'      => false,
+        'ArmAway'      => true,
+        'ArmNight'     => false,
+        'EntryDelay'   => $entryDelay
     ];
 }
 
@@ -266,106 +269,100 @@ $instance = new OpenHomeAlarm();
 $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $instance->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$instance->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmMemorySensor(5001, 'Haustür', false)], JSON_THROW_ON_ERROR)
+);
 $instance->TestClearWrittenValues();
 
-$sensors = [
-    armingSensor(2001, 'true', armHome: true),
-    armingSensor(2002, 'true', armAway: true),
-    armingSensor(2003, 'ALARM', armNight: true),
-    armingSensor(2004, '1', enabled: false, armAway: true),
-    armingSensor(0, 'true', armAway: true)
-];
-$instance->TestSetPropertyString('Sensors', json_encode($sensors, JSON_THROW_ON_ERROR));
+assertAlarmMemory($instance->ArmAway() === true, 'Immediate alarm-memory test must arm successfully.');
 
-// An inactive Home sensor permits immediate arming in Home mode.
-assertArming($instance->ArmHome() === true, 'Home arming must succeed when all Home sensors are inactive.');
-assertArming(
-    $instance->TestWrittenValues() === [
-        'ReadyToArm' => true,
-        'Mode'       => 1,
-        'State'      => 2
-    ],
-    'Successful Home arming must select Home mode and enter the Armed state.'
-);
-
-// A triggered Away-only sensor must block Away, but must not block Home.
 global $testValues;
-$testValues[2002] = true;
+$testValues[5001] = true;
 $instance->TestClearWrittenValues();
-assertArming($instance->ArmAway() === false, 'A triggered Away sensor must block Away arming.');
-assertArming(
-    $instance->TestWrittenValues() === ['ReadyToArm' => false],
-    'A failed arming attempt must not change Mode or State.'
+$instance->MessageSink(1, 5001, VM_UPDATE, [true, true, false]);
+$written = $instance->TestWrittenValues();
+assertAlarmMemory(($written['State'] ?? null) === 4, 'Immediate trigger must enter Alarm.');
+assertAlarmMemory(($written['AlarmMemory'] ?? null) === true, 'An alarm must set AlarmMemory.');
+assertAlarmMemory(($written['LastAlarmSource'] ?? null) === 'Haustür', 'The configured sensor name must be remembered.');
+assertAlarmMemory(
+    is_string($written['LastAlarmTime'] ?? null)
+    && preg_match('/^\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}$/', $written['LastAlarmTime']) === 1,
+    'The alarm time must be stored in a readable date/time format.'
 );
 
+assertAlarmMemory($instance->ClearAlarmMemory() === false, 'Active alarms must not allow their memory to be cleared.');
 $instance->TestClearWrittenValues();
-assertArming(
-    $instance->ArmHome() === true,
-    'A sensor assigned only to Away must not block Home arming.'
+$instance->Disarm();
+assertAlarmMemory(
+    !array_key_exists('AlarmMemory', $instance->TestWrittenValues())
+    && !array_key_exists('LastAlarmSource', $instance->TestWrittenValues())
+    && !array_key_exists('LastAlarmTime', $instance->TestWrittenValues()),
+    'Disarming must preserve the alarm memory until it is acknowledged explicitly.'
 );
-assertArming(
-    ($instance->TestWrittenValues()['Mode'] ?? null) === 1
-    && ($instance->TestWrittenValues()['State'] ?? null) === 2,
-    'Mode-specific readiness must allow Home even when a different mode is globally not ready.'
-);
-
-// String trigger values are respected for target-mode readiness.
-$testValues[2002] = false;
-$testValues[2003] = 'ALARM';
 $instance->TestClearWrittenValues();
-assertArming($instance->ArmNight() === false, 'A matching String trigger must block Night arming.');
-assertArming(
-    !array_key_exists('Mode', $instance->TestWrittenValues())
-    && !array_key_exists('State', $instance->TestWrittenValues()),
-    'Blocked Night arming must preserve the operational mode and state.'
+assertAlarmMemory(
+    $instance->ClearAlarmMemory() === true,
+    'Alarm memory must be acknowledgeable after the active alarm has ended.'
 );
-
-$testValues[2003] = 'IDLE';
-$instance->TestClearWrittenValues();
-assertArming($instance->ArmNight() === true, 'Night arming must succeed after the Night sensor clears.');
-assertArming(
-    ($instance->TestWrittenValues()['Mode'] ?? null) === 3
-    && ($instance->TestWrittenValues()['State'] ?? null) === 2,
-    'Successful Night arming must enter Night/Armed.'
-);
-
-// Missing configured variables fail safe for the mode they are assigned to.
-$missingSensors = [armingSensor(9999, 'true', armAway: true)];
-$instance->TestSetPropertyString('Sensors', json_encode($missingSensors, JSON_THROW_ON_ERROR));
-$instance->TestClearWrittenValues();
-assertArming($instance->ArmAway() === false, 'A missing Away sensor variable must block Away arming.');
-assertArming(
-    $instance->TestWrittenValues() === ['ReadyToArm' => false],
-    'A missing sensor must fail safe without changing Mode or State.'
-);
-
-// Incomplete rows remain ignored, matching A3 behavior.
-$instance->TestSetPropertyString('Sensors', json_encode([armingSensor(0, 'true', armAway: true)], JSON_THROW_ON_ERROR));
-$instance->TestClearWrittenValues();
-assertArming($instance->ArmAway() === true, 'An incomplete row with VariableID 0 must not block arming.');
-assertArming(
-    ($instance->TestWrittenValues()['Mode'] ?? null) === 2
-    && ($instance->TestWrittenValues()['State'] ?? null) === 2,
-    'Away arming must succeed when only incomplete rows exist.'
-);
-
-// Disarm always returns the state machine to None/Disarmed and does not depend on sensor readiness.
-$instance->TestSetPropertyString('Sensors', '{invalid');
-$instance->TestClearWrittenValues();
-assertArming($instance->Disarm() === true, 'Disarm must report success.');
-assertArming(
+assertAlarmMemory(
     $instance->TestWrittenValues() === [
-        'State' => 0,
-        'Mode'  => 0
+        'AlarmMemory'     => false,
+        'LastAlarmSource' => '',
+        'LastAlarmTime'   => ''
     ],
-    'Disarm must clear the selected mode and enter Disarmed without evaluating sensors.'
+    'Acknowledging alarm memory must clear all displayed alarm-memory values.'
 );
 
-$armMode = new ReflectionMethod(OpenHomeAlarm::class, 'ArmMode');
-try {
-    $armMode->invoke($instance, 0);
-    throw new RuntimeException('MODE_NONE must not be accepted as an arming target.');
-} catch (InvalidArgumentException) {
-}
+// A delayed alarm must remember the sensor that started the entry delay, even after it closes again.
+$testValues[5002] = false;
+$delayed = new OpenHomeAlarm();
+$delayed->Create();
+$delayed->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$delayed->TestSetPropertyInteger('EntryDelaySeconds', 20);
+$delayed->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmMemorySensor(5002, 'Terrassentür', true)], JSON_THROW_ON_ERROR)
+);
+$delayed->TestClearWrittenValues();
+assertAlarmMemory($delayed->ArmAway() === true, 'Delayed alarm-memory test must arm successfully.');
+$testValues[5002] = true;
+$delayed->TestClearWrittenValues();
+$delayed->MessageSink(2, 5002, VM_UPDATE, [true, true, false]);
+assertAlarmMemory(
+    ($delayed->TestWrittenValues()['State'] ?? null) === 3
+    && !array_key_exists('AlarmMemory', $delayed->TestWrittenValues()),
+    'Starting entry delay must not create alarm memory before an alarm actually occurs.'
+);
 
-fwrite(STDOUT, "OpenHomeAlarm arming checks passed.\n");
+$testValues[5002] = false;
+$delayed->TestClearWrittenValues();
+$delayed->CompleteEntryDelay();
+assertAlarmMemory(
+    ($delayed->TestWrittenValues()['State'] ?? null) === 4
+    && ($delayed->TestWrittenValues()['AlarmMemory'] ?? null) === true
+    && ($delayed->TestWrittenValues()['LastAlarmSource'] ?? null) === 'Terrassentür',
+    'Entry-delay expiry must remember the sensor that originally started the delay.'
+);
+
+// A blank configured name still produces an identifiable source.
+$testValues[5001] = false;
+$fallback = new OpenHomeAlarm();
+$fallback->Create();
+$fallback->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$fallback->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$fallback->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmMemorySensor(5001, '', false)], JSON_THROW_ON_ERROR)
+);
+$fallback->TestClearWrittenValues();
+assertAlarmMemory($fallback->ArmAway() === true, 'Fallback source-name test must arm successfully.');
+$testValues[5001] = true;
+$fallback->TestClearWrittenValues();
+$fallback->MessageSink(3, 5001, VM_UPDATE, [true, true, false]);
+assertAlarmMemory(
+    ($fallback->TestWrittenValues()['LastAlarmSource'] ?? null) === 'Variable #5001',
+    'A sensor without a configured name must fall back to its variable ID.'
+);
+
+fwrite(STDOUT, "OpenHomeAlarm alarm memory checks passed.\n");

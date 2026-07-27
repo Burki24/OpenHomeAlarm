@@ -188,6 +188,11 @@ class IPSModuleStrict
         return true;
     }
 
+    protected function RegisterVariableString(string $ident, string $name, array $presentation, int $position): bool
+    {
+        return true;
+    }
+
     protected function SetValue(string $ident, mixed $value): void
     {
         $this->writtenValues[$ident] = $value;

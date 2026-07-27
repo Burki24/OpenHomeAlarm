@@ -61,12 +61,16 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
     private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
+    private const ATTRIBUTE_PENDING_ALARM_SOURCE_ID = 'PendingAlarmSourceID';
 
     private const TIMER_EXIT_DELAY = 'ExitDelay';
     private const TIMER_ENTRY_DELAY = 'EntryDelay';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
     private const IDENT_READY_TO_ARM = 'ReadyToArm';
+    private const IDENT_ALARM_MEMORY = 'AlarmMemory';
+    private const IDENT_LAST_ALARM_SOURCE = 'LastAlarmSource';
+    private const IDENT_LAST_ALARM_TIME = 'LastAlarmTime';
 
     public function Create(): void
     {
@@ -81,6 +85,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
 
         $this->RegisterTimer(
             self::TIMER_EXIT_DELAY,
@@ -128,6 +133,41 @@ class OpenHomeAlarm extends IPSModuleStrict
             ]),
             30
         );
+        $alarmMemoryCreated = $this->RegisterVariableBoolean(
+            self::IDENT_ALARM_MEMORY,
+            $this->Translate('Alarm memory'),
+            $this->OptionsPresentation([
+                [
+                    'Value'       => false,
+                    'Caption'     => $this->Translate('No alarm stored'),
+                    'IconActive'  => false,
+                    'IconValue'   => '',
+                    'ColorActive' => false,
+                    'ColorValue'  => -1
+                ],
+                [
+                    'Value'       => true,
+                    'Caption'     => $this->Translate('Alarm stored'),
+                    'IconActive'  => false,
+                    'IconValue'   => '',
+                    'ColorActive' => false,
+                    'ColorValue'  => -1
+                ]
+            ]),
+            40
+        );
+        $lastAlarmSourceCreated = $this->RegisterVariableString(
+            self::IDENT_LAST_ALARM_SOURCE,
+            $this->Translate('Last alarm source'),
+            $this->TextPresentation(),
+            50
+        );
+        $lastAlarmTimeCreated = $this->RegisterVariableString(
+            self::IDENT_LAST_ALARM_TIME,
+            $this->Translate('Last alarm time'),
+            $this->TextPresentation(),
+            60
+        );
 
         if ($modeCreated) {
             $this->SetAlarmMode(self::MODE_NONE);
@@ -137,6 +177,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         if ($readyCreated) {
             $this->SetReadyToArm(true);
+        }
+        if ($alarmMemoryCreated) {
+            $this->SetAlarmMemory(false);
+        }
+        if ($lastAlarmSourceCreated) {
+            $this->SetLastAlarmSource('');
+        }
+        if ($lastAlarmTimeCreated) {
+            $this->SetLastAlarmTime('');
         }
     }
 
@@ -279,6 +328,25 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Clears the stored alarm memory after the active alarm has ended.
+     *
+     * The memory deliberately survives disarming so the last alarm source remains
+     * visible until it is acknowledged explicitly.
+     */
+    public function ClearAlarmMemory(): bool
+    {
+        if ($this->ReadAlarmState() === self::STATE_ALARM) {
+            return false;
+        }
+
+        $this->SetAlarmMemory(false);
+        $this->SetLastAlarmSource('');
+        $this->SetLastAlarmTime('');
+
+        return true;
+    }
+
+    /**
      * Completes a running exit delay. The system is armed only if the selected
      * mode is still ready at the end of the countdown.
      */
@@ -313,13 +381,17 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function CompleteEntryDelay(): void
     {
+        $pendingSourceID = $this->ReadAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID);
         $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
 
         if ($this->ReadAlarmState() !== self::STATE_ENTRY_DELAY) {
+            $this->ClearPendingAlarmSource();
+
             return;
         }
 
-        $this->EnterAlarmState();
+        $sourceSensor = $this->FindAlarmSourceSensor($pendingSourceID, $this->ReadConfiguredSensors());
+        $this->EnterAlarmState($sourceSensor, $pendingSourceID);
     }
 
     /**
@@ -1372,7 +1444,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $startEntryDelay = false;
+        $entryDelaySensor = null;
         foreach ($sensors as $sensor) {
             if (
                 !$sensor['Enabled']
@@ -1388,25 +1460,26 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
 
             if ($triggered === null || !$sensor['EntryDelay']) {
-                $this->EnterAlarmState();
+                $this->EnterAlarmState($sensor, $sensor['VariableID']);
 
                 return;
             }
 
-            $startEntryDelay = true;
+            $entryDelaySensor ??= $sensor;
         }
 
-        if (!$startEntryDelay || $state === self::STATE_ENTRY_DELAY) {
+        if ($entryDelaySensor === null || $state === self::STATE_ENTRY_DELAY) {
             return;
         }
 
         $entryDelaySeconds = $this->ReadDelaySeconds(self::PROPERTY_ENTRY_DELAY_SECONDS);
         if ($entryDelaySeconds === 0) {
-            $this->EnterAlarmState();
+            $this->EnterAlarmState($entryDelaySensor, $entryDelaySensor['VariableID']);
 
             return;
         }
 
+        $this->WriteAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, $entryDelaySensor['VariableID']);
         $this->SetAlarmState(self::STATE_ENTRY_DELAY);
         $this->StartDelayTimer(
             self::TIMER_ENTRY_DELAY,
@@ -1415,15 +1488,107 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
     }
 
-    private function EnterAlarmState(): void
+    /**
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }|null $sourceSensor
+     */
+    private function EnterAlarmState(?array $sourceSensor = null, int $fallbackVariableID = 0): void
     {
         if ($this->ReadAlarmState() === self::STATE_ALARM) {
             return;
         }
 
+        $this->RememberAlarm($sourceSensor, $fallbackVariableID);
         $this->CancelDelayTimers();
         $this->SetAlarmState(self::STATE_ALARM);
         $this->RunConfiguredAction(self::PROPERTY_ALARM_ACTION);
+    }
+
+    /**
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }|null $sourceSensor
+     */
+    private function RememberAlarm(?array $sourceSensor, int $fallbackVariableID): void
+    {
+        $timestamp = time();
+        $sourceName = '';
+        if ($sourceSensor !== null) {
+            $sourceName = trim($sourceSensor['Name']);
+            $fallbackVariableID = $sourceSensor['VariableID'];
+        }
+        if ($sourceName === '' && $fallbackVariableID > 0) {
+            $sourceName = sprintf($this->Translate('Variable #%d'), $fallbackVariableID);
+        }
+        if ($sourceName === '') {
+            $sourceName = $this->Translate('Unknown trigger');
+        }
+
+        $this->SetAlarmMemory(true);
+        $this->SetLastAlarmSource($sourceName);
+        $this->SetLastAlarmTime(date('d.m.Y H:i:s', $timestamp));
+    }
+
+    /**
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     *
+     * @return array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }|null
+     */
+    private function FindAlarmSourceSensor(int $variableID, array $sensors): ?array
+    {
+        if ($variableID <= 0) {
+            return null;
+        }
+
+        $mode = $this->ReadAlarmMode();
+        foreach ($sensors as $sensor) {
+            if (
+                $sensor['Enabled']
+                && $sensor['VariableID'] === $variableID
+                && $this->IsSensorRelevantForMode($sensor, $mode)
+            ) {
+                return $sensor;
+            }
+        }
+
+        return null;
     }
 
     private function RunConfiguredAction(string $propertyName): bool
@@ -1511,6 +1676,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
         $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
+        $this->ClearPendingAlarmSource();
+    }
+
+    private function ClearPendingAlarmSource(): void
+    {
+        $this->WriteAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
     }
 
     /**
@@ -1592,5 +1763,20 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function SetReadyToArm(bool $ready): void
     {
         $this->SetValue(self::IDENT_READY_TO_ARM, $ready);
+    }
+
+    private function SetAlarmMemory(bool $active): void
+    {
+        $this->SetValue(self::IDENT_ALARM_MEMORY, $active);
+    }
+
+    private function SetLastAlarmSource(string $source): void
+    {
+        $this->SetValue(self::IDENT_LAST_ALARM_SOURCE, $source);
+    }
+
+    private function SetLastAlarmTime(string $time): void
+    {
+        $this->SetValue(self::IDENT_LAST_ALARM_TIME, $time);
     }
 }

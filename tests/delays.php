@@ -203,6 +203,11 @@ class IPSModuleStrict
         return true;
     }
 
+    protected function RegisterVariableString(string $ident, string $name, array $presentation, int $position): bool
+    {
+        return true;
+    }
+
     protected function SetValue(string $ident, mixed $value): void
     {
         $this->writtenValues[$ident] = $value;
@@ -412,7 +417,7 @@ assertDelay(
     'Disarm must cancel all delay timers.'
 );
 
-// Entry-delay expiry changes only the internal state; external alarm actions are not part of A5.
+// Entry-delay expiry enters Alarm and records the sensor that started the countdown.
 $testValues[3001] = false;
 $testValues[3002] = false;
 $instance->TestClearWrittenValues();
@@ -423,8 +428,10 @@ $instance->MessageSink(6, 3001, VM_UPDATE, [true, true, false]);
 $instance->TestClearWrittenValues();
 $instance->CompleteEntryDelay();
 assertDelay(
-    $instance->TestWrittenValues() === ['State' => 4],
-    'Entry-delay expiry must enter the internal Alarm state.'
+    ($instance->TestWrittenValues()['State'] ?? null) === 4
+    && ($instance->TestWrittenValues()['AlarmMemory'] ?? null) === true
+    && ($instance->TestWrittenValues()['LastAlarmSource'] ?? null) === 'Test 3001',
+    'Entry-delay expiry must enter Alarm and remember its source.'
 );
 
 // A zero duration disables the corresponding delay.

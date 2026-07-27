@@ -121,6 +121,18 @@ class IPSModuleStrict
         return true;
     }
 
+    protected function RegisterVariableString(string $ident, string $name, array $presentation, int $position): bool
+    {
+        $this->registeredVariables[$ident] = [
+            'type'         => 'string',
+            'name'         => $name,
+            'presentation' => $presentation,
+            'position'     => $position
+        ];
+
+        return true;
+    }
+
     protected function SetValue(string $ident, mixed $value): void
     {
         $this->writtenValues[$ident] = $value;
@@ -302,8 +314,15 @@ assertSensorModel(
     'Sensors property must default to an empty JSON list.'
 );
 assertSensorModel(
-    array_keys($instance->TestRegisteredVariables()) === ['Mode', 'State', 'ReadyToArm'],
-    'A2 must not add operational status variables.'
+    array_keys($instance->TestRegisteredVariables()) === [
+        'Mode',
+        'State',
+        'ReadyToArm',
+        'AlarmMemory',
+        'LastAlarmSource',
+        'LastAlarmTime'
+    ],
+    'The sensor model must keep the expected module status variables.'
 );
 
 $configuredSensors = [
