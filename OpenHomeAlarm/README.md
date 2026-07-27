@@ -19,7 +19,7 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage sowie ein herstellerunabhängiges Sensor-/Trigger-Datenmodell bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
-Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich werden Sensortyp, Auslösewert und die spätere Nutzung einer Eingangsverzögerung gespeichert.
+Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich werden Sensortyp, Auslösewert und die spätere Nutzung einer Eingangsverzögerung gespeichert. Der Auslösewert wird passend zur ausgewählten Symcon-Variable über deren Wertauswahl festgelegt.
 
 Die aktive Sensorauswertung, Scharfschalt-, Alarm- und Code-Logik wird in den folgenden Entwicklungsschritten ergänzt.
 
@@ -59,11 +59,13 @@ Jeder konfigurierte Eintrag enthält folgende Daten:
 | `Name` | Frei wählbare Bezeichnung |
 | `VariableID` | ID der verwendeten Symcon-Variable |
 | `SensorType` | Öffnungskontakt, Bewegungsmelder, Glasbruch-, Rauch- oder Wassermelder, Panikauslöser oder sonstiger Auslöser |
-| `TriggerValue` | Wert, bei dem der Eintrag später als ausgelöst gilt; als Text gespeichert |
+| `TriggerValue` | Rohwert, bei dem der Eintrag später als ausgelöst gilt; die Auswahl richtet sich nach Typ und Darstellung der gewählten Symcon-Variable |
 | `ArmHome` | Im Scharfmodus Zuhause relevant |
 | `ArmAway` | Im Scharfmodus Abwesend relevant |
 | `ArmNight` | Im Scharfmodus Nacht relevant |
 | `EntryDelay` | Soll später eine Eingangsverzögerung statt eines unmittelbaren Alarms starten |
+
+Beim Bearbeiten eines Eintrags stellt Symcon den Auslösewert passend zur ausgewählten Variable dar. Aufzählungen und Schaltzustände erscheinen dadurch mit ihren lesbaren Bezeichnungen statt nur als interne Zahlenwerte. Intern bleibt der Rohwert erhalten.
 
 Dieser Entwicklungsschritt speichert und validiert das Datenmodell. Es werden noch keine Variablen-Nachrichten registriert und Änderungen an den ausgewählten Sensorvariablen lösen noch keinen Alarm aus.
 

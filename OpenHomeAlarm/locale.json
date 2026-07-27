@@ -29,7 +29,8 @@
             "Water detector": "Wassermelder",
             "Panic trigger": "Panikauslöser",
             "Other trigger": "Sonstiger Auslöser",
-            "The trigger value is stored as text. Type-aware evaluation is added with the sensor evaluation logic.": "Der Auslösewert wird als Text gespeichert. Die typgerechte Auswertung wird mit der Sensorauswertung ergänzt."
+            "Select a variable to choose its trigger value.": "Wählen Sie zuerst eine Variable aus, um den Auslösewert festzulegen.",
+            "The trigger value selector follows the selected Symcon variable and stores its raw value.": "Die Auswahl des Auslösewertes richtet sich nach der gewählten Symcon-Variable und speichert deren Rohwert."
         }
     }
 }

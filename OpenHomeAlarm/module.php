@@ -124,6 +124,92 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Builds the individual editor for one sensor list entry.
+     *
+     * @param array<string,mixed> $sensor Current list row supplied by the Symcon configuration form.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function GetSensorEditForm(array $sensor): array
+    {
+        $variableID = $this->ReadSensorInteger($sensor, 'VariableID', 0);
+        $hasVariable = $this->IsExistingVariable($variableID);
+
+        return [
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'Enabled',
+                'caption' => $this->Translate('Enabled')
+            ],
+            [
+                'type'    => 'ValidationTextBox',
+                'name'    => 'Name',
+                'caption' => $this->Translate('Name')
+            ],
+            [
+                'type'     => 'SelectVariable',
+                'name'     => 'VariableID',
+                'caption'  => $this->Translate('Variable'),
+                'onChange' => 'OHA_UpdateSensorTriggerValueForm($id, $VariableID);'
+            ],
+            [
+                'type'    => 'Select',
+                'name'    => 'SensorType',
+                'caption' => $this->Translate('Sensor type'),
+                'options' => $this->CreateSensorTypeOptions()
+            ],
+            [
+                'type'       => 'SelectValue',
+                'name'       => 'TriggerValue',
+                'caption'    => $this->Translate('Trigger value'),
+                'variableID' => $hasVariable ? $variableID : 1,
+                'visible'    => $hasVariable
+            ],
+            [
+                'type'    => 'Label',
+                'name'    => 'TriggerValueHint',
+                'caption' => $this->Translate('Select a variable to choose its trigger value.'),
+                'visible' => !$hasVariable
+            ],
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'ArmHome',
+                'caption' => $this->Translate('Home')
+            ],
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'ArmAway',
+                'caption' => $this->Translate('Away')
+            ],
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'ArmNight',
+                'caption' => $this->Translate('Night')
+            ],
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'EntryDelay',
+                'caption' => $this->Translate('Entry delay')
+            ]
+        ];
+    }
+
+    /**
+     * Rebinds the trigger-value selector when another Symcon variable is chosen in the sensor editor.
+     */
+    public function UpdateSensorTriggerValueForm(int $variableID): void
+    {
+        $hasVariable = $this->IsExistingVariable($variableID);
+
+        if ($hasVariable) {
+            $this->UpdateFormField('TriggerValue', 'variableID', $variableID);
+        }
+
+        $this->UpdateFormField('TriggerValue', 'visible', $hasVariable);
+        $this->UpdateFormField('TriggerValueHint', 'visible', !$hasVariable);
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function CreateModePresentation(): array
@@ -180,6 +266,27 @@ class OpenHomeAlarm extends IPSModuleStrict
             'ColorActive'      => false,
             'ColorValue'       => -1
         ];
+    }
+
+    /**
+     * @return list<array{caption:string,value:int}>
+     */
+    private function CreateSensorTypeOptions(): array
+    {
+        return [
+            ['caption' => $this->Translate('Opening contact'), 'value' => self::SENSOR_TYPE_OPENING],
+            ['caption' => $this->Translate('Motion detector'), 'value' => self::SENSOR_TYPE_MOTION],
+            ['caption' => $this->Translate('Glass break detector'), 'value' => self::SENSOR_TYPE_GLASS_BREAK],
+            ['caption' => $this->Translate('Smoke detector'), 'value' => self::SENSOR_TYPE_SMOKE],
+            ['caption' => $this->Translate('Water detector'), 'value' => self::SENSOR_TYPE_WATER],
+            ['caption' => $this->Translate('Panic trigger'), 'value' => self::SENSOR_TYPE_PANIC],
+            ['caption' => $this->Translate('Other trigger'), 'value' => self::SENSOR_TYPE_OTHER]
+        ];
+    }
+
+    private function IsExistingVariable(int $variableID): bool
+    {
+        return $variableID > 0 && IPS_VariableExists($variableID);
     }
 
     /**

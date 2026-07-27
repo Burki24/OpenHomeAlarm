@@ -15,6 +15,9 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $writtenValues = [];
 
+    /** @var list<array{field:string,parameter:string,value:mixed}> */
+    private array $formUpdates = [];
+
     public function Create(): void
     {
     }
@@ -47,6 +50,17 @@ class IPSModuleStrict
     public function TestWrittenValues(): array
     {
         return $this->writtenValues;
+    }
+
+    /** @return list<array{field:string,parameter:string,value:mixed}> */
+    public function TestFormUpdates(): array
+    {
+        return $this->formUpdates;
+    }
+
+    public function TestClearFormUpdates(): void
+    {
+        $this->formUpdates = [];
     }
 
     protected function RegisterPropertyString(string $name, string $default): void
@@ -94,6 +108,32 @@ class IPSModuleStrict
     {
         return $text;
     }
+
+    protected function UpdateFormField(string $field, string $parameter, mixed $value): bool
+    {
+        $this->formUpdates[] = [
+            'field'     => $field,
+            'parameter' => $parameter,
+            'value'     => $value
+        ];
+
+        return true;
+    }
+}
+
+/** @var array<int,bool> */
+$testVariables = [
+    12345 => true,
+    23456 => true,
+    34567 => true,
+    45678 => true
+];
+
+function IPS_VariableExists(int $variableID): bool
+{
+    global $testVariables;
+
+    return $testVariables[$variableID] ?? false;
 }
 
 function assertSensorModel(bool $condition, string $message): void
@@ -257,6 +297,88 @@ assertSensorModel(($columns['ArmAway']['add'] ?? null) === true, 'New sensors mu
 assertSensorModel(($columns['ArmNight']['add'] ?? null) === false, 'New sensors must not be active in Night by default.');
 assertSensorModel(($columns['EntryDelay']['add'] ?? null) === false, 'New sensors must not use entry delay by default.');
 
+assertSensorModel(
+    ($list['form'][0] ?? null) === 'return OHA_GetSensorEditForm($id, $Sensors);',
+    'Sensors list must use the dynamic individual edit form.'
+);
+
+$editForm = $instance->GetSensorEditForm([
+    'VariableID' => 12345
+]);
+$editFields = [];
+foreach ($editForm as $field) {
+    if (isset($field['name'])) {
+        $editFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($editFields['VariableID']['type'] ?? null) === 'SelectVariable',
+    'Sensor editor must use SelectVariable for VariableID.'
+);
+assertSensorModel(
+    ($editFields['VariableID']['onChange'] ?? null) === 'OHA_UpdateSensorTriggerValueForm($id, $VariableID);',
+    'Changing the sensor variable must refresh the trigger-value selector.'
+);
+assertSensorModel(
+    ($editFields['TriggerValue']['type'] ?? null) === 'SelectValue',
+    'TriggerValue must use Symcon SelectValue in the sensor editor.'
+);
+assertSensorModel(
+    ($editFields['TriggerValue']['variableID'] ?? null) === 12345,
+    'TriggerValue must be bound to the selected Symcon variable.'
+);
+assertSensorModel(
+    ($editFields['TriggerValue']['visible'] ?? null) === true,
+    'TriggerValue selector must be visible for an existing variable.'
+);
+assertSensorModel(
+    ($editFields['TriggerValueHint']['visible'] ?? null) === false,
+    'Trigger-value hint must be hidden for an existing variable.'
+);
+assertSensorModel(
+    array_column($editFields['SensorType']['options'] ?? [], 'value') === [0, 1, 2, 3, 4, 5, 6],
+    'Dynamic sensor editor must expose all stable sensor types.'
+);
+
+$emptyEditForm = $instance->GetSensorEditForm([
+    'VariableID' => 0
+]);
+$emptyEditFields = [];
+foreach ($emptyEditForm as $field) {
+    if (isset($field['name'])) {
+        $emptyEditFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($emptyEditFields['TriggerValue']['visible'] ?? null) === false,
+    'TriggerValue selector must stay hidden until a variable is selected.'
+);
+assertSensorModel(
+    ($emptyEditFields['TriggerValueHint']['visible'] ?? null) === true,
+    'Trigger-value hint must be shown until a variable is selected.'
+);
+
+$instance->TestClearFormUpdates();
+$instance->UpdateSensorTriggerValueForm(23456);
+assertSensorModel(
+    $instance->TestFormUpdates() === [
+        ['field' => 'TriggerValue', 'parameter' => 'variableID', 'value' => 23456],
+        ['field' => 'TriggerValue', 'parameter' => 'visible', 'value' => true],
+        ['field' => 'TriggerValueHint', 'parameter' => 'visible', 'value' => false]
+    ],
+    'Selecting an existing variable must rebind and show the trigger-value selector.'
+);
+
+$instance->TestClearFormUpdates();
+$instance->UpdateSensorTriggerValueForm(99999);
+assertSensorModel(
+    $instance->TestFormUpdates() === [
+        ['field' => 'TriggerValue', 'parameter' => 'visible', 'value' => false],
+        ['field' => 'TriggerValueHint', 'parameter' => 'visible', 'value' => true]
+    ],
+    'Selecting an invalid variable must hide the trigger-value selector.'
+);
+
 $locale = json_decode(
     (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/locale.json'),
     true,
@@ -277,7 +399,8 @@ foreach ([
     'Water detector',
     'Panic trigger',
     'Other trigger',
-    'The trigger value is stored as text. Type-aware evaluation is added with the sensor evaluation logic.'
+    'Select a variable to choose its trigger value.',
+    'The trigger value selector follows the selected Symcon variable and stores its raw value.'
 ] as $translationKey) {
     assertSensorModel(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }

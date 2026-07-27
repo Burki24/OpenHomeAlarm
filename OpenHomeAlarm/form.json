@@ -123,11 +123,14 @@
                         "type": "CheckBox"
                     }
                 }
+            ],
+            "form": [
+                "return OHA_GetSensorEditForm($id, $Sensors);"
             ]
         },
         {
             "type": "Label",
-            "caption": "The trigger value is stored as text. Type-aware evaluation is added with the sensor evaluation logic."
+            "caption": "The trigger value selector follows the selected Symcon variable and stores its raw value."
         }
     ],
     "actions": [],
