@@ -95,3 +95,9 @@ jobs:
 
       - name: Check stable public control API
         run: php tests/control-api.php
+
+      - name: Check HTML-SDK visualization foundation
+        run: php tests/visualization.php
+
+      - name: Check visualization JavaScript syntax
+        run: node --check OpenHomeAlarm/visualization/app.js

@@ -5,12 +5,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
 require_once __DIR__ . '/../libs/helper/PersistentJsonCacheHelper.php';
 require_once __DIR__ . '/../libs/helper/VariablePresentationHelper.php';
+require_once __DIR__ . '/../libs/helper/VisualizationAssetHelper.php';
 
 class OpenHomeAlarm extends IPSModuleStrict
 {
     use \Burki24\SymconModuleHelper\ConfigurationFormHelper;
     use \Burki24\SymconModuleHelper\PersistentJsonCacheHelper;
     use \Burki24\SymconModuleHelper\VariablePresentationHelper;
+    use \Burki24\SymconModuleHelper\VisualizationAssetHelper;
 
     private const CONTROL_API_VERSION = 1;
 
@@ -140,6 +142,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function Create(): void
     {
         parent::Create();
+
+        $this->SetVisualizationType(1);
 
         $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
         $this->RegisterPropertyString(self::PROPERTY_FAULT_INPUTS, '[]');
@@ -446,6 +450,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RestoreDelayTimers();
         $this->EvaluateArmedSensorsAfterApplyChanges($sensors);
         $this->RestoreAlarmDurationTimer();
+        $this->PublishVisualizationState();
     }
 
     public function GetConfigurationForm(): string
@@ -457,6 +462,70 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $this->EncodeConfigurationForm($form);
+    }
+
+    /**
+     * Returns the initial HTML-SDK visualization tile.
+     *
+     * Static HTML, CSS and JavaScript live in the module's visualization
+     * directory and are loaded through the shared VisualizationAssetHelper.
+     */
+    public function GetVisualizationTile(): string
+    {
+        $template = $this->VisualizationAsset('index.html');
+        if ($template === '') {
+            return '';
+        }
+
+        $initialState = json_encode(
+            json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR),
+            JSON_THROW_ON_ERROR
+            | JSON_HEX_TAG
+            | JSON_HEX_AMP
+            | JSON_HEX_APOS
+            | JSON_HEX_QUOT
+            | JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_SLASHES
+        );
+
+        return str_replace(
+            ['{{OHA_STYLE}}', '{{OHA_SCRIPT}}', '{{OHA_INITIAL_STATE}}'],
+            [
+                $this->VisualizationAsset('style.css'),
+                $this->VisualizationAsset('app.js'),
+                $initialState
+            ],
+            $template
+        );
+    }
+
+    /**
+     * Handles commands sent by the HTML-SDK visualization.
+     *
+     * The visualization deliberately uses the same public control methods as
+     * external automations so no alarm logic is duplicated in JavaScript.
+     */
+    public function RequestAction(string $Ident, mixed $Value): void
+    {
+        switch ($Ident) {
+            case 'Arm':
+                if (!is_string($Value)) {
+                    throw new InvalidArgumentException('Arm action requires a mode string.');
+                }
+                $this->Arm($Value);
+                break;
+
+            case 'Disarm':
+                $this->DisarmWithCode('');
+                break;
+
+            case 'RefreshVisualization':
+                $this->PublishVisualizationState();
+                break;
+
+            default:
+                throw new InvalidArgumentException('Unknown visualization action.');
+        }
     }
 
     /**
@@ -540,10 +609,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         };
 
         if ($modeValue === null) {
+            $this->PublishVisualizationState();
+
             return false;
         }
 
-        return $this->ArmMode($modeValue);
+        $result = $this->ArmMode($modeValue);
+        $this->PublishVisualizationState();
+
+        return $result;
     }
 
     /**
@@ -572,13 +646,18 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         $this->UpdateReadinessFromSensors($sensors);
         if ($this->ReadAlarmState() === self::STATE_ALARM || !$isSensorVariable) {
+            $this->PublishVisualizationState();
+
             return;
         }
         if ($this->HandleAlwaysActiveSensorUpdate($SenderID, $sensors)) {
+            $this->PublishVisualizationState();
+
             return;
         }
 
         $this->HandleSensorUpdateWhileArmed($SenderID, $sensors);
+        $this->PublishVisualizationState();
     }
 
     /**
@@ -635,6 +714,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($hadActiveState) {
             $this->AppendEvent(self::EVENT_DISARMED);
         }
+
+        $this->PublishVisualizationState();
 
         return true;
     }
@@ -709,6 +790,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::EVENT_SENSOR_BYPASSED,
             $this->ResolveSensorNameByVariableID($variableID, $sensors)
         );
+        $this->PublishVisualizationState();
 
         return true;
     }
@@ -741,6 +823,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::EVENT_SENSOR_BYPASS_REMOVED,
             $this->ResolveSensorNameByVariableID($variableID, $sensors)
         );
+        $this->PublishVisualizationState();
 
         return true;
     }
@@ -759,6 +842,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($hadBypasses) {
             $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED);
         }
+        $this->PublishVisualizationState();
 
         return true;
     }
@@ -782,6 +866,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($hadAlarmMemory) {
             $this->AppendEvent(self::EVENT_ALARM_MEMORY_CLEARED);
         }
+        $this->PublishVisualizationState();
 
         return true;
     }
@@ -827,6 +912,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $actionSucceeded = $this->RunConfiguredAction(self::PROPERTY_ALARM_RESET_ACTION);
         $this->SetAlarmOutputActive(false);
         $this->AppendEvent(self::EVENT_ALARM_OUTPUT_RESET);
+        $this->PublishVisualizationState();
 
         return $actionSucceeded;
     }
@@ -864,6 +950,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         if ($this->ReadAlarmState() !== self::STATE_EXIT_DELAY) {
             $this->ClearDelayStatus();
+            $this->PublishVisualizationState();
 
             return;
         }
@@ -896,6 +983,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->ClearDelayStatus();
         $this->SetAlarmState(self::STATE_ARMED);
         $this->AppendEvent(self::EVENT_ARMED);
+        $this->PublishVisualizationState();
     }
 
     /**
@@ -909,6 +997,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($this->ReadAlarmState() !== self::STATE_ENTRY_DELAY) {
             $this->ClearPendingAlarmSource();
             $this->ClearDelayStatus();
+            $this->PublishVisualizationState();
 
             return;
         }
@@ -935,6 +1024,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         if ($deadline <= 0) {
             $this->ClearDelayStatus();
+            $this->PublishVisualizationState();
 
             return;
         }
@@ -942,6 +1032,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $remainingSeconds = max(0, $deadline - time());
         $this->SetDelayRemaining($remainingSeconds);
         $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $remainingSeconds > 0 ? 1000 : 0);
+        $this->PublishVisualizationState();
     }
 
     /**
@@ -1261,6 +1352,22 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
         unset($element);
+    }
+
+    /**
+     * Pushes the complete control state to every active HTML-SDK visualization.
+     *
+     * Visualization delivery must never influence the alarm state machine. Any
+     * unexpected visualization error is therefore limited to a debug message.
+     */
+    private function PublishVisualizationState(): void
+    {
+        try {
+            $state = json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+            $this->UpdateVisualizationValue($state);
+        } catch (Throwable $exception) {
+            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
+        }
     }
 
     private function ControlModeName(int $mode): string
@@ -3509,6 +3616,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->ResolveAlarmEventSource($sourceSensor, $fallbackVariableID, $explicitSourceName)
         );
         $this->RunConfiguredAction(self::PROPERTY_ALARM_ACTION);
+        $this->PublishVisualizationState();
     }
 
     /**

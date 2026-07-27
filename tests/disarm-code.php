@@ -60,6 +60,16 @@ class IPSModuleStrict
         return $this->debugMessages;
     }
 
+    protected function SetVisualizationType(int $type): bool
+    {
+        return true;
+    }
+
+    protected function UpdateVisualizationValue(mixed $data): bool
+    {
+        return true;
+    }
+
     protected function RegisterPropertyString(string $name, string $default): void
     {
         if (!array_key_exists($name, $this->properties)) {

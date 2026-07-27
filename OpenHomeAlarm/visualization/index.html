@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/icons.js"></script>
+    <style>{{OHA_STYLE}}</style>
+</head>
+<body>
+    <main class="oha-shell" id="ohaRoot">
+        <header class="oha-header">
+            <div>
+                <div class="oha-kicker">OpenHomeAlarm</div>
+                <div class="oha-state-row">
+                    <strong class="oha-state" id="stateLabel">State</strong>
+                    <span class="oha-mode" id="modeLabel">Mode</span>
+                </div>
+            </div>
+            <button class="oha-icon-button" id="refreshButton" type="button" aria-label="Refresh">
+                <i class="fa-light fa-arrows-rotate" aria-hidden="true"></i>
+            </button>
+        </header>
+
+        <section class="oha-notice oha-delay" id="delayPanel" hidden>
+            <i class="fa-light fa-timer" aria-hidden="true"></i>
+            <div>
+                <strong id="delayTitle">Delay</strong>
+                <div class="oha-notice-detail" id="delayDetail"></div>
+            </div>
+            <div class="oha-countdown" id="delayRemaining">0 s</div>
+        </section>
+
+        <section class="oha-notice oha-alarm" id="alarmPanel" hidden>
+            <i class="fa-light fa-bell" aria-hidden="true"></i>
+            <div>
+                <strong id="alarmTitle">Alarm</strong>
+                <div class="oha-notice-detail" id="alarmDetail"></div>
+            </div>
+        </section>
+
+        <section class="oha-notice oha-fault" id="faultPanel" hidden>
+            <i class="fa-light fa-triangle-exclamation" aria-hidden="true"></i>
+            <div>
+                <strong>System fault</strong>
+                <div class="oha-notice-detail" id="faultDetail"></div>
+            </div>
+        </section>
+
+        <section class="oha-section">
+            <div class="oha-section-heading">
+                <h2>Arming modes</h2>
+                <span class="oha-section-hint">Select a ready mode to arm</span>
+            </div>
+            <div class="oha-mode-grid">
+                <article class="oha-mode-card" data-mode="home">
+                    <div class="oha-mode-card-title">
+                        <i class="fa-light fa-house" aria-hidden="true"></i>
+                        <span>Home</span>
+                    </div>
+                    <div class="oha-readiness" data-role="readiness">Not ready</div>
+                    <div class="oha-blockers" data-role="blockers"></div>
+                    <button class="oha-primary-button" data-action="arm" data-mode="home" type="button">Arm Home</button>
+                </article>
+
+                <article class="oha-mode-card" data-mode="away">
+                    <div class="oha-mode-card-title">
+                        <i class="fa-light fa-person-walking-arrow-right" aria-hidden="true"></i>
+                        <span>Away</span>
+                    </div>
+                    <div class="oha-readiness" data-role="readiness">Not ready</div>
+                    <div class="oha-blockers" data-role="blockers"></div>
+                    <button class="oha-primary-button" data-action="arm" data-mode="away" type="button">Arm Away</button>
+                </article>
+
+                <article class="oha-mode-card" data-mode="night">
+                    <div class="oha-mode-card-title">
+                        <i class="fa-light fa-moon" aria-hidden="true"></i>
+                        <span>Night</span>
+                    </div>
+                    <div class="oha-readiness" data-role="readiness">Not ready</div>
+                    <div class="oha-blockers" data-role="blockers"></div>
+                    <button class="oha-primary-button" data-action="arm" data-mode="night" type="button">Arm Night</button>
+                </article>
+            </div>
+        </section>
+
+        <section class="oha-footer-actions">
+            <button class="oha-secondary-button" id="disarmButton" type="button">
+                <i class="fa-light fa-lock-open" aria-hidden="true"></i>
+                <span id="disarmButtonLabel">Disarm</span>
+            </button>
+            <div class="oha-code-hint" id="codeHint" hidden>Code required for disarming</div>
+        </section>
+    </main>
+
+    <script>
+        window.OHA_INITIAL_STATE = {{OHA_INITIAL_STATE}};
+    </script>
+    <script>{{OHA_SCRIPT}}</script>
+</body>
+</html>

@@ -99,7 +99,27 @@
             "Active faults": "Aktive Störungen",
             "Blocking faults": "Blockierende Störungen",
             "Last fault source": "Letzte Störungsquelle",
-            "Last fault time": "Letzter Störungszeitpunkt"
+            "Last fault time": "Letzter Störungszeitpunkt",
+            "Refresh": "Aktualisieren",
+            "Arming modes": "Scharfmodi",
+            "Select a ready mode to arm": "Wählen Sie einen bereiten Modus zum Scharfschalten",
+            "Arm Home": "Zuhause scharfschalten",
+            "Arm Away": "Abwesend scharfschalten",
+            "Arm Night": "Nacht scharfschalten",
+            "Arm": "Scharfschalten",
+            "No blocking sensors": "Keine blockierenden Sensoren",
+            "Triggered": "Ausgelöst",
+            "Unavailable": "Nicht verfügbar",
+            "Active": "Aktiv",
+            "Source": "Auslöser",
+            "Waiting for arming": "Scharfschaltung wird vorbereitet",
+            "Alarm active": "Alarm aktiv",
+            "Disarm": "Unscharf schalten",
+            "Disarm with code": "Mit Code unscharf schalten",
+            "Code required for disarming": "Zum Unscharfschalten ist ein Code erforderlich",
+            "Unknown state": "Unbekannter Status",
+            "Unknown mode": "Unbekannter Modus",
+            "Delay": "Verzögerung"
         }
     }
 }

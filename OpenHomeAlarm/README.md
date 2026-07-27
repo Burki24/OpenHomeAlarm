@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status und konfigurierbarem Ausgangsweg, konfigurierbare Alarmaktionen mit Alarmdauer und Rücksetzung des Alarmausgangs, eine 24/7-Systemüberwachung für Manipulation und technische Störungen, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll sowie eine stabile öffentliche Bedien-API für die spätere Visualisierung sind implementiert. Die eigene Visualisierung folgt schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status und konfigurierbarem Ausgangsweg, konfigurierbare Alarmaktionen mit Alarmdauer und Rücksetzung des Alarmausgangs, eine 24/7-Systemüberwachung für Manipulation und technische Störungen, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll sowie eine stabile öffentliche Bedien-API sowie die erste HTML-SDK-Visualisierung mit Live-Status und Scharfmodus-Auswahl sind implementiert. Codepad, Sensorüberbrückung und weitere Bedienfunktionen werden schrittweise ergänzt.
 
 ### Inhaltsverzeichnis
 
@@ -157,9 +157,13 @@ Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, Start der Ei
 
 ### 12. Visualisierung
 
-Eine eigene Visualisierung mit Code-Eingabe zum Unscharfschalten wird in einem späteren Entwicklungsschritt umgesetzt. Die dafür vorgesehene öffentliche Bedien-API ist bereits festgelegt: `OHA_GetControlState($InstanzID)` liefert einen versionierten JSON-Snapshot mit Modus, Zustand, verfügbaren Bedienmöglichkeiten, Scharfschaltbereitschaft, strukturierten Blockierern samt Variablen-ID, temporären Überbrückungen, Verzögerungsstatus, Alarmgedächtnis und Systemstörungen. Die Visualisierung muss damit keine Alarmregeln nachbauen.
+OpenHomeAlarm besitzt jetzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Die Kachel zeigt den aktuellen Systemzustand, Scharfmodus, laufende Ein-/Ausgangsverzögerungen mit Countdown, Alarmgedächtnis, aktive Systemstörungen sowie die Bereitschaft und aktuellen Blockierer für **Zuhause**, **Abwesend** und **Nacht**.
 
-Scharfschalten erfolgt über `OHA_Arm($InstanzID, 'home'|'away'|'night')`. Für das Unscharfschalten verwendet die benutzerseitige Oberfläche ausschließlich `OHA_DisarmWithCode($InstanzID, $Code)`; ob ein Codepad notwendig ist, steht in `Capabilities.CodeRequired`. Sensorüberbrückungen, Alarmquittierung und Rücksetzung des Alarmausgangs verwenden die bereits vorhandenen öffentlichen Befehle.
+Bereite Modi können direkt aus der Kachel scharfgeschaltet werden. Ist kein Unscharfschaltcode konfiguriert, kann auch direkt unscharf geschaltet werden. Bei aktivem Code-Schutz zeigt die Kachel bereits an, dass ein Code erforderlich ist; das eigentliche Bildschirm-Codepad folgt im nächsten Visualisierungsschritt.
+
+Die Darstellung verwendet für die Kommunikation ausschließlich das passwortgeschützte HTML-SDK: Benutzeraktionen werden über `requestAction()` an `RequestAction()` des Moduls gesendet, während Statusänderungen über `UpdateVisualizationValue()` live an geöffnete Kacheln übertragen werden. Die statischen Dateien liegen unter `OpenHomeAlarm/visualization/` und werden über den zentralen `VisualizationAssetHelper` geladen.
+
+Statusquelle bleibt unverändert die öffentliche Bedien-API: `OHA_GetControlState($InstanzID)` liefert einen versionierten JSON-Snapshot mit Modus, Zustand, verfügbaren Bedienmöglichkeiten, Scharfschaltbereitschaft, strukturierten Blockierern samt Variablen-ID, temporären Überbrückungen, Verzögerungsstatus, Alarmgedächtnis und Systemstörungen. Die Visualisierung bildet keine Alarmregeln nach.
 
 Die im Snapshot enthaltene `ApiVersion` beginnt mit `1`. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
 

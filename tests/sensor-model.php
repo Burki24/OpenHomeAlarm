@@ -66,6 +66,20 @@ class IPSModuleStrict
         $this->formUpdates = [];
     }
 
+    protected function SetVisualizationType(int $type): bool
+    {
+        return true;
+    }
+
+    protected function UpdateVisualizationValue(mixed $data): bool
+    {
+        return true;
+    }
+
+    protected function SendDebug(string $message, string $data, int $format): void
+    {
+    }
+
     protected function RegisterPropertyString(string $name, string $default): void
     {
         if (!array_key_exists($name, $this->properties)) {
