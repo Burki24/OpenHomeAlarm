@@ -68,7 +68,13 @@
             "24/7 active": "24/7 aktiv",
             "Exit-route sensors may be open when arming starts if an exit delay is configured, but must be ready when the countdown ends.": "Sensoren des Ausgangswegs dürfen beim Start der Scharfschaltung geöffnet sein, wenn eine Ausgangsverzögerung konfiguriert ist, müssen aber am Ende des Countdowns bereit sein.",
             "24/7 sensors trigger immediately in every system state; mode assignments and entry/exit delay are ignored.": "24/7-Sensoren lösen in jedem Systemzustand sofort aus; Moduszuordnungen sowie Ein-/Ausgangsverzögerung werden ignoriert.",
-            "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored.": "24/7-Sensoren lösen unabhängig vom aktuellen Scharfmodus sofort aus; Moduszuordnungen sowie Ein-/Ausgangsverzögerung werden ignoriert."
+            "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored.": "24/7-Sensoren lösen unabhängig vom aktuellen Scharfmodus sofort aus; Moduszuordnungen sowie Ein-/Ausgangsverzögerung werden ignoriert.",
+            "Alarm output active": "Alarmausgang aktiv",
+            "Alarm output inactive": "Alarmausgang inaktiv",
+            "Configure optional Symcon actions for alarm start, automatic alarm-output reset and disarming after an alarm.": "Konfigurieren Sie optionale Symcon-Aktionen für Alarmstart, automatische Rücksetzung des Alarmausgangs und das Unscharfschalten nach einem Alarm.",
+            "Alarm duration (seconds)": "Alarmdauer (Sekunden)",
+            "A value of 0 keeps the alarm output active until it is reset manually or the system is disarmed.": "Der Wert 0 lässt den Alarmausgang aktiv, bis er manuell zurückgesetzt oder die Anlage unscharf geschaltet wird.",
+            "On alarm output reset": "Bei Rücksetzung des Alarmausgangs"
         }
     }
 }

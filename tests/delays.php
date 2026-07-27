@@ -457,8 +457,8 @@ assertDelay(
 $instance->TestClearWrittenValues();
 assertDelay($instance->Disarm() === true, 'Disarm must succeed from Alarm.');
 assertDelay(
-    $instance->TestWrittenValues() === ['State' => 0, 'Mode' => 0],
-    'Disarm must return to None/Disarmed.'
+    $instance->TestWrittenValues() === ['AlarmOutputActive' => false, 'State' => 0, 'Mode' => 0],
+    'Disarm from Alarm must reset the alarm output and return to None/Disarmed.'
 );
 assertDelay(
     ($instance->TestTimers()['ExitDelay']['interval'] ?? null) === 0

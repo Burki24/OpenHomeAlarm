@@ -63,12 +63,30 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Configure optional Symcon actions that run when an alarm starts and when an active alarm is disarmed."
+                    "caption": "Configure optional Symcon actions for alarm start, automatic alarm-output reset and disarming after an alarm."
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "AlarmDurationSeconds",
+                    "caption": "Alarm duration (seconds)",
+                    "minimum": 0,
+                    "width": "250px"
+                },
+                {
+                    "type": "Label",
+                    "caption": "A value of 0 keeps the alarm output active until it is reset manually or the system is disarmed."
                 },
                 {
                     "type": "SelectAction",
                     "name": "AlarmAction",
                     "caption": "On alarm",
+                    "targetID": -2,
+                    "width": "100%"
+                },
+                {
+                    "type": "SelectAction",
+                    "name": "AlarmResetAction",
+                    "caption": "On alarm output reset",
                     "targetID": -2,
                     "width": "100%"
                 },

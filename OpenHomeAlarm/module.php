@@ -33,6 +33,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_ARMED = 'armed';
     private const EVENT_ENTRY_DELAY_STARTED = 'entry_delay_started';
     private const EVENT_ALARM = 'alarm';
+    private const EVENT_ALARM_OUTPUT_RESET = 'alarm_output_reset';
     private const EVENT_DISARMED = 'disarmed';
     private const EVENT_DISARM_CODE_REJECTED = 'disarm_code_rejected';
     private const EVENT_SENSOR_BYPASSED = 'sensor_bypassed';
@@ -70,12 +71,16 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_SENSORS = 'Sensors';
     private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
+    private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
     private const PROPERTY_ALARM_ACTION = 'AlarmAction';
+    private const PROPERTY_ALARM_RESET_ACTION = 'AlarmResetAction';
     private const PROPERTY_DISARM_AFTER_ALARM_ACTION = 'DisarmAfterAlarmAction';
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
 
     private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
     private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
+    private const ATTRIBUTE_ALARM_DURATION_DEADLINE = 'AlarmDurationDeadline';
+    private const ATTRIBUTE_ALARM_OUTPUT_ACTIVE = 'AlarmOutputActive';
     private const ATTRIBUTE_PENDING_ALARM_SOURCE_ID = 'PendingAlarmSourceID';
     private const ATTRIBUTE_BYPASSED_SENSOR_IDS = 'BypassedSensorIDs';
     private const ATTRIBUTE_EVENT_HISTORY = 'EventHistory';
@@ -83,10 +88,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const TIMER_EXIT_DELAY = 'ExitDelay';
     private const TIMER_ENTRY_DELAY = 'EntryDelay';
     private const TIMER_DELAY_STATUS = 'DelayStatus';
+    private const TIMER_ALARM_DURATION = 'AlarmDuration';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
     private const IDENT_DELAY_REMAINING = 'DelayRemaining';
     private const IDENT_DELAY_SOURCE = 'DelaySource';
+    private const IDENT_ALARM_OUTPUT_ACTIVE = 'AlarmOutputActive';
     private const IDENT_READY_TO_ARM = 'ReadyToArm';
     private const IDENT_READY_HOME = 'ReadyHome';
     private const IDENT_READY_AWAY = 'ReadyAway';
@@ -106,12 +113,16 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
+        $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ACTION, '');
+        $this->RegisterPropertyString(self::PROPERTY_ALARM_RESET_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_AFTER_ALARM_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, 0);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
         $this->RegisterAttributeString(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, '[]');
         $this->RegisterAttributeString(self::ATTRIBUTE_EVENT_HISTORY, '[]');
@@ -130,6 +141,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::TIMER_DELAY_STATUS,
             0,
             'OHA_UpdateDelayStatus($_IPS[\'TARGET\']);'
+        );
+        $this->RegisterTimer(
+            self::TIMER_ALARM_DURATION,
+            0,
+            'OHA_CompleteAlarmDuration($_IPS[\'TARGET\']);'
         );
 
         $modeCreated = $this->RegisterVariableInteger(
@@ -155,6 +171,29 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->Translate('Delay source'),
             $this->TextPresentation(),
             22
+        );
+        $alarmOutputActiveCreated = $this->RegisterVariableBoolean(
+            self::IDENT_ALARM_OUTPUT_ACTIVE,
+            $this->Translate('Alarm output active'),
+            $this->OptionsPresentation([
+                [
+                    'Value'       => false,
+                    'Caption'     => $this->Translate('Alarm output inactive'),
+                    'IconActive'  => false,
+                    'IconValue'   => '',
+                    'ColorActive' => false,
+                    'ColorValue'  => -1
+                ],
+                [
+                    'Value'       => true,
+                    'Caption'     => $this->Translate('Alarm output active'),
+                    'IconActive'  => false,
+                    'IconValue'   => '',
+                    'ColorActive' => false,
+                    'ColorValue'  => -1
+                ]
+            ]),
+            23
         );
         $readinessPresentation = $this->CreateReadinessPresentation();
         $readyCreated = $this->RegisterVariableBoolean(
@@ -253,6 +292,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($delaySourceCreated) {
             $this->SetDelaySource('');
         }
+        if ($alarmOutputActiveCreated) {
+            $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, false);
+        }
         if ($readyCreated) {
             $this->SetReadyToArm(true);
         }
@@ -304,6 +346,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->EvaluateAlwaysActiveSensors($sensors);
         $this->RestoreDelayTimers();
         $this->EvaluateArmedSensorsAfterApplyChanges($sensors);
+        $this->RestoreAlarmDurationTimer();
     }
 
     public function GetConfigurationForm(): string
@@ -397,6 +440,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         $hadActiveState = $previousState !== self::STATE_DISARMED || $previousMode !== self::MODE_NONE;
 
         $this->CancelDelayTimers();
+        if ($wasAlarm) {
+            $this->ResetAlarmOutput();
+        } else {
+            $this->StopAlarmDurationTimer();
+            $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
+            if ($this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true) {
+                $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, false);
+            }
+        }
         $this->SetAlarmState(self::STATE_DISARMED);
         $this->SetAlarmMode(self::MODE_NONE);
         $this->ClearSensorBypassesInternal();
@@ -577,6 +629,53 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->WriteAttributeString(self::ATTRIBUTE_EVENT_HISTORY, '[]');
 
         return true;
+    }
+
+    /**
+     * Stops the active alarm output without disarming the system.
+     *
+     * The Alarm state and alarm memory remain latched until the user disarms or
+     * acknowledges them separately. The configured reset action is executed at
+     * most once per alarm cycle.
+     */
+    public function ResetAlarmOutput(): bool
+    {
+        if (
+            $this->ReadAlarmState() !== self::STATE_ALARM
+            || $this->ReadAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE) !== 1
+        ) {
+            return false;
+        }
+
+        $this->StopAlarmDurationTimer();
+        $actionSucceeded = $this->RunConfiguredAction(self::PROPERTY_ALARM_RESET_ACTION);
+        $this->SetAlarmOutputActive(false);
+        $this->AppendEvent(self::EVENT_ALARM_OUTPUT_RESET);
+
+        return $actionSucceeded;
+    }
+
+    /**
+     * Completes the configured alarm duration and resets only the alarm output.
+     */
+    public function CompleteAlarmDuration(): void
+    {
+        if (
+            $this->ReadAlarmState() !== self::STATE_ALARM
+            || $this->ReadAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE) !== 1
+        ) {
+            $this->StopAlarmDurationTimer();
+            if (
+                $this->ReadAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE) !== 0
+                || $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true
+            ) {
+                $this->SetAlarmOutputActive(false);
+            }
+
+            return;
+        }
+
+        $this->ResetAlarmOutput();
     }
 
     /**
@@ -2376,6 +2475,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RememberAlarm($sourceSensor, $fallbackVariableID);
         $this->CancelDelayTimers();
         $this->SetAlarmState(self::STATE_ALARM);
+        $this->SetAlarmOutputActive(true);
+        $this->StartAlarmDurationTimer();
         $this->AppendEvent(
             self::EVENT_ALARM,
             $this->ResolveAlarmEventSource($sourceSensor, $fallbackVariableID)
@@ -2609,6 +2710,70 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $executed;
     }
 
+    private function StartAlarmDurationTimer(): void
+    {
+        $seconds = $this->ReadDelaySeconds(self::PROPERTY_ALARM_DURATION_SECONDS);
+        if ($seconds <= 0) {
+            $this->StopAlarmDurationTimer();
+
+            return;
+        }
+
+        $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, time() + $seconds);
+        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $seconds * 1000);
+    }
+
+    private function StopAlarmDurationTimer(): void
+    {
+        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, 0);
+        $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, 0);
+    }
+
+    /**
+     * Restores the alarm-output timeout after ApplyChanges or a Symcon restart.
+     */
+    private function RestoreAlarmDurationTimer(): void
+    {
+        if (
+            $this->ReadAlarmState() !== self::STATE_ALARM
+            || $this->ReadAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE) !== 1
+        ) {
+            $this->StopAlarmDurationTimer();
+            if (
+                $this->ReadAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE) !== 0
+                || $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true
+            ) {
+                $this->SetAlarmOutputActive(false);
+            }
+
+            return;
+        }
+
+        $this->SetAlarmOutputActive(true);
+        $seconds = $this->ReadDelaySeconds(self::PROPERTY_ALARM_DURATION_SECONDS);
+        if ($seconds <= 0) {
+            $this->StopAlarmDurationTimer();
+
+            return;
+        }
+
+        $deadline = $this->ReadAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE);
+        if ($deadline <= 0) {
+            $this->StartAlarmDurationTimer();
+
+            return;
+        }
+
+        $remainingSeconds = $deadline - time();
+        if ($remainingSeconds <= 0) {
+            $this->CompleteAlarmDuration();
+
+            return;
+        }
+
+        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $remainingSeconds * 1000);
+    }
+
     private function ReadAlarmMode(): int
     {
         $mode = $this->GetValue(self::IDENT_MODE);
@@ -2770,6 +2935,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function SetDelaySource(string $source): void
     {
         $this->SetValue(self::IDENT_DELAY_SOURCE, $source);
+    }
+
+    private function SetAlarmOutputActive(bool $active): void
+    {
+        $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, $active ? 1 : 0);
+        $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, $active);
     }
 
     private function SetReadyToArm(bool $ready): void

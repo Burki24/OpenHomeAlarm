@@ -69,6 +69,9 @@ jobs:
       - name: Check alarm actions
         run: php tests/alarm-actions.php
 
+      - name: Check alarm duration and reset handling
+        run: php tests/alarm-duration.php
+
       - name: Check disarm code protection
         run: php tests/disarm-code.php
 

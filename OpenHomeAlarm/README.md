@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status und konfigurierbarem Ausgangsweg, konfigurierbare Alarmaktionen, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis sowie ein persistentes Sicherheits-Ereignisprotokoll sind implementiert. Die eigene Visualisierung folgt schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status und konfigurierbarem Ausgangsweg, konfigurierbare Alarmaktionen mit Alarmdauer und Rücksetzung des Alarmausgangs, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis sowie ein persistentes Sicherheits-Ereignisprotokoll sind implementiert. Die eigene Visualisierung folgt schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -21,11 +21,11 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen mit laufendem Countdown-Status und Ausgangsweg-Sensoren, konfigurierbare Alarmaktionen, eine optionale Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis sowie ein persistentes Sicherheits-Ereignisprotokoll bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen mit laufendem Countdown-Status und Ausgangsweg-Sensoren, konfigurierbare Alarmaktionen mit optionaler automatischer Alarmdauer und separater Rücksetzungsaktion, eine optionale Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis sowie ein persistentes Sicherheits-Ereignisprotokoll bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich kann ein Sensor als **24/7 aktiv** markiert werden und löst dann unabhängig vom Scharfmodus sofort aus. Sensortyp, Auslösewert sowie die Nutzung als Ausgangsweg und der Eingangsverzögerung werden ebenfalls gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
-Ausgangs- und Eingangsverzögerung sind global in Sekunden konfigurierbar. Der Wert `0` deaktiviert die jeweilige Verzögerung. Sensoren können zusätzlich als **Ausgangsweg** markiert werden. Solche Sensoren dürfen bei aktivierter Ausgangsverzögerung beim Start der Scharfschaltung bereits ausgelöst sein, müssen aber spätestens am Ende des Countdowns wieder bereit sein. Bei deaktivierter Ausgangsverzögerung gelten sie wie normale Sensoren und müssen bereits vor dem Scharfschalten bereit sein. Während eines laufenden Countdowns veröffentlicht `DelayRemaining` die verbleibenden Sekunden. Bei einer Eingangsverzögerung nennt `DelaySource` zusätzlich den Sensor, der den Countdown gestartet hat; beide Statuswerte werden beim Abbruch, Abschluss oder Alarm wieder zurückgesetzt. Zusätzlich können zwei native Symcon-Aktionen hinterlegt werden: eine Aktion beim Eintritt in den Alarmzustand und eine Aktion beim Unscharfschalten eines bereits aktiven Alarms. Dadurch lassen sich unter anderem Sirenen, Benachrichtigungen, Skripte oder Ablaufpläne ohne hardwarespezifische Kopplung anbinden. Für benutzerseitiges Unscharfschalten kann optional ein vier- bis achtstelliger Zahlencode hinterlegt werden.
+Ausgangs- und Eingangsverzögerung sind global in Sekunden konfigurierbar. Der Wert `0` deaktiviert die jeweilige Verzögerung. Sensoren können zusätzlich als **Ausgangsweg** markiert werden. Solche Sensoren dürfen bei aktivierter Ausgangsverzögerung beim Start der Scharfschaltung bereits ausgelöst sein, müssen aber spätestens am Ende des Countdowns wieder bereit sein. Bei deaktivierter Ausgangsverzögerung gelten sie wie normale Sensoren und müssen bereits vor dem Scharfschalten bereit sein. Während eines laufenden Countdowns veröffentlicht `DelayRemaining` die verbleibenden Sekunden. Bei einer Eingangsverzögerung nennt `DelaySource` zusätzlich den Sensor, der den Countdown gestartet hat; beide Statuswerte werden beim Abbruch, Abschluss oder Alarm wieder zurückgesetzt. Zusätzlich können drei native Symcon-Aktionen hinterlegt werden: eine Aktion beim Eintritt in den Alarmzustand, eine Aktion zum Rücksetzen des Alarmausgangs und eine Aktion beim Unscharfschalten eines bereits aktiven Alarms. Die Alarmdauer ist global in Sekunden konfigurierbar. Der Standardwert `0` deaktiviert die automatische Rücksetzung und erhält damit das bisherige Verhalten. Beispielsweise setzt `180` den Alarmausgang nach drei Minuten automatisch zurück, ohne den Alarmzustand oder das Alarmgedächtnis zu löschen. Dadurch lassen sich unter anderem Sirenen, Benachrichtigungen, Skripte oder Ablaufpläne ohne hardwarespezifische Kopplung anbinden. Für benutzerseitiges Unscharfschalten kann optional ein vier- bis achtstelliger Zahlencode hinterlegt werden.
 
 ### 2. Voraussetzungen
 
@@ -39,7 +39,7 @@ Die Library kann über die Modulverwaltung von Symcon aus dem GitHub-Repository 
 
 Unter **Instanz hinzufügen** kann das Modul **OpenHomeAlarm** gefunden und angelegt werden.
 
-Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Im Abschnitt **Code-Schutz** kann optional ein vier- bis achtstelliger **Unscharfschaltcode** hinterlegt werden. Im Abschnitt **Alarmaktionen** können optional eine Aktion **Bei Alarm** und eine Aktion **Beim Unscharfschalten nach Alarm** gewählt werden. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Dort kann ein Sensor zusätzlich als **Ausgangsweg** markiert werden. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
+Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Im Abschnitt **Code-Schutz** kann optional ein vier- bis achtstelliger **Unscharfschaltcode** hinterlegt werden. Im Abschnitt **Alarmaktionen** werden die **Alarmdauer** sowie optional die Aktionen **Bei Alarm**, **Bei Rücksetzung des Alarmausgangs** und **Beim Unscharfschalten nach Alarm** konfiguriert. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Dort kann ein Sensor zusätzlich als **Ausgangsweg** markiert werden. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
 
 ### 5. Statusvariablen und Darstellungen
 
@@ -51,6 +51,7 @@ OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
 | `State` | Aktuelle Systemphase: Unscharf, Ausgangsverzögerung, Scharf, Eingangsverzögerung oder Alarm | Unscharf |
 | `DelayRemaining` | Verbleibende Sekunden einer laufenden Ein- oder Ausgangsverzögerung | 0 s |
 | `DelaySource` | Sensor, der die aktuelle Eingangsverzögerung gestartet hat; bei Ausgangsverzögerung leer | leer |
+| `AlarmOutputActive` | Zeigt, ob der Alarmausgang innerhalb eines aktiven Alarms noch aktiv ist | Alarmausgang inaktiv |
 | `ReadyToArm` | Konservative Gesamtbereitschaft über alle überwachten Sensoren | Bereit |
 | `ReadyHome` | Scharfschaltbereitschaft für Zuhause | Bereit |
 | `ReadyAway` | Scharfschaltbereitschaft für Abwesend | Bereit |
@@ -100,7 +101,7 @@ Temporäre Sensorüberbrückungen können ausschließlich im Zustand **Unscharf*
 
 24/7 aktive Sensoren sind von den Scharfmodi unabhängig. Sie lösen sowohl im Zustand **Unscharf** als auch während Ausgangsverzögerung, **Scharf** oder Eingangsverzögerung unmittelbar den Zustand **Alarm** aus. Für solche Sensoren werden die Moduszuordnungen sowie `ExitDelay` und `EntryDelay` bewusst ignoriert. Ist ein 24/7-Sensor bei `ApplyChanges()` oder nach einem Symcon-Neustart bereits ausgelöst, wird dieser Zustand unmittelbar erkannt, sodass keine Überwachungslücke bis zur nächsten Variablenänderung entsteht. Typische Anwendungsfälle sind Rauch-, Wasser- oder Panikauslöser; die Aktivierung bleibt jedoch bewusst eine explizite Benutzereinstellung.
 
-Beim Unscharfschalten werden laufende Ein- und Ausgangsverzögerungen immer beendet. Wird ein bereits aktiver Alarm unscharf geschaltet, wird anschließend einmalig die konfigurierte Aktion **Beim Unscharfschalten nach Alarm** ausgeführt. Ein Abbruch während Ein- oder Ausgangsverzögerung löst diese Rücksetzaktion nicht aus. Die Timer verwenden persistierte Ablaufzeitpunkte und werden nach `ApplyChanges()` bzw. einem Symcon-Neustart mit der verbleibenden Zeit wiederhergestellt.
+Beim Unscharfschalten werden laufende Ein- und Ausgangsverzögerungen immer beendet. Ist der Alarmausgang zu diesem Zeitpunkt noch aktiv, wird er zuerst zurückgesetzt. Wird ein bereits aktiver Alarm unscharf geschaltet, wird anschließend einmalig die konfigurierte Aktion **Beim Unscharfschalten nach Alarm** ausgeführt. Ein Abbruch während Ein- oder Ausgangsverzögerung löst diese Aktion nicht aus. Die Timer für Ein-/Ausgangsverzögerung und Alarmdauer verwenden persistierte Ablaufzeitpunkte und werden nach `ApplyChanges()` bzw. einem Symcon-Neustart mit der verbleibenden Zeit wiederhergestellt.
 
 ### 7. Code-Schutz
 
@@ -110,9 +111,15 @@ Für die spätere benutzerseitige Bedienung kann im Konfigurationsformular ein v
 
 ### 8. Alarmaktionen
 
-OpenHomeAlarm verwendet für externe Reaktionen die nativen Symcon-Aktionen. Im Feld **Bei Alarm** kann ein beliebiges Ziel samt passender Aktion gewählt werden. Die Aktion wird genau einmal ausgeführt, wenn das System erstmals in den Zustand **Alarm** wechselt.
+OpenHomeAlarm verwendet für externe Reaktionen die nativen Symcon-Aktionen. Im Feld **Bei Alarm** kann ein beliebiges Ziel samt passender Aktion gewählt werden. Die Aktion wird genau einmal ausgeführt, wenn das System erstmals in den Zustand **Alarm** wechselt. Gleichzeitig wird `AlarmOutputActive` auf aktiv gesetzt.
 
-Optional kann unter **Beim Unscharfschalten nach Alarm** eine zweite Aktion hinterlegt werden. Diese wird nur ausgeführt, wenn tatsächlich ein aktiver Alarm unscharf geschaltet wird. Ein normales Unscharfschalten oder das Abbrechen einer Ein-/Ausgangsverzögerung führt die Rücksetzaktion nicht aus.
+Die **Alarmdauer** legt fest, nach wie vielen Sekunden der Alarmausgang automatisch zurückgesetzt wird. Standard ist `0`, sodass ohne bewusste Konfiguration keine automatische Rücksetzung erfolgt; der Alarmausgang bleibt dann aktiv, bis er manuell über `OHA_ResetAlarmOutput()` zurückgesetzt oder die Anlage unscharf geschaltet wird. Beispielsweise entspricht `180` drei Minuten und führt danach automatisch die Rücksetzung aus. Die Rücksetzung beendet ausschließlich den Alarmausgang. `State` bleibt auf **Alarm**, der gewählte Scharfmodus bleibt erhalten und das Alarmgedächtnis bleibt gespeichert.
+
+Für das Abschalten einer Sirene oder eines anderen dauerhaften Alarmgebers kann unter **Bei Rücksetzung des Alarmausgangs** eine eigene Symcon-Aktion hinterlegt werden. Diese Aktion wird pro Alarmzyklus höchstens einmal ausgeführt. Eine automatische oder manuelle Rücksetzung wird zusätzlich im Ereignisprotokoll als `alarm_output_reset` festgehalten.
+
+Optional kann unter **Beim Unscharfschalten nach Alarm** eine weitere Aktion hinterlegt werden. Sie wird nur ausgeführt, wenn tatsächlich ein aktiver Alarm unscharf geschaltet wird, und bleibt bewusst von der Rücksetzung des Alarmausgangs getrennt. So kann beispielsweise die Sirene nach drei Minuten abgeschaltet werden, während beim späteren Unscharfschalten noch eine separate Aufräum- oder Benachrichtigungsaktion läuft.
+
+Die Alarmdauer ist wiederanlaufsicher: Ein laufender Timer wird über einen persistenten Ablaufzeitpunkt nach `ApplyChanges()` oder einem Symcon-Neustart mit der verbleibenden Zeit wiederhergestellt. Ist der Zeitpunkt während des Neustarts bereits abgelaufen, wird die Rücksetzungsaktion unmittelbar nach dem Wiederanlauf ausgeführt.
 
 Da die Zielauswahl Bestandteil der Symcon-Aktion ist, können sowohl einzelne Gerätevariablen als auch Skripte, Ablaufpläne und andere von Symcon angebotene Aktionsziele verwendet werden. Nicht konfigurierte Alarmaktionen haben keine Wirkung auf die Kernlogik. Auch eine fehlerhafte optionale Aktion verhindert nicht den Wechsel des Alarmzustands oder das Unscharfschalten.
 
@@ -128,7 +135,7 @@ OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes 
 
 Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbaren Ereignistyp, den zum Ereignis gehörenden `Mode` und `State` sowie optional `Source`. Als Quelle werden bei Alarmen, Eingangsverzögerungen und Sensorüberbrückungen die betroffenen Sensornamen gespeichert; bei abgelehnten oder nach der Ausgangsverzögerung abgebrochenen Scharfschaltungen enthält `Source` die blockierenden Sensoren.
 
-Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, Start der Ein- und Ausgangsverzögerung, Alarm, Unscharfschalten, temporäre Sensorüberbrückungen, das Löschen des Alarmgedächtnisses sowie abgewiesene Code-Eingaben. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
+Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, Start der Ein- und Ausgangsverzögerung, Alarm, Rücksetzungen des Alarmausgangs, Unscharfschalten, temporäre Sensorüberbrückungen, das Löschen des Alarmgedächtnisses sowie abgewiesene Code-Eingaben. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
 
 `OHA_GetEventHistory($InstanzID)` liefert das Protokoll als JSON. Mit `OHA_ClearEventHistory($InstanzID)` kann es gezielt geleert werden. Das Ereignisprotokoll ist ein Bedien- und Diagnoseprotokoll und kein manipulationssicheres Audit-Log.
 
@@ -150,6 +157,7 @@ Folgende öffentliche Modulbefehle stehen zur Verfügung:
 | `OHA_ClearSensorBypasses($InstanzID)` | `bool` | Entfernt alle temporären Sensorüberbrückungen; nur im Zustand **Unscharf** möglich |
 | `OHA_Disarm($InstanzID)` | `bool` | Schaltet die Anlage als vertrauenswürdige direkte API ohne Code-Prüfung unscharf und setzt den Scharfmodus zurück |
 | `OHA_DisarmWithCode($InstanzID, $Code)` | `bool` | Prüft den optionalen Unscharfschaltcode und schaltet bei Erfolg unscharf |
+| `OHA_ResetAlarmOutput($InstanzID)` | `bool` | Setzt während eines aktiven Alarms nur den Alarmausgang zurück; Alarmzustand und Alarmgedächtnis bleiben erhalten |
 | `OHA_ClearAlarmMemory($InstanzID)` | `bool` | Quittiert das gespeicherte Alarmgedächtnis; während eines aktiven Alarms wird `false` zurückgegeben |
 | `OHA_GetEventHistory($InstanzID)` | `string` | Liefert das persistente Sicherheits-Ereignisprotokoll als JSON, neuester Eintrag zuerst |
 | `OHA_ClearEventHistory($InstanzID)` | `bool` | Leert das persistente Sicherheits-Ereignisprotokoll |
