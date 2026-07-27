@@ -639,3 +639,193 @@ button:focus-visible {
         width: 100%;
     }
 }
+
+.oha-modal-open {
+    overflow: hidden;
+}
+
+.oha-codepad-overlay {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(8, 13, 24, 0.58);
+    backdrop-filter: blur(5px);
+}
+
+.oha-codepad {
+    width: min(100%, 360px);
+    padding: 18px;
+    border: 1px solid var(--oha-border);
+    border-radius: 20px;
+    background: var(--oha-surface-strong);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.oha-codepad-head,
+.oha-codepad-title-wrap {
+    display: flex;
+    align-items: center;
+}
+
+.oha-codepad-head {
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.oha-codepad-title-wrap {
+    min-width: 0;
+    gap: 11px;
+}
+
+.oha-codepad-icon {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+    font-size: 1.05rem;
+}
+
+.oha-codepad-title-wrap h2 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.oha-codepad-title-wrap p {
+    margin: 3px 0 0;
+    color: var(--oha-muted);
+    font-size: 0.75rem;
+    line-height: 1.35;
+}
+
+.oha-codepad-close {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid var(--oha-border);
+    border-radius: 10px;
+    background: var(--oha-surface-soft);
+    color: var(--oha-muted);
+    cursor: pointer;
+}
+
+.oha-codepad-close:hover {
+    background: var(--oha-surface);
+    color: var(--oha-text);
+}
+
+.oha-code-display {
+    display: flex;
+    min-height: 58px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 18px 0 10px;
+    padding: 12px;
+    border: 1px solid var(--oha-border);
+    border-radius: 14px;
+    background: var(--oha-surface-soft);
+}
+
+.oha-code-dot {
+    width: 11px;
+    height: 11px;
+    border: 1.5px solid var(--oha-faint);
+    border-radius: 50%;
+    background: transparent;
+    transition: transform 100ms ease, border-color 100ms ease, background 100ms ease;
+}
+
+.oha-code-dot[data-filled="true"] {
+    border-color: var(--oha-text);
+    background: var(--oha-text);
+    transform: scale(1.08);
+}
+
+.oha-code-error {
+    margin: 0 0 10px;
+    padding: 9px 10px;
+    border: 1px solid rgba(196, 49, 49, 0.28);
+    border-radius: 10px;
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+    font-size: 0.76rem;
+    font-weight: 650;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.oha-code-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px;
+}
+
+.oha-code-key {
+    min-height: 54px;
+    border: 1px solid var(--oha-border);
+    border-radius: 13px;
+    background: var(--oha-surface);
+    color: var(--oha-text);
+    cursor: pointer;
+    font-size: 1.12rem;
+    font-weight: 720;
+    transition: transform 100ms ease, border-color 100ms ease, background 100ms ease, opacity 100ms ease;
+}
+
+.oha-code-key:hover:not(:disabled) {
+    border-color: rgba(37, 99, 235, 0.32);
+    background: var(--oha-accent-soft);
+}
+
+.oha-code-key:active:not(:disabled) {
+    transform: translateY(1px) scale(0.99);
+}
+
+.oha-code-key:disabled {
+    cursor: default;
+    opacity: 0.38;
+}
+
+.oha-code-key-secondary {
+    color: var(--oha-muted);
+}
+
+.oha-code-key-confirm {
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+}
+
+.oha-code-key-confirm:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--oha-danger);
+    color: #ffffff;
+}
+
+@media (max-width: 420px) {
+    .oha-codepad-overlay {
+        align-items: end;
+        padding: 0;
+    }
+
+    .oha-codepad {
+        width: 100%;
+        padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+        border-right: 0;
+        border-bottom: 0;
+        border-left: 0;
+        border-radius: 20px 20px 0 0;
+    }
+
+    .oha-code-key {
+        min-height: 58px;
+    }
+}

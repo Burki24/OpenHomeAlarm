@@ -144,7 +144,17 @@
             "Alarm output reset": "Rücksetzung des Alarmausgangs",
             "Disarm after alarm": "Unscharfschalten nach Alarm",
             "New fault": "Neue Störung",
-            "Fault cleared": "Störung behoben"
+            "Fault cleared": "Störung behoben",
+            "Disarm system": "Anlage unscharf schalten",
+            "Enter the 4 to 8 digit disarm code.": "Geben Sie den 4- bis 8-stelligen Unscharfschaltcode ein.",
+            "Cancel code entry": "Code-Eingabe abbrechen",
+            "Delete last digit": "Letzte Ziffer löschen",
+            "Confirm code": "Code bestätigen",
+            "Code pad": "Codefeld",
+            "Code entry": "Code-Eingabe",
+            "digits entered": "Ziffern eingegeben",
+            "Code not accepted. Please try again.": "Code nicht akzeptiert. Bitte erneut versuchen.",
+            "No response from the alarm system. Please try again.": "Keine Rückmeldung von der Alarmanlage. Bitte erneut versuchen."
         }
     }
 }

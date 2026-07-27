@@ -561,6 +561,18 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->DisarmWithCode('');
                 break;
 
+            case 'DisarmWithCode':
+                if (!is_string($Value)) {
+                    throw new InvalidArgumentException('DisarmWithCode action requires a code string.');
+                }
+                if (!$this->DisarmWithCode($Value)) {
+                    $this->PublishVisualizationState([
+                        'Type'    => 'disarm_code',
+                        'Success' => false
+                    ]);
+                }
+                break;
+
             case 'RefreshVisualization':
                 $this->PublishVisualizationState();
                 break;
@@ -1450,10 +1462,21 @@ class OpenHomeAlarm extends IPSModuleStrict
      * Visualization delivery must never influence the alarm state machine. Any
      * unexpected visualization error is therefore limited to a debug message.
      */
-    private function PublishVisualizationState(): void
+    private function PublishVisualizationState(?array $interaction = null): void
     {
         try {
-            $this->UpdateVisualizationValue($this->GetControlState());
+            if ($interaction === null) {
+                $this->UpdateVisualizationValue($this->GetControlState());
+
+                return;
+            }
+
+            $state = json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+            $state['Interaction'] = $interaction;
+            $this->UpdateVisualizationValue(json_encode(
+                $state,
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            ));
         } catch (Throwable $exception) {
             $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
         }

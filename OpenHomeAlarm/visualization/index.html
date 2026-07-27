@@ -151,6 +151,57 @@
         </section>
     </main>
 
+    <div class="oha-codepad-overlay" id="codepadOverlay" hidden>
+        <section class="oha-codepad" role="dialog" aria-modal="true" aria-labelledby="codepadTitle" aria-describedby="codepadHint">
+            <header class="oha-codepad-head">
+                <div class="oha-codepad-title-wrap">
+                    <span class="oha-codepad-icon" aria-hidden="true">
+                        <i class="fa-light fa-key"></i>
+                    </span>
+                    <div>
+                        <h2 id="codepadTitle"></h2>
+                        <p id="codepadHint"></p>
+                    </div>
+                </div>
+                <button class="oha-codepad-close" id="codepadClose" type="button">
+                    <i class="fa-light fa-xmark" aria-hidden="true"></i>
+                </button>
+            </header>
+
+            <div class="oha-code-display" id="codepadDisplay" aria-live="polite">
+                <span class="oha-code-dot" aria-hidden="true"></span>
+                <span class="oha-code-dot" aria-hidden="true"></span>
+                <span class="oha-code-dot" aria-hidden="true"></span>
+                <span class="oha-code-dot" aria-hidden="true"></span>
+                <span class="oha-code-dot" aria-hidden="true"></span>
+                <span class="oha-code-dot" aria-hidden="true"></span>
+                <span class="oha-code-dot" aria-hidden="true"></span>
+                <span class="oha-code-dot" aria-hidden="true"></span>
+            </div>
+
+            <div class="oha-code-error" id="codepadError" role="alert" hidden></div>
+
+            <div class="oha-code-grid" id="codepadGrid">
+                <button class="oha-code-key" data-code-digit="1" type="button">1</button>
+                <button class="oha-code-key" data-code-digit="2" type="button">2</button>
+                <button class="oha-code-key" data-code-digit="3" type="button">3</button>
+                <button class="oha-code-key" data-code-digit="4" type="button">4</button>
+                <button class="oha-code-key" data-code-digit="5" type="button">5</button>
+                <button class="oha-code-key" data-code-digit="6" type="button">6</button>
+                <button class="oha-code-key" data-code-digit="7" type="button">7</button>
+                <button class="oha-code-key" data-code-digit="8" type="button">8</button>
+                <button class="oha-code-key" data-code-digit="9" type="button">9</button>
+                <button class="oha-code-key oha-code-key-secondary" id="codepadDelete" type="button">
+                    <i class="fa-light fa-delete-left" aria-hidden="true"></i>
+                </button>
+                <button class="oha-code-key" data-code-digit="0" type="button">0</button>
+                <button class="oha-code-key oha-code-key-confirm" id="codepadConfirm" type="button">
+                    <i class="fa-light fa-check" aria-hidden="true"></i>
+                </button>
+            </div>
+        </section>
+    </div>
+
     <script>
         window.OHA_INITIAL_STATE = {{OHA_INITIAL_STATE}};
     </script>
