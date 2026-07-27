@@ -1114,10 +1114,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function IsSensorRelevantForMode(array $sensor, int $mode): bool
     {
         return match ($mode) {
-            self::MODE_HOME => $sensor['ArmHome'],
-            self::MODE_AWAY => $sensor['ArmAway'],
+            self::MODE_HOME  => $sensor['ArmHome'],
+            self::MODE_AWAY  => $sensor['ArmAway'],
             self::MODE_NIGHT => $sensor['ArmNight'],
-            default => throw new InvalidArgumentException('Unsupported arming target mode.')
+            default          => throw new InvalidArgumentException('Unsupported arming target mode.')
         };
     }
 
