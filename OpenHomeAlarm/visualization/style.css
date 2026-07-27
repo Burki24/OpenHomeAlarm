@@ -873,13 +873,20 @@ button:focus-visible {
     display: grid;
     place-items: center;
     padding: 18px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     background: rgba(8, 13, 24, 0.58);
     backdrop-filter: blur(5px);
 }
 
 .oha-codepad {
     width: min(100%, 360px);
+    max-height: min(calc(100dvh - 36px), 720px);
+    display: flex;
+    flex-direction: column;
     padding: 18px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     border: 1px solid var(--oha-border);
     border-radius: 20px;
     background: var(--oha-surface-strong);
@@ -1034,14 +1041,133 @@ button:focus-visible {
     color: #ffffff;
 }
 
+@media (max-height: 760px) {
+    .oha-codepad-overlay {
+        place-items: start center;
+    }
+
+    .oha-codepad {
+        width: min(100%, 344px);
+        max-height: calc(100dvh - 24px);
+        margin: 12px 0;
+        padding: 15px;
+    }
+
+    .oha-code-display {
+        min-height: 52px;
+        margin: 14px 0 8px;
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .oha-code-grid {
+        gap: 8px;
+    }
+
+    .oha-code-key {
+        min-height: 50px;
+        font-size: 1.02rem;
+    }
+}
+
+@media (max-height: 640px) {
+    .oha-codepad {
+        width: min(100%, 328px);
+        padding: 13px;
+        border-radius: 18px;
+    }
+
+    .oha-codepad-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 11px;
+        font-size: 0.98rem;
+    }
+
+    .oha-codepad-title-wrap h2 {
+        font-size: 0.96rem;
+    }
+
+    .oha-codepad-title-wrap p {
+        font-size: 0.72rem;
+        line-height: 1.3;
+    }
+
+    .oha-code-display {
+        min-height: 48px;
+        margin: 12px 0 8px;
+        padding: 9px;
+    }
+
+    .oha-code-dot {
+        width: 10px;
+        height: 10px;
+    }
+
+    .oha-code-grid {
+        gap: 7px;
+    }
+
+    .oha-code-key {
+        min-height: 46px;
+        border-radius: 12px;
+        font-size: 0.98rem;
+    }
+}
+
+@media (max-height: 540px) {
+    .oha-codepad-overlay {
+        padding: 8px;
+    }
+
+    .oha-codepad {
+        width: min(100%, 312px);
+        max-height: calc(100dvh - 16px);
+        margin: 0;
+        padding: 11px;
+    }
+
+    .oha-codepad-head {
+        gap: 10px;
+    }
+
+    .oha-codepad-title-wrap {
+        gap: 9px;
+    }
+
+    .oha-codepad-close {
+        width: 32px;
+        height: 32px;
+    }
+
+    .oha-code-display {
+        min-height: 44px;
+        margin: 10px 0 7px;
+        padding: 8px;
+        gap: 7px;
+    }
+
+    .oha-code-grid {
+        gap: 6px;
+    }
+
+    .oha-code-key {
+        min-height: 42px;
+        font-size: 0.94rem;
+    }
+}
+
 @media (max-width: 420px) {
     .oha-codepad-overlay {
         align-items: end;
+        place-items: end stretch;
         padding: 0;
     }
 
     .oha-codepad {
         width: 100%;
+        max-height: min(100dvh, 100%);
+        margin: 0;
         padding: 16px 16px max(16px, env(safe-area-inset-bottom));
         border-right: 0;
         border-bottom: 0;
