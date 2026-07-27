@@ -8,6 +8,8 @@ class OpenHomeAlarm extends IPSModuleStrict
 {
     use \Burki24\SymconModuleHelper\VariablePresentationHelper;
 
+    private const CONTROL_API_VERSION = 1;
+
     private const MODE_NONE = 0;
     private const MODE_HOME = 1;
     private const MODE_AWAY = 2;
@@ -465,6 +467,93 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Returns the complete user-facing control state for visualizations and other
+     * clients. The JSON payload is intentionally independent from variable
+     * presentations so a client does not need to reproduce alarm logic.
+     */
+    public function GetControlState(): string
+    {
+        $sensors = $this->ReadConfiguredSensors();
+        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $sensorReadiness = $this->EvaluateReadinessStatus($sensors);
+        $readiness = $this->ApplyFaultBlockingToReadiness($sensorReadiness['readiness'], $faultInputs);
+        $state = $this->ReadAlarmState();
+        $mode = $this->ReadAlarmMode();
+        $isDisarmed = $state === self::STATE_DISARMED;
+        $alarmMemory = $this->GetValue(self::IDENT_ALARM_MEMORY) === true;
+        $alarmOutputActive = $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true;
+
+        $payload = [
+            'ApiVersion' => self::CONTROL_API_VERSION,
+            'Mode'       => [
+                'Value' => $mode,
+                'Name'  => $this->ControlModeName($mode)
+            ],
+            'State'      => [
+                'Value' => $state,
+                'Name'  => $this->ControlStateName($state)
+            ],
+            'Capabilities' => [
+                'CodeRequired'        => trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== '',
+                'CanDisarm'           => !$isDisarmed || $mode !== self::MODE_NONE,
+                'CanManageBypasses'   => $isDisarmed,
+                'CanResetAlarmOutput' => $state === self::STATE_ALARM && $alarmOutputActive,
+                'CanClearAlarmMemory' => $alarmMemory && $state !== self::STATE_ALARM
+            ],
+            'Modes' => [
+                'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs),
+                'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $readiness['away'], $isDisarmed, $sensors, $faultInputs),
+                'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $readiness['night'], $isDisarmed, $sensors, $faultInputs)
+            ],
+            'Delay' => [
+                'Remaining' => max(0, (int) $this->GetValue(self::IDENT_DELAY_REMAINING)),
+                'Source'    => (string) $this->GetValue(self::IDENT_DELAY_SOURCE)
+            ],
+            'Alarm' => [
+                'OutputActive' => $alarmOutputActive,
+                'MemoryActive' => $alarmMemory,
+                'LastSource'   => (string) $this->GetValue(self::IDENT_LAST_ALARM_SOURCE),
+                'LastTime'     => (string) $this->GetValue(self::IDENT_LAST_ALARM_TIME)
+            ],
+            'Faults' => [
+                'Active'      => $this->GetValue(self::IDENT_SYSTEM_FAULT) === true,
+                'Items'       => $this->BuildControlFaultDetails($faultInputs, false),
+                'Blocking'    => $this->BuildControlFaultDetails($faultInputs, true),
+                'LastSource'  => (string) $this->GetValue(self::IDENT_LAST_FAULT_SOURCE),
+                'LastTime'    => (string) $this->GetValue(self::IDENT_LAST_FAULT_TIME)
+            ],
+            'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors)
+        ];
+
+        return json_encode(
+            $payload,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+    }
+
+    /**
+     * Arms one user-facing mode through the stable control API.
+     *
+     * Supported mode names are home, away and night. Invalid names are rejected
+     * without changing the current alarm state.
+     */
+    public function Arm(string $mode): bool
+    {
+        $modeValue = match (strtolower(trim($mode))) {
+            'home'  => self::MODE_HOME,
+            'away'  => self::MODE_AWAY,
+            'night' => self::MODE_NIGHT,
+            default => null
+        };
+
+        if ($modeValue === null) {
+            return false;
+        }
+
+        return $this->ArmMode($modeValue);
+    }
+
+    /**
      * Reacts to updates of configured sensor variables.
      *
      * Sensor updates keep the readiness state current and, while armed, start the
@@ -504,7 +593,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ArmHome(): bool
     {
-        return $this->ArmMode(self::MODE_HOME);
+        return $this->Arm('home');
     }
 
     /**
@@ -512,7 +601,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ArmAway(): bool
     {
-        return $this->ArmMode(self::MODE_AWAY);
+        return $this->Arm('away');
     }
 
     /**
@@ -520,7 +609,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ArmNight(): bool
     {
-        return $this->ArmMode(self::MODE_NIGHT);
+        return $this->Arm('night');
     }
 
     /**
@@ -1179,6 +1268,156 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
         unset($element);
+    }
+
+    private function ControlModeName(int $mode): string
+    {
+        return match ($mode) {
+            self::MODE_NONE  => 'none',
+            self::MODE_HOME  => 'home',
+            self::MODE_AWAY  => 'away',
+            self::MODE_NIGHT => 'night',
+            default          => 'unknown'
+        };
+    }
+
+    private function ControlStateName(int $state): string
+    {
+        return match ($state) {
+            self::STATE_DISARMED    => 'disarmed',
+            self::STATE_EXIT_DELAY  => 'exit_delay',
+            self::STATE_ARMED       => 'armed',
+            self::STATE_ENTRY_DELAY => 'entry_delay',
+            self::STATE_ALARM       => 'alarm',
+            default                 => 'unknown'
+        };
+    }
+
+    /**
+     * @param list<array<string,mixed>> $sensors
+     * @param list<array<string,mixed>> $faultInputs
+     *
+     * @return array{Value:int,Ready:bool,CanArm:bool,Blockers:list<array<string,mixed>>}
+     */
+    private function BuildControlModeStatus(
+        int $mode,
+        bool $ready,
+        bool $isDisarmed,
+        array $sensors,
+        array $faultInputs
+    ): array {
+        return [
+            'Value'    => $mode,
+            'Ready'    => $ready,
+            'CanArm'   => $isDisarmed && $ready,
+            'Blockers' => array_merge(
+                $this->BuildControlSensorBlockerDetails($mode, $sensors),
+                $this->BuildControlFaultDetails($faultInputs, true)
+            )
+        ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $sensors
+     *
+     * @return list<array{Kind:string,VariableID:int,Name:string,Reason:string,Bypassable:bool}>
+     */
+    private function BuildControlSensorBlockerDetails(int $mode, array $sensors): array
+    {
+        $allowActiveExitRoute = $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS) > 0;
+        $details = [];
+
+        foreach ($sensors as $sensor) {
+            if (!$sensor['Enabled'] || !$this->IsSensorMonitored($sensor) || $this->IsSensorBypassed($sensor)) {
+                continue;
+            }
+            if ($sensor['VariableID'] <= 0) {
+                continue;
+            }
+            if (!$sensor['AlwaysActive'] && !$this->IsSensorRelevantForMode($sensor, $mode)) {
+                continue;
+            }
+
+            $triggerState = $this->IsExistingVariable($sensor['VariableID'])
+                ? $this->GetSensorTriggerState($sensor)
+                : null;
+            if ($triggerState === false) {
+                continue;
+            }
+            if (
+                $allowActiveExitRoute
+                && !$sensor['AlwaysActive']
+                && $sensor['ExitDelay']
+                && $triggerState === true
+            ) {
+                continue;
+            }
+
+            $details[] = [
+                'Kind'       => 'sensor',
+                'VariableID' => $sensor['VariableID'],
+                'Name'       => $this->ResolveSensorDisplayName($sensor),
+                'Reason'     => $triggerState === true ? 'triggered' : 'unavailable',
+                'Bypassable' => !$sensor['AlwaysActive'] && $this->IsSensorUsedForArming($sensor)
+            ];
+        }
+
+        return $details;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $faultInputs
+     *
+     * @return list<array{Kind:string,VariableID:int,Name:string,FaultType:int,Reason:string,BlockArming:bool,TriggerAlarm:bool,Bypassable:bool}>
+     */
+    private function BuildControlFaultDetails(array $faultInputs, bool $blockingOnly): array
+    {
+        $details = [];
+        foreach ($faultInputs as $faultInput) {
+            if (!$faultInput['Enabled'] || $faultInput['VariableID'] <= 0) {
+                continue;
+            }
+            if ($blockingOnly && !$faultInput['BlockArming']) {
+                continue;
+            }
+
+            $triggerState = $this->GetFaultTriggerState($faultInput);
+            if ($triggerState === false) {
+                continue;
+            }
+
+            $details[] = [
+                'Kind'         => 'fault',
+                'VariableID'   => $faultInput['VariableID'],
+                'Name'         => $this->ResolveFaultDisplayName($faultInput),
+                'FaultType'    => $faultInput['FaultType'],
+                'Reason'       => $triggerState === true ? 'active' : 'unavailable',
+                'BlockArming'  => $faultInput['BlockArming'],
+                'TriggerAlarm' => $faultInput['TriggerAlarm'],
+                'Bypassable'   => false
+            ];
+        }
+
+        return $details;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $sensors
+     *
+     * @return list<array{VariableID:int,Name:string}>
+     */
+    private function BuildControlBypassedSensorDetails(array $sensors): array
+    {
+        $bypassedIDs = $this->ReadBypassedSensorIDs();
+        $details = [];
+        foreach ($bypassedIDs as $variableID) {
+            $details[] = [
+                'VariableID' => $variableID,
+                'Name'       => $this->ResolveSensorNameByVariableID($variableID, $sensors)
+            ];
+        }
+
+        return $details;
     }
 
     /**
@@ -2650,6 +2889,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
             throw new InvalidArgumentException('Unsupported arming target mode.');
+        }
+        if ($this->ReadAlarmState() !== self::STATE_DISARMED) {
+            return false;
         }
 
         $sensors = $this->ReadConfiguredSensors();

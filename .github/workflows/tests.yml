@@ -92,3 +92,6 @@ jobs:
 
       - name: Check tamper and fault monitoring
         run: php tests/fault-monitoring.php
+
+      - name: Check stable public control API
+        run: php tests/control-api.php

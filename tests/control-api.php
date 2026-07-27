@@ -247,7 +247,7 @@ class IPSModuleStrict
     }
 }
 
-function assertArming(bool $condition, string $message): void
+function assertControlApi(bool $condition, string $message): void
 {
     if (!$condition) {
         throw new RuntimeException($message);
@@ -257,7 +257,7 @@ function assertArming(bool $condition, string $message): void
 require_once dirname(__DIR__) . '/OpenHomeAlarm/module.php';
 
 /** @return array<string,mixed> */
-function armingSensor(
+function controlSensor(
     int $variableID,
     string $triggerValue,
     bool $enabled = true,
@@ -282,131 +282,121 @@ $instance = new OpenHomeAlarm();
 $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $instance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$instance->TestClearWrittenValues();
 
 $sensors = [
-    armingSensor(2001, 'true', armHome: true),
-    armingSensor(2002, 'true', armAway: true),
-    armingSensor(2003, 'ALARM', armNight: true),
-    armingSensor(2004, '1', enabled: false, armAway: true),
-    armingSensor(0, 'true', armAway: true)
+    [
+        'Enabled'      => true,
+        'Name'         => 'Front door',
+        'VariableID'   => 2001,
+        'SensorType'   => 0,
+        'TriggerValue' => 'true',
+        'ArmHome'      => true,
+        'ArmAway'      => false,
+        'ArmNight'     => false,
+        'AlwaysActive' => false,
+        'ExitDelay'    => false,
+        'EntryDelay'   => true
+    ],
+    [
+        'Enabled'      => true,
+        'Name'         => 'Hall motion',
+        'VariableID'   => 2002,
+        'SensorType'   => 1,
+        'TriggerValue' => 'true',
+        'ArmHome'      => false,
+        'ArmAway'      => true,
+        'ArmNight'     => false,
+        'AlwaysActive' => false,
+        'ExitDelay'    => false,
+        'EntryDelay'   => false
+    ]
 ];
 $instance->TestSetPropertyString('Sensors', json_encode($sensors, JSON_THROW_ON_ERROR));
 
-// An inactive Home sensor permits immediate arming in Home mode.
-assertArming($instance->ArmHome() === true, 'Home arming must succeed when all Home sensors are inactive.');
-assertArming(
-    $instance->TestWrittenValues() === [
-        'ReadyToArm'           => true,
-        'ReadyHome'            => true,
-        'ReadyAway'            => true,
-        'ReadyNight'           => true,
-        'BlockingHomeSensors'  => '',
-        'BlockingAwaySensors'  => '',
-        'BlockingNightSensors' => '',
-        'Mode'                 => 1,
-        'State'                => 2
-    ],
-    'Successful Home arming must select Home mode and enter the Armed state.'
-);
-assertArming($instance->Disarm() === true, 'The test setup must return to Disarmed before another arming attempt.');
-
-// A triggered Away-only sensor must block Away, but must not block Home.
 global $testValues;
-$testValues[2002] = true;
-$instance->TestClearWrittenValues();
-assertArming($instance->ArmAway() === false, 'A triggered Away sensor must block Away arming.');
-assertArming(
-    $instance->TestWrittenValues() === [
-        'ReadyToArm'           => false,
-        'ReadyHome'            => true,
-        'ReadyAway'            => false,
-        'ReadyNight'           => true,
-        'BlockingHomeSensors'  => '',
-        'BlockingAwaySensors'  => 'Test 2002',
-        'BlockingNightSensors' => ''
-    ],
-    'A failed arming attempt must not change Mode or State.'
-);
-
-$instance->TestClearWrittenValues();
-assertArming(
-    $instance->ArmHome() === true,
-    'A sensor assigned only to Away must not block Home arming.'
-);
-assertArming(
-    ($instance->TestWrittenValues()['Mode'] ?? null) === 1
-    && ($instance->TestWrittenValues()['State'] ?? null) === 2,
-    'Mode-specific readiness must allow Home even when a different mode is globally not ready.'
-);
-assertArming($instance->Disarm() === true, 'The test setup must disarm before checking Night arming.');
-
-// String trigger values are respected for target-mode readiness.
+$testValues[2001] = true;
 $testValues[2002] = false;
-$testValues[2003] = 'ALARM';
-$instance->TestClearWrittenValues();
-assertArming($instance->ArmNight() === false, 'A matching String trigger must block Night arming.');
-assertArming(
-    !array_key_exists('Mode', $instance->TestWrittenValues())
-    && !array_key_exists('State', $instance->TestWrittenValues()),
-    'Blocked Night arming must preserve the operational mode and state.'
-);
 
-$testValues[2003] = 'IDLE';
-$instance->TestClearWrittenValues();
-assertArming($instance->ArmNight() === true, 'Night arming must succeed after the Night sensor clears.');
-assertArming(
-    ($instance->TestWrittenValues()['Mode'] ?? null) === 3
-    && ($instance->TestWrittenValues()['State'] ?? null) === 2,
-    'Successful Night arming must enter Night/Armed.'
+$state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(($state['ApiVersion'] ?? null) === 1, 'The control API must expose schema version 1.');
+assertControlApi(
+    ($state['Mode']['Name'] ?? null) === 'none' && ($state['State']['Name'] ?? null) === 'disarmed',
+    'The initial control state must expose stable machine-readable mode and state names.'
 );
-assertArming($instance->Disarm() === true, 'The test setup must disarm before checking missing sensors.');
-
-// Missing configured variables fail safe for the mode they are assigned to.
-$missingSensors = [armingSensor(9999, 'true', armAway: true)];
-$instance->TestSetPropertyString('Sensors', json_encode($missingSensors, JSON_THROW_ON_ERROR));
-$instance->TestClearWrittenValues();
-assertArming($instance->ArmAway() === false, 'A missing Away sensor variable must block Away arming.');
-assertArming(
-    $instance->TestWrittenValues() === [
-        'ReadyToArm'           => false,
-        'ReadyHome'            => true,
-        'ReadyAway'            => false,
-        'ReadyNight'           => true,
-        'BlockingHomeSensors'  => '',
-        'BlockingAwaySensors'  => 'Test 9999',
-        'BlockingNightSensors' => ''
+assertControlApi(($state['Capabilities']['CodeRequired'] ?? null) === false, 'An empty code must not require a codepad.');
+assertControlApi(($state['Capabilities']['CanManageBypasses'] ?? null) === true, 'Bypasses must be manageable while disarmed.');
+assertControlApi(($state['Modes']['home']['Ready'] ?? null) === false, 'The triggered Home sensor must block Home.');
+assertControlApi(($state['Modes']['home']['CanArm'] ?? null) === false, 'A blocked Home mode must not be armable.');
+assertControlApi(($state['Modes']['away']['Ready'] ?? null) === true, 'The inactive Away sensor must leave Away ready.');
+assertControlApi(($state['Modes']['away']['CanArm'] ?? null) === true, 'A ready mode must be armable while disarmed.');
+assertControlApi(
+    ($state['Modes']['home']['Blockers'][0] ?? null) === [
+        'Kind'       => 'sensor',
+        'VariableID' => 2001,
+        'Name'       => 'Front door',
+        'Reason'     => 'triggered',
+        'Bypassable' => true
     ],
-    'A missing sensor must fail safe without changing Mode or State.'
+    'The control API must expose structured sensor blockers including the variable ID required for bypass controls.'
 );
 
-// Incomplete rows remain ignored, matching A3 behavior.
-$instance->TestSetPropertyString('Sensors', json_encode([armingSensor(0, 'true', armAway: true)], JSON_THROW_ON_ERROR));
-$instance->TestClearWrittenValues();
-assertArming($instance->ArmAway() === true, 'An incomplete row with VariableID 0 must not block arming.');
-assertArming(
-    ($instance->TestWrittenValues()['Mode'] ?? null) === 2
-    && ($instance->TestWrittenValues()['State'] ?? null) === 2,
-    'Away arming must succeed when only incomplete rows exist.'
+assertControlApi($instance->BypassSensor(2001) === true, 'A user-facing blocker must be bypassable through the existing API.');
+$state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(($state['Modes']['home']['Ready'] ?? null) === true, 'Bypassing the Home blocker must make Home ready.');
+assertControlApi(
+    ($state['BypassedSensors'][0] ?? null) === ['VariableID' => 2001, 'Name' => 'Front door'],
+    'The control API must expose bypassed sensors as structured data.'
 );
 
-// Disarm always returns the state machine to None/Disarmed and does not depend on sensor readiness.
-$instance->TestSetPropertyString('Sensors', '{invalid');
-$instance->TestClearWrittenValues();
-assertArming($instance->Disarm() === true, 'Disarm must report success.');
-assertArming(
-    $instance->TestWrittenValues() === [
-        'State' => 0,
-        'Mode'  => 0
+assertControlApi($instance->Arm('unsupported') === false, 'Unknown control API mode names must be rejected safely.');
+assertControlApi($instance->Arm('away') === true, 'The generic control API must arm a ready Away mode.');
+$state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($state['Mode']['Name'] ?? null) === 'away' && ($state['State']['Name'] ?? null) === 'armed',
+    'Generic Away arming must be reflected by the control state.'
+);
+assertControlApi(($state['Modes']['home']['CanArm'] ?? null) === false, 'No arming command may be offered while the system is already active.');
+assertControlApi($instance->Arm('home') === false, 'The control API must reject re-arming while the system is not disarmed.');
+assertControlApi($instance->DisarmWithCode('') === true, 'An empty configured code must allow user-facing disarming without a codepad.');
+
+$instance->TestSetPropertyString('DisarmCode', '2468');
+$state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(($state['Capabilities']['CodeRequired'] ?? null) === true, 'A configured disarm code must be announced to the visualization.');
+assertControlApi(!str_contains($instance->GetControlState(), '2468'), 'The configured disarm code must never be exposed by the control API.');
+
+$faults = [
+    [
+        'Enabled'      => true,
+        'Name'         => 'Control cabinet tamper',
+        'VariableID'   => 2004,
+        'FaultType'    => 0,
+        'TriggerValue' => '1',
+        'BlockArming'  => true,
+        'TriggerAlarm' => false
+    ]
+];
+$testValues[2004] = 1;
+$instance->TestSetPropertyString('FaultInputs', json_encode($faults, JSON_THROW_ON_ERROR));
+$state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(($state['Modes']['away']['Ready'] ?? null) === false, 'A blocking fault must block every arming mode in the control state.');
+$awayBlockers = $state['Modes']['away']['Blockers'] ?? [];
+assertControlApi(count($awayBlockers) === 1, 'The Away mode must expose the blocking fault exactly once.');
+assertControlApi(
+    $awayBlockers[0] === [
+        'Kind'         => 'fault',
+        'VariableID'   => 2004,
+        'Name'         => 'Control cabinet tamper',
+        'FaultType'    => 0,
+        'Reason'       => 'active',
+        'BlockArming'  => true,
+        'TriggerAlarm' => false,
+        'Bypassable'   => false
     ],
-    'Disarm must clear the selected mode and enter Disarmed without evaluating sensors.'
+    'Fault blockers must be structured and explicitly non-bypassable.'
+);
+assertControlApi(
+    ($state['Faults']['Blocking'][0]['Name'] ?? null) === 'Control cabinet tamper',
+    'The control state must expose active blocking faults separately for status views.'
 );
 
-$armMode = new ReflectionMethod(OpenHomeAlarm::class, 'ArmMode');
-try {
-    $armMode->invoke($instance, 0);
-    throw new RuntimeException('MODE_NONE must not be accepted as an arming target.');
-} catch (InvalidArgumentException) {
-}
-
-fwrite(STDOUT, "OpenHomeAlarm arming checks passed.\n");
+fwrite(STDOUT, "OpenHomeAlarm control API checks passed.\n");
