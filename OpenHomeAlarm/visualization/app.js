@@ -307,13 +307,20 @@ function ohaRenderBypasses(state) {
     document.getElementById('bypassDetail').textContent = bypassed.map((sensor) => sensor.Name).join(', ');
 }
 
+function ohaCanDisarm(state = ohaState) {
+    const stateName = state?.State?.Name ?? 'disarmed';
+    const modeName = state?.Mode?.Name ?? 'none';
+
+    return stateName !== 'disarmed' || modeName !== 'none';
+}
+
 function ohaCodeInputAllowed() {
-    return Boolean(ohaState?.Capabilities?.CodeRequired && ohaState?.Capabilities?.CanDisarm);
+    return Boolean(ohaState?.Capabilities?.CodeRequired && ohaCanDisarm(ohaState));
 }
 
 function ohaRenderInlineCodepad(state) {
     const panel = document.getElementById('inlineCodepad');
-    const enabled = Boolean(state.Capabilities?.CodeRequired && state.Capabilities?.CanDisarm);
+    const enabled = Boolean(state.Capabilities?.CodeRequired && ohaCanDisarm(state));
     const codeRequired = Boolean(state.Capabilities?.CodeRequired);
 
     panel.dataset.enabled = enabled ? 'true' : 'false';
@@ -339,7 +346,7 @@ function ohaRenderDisarm(state) {
     const label = document.getElementById('disarmButtonLabel');
     const codeHint = document.getElementById('codeHint');
     const codeRequired = Boolean(state.Capabilities?.CodeRequired);
-    const canDisarm = Boolean(state.Capabilities?.CanDisarm);
+    const canDisarm = ohaCanDisarm(state);
 
     bar.hidden = !canDisarm;
     bar.dataset.codeRequired = codeRequired ? 'true' : 'false';
@@ -430,7 +437,7 @@ function ohaFocusInlineCodepad() {
 }
 
 function ohaHandleDisarmButton() {
-    if (!ohaState?.Capabilities?.CanDisarm) {
+    if (!ohaCanDisarm(ohaState)) {
         return;
     }
 

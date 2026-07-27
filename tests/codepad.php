@@ -128,6 +128,12 @@ assertCodepad(
 );
 assertCodepad(str_contains($javascript, 'function ohaRenderInlineCodepad(state)'), 'The inline codepad must be rendered from the current control state.');
 assertCodepad(str_contains($javascript, 'function ohaCodeInputAllowed()'), 'Both codepad surfaces must share the same backend-driven enablement rule.');
+assertCodepad(
+    str_contains($javascript, 'function ohaCanDisarm(state = ohaState)')
+        && str_contains($javascript, "return stateName !== 'disarmed' || modeName !== 'none';")
+        && !str_contains($javascript, 'Capabilities?.CanDisarm'),
+    'Disarming controls must stay available for every active alarm state even if a timer-driven capability update is stale.'
+);
 assertCodepad(str_contains($javascript, "window.matchMedia('(min-width: 900px)')"), 'Switching to the wide layout must close a previously opened popup codepad.');
 assertCodepad(str_contains($css, '.oha-codepad-overlay'), 'The codepad overlay must be styled.');
 assertCodepad(str_contains($css, '.oha-code-grid'), 'The numeric code grid must be styled.');

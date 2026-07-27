@@ -370,6 +370,7 @@ assertControlApi(
     'Generic Away arming must be reflected by the control state.'
 );
 assertControlApi(($state['Modes']['home']['CanArm'] ?? null) === false, 'No arming command may be offered while the system is already active.');
+assertControlApi(($state['Capabilities']['CanDisarm'] ?? null) === true, 'An armed system must always expose disarming as available.');
 assertControlApi($instance->Arm('home') === false, 'The control API must reject re-arming while the system is not disarmed.');
 assertControlApi($instance->DisarmWithCode('') === true, 'An empty configured code must allow user-facing disarming without a codepad.');
 
