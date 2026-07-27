@@ -321,6 +321,9 @@ assertSensorModel(
         'ReadyHome',
         'ReadyAway',
         'ReadyNight',
+        'BlockingHomeSensors',
+        'BlockingAwaySensors',
+        'BlockingNightSensors',
         'AlarmMemory',
         'LastAlarmSource',
         'LastAlarmTime'

@@ -78,6 +78,11 @@ class IPSModuleStrict
     {
     }
 
+    public function TestValue(string $ident): mixed
+    {
+        return $this->values[$ident] ?? null;
+    }
+
     protected function RegisterPropertyString(string $name, string $default): void
     {
     }
@@ -212,6 +217,50 @@ $readiness = $evaluateReadiness->invoke($instance, [
 assertReadiness(
     $readiness === ['global' => true, 'home' => true, 'away' => true, 'night' => true],
     'Disabled and incomplete sensor rows must not block readiness.'
+);
+
+$updateReadiness = new ReflectionMethod(OpenHomeAlarm::class, 'UpdateReadinessFromSensors');
+
+$testValues[6001] = true;
+$testValues[6002] = true;
+$testValues[6003] = false;
+$updateReadiness->invoke($instance, $sensors);
+assertReadiness(
+    $instance->TestValue('BlockingHomeSensors') === 'Test 6001',
+    'The Home blocker variable must contain the blocking Home sensor name.'
+);
+assertReadiness(
+    $instance->TestValue('BlockingAwaySensors') === 'Test 6002',
+    'The Away blocker variable must contain the blocking Away sensor name.'
+);
+assertReadiness(
+    $instance->TestValue('BlockingNightSensors') === 'Test 6002',
+    'The Night blocker variable must contain the blocking Night sensor name.'
+);
+
+$testValues[6001] = false;
+$testValues[6002] = false;
+$testValues[6003] = true;
+$updateReadiness->invoke($instance, $sensors);
+assertReadiness(
+    $instance->TestValue('BlockingHomeSensors') === 'Test 6003'
+    && $instance->TestValue('BlockingAwaySensors') === 'Test 6003'
+    && $instance->TestValue('BlockingNightSensors') === 'Test 6003',
+    'A 24/7 blocker must be published for every arming mode.'
+);
+
+$testValues[6003] = false;
+$unnamedMissingSensor = readinessSensor(9999, armAway: true);
+$unnamedMissingSensor['Name'] = '';
+$updateReadiness->invoke($instance, [$unnamedMissingSensor]);
+assertReadiness(
+    $instance->TestValue('BlockingAwaySensors') === 'Variable #9999',
+    'Unnamed blockers must fall back to their Symcon variable ID.'
+);
+assertReadiness(
+    $instance->TestValue('BlockingHomeSensors') === ''
+    && $instance->TestValue('BlockingNightSensors') === '',
+    'Blocker variables for unaffected modes must stay empty.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm mode readiness checks passed.\n");

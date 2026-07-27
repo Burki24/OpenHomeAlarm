@@ -340,12 +340,15 @@ $instance->TestClearWrittenValues();
 $instance->CompleteExitDelay();
 assertDelay(
     $instance->TestWrittenValues() === [
-        'ReadyToArm' => false,
-        'ReadyHome'  => true,
-        'ReadyAway'  => false,
-        'ReadyNight' => true,
-        'State'      => 0,
-        'Mode'       => 0
+        'ReadyToArm'           => false,
+        'ReadyHome'            => true,
+        'ReadyAway'            => false,
+        'ReadyNight'           => true,
+        'BlockingHomeSensors'  => '',
+        'BlockingAwaySensors'  => 'Test 3001',
+        'BlockingNightSensors' => '',
+        'State'                => 0,
+        'Mode'                 => 0
     ],
     'An open relevant sensor at exit-delay expiry must safely cancel arming.'
 );

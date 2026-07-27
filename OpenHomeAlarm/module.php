@@ -71,6 +71,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const IDENT_READY_HOME = 'ReadyHome';
     private const IDENT_READY_AWAY = 'ReadyAway';
     private const IDENT_READY_NIGHT = 'ReadyNight';
+    private const IDENT_BLOCKING_HOME_SENSORS = 'BlockingHomeSensors';
+    private const IDENT_BLOCKING_AWAY_SENSORS = 'BlockingAwaySensors';
+    private const IDENT_BLOCKING_NIGHT_SENSORS = 'BlockingNightSensors';
     private const IDENT_ALARM_MEMORY = 'AlarmMemory';
     private const IDENT_LAST_ALARM_SOURCE = 'LastAlarmSource';
     private const IDENT_LAST_ALARM_TIME = 'LastAlarmTime';
@@ -138,6 +141,24 @@ class OpenHomeAlarm extends IPSModuleStrict
             $readinessPresentation,
             33
         );
+        $blockingHomeSensorsCreated = $this->RegisterVariableString(
+            self::IDENT_BLOCKING_HOME_SENSORS,
+            $this->Translate('Blocking sensors Home'),
+            $this->TextPresentation(),
+            34
+        );
+        $blockingAwaySensorsCreated = $this->RegisterVariableString(
+            self::IDENT_BLOCKING_AWAY_SENSORS,
+            $this->Translate('Blocking sensors Away'),
+            $this->TextPresentation(),
+            35
+        );
+        $blockingNightSensorsCreated = $this->RegisterVariableString(
+            self::IDENT_BLOCKING_NIGHT_SENSORS,
+            $this->Translate('Blocking sensors Night'),
+            $this->TextPresentation(),
+            36
+        );
         $alarmMemoryCreated = $this->RegisterVariableBoolean(
             self::IDENT_ALARM_MEMORY,
             $this->Translate('Alarm memory'),
@@ -191,6 +212,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         if ($readyNightCreated) {
             $this->SetReadyNight(true);
+        }
+        if ($blockingHomeSensorsCreated) {
+            $this->SetBlockingHomeSensors('');
+        }
+        if ($blockingAwaySensorsCreated) {
+            $this->SetBlockingAwaySensors('');
+        }
+        if ($blockingNightSensorsCreated) {
+            $this->SetBlockingNightSensors('');
         }
         if ($alarmMemoryCreated) {
             $this->SetAlarmMemory(false);
@@ -1237,7 +1267,9 @@ class OpenHomeAlarm extends IPSModuleStrict
      *
      * ReadyToArm remains the conservative global summary: every monitored sensor
      * must be ready. ReadyHome, ReadyAway and ReadyNight only consider sensors
-     * assigned to the respective mode plus every 24/7 sensor.
+     * assigned to the respective mode plus every 24/7 sensor. The matching
+     * blocking-sensor variables expose the concrete sensor names for diagnostics
+     * and the later visualization.
      *
      * @param list<array{
      *     Enabled: bool,
@@ -1256,12 +1288,16 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function UpdateReadinessFromSensors(array $sensors): array
     {
-        $readiness = $this->EvaluateReadiness($sensors);
+        $status = $this->EvaluateReadinessStatus($sensors);
+        $readiness = $status['readiness'];
 
         $this->SetReadyToArm($readiness['global']);
         $this->SetReadyHome($readiness['home']);
         $this->SetReadyAway($readiness['away']);
         $this->SetReadyNight($readiness['night']);
+        $this->SetBlockingHomeSensors(implode(', ', $status['blockingHome']));
+        $this->SetBlockingAwaySensors(implode(', ', $status['blockingAway']));
+        $this->SetBlockingNightSensors(implode(', ', $status['blockingNight']));
 
         return $readiness;
     }
@@ -1284,12 +1320,43 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function EvaluateReadiness(array $sensors): array
     {
+        return $this->EvaluateReadinessStatus($sensors)['readiness'];
+    }
+
+    /**
+     * Evaluates readiness and keeps the concrete blocking sensors grouped by mode.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     *
+     * @return array{
+     *     readiness: array{global:bool,home:bool,away:bool,night:bool},
+     *     blockingHome: list<string>,
+     *     blockingAway: list<string>,
+     *     blockingNight: list<string>
+     * }
+     */
+    private function EvaluateReadinessStatus(array $sensors): array
+    {
         $readiness = [
             'global' => true,
             'home'   => true,
             'away'   => true,
             'night'  => true
         ];
+        $blockingHome = [];
+        $blockingAway = [];
+        $blockingNight = [];
 
         foreach ($sensors as $sensor) {
             if (!$sensor['Enabled'] || !$this->IsSensorMonitored($sensor)) {
@@ -1308,27 +1375,62 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
+            $sensorName = $this->ResolveSensorDisplayName($sensor);
             $readiness['global'] = false;
             if ($sensor['AlwaysActive']) {
                 $readiness['home'] = false;
                 $readiness['away'] = false;
                 $readiness['night'] = false;
+                $blockingHome[] = $sensorName;
+                $blockingAway[] = $sensorName;
+                $blockingNight[] = $sensorName;
 
                 continue;
             }
 
             if ($sensor['ArmHome']) {
                 $readiness['home'] = false;
+                $blockingHome[] = $sensorName;
             }
             if ($sensor['ArmAway']) {
                 $readiness['away'] = false;
+                $blockingAway[] = $sensorName;
             }
             if ($sensor['ArmNight']) {
                 $readiness['night'] = false;
+                $blockingNight[] = $sensorName;
             }
         }
 
-        return $readiness;
+        return [
+            'readiness'     => $readiness,
+            'blockingHome'  => array_values(array_unique($blockingHome)),
+            'blockingAway'  => array_values(array_unique($blockingAway)),
+            'blockingNight' => array_values(array_unique($blockingNight))
+        ];
+    }
+
+    /**
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * } $sensor
+     */
+    private function ResolveSensorDisplayName(array $sensor): string
+    {
+        if ($sensor['Name'] !== '') {
+            return $sensor['Name'];
+        }
+
+        return sprintf($this->Translate('Variable #%d'), $sensor['VariableID']);
     }
 
     /**
@@ -1981,6 +2083,21 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function SetReadyNight(bool $ready): void
     {
         $this->SetValue(self::IDENT_READY_NIGHT, $ready);
+    }
+
+    private function SetBlockingHomeSensors(string $sensors): void
+    {
+        $this->SetValue(self::IDENT_BLOCKING_HOME_SENSORS, $sensors);
+    }
+
+    private function SetBlockingAwaySensors(string $sensors): void
+    {
+        $this->SetValue(self::IDENT_BLOCKING_AWAY_SENSORS, $sensors);
+    }
+
+    private function SetBlockingNightSensors(string $sensors): void
+    {
+        $this->SetValue(self::IDENT_BLOCKING_NIGHT_SENSORS, $sensors);
     }
 
     private function SetAlarmMemory(bool $active): void

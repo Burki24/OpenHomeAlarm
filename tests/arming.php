@@ -281,12 +281,15 @@ $instance->TestSetPropertyString('Sensors', json_encode($sensors, JSON_THROW_ON_
 assertArming($instance->ArmHome() === true, 'Home arming must succeed when all Home sensors are inactive.');
 assertArming(
     $instance->TestWrittenValues() === [
-        'ReadyToArm' => true,
-        'ReadyHome'  => true,
-        'ReadyAway'  => true,
-        'ReadyNight' => true,
-        'Mode'       => 1,
-        'State'      => 2
+        'ReadyToArm'           => true,
+        'ReadyHome'            => true,
+        'ReadyAway'            => true,
+        'ReadyNight'           => true,
+        'BlockingHomeSensors'  => '',
+        'BlockingAwaySensors'  => '',
+        'BlockingNightSensors' => '',
+        'Mode'                 => 1,
+        'State'                => 2
     ],
     'Successful Home arming must select Home mode and enter the Armed state.'
 );
@@ -298,10 +301,13 @@ $instance->TestClearWrittenValues();
 assertArming($instance->ArmAway() === false, 'A triggered Away sensor must block Away arming.');
 assertArming(
     $instance->TestWrittenValues() === [
-        'ReadyToArm' => false,
-        'ReadyHome'  => true,
-        'ReadyAway'  => false,
-        'ReadyNight' => true
+        'ReadyToArm'           => false,
+        'ReadyHome'            => true,
+        'ReadyAway'            => false,
+        'ReadyNight'           => true,
+        'BlockingHomeSensors'  => '',
+        'BlockingAwaySensors'  => 'Test 2002',
+        'BlockingNightSensors' => ''
     ],
     'A failed arming attempt must not change Mode or State.'
 );
@@ -344,10 +350,13 @@ $instance->TestClearWrittenValues();
 assertArming($instance->ArmAway() === false, 'A missing Away sensor variable must block Away arming.');
 assertArming(
     $instance->TestWrittenValues() === [
-        'ReadyToArm' => false,
-        'ReadyHome'  => true,
-        'ReadyAway'  => false,
-        'ReadyNight' => true
+        'ReadyToArm'           => false,
+        'ReadyHome'            => true,
+        'ReadyAway'            => false,
+        'ReadyNight'           => true,
+        'BlockingHomeSensors'  => '',
+        'BlockingAwaySensors'  => 'Test 9999',
+        'BlockingNightSensors' => ''
     ],
     'A missing sensor must fail safe without changing Mode or State.'
 );

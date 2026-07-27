@@ -314,10 +314,13 @@ $instance->TestClearWrittenValues();
 $instance->MessageSink(1, 1001, VM_UPDATE, [true, true, false]);
 assertSensorMonitoring(
     $instance->TestWrittenValues() === [
-        'ReadyToArm' => false,
-        'ReadyHome'  => true,
-        'ReadyAway'  => false,
-        'ReadyNight' => true
+        'ReadyToArm'           => false,
+        'ReadyHome'            => true,
+        'ReadyAway'            => false,
+        'ReadyNight'           => true,
+        'BlockingHomeSensors'  => '',
+        'BlockingAwaySensors'  => 'Test 1001',
+        'BlockingNightSensors' => ''
     ],
     'A matching Boolean trigger value must make the system not ready to arm.'
 );
@@ -327,10 +330,13 @@ $instance->TestClearWrittenValues();
 $instance->MessageSink(2, 1001, VM_UPDATE, [false, true, true]);
 assertSensorMonitoring(
     $instance->TestWrittenValues() === [
-        'ReadyToArm' => true,
-        'ReadyHome'  => true,
-        'ReadyAway'  => true,
-        'ReadyNight' => true
+        'ReadyToArm'           => true,
+        'ReadyHome'            => true,
+        'ReadyAway'            => true,
+        'ReadyNight'           => true,
+        'BlockingHomeSensors'  => '',
+        'BlockingAwaySensors'  => '',
+        'BlockingNightSensors' => ''
     ],
     'Clearing a Boolean trigger must restore readiness when all other sensors are inactive.'
 );
@@ -341,10 +347,13 @@ $instance->TestClearWrittenValues();
 $instance->MessageSink(3, 1002, VM_UPDATE, ['ALARM', true, 'IDLE']);
 assertSensorMonitoring(
     $instance->TestWrittenValues() === [
-        'ReadyToArm' => false,
-        'ReadyHome'  => false,
-        'ReadyAway'  => true,
-        'ReadyNight' => true
+        'ReadyToArm'           => false,
+        'ReadyHome'            => false,
+        'ReadyAway'            => true,
+        'ReadyNight'           => true,
+        'BlockingHomeSensors'  => 'Test 1002',
+        'BlockingAwaySensors'  => '',
+        'BlockingNightSensors' => ''
     ],
     'String trigger values must be compared as raw Strings.'
 );
@@ -356,10 +365,13 @@ $instance->TestClearWrittenValues();
 $instance->MessageSink(4, 1004, VM_UPDATE, [2.5, true, 1.5]);
 assertSensorMonitoring(
     $instance->TestWrittenValues() === [
-        'ReadyToArm' => false,
-        'ReadyHome'  => true,
-        'ReadyAway'  => false,
-        'ReadyNight' => false
+        'ReadyToArm'           => false,
+        'ReadyHome'            => true,
+        'ReadyAway'            => false,
+        'ReadyNight'           => false,
+        'BlockingHomeSensors'  => '',
+        'BlockingAwaySensors'  => 'Test 1004',
+        'BlockingNightSensors' => 'Test 1004'
     ],
     'Float trigger values must be evaluated according to the Symcon variable type.'
 );
@@ -406,10 +418,13 @@ assertSensorMonitoring(
 );
 assertSensorMonitoring(
     $instance->TestWrittenValues() === [
-        'ReadyToArm' => false,
-        'ReadyHome'  => true,
-        'ReadyAway'  => false,
-        'ReadyNight' => true
+        'ReadyToArm'           => false,
+        'ReadyHome'            => true,
+        'ReadyAway'            => false,
+        'ReadyNight'           => true,
+        'BlockingHomeSensors'  => '',
+        'BlockingAwaySensors'  => 'Test 9999',
+        'BlockingNightSensors' => ''
     ],
     'A missing configured sensor variable must fail safe to not ready.'
 );
