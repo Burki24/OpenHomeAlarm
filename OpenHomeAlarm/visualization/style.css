@@ -789,9 +789,6 @@ button:focus-visible {
         box-shadow: var(--oha-shadow);
     }
 
-    .oha-control-bar[data-code-required="true"] {
-        display: none;
-    }
 }
 
 @media (max-width: 860px) {

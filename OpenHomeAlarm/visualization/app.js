@@ -355,7 +355,7 @@ function ohaRenderDisarm(state) {
     button.dataset.enabled = 'true';
     button.setAttribute('aria-disabled', 'false');
     button.dataset.codeRequired = codeRequired ? 'true' : 'false';
-    label.textContent = ohaTranslate(codeRequired ? 'Disarm with code' : 'Disarm');
+    label.textContent = ohaTranslate('Deactivate');
 }
 
 function ohaRenderStaticText() {
@@ -415,13 +415,29 @@ function ohaHandleModeButton(button) {
     }
 }
 
+function ohaInlineCodepadVisible() {
+    const inlineCodepad = document.getElementById('inlineCodepad');
+    return inlineCodepad !== null && window.getComputedStyle(inlineCodepad).display !== 'none';
+}
+
+function ohaFocusInlineCodepad() {
+    if (!ohaCodeInputAllowed() || !ohaInlineCodepadVisible()) {
+        return false;
+    }
+
+    document.querySelector('#inlineCodepad [data-code-digit="1"]')?.focus();
+    return true;
+}
+
 function ohaHandleDisarmButton() {
     if (!ohaState?.Capabilities?.CanDisarm) {
         return;
     }
 
     if (ohaState?.Capabilities?.CodeRequired) {
-        ohaOpenCodepad();
+        if (!ohaFocusInlineCodepad()) {
+            ohaOpenCodepad();
+        }
         return;
     }
 
@@ -577,6 +593,43 @@ function ohaHandleInteraction(interaction) {
     ohaUpdateCodepad();
 }
 
+function ohaBindInteractions() {
+    const refreshButton = document.getElementById('refreshButton');
+    if (refreshButton) {
+        refreshButton.onclick = () => ohaRequestAction('RefreshVisualization', true);
+    }
+
+    for (const button of document.querySelectorAll('[data-action="arm"]')) {
+        button.onclick = () => ohaHandleModeButton(button);
+    }
+
+    for (const button of document.querySelectorAll('[data-code-digit]')) {
+        button.onclick = () => ohaAppendCodeDigit(button.getAttribute('data-code-digit') ?? '');
+    }
+
+    for (const button of document.querySelectorAll('[data-code-delete]')) {
+        button.onclick = ohaDeleteCodeDigit;
+    }
+
+    for (const button of document.querySelectorAll('[data-code-clear]')) {
+        button.onclick = ohaClearCodeEntry;
+    }
+
+    for (const button of document.querySelectorAll('[data-code-confirm]')) {
+        button.onclick = ohaSubmitCode;
+    }
+
+    const disarmButton = document.getElementById('disarmButton');
+    if (disarmButton) {
+        disarmButton.onclick = ohaHandleDisarmButton;
+    }
+
+    const codepadClose = document.getElementById('codepadClose');
+    if (codepadClose) {
+        codepadClose.onclick = ohaCloseCodepad;
+    }
+}
+
 function handleMessage(data) {
     let nextState = data;
     if (typeof data === 'string') {
@@ -652,4 +705,5 @@ if (typeof ohaDesktopCodepadQuery.addEventListener === 'function') {
     });
 }
 
+ohaBindInteractions();
 ohaRender();

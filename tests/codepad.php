@@ -61,15 +61,16 @@ assertCodepad(
     'Each accepted digit must be appended to the existing code buffer instead of replacing it.'
 );
 assertCodepad(
-    str_contains($html, 'onclick="ohaAppendCodeDigit(\'1\')"')
-        && str_contains($html, 'onclick="ohaSubmitCode()"')
-        && str_contains($html, 'onclick="ohaDeleteCodeDigit()"'),
-    'Codepad controls must invoke their handlers directly from the rendered HTML.'
+    !str_contains($html, 'onclick=')
+        && str_contains($javascript, "button.onclick = () => ohaAppendCodeDigit(button.getAttribute('data-code-digit') ?? '');")
+        && str_contains($javascript, 'button.onclick = ohaSubmitCode;')
+        && str_contains($javascript, 'button.onclick = ohaDeleteCodeDigit;'),
+    'Codepad controls must be bound by the visualization script instead of depending on inline custom-function handlers.'
 );
 assertCodepad(
-    !str_contains($javascript, "document.addEventListener('pointerup'")
-        && !str_contains($javascript, "button.addEventListener('click'"),
-    'Codepad input must not depend on delegated or post-render listener registration.'
+    str_contains($javascript, 'function ohaBindInteractions()')
+        && str_contains($javascript, 'ohaBindInteractions();'),
+    'All visualization controls must be bound after the HTML has been created.'
 );
 assertCodepad(
     !str_contains($javascript, 'button.disabled = !inputAllowed')
@@ -108,7 +109,21 @@ assertCodepad(
 assertCodepad(str_contains($css, '.oha-inline-codepad'), 'The permanently integrated codepad must be styled.');
 assertCodepad(str_contains($css, '.oha-inline-disarm-button'), 'The integrated codepad must style its explicit disarm button.');
 assertCodepad(str_contains($css, '@media (min-width: 900px)'), 'The integrated codepad must use a tile-width breakpoint.');
-assertCodepad(str_contains($css, '.oha-control-bar[data-code-required="true"]'), 'The popup trigger must be hidden on wide code-protected views.');
+assertCodepad(
+    !str_contains($css, '.oha-control-bar[data-code-required="true"]'),
+    'The Deactivate control must remain visible on wide code-protected views.'
+);
+assertCodepad(
+    strpos($html, 'id="armingSection"') < strpos($html, 'id="controlBar"')
+        && strpos($html, 'id="controlBar"') < strpos($html, 'id="statusGrid"'),
+    'The Deactivate control must be placed directly below the arming modes.'
+);
+assertCodepad(
+    str_contains($javascript, 'function ohaInlineCodepadVisible()')
+        && str_contains($javascript, 'if (!ohaFocusInlineCodepad())')
+        && str_contains($javascript, 'ohaOpenCodepad();'),
+    'Deactivate must focus the integrated codepad when visible and otherwise open the popup codepad.'
+);
 assertCodepad(str_contains($javascript, 'function ohaRenderInlineCodepad(state)'), 'The inline codepad must be rendered from the current control state.');
 assertCodepad(str_contains($javascript, 'function ohaCodeInputAllowed()'), 'Both codepad surfaces must share the same backend-driven enablement rule.');
 assertCodepad(str_contains($javascript, "window.matchMedia('(min-width: 900px)')"), 'Switching to the wide layout must close a previously opened popup codepad.');
