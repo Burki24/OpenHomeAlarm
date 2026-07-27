@@ -129,6 +129,36 @@ $testVariables = [
     45678 => true
 ];
 
+final class IPSList implements ArrayAccess
+{
+    /**
+     * @param array<string,mixed> $row
+     */
+    public function __construct(private array $row)
+    {
+    }
+
+    public function offsetExists(mixed $offset): bool
+    {
+        return is_string($offset) && array_key_exists($offset, $this->row);
+    }
+
+    public function offsetGet(mixed $offset): mixed
+    {
+        return is_string($offset) ? ($this->row[$offset] ?? null) : null;
+    }
+
+    public function offsetSet(mixed $offset, mixed $value): void
+    {
+        throw new LogicException('Test IPSList is read-only.');
+    }
+
+    public function offsetUnset(mixed $offset): void
+    {
+        throw new LogicException('Test IPSList is read-only.');
+    }
+}
+
 function IPS_VariableExists(int $variableID): bool
 {
     global $testVariables;
@@ -302,9 +332,9 @@ assertSensorModel(
     'Sensors list must use the dynamic individual edit form.'
 );
 
-$editForm = $instance->GetSensorEditForm([
+$editForm = $instance->GetSensorEditForm(new IPSList([
     'VariableID' => 12345
-]);
+]));
 $editFields = [];
 foreach ($editForm as $field) {
     if (isset($field['name'])) {
@@ -340,9 +370,9 @@ assertSensorModel(
     'Dynamic sensor editor must expose all stable sensor types.'
 );
 
-$emptyEditForm = $instance->GetSensorEditForm([
+$emptyEditForm = $instance->GetSensorEditForm(new IPSList([
     'VariableID' => 0
-]);
+]));
 $emptyEditFields = [];
 foreach ($emptyEditForm as $field) {
     if (isset($field['name'])) {

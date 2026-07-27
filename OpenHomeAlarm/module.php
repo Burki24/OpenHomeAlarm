@@ -126,13 +126,16 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Builds the individual editor for one sensor list entry.
      *
-     * @param array<string,mixed> $sensor Current list row supplied by the Symcon configuration form.
+     * Symcon supplies the selected List row as an IPSList object. The object supports
+     * array-style access, while the array variant keeps the method easy to regression-test.
+     *
+     * @param mixed $sensor Current list row supplied by the Symcon configuration form.
      *
      * @return list<array<string,mixed>>
      */
-    public function GetSensorEditForm(array $sensor): array
+    public function GetSensorEditForm(mixed $sensor): array
     {
-        $variableID = $this->ReadSensorInteger($sensor, 'VariableID', 0);
+        $variableID = $this->ReadSensorEditInteger($sensor, 'VariableID', 0);
         $hasVariable = $this->IsExistingVariable($variableID);
 
         return [
@@ -282,6 +285,24 @@ class OpenHomeAlarm extends IPSModuleStrict
             ['caption' => $this->Translate('Panic trigger'), 'value' => self::SENSOR_TYPE_PANIC],
             ['caption' => $this->Translate('Other trigger'), 'value' => self::SENSOR_TYPE_OTHER]
         ];
+    }
+
+    /**
+     * Reads an integer from a List edit row. Symcon exposes the row as an IPSList
+     * object with array-style access instead of a native PHP array.
+     */
+    private function ReadSensorEditInteger(mixed $sensor, string $key, int $default): int
+    {
+        if (!is_array($sensor) && !is_object($sensor)) {
+            throw new UnexpectedValueException('Sensor edit row must support array-style access.');
+        }
+
+        $value = $sensor[$key] ?? $default;
+        if (!is_int($value)) {
+            throw new UnexpectedValueException(sprintf('Sensor edit field %s must be integer.', $key));
+        }
+
+        return $value;
     }
 
     private function IsExistingVariable(int $variableID): bool
