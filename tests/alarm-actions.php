@@ -349,7 +349,9 @@ $instance = new OpenHomeAlarm();
 $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $instance->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$instance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $instance->TestSetPropertyString('AlarmAction', $alarmAction);
+$instance->TestSetPropertyInteger('DisarmAfterAlarmActionEnabled', 1);
 $instance->TestSetPropertyString('DisarmAfterAlarmAction', $disarmAction);
 $instance->TestSetPropertyString(
     'Sensors',
@@ -417,6 +419,7 @@ $delayedInstance = new OpenHomeAlarm();
 $delayedInstance->Create();
 $delayedInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $delayedInstance->TestSetPropertyInteger('EntryDelaySeconds', 10);
+$delayedInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $delayedInstance->TestSetPropertyString('AlarmAction', $alarmAction);
 $delayedInstance->TestSetPropertyString(
     'Sensors',
@@ -437,6 +440,7 @@ $brokenInstance = new OpenHomeAlarm();
 $brokenInstance->Create();
 $brokenInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $brokenInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$brokenInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $brokenInstance->TestSetPropertyString('AlarmAction', '{invalid json');
 $brokenInstance->TestSetPropertyString(
     'Sensors',
@@ -458,49 +462,50 @@ $form = json_decode(
     512,
     JSON_THROW_ON_ERROR
 );
-$alarmPanel = null;
-foreach ($form['elements'] ?? [] as $element) {
-    if (($element['type'] ?? null) === 'ExpansionPanel' && ($element['caption'] ?? null) === 'Alarm actions') {
-        $alarmPanel = $element;
-        break;
-    }
+assertAlarmAction(
+    findAlarmActionFormField($form['elements'] ?? [], 'AlarmAction') === null
+    && findAlarmActionFormField($form['elements'] ?? [], 'AlarmResetAction') === null
+    && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmAction') === null
+    && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') === null
+    && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') === null,
+    'Disabled optional SelectAction fields must be absent from static form.json so native validation cannot block unrelated changes.'
+);
+foreach (
+    [
+        'AlarmActionEnabled',
+        'AlarmResetActionEnabled',
+        'DisarmAfterAlarmActionEnabled',
+        'FaultActionEnabled',
+        'FaultClearedActionEnabled'
+    ] as $toggleName
+) {
+    $toggle = findAlarmActionFormField($form['elements'] ?? [], $toggleName);
+    assertAlarmAction(
+        is_array($toggle) && ($toggle['type'] ?? null) === 'Select',
+        'Optional action toggle ' . $toggleName . ' must be present in static form.json.'
+    );
 }
-assertAlarmAction(is_array($alarmPanel), 'A6 configuration form must contain an Alarm actions panel.');
-$actionFields = [];
-foreach ($alarmPanel['items'] ?? [] as $item) {
-    if (($item['type'] ?? null) === 'SelectAction') {
-        $actionFields[$item['name'] ?? ''] = $item;
-    }
-}
-assertAlarmAction(
-    isset($actionFields['AlarmAction'], $actionFields['DisarmAfterAlarmAction']),
-    'A6 must offer SelectAction fields for alarm start and alarm reset.'
-);
-assertAlarmAction(
-    ($actionFields['AlarmAction']['targetID'] ?? null) === -2
-    && ($actionFields['DisarmAfterAlarmAction']['targetID'] ?? null) === -2,
-    'A6 SelectAction fields must let the user choose their target.'
-);
-assertAlarmAction(
-    ($actionFields['AlarmAction']['value'] ?? null) === false
-    && ($actionFields['DisarmAfterAlarmAction']['value'] ?? null) === false,
-    'Optional SelectAction fields must use native false as the no-action value.'
-);
-assertAlarmAction(
-    !array_key_exists('enabled', $actionFields['AlarmAction'])
-    && !array_key_exists('visible', $actionFields['AlarmAction']),
-    'Optional SelectAction fields must remain native, visible selectors without wrapper switches.'
-);
 
 $dynamicFormInstance = new OpenHomeAlarm();
 $dynamicFormInstance->Create();
+$dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction') === null,
+    'GetConfigurationForm must omit disabled SelectAction fields completely.'
+);
+
+$dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
 $dynamicAlarmAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction');
 assertAlarmAction(
     is_array($dynamicAlarmAction)
     && ($dynamicAlarmAction['type'] ?? null) === 'SelectAction'
-    && ($dynamicAlarmAction['value'] ?? null) === false,
-    'GetConfigurationForm must preserve the native optional SelectAction no-action value.'
+    && ($dynamicAlarmAction['targetID'] ?? null) === -2,
+    'GetConfigurationForm must inject the native SelectAction only after its optional action is enabled.'
+);
+assertAlarmAction(
+    findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,
+    'Enabling one optional action must not inject other disabled SelectAction fields.'
 );
 
 $locale = json_decode(
@@ -510,7 +515,7 @@ $locale = json_decode(
     JSON_THROW_ON_ERROR
 );
 $translations = $locale['translations']['de'] ?? [];
-foreach (['Alarm actions', 'On alarm', 'On disarm after alarm'] as $translationKey) {
+foreach (['Alarm actions', 'No action', 'Configure action', 'Alarm start', 'On alarm', 'On disarm after alarm'] as $translationKey) {
     assertAlarmAction(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }
 

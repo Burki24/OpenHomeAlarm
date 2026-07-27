@@ -313,6 +313,31 @@ function assertAlarmDuration(bool $condition, string $message): void
     }
 }
 
+/**
+ * @param list<array<string,mixed>> $elements
+ *
+ * @return array<string,mixed>|null
+ */
+function findAlarmDurationFormField(array $elements, string $name): ?array
+{
+    foreach ($elements as $element) {
+        if (!is_array($element)) {
+            continue;
+        }
+        if (($element['name'] ?? null) === $name) {
+            return $element;
+        }
+        if (isset($element['items']) && is_array($element['items'])) {
+            $found = findAlarmDurationFormField($element['items'], $name);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+    }
+
+    return null;
+}
+
 require_once dirname(__DIR__) . '/OpenHomeAlarm/module.php';
 
 /** @return array<string,mixed> */
@@ -351,8 +376,11 @@ $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $instance->TestSetPropertyInteger('EntryDelaySeconds', 0);
 $instance->TestSetPropertyInteger('AlarmDurationSeconds', 3);
+$instance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $instance->TestSetPropertyString('AlarmAction', $alarmAction);
+$instance->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
 $instance->TestSetPropertyString('AlarmResetAction', $resetAction);
+$instance->TestSetPropertyInteger('DisarmAfterAlarmActionEnabled', 1);
 $instance->TestSetPropertyString('DisarmAfterAlarmAction', $disarmAction);
 $instance->TestSetPropertyString(
     'Sensors',
@@ -441,7 +469,9 @@ $manual->Create();
 $manual->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $manual->TestSetPropertyInteger('EntryDelaySeconds', 0);
 $manual->TestSetPropertyInteger('AlarmDurationSeconds', 0);
+$manual->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $manual->TestSetPropertyString('AlarmAction', $alarmAction);
+$manual->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
 $manual->TestSetPropertyString('AlarmResetAction', $resetAction);
 $manual->TestSetPropertyString('Sensors', json_encode([alarmDurationSensor(7001)], JSON_THROW_ON_ERROR));
 $manual->TestClearWrittenValues();
@@ -487,6 +517,7 @@ $testActions = [];
 $expired = new OpenHomeAlarm();
 $expired->Create();
 $expired->TestSetPropertyInteger('AlarmDurationSeconds', 30);
+$expired->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
 $expired->TestSetPropertyString('AlarmResetAction', $resetAction);
 $expired->TestSetCurrentValue('Mode', 2);
 $expired->TestSetCurrentValue('State', 4);
@@ -531,9 +562,20 @@ assertAlarmDuration(
     'Alarm actions panel must offer a non-negative alarm duration.'
 );
 assertAlarmDuration(
-    ($fields['AlarmResetAction']['type'] ?? null) === 'SelectAction'
-    && ($fields['AlarmResetAction']['targetID'] ?? null) === -2,
-    'Alarm actions panel must offer a selectable alarm-output reset action.'
+    ($fields['AlarmResetActionEnabled']['type'] ?? null) === 'Select',
+    'Alarm actions panel must offer an explicit optional reset-action switch.'
+);
+
+$dynamicFormInstance = new OpenHomeAlarm();
+$dynamicFormInstance->Create();
+$dynamicFormInstance->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
+$dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+$dynamicResetAction = findAlarmDurationFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction');
+assertAlarmDuration(
+    is_array($dynamicResetAction)
+    && ($dynamicResetAction['type'] ?? null) === 'SelectAction'
+    && ($dynamicResetAction['targetID'] ?? null) === -2,
+    'Enabled alarm-output reset action must expose the native SelectAction selector.'
 );
 
 $locale = json_decode(

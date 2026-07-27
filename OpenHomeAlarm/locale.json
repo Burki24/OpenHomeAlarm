@@ -135,7 +135,16 @@
             "An alarm has been triggered.": "Ein Alarm wurde ausgelöst.",
             "Select security mode": "Scharfmodus wählen",
             "more": "weitere",
-            "System control": "Anlagensteuerung"
+            "System control": "Anlagensteuerung",
+            "Optional actions are disabled by default. Select Configure action and apply once; the native Symcon action selector will then appear.": "Optionale Aktionen sind standardmäßig deaktiviert. Wählen Sie „Aktion konfigurieren“ und übernehmen Sie einmal; anschließend erscheint die native Symcon-Aktionsauswahl.",
+            "Optional fault actions are disabled by default. Enable one and apply once before selecting the Symcon action.": "Optionale Störungsaktionen sind standardmäßig deaktiviert. Aktivieren Sie eine Aktion und übernehmen Sie einmal, bevor Sie die Symcon-Aktion auswählen.",
+            "No action": "Keine Aktion",
+            "Configure action": "Aktion konfigurieren",
+            "Alarm start": "Alarmstart",
+            "Alarm output reset": "Rücksetzung des Alarmausgangs",
+            "Disarm after alarm": "Unscharfschalten nach Alarm",
+            "New fault": "Neue Störung",
+            "Fault cleared": "Störung behoben"
         }
     }
 }

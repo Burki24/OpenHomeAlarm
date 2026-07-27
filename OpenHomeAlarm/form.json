@@ -66,6 +66,10 @@
                     "caption": "Configure optional Symcon actions for alarm start, automatic alarm-output reset and disarming after an alarm."
                 },
                 {
+                    "type": "Label",
+                    "caption": "Optional actions are disabled by default. Select Configure action and apply once; the native Symcon action selector will then appear."
+                },
+                {
                     "type": "NumberSpinner",
                     "name": "AlarmDurationSeconds",
                     "caption": "Alarm duration (seconds)",
@@ -77,28 +81,52 @@
                     "caption": "A value of 0 keeps the alarm output active until it is reset manually or the system is disarmed."
                 },
                 {
-                    "type": "SelectAction",
-                    "name": "AlarmAction",
-                    "caption": "On alarm",
-                    "targetID": -2,
-                    "width": "100%",
-                    "value": false
+                    "type": "Select",
+                    "name": "AlarmActionEnabled",
+                    "caption": "Alarm start",
+                    "options": [
+                        {
+                            "caption": "No action",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Configure action",
+                            "value": 1
+                        }
+                    ],
+                    "width": "300px"
                 },
                 {
-                    "type": "SelectAction",
-                    "name": "AlarmResetAction",
-                    "caption": "On alarm output reset",
-                    "targetID": -2,
-                    "width": "100%",
-                    "value": false
+                    "type": "Select",
+                    "name": "AlarmResetActionEnabled",
+                    "caption": "Alarm output reset",
+                    "options": [
+                        {
+                            "caption": "No action",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Configure action",
+                            "value": 1
+                        }
+                    ],
+                    "width": "300px"
                 },
                 {
-                    "type": "SelectAction",
-                    "name": "DisarmAfterAlarmAction",
-                    "caption": "On disarm after alarm",
-                    "targetID": -2,
-                    "width": "100%",
-                    "value": false
+                    "type": "Select",
+                    "name": "DisarmAfterAlarmActionEnabled",
+                    "caption": "Disarm after alarm",
+                    "options": [
+                        {
+                            "caption": "No action",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Configure action",
+                            "value": 1
+                        }
+                    ],
+                    "width": "300px"
                 }
             ]
         },
@@ -112,20 +140,40 @@
                     "caption": "Configure optional 24/7 inputs for tamper, battery/power, communication or device faults."
                 },
                 {
-                    "type": "SelectAction",
-                    "name": "FaultAction",
-                    "caption": "On new fault",
-                    "targetID": -2,
-                    "width": "100%",
-                    "value": false
+                    "type": "Label",
+                    "caption": "Optional fault actions are disabled by default. Enable one and apply once before selecting the Symcon action."
                 },
                 {
-                    "type": "SelectAction",
-                    "name": "FaultClearedAction",
-                    "caption": "On fault cleared",
-                    "targetID": -2,
-                    "width": "100%",
-                    "value": false
+                    "type": "Select",
+                    "name": "FaultActionEnabled",
+                    "caption": "New fault",
+                    "options": [
+                        {
+                            "caption": "No action",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Configure action",
+                            "value": 1
+                        }
+                    ],
+                    "width": "300px"
+                },
+                {
+                    "type": "Select",
+                    "name": "FaultClearedActionEnabled",
+                    "caption": "Fault cleared",
+                    "options": [
+                        {
+                            "caption": "No action",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Configure action",
+                            "value": 1
+                        }
+                    ],
+                    "width": "300px"
                 },
                 {
                     "type": "List",
