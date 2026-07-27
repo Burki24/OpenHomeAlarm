@@ -119,7 +119,23 @@
             "Code required for disarming": "Zum Unscharfschalten ist ein Code erforderlich",
             "Unknown state": "Unbekannter Status",
             "Unknown mode": "Unbekannter Modus",
-            "Delay": "Verzögerung"
+            "Delay": "Verzögerung",
+            "Security control": "Sicherheitszentrale",
+            "Security status": "Sicherheitsstatus",
+            "Security alarm": "Sicherheitsalarm",
+            "Countdown": "Countdown",
+            "Seconds": "Sekunden",
+            "All arming modes are ready.": "Alle Scharfmodi sind bereit.",
+            "Choose one of the available arming modes.": "Wählen Sie einen verfügbaren Scharfmodus.",
+            "Resolve the blocking sensors before arming.": "Beheben Sie die blockierenden Sensoren vor dem Scharfschalten.",
+            "Check active system faults before arming.": "Prüfen Sie die aktiven Systemstörungen vor dem Scharfschalten.",
+            "Leave the secured area before the countdown ends.": "Verlassen Sie den überwachten Bereich vor Ablauf des Countdowns.",
+            "Monitoring is active for the selected arming mode.": "Die Überwachung für den gewählten Scharfmodus ist aktiv.",
+            "Disarm the system before the countdown ends.": "Schalten Sie die Anlage vor Ablauf des Countdowns unscharf.",
+            "An alarm has been triggered.": "Ein Alarm wurde ausgelöst.",
+            "Select security mode": "Scharfmodus wählen",
+            "more": "weitere",
+            "System control": "Anlagensteuerung"
         }
     }
 }

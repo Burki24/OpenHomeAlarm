@@ -57,4 +57,13 @@ assertVisualization(str_contains($javascript, "ohaRequestAction('Arm'"), 'Visual
 assertVisualization(str_contains($javascript, "ohaRequestAction('Disarm'"), 'Visualization must disarm through RequestAction.');
 assertVisualization(str_contains($javascript, "ohaRequestAction('RefreshVisualization'"), 'Visualization refresh action must be available.');
 
+assertVisualization(str_contains($html, 'class="oha-hero"'), 'Visualization must use a state-focused hero area.');
+assertVisualization(str_contains($html, 'id="armingSection"'), 'Visualization must provide a dedicated arming section.');
+assertVisualization(str_contains($html, 'id="contextGrid"'), 'Visualization must provide contextual status cards.');
+assertVisualization(str_contains($javascript, 'function ohaRenderHero(state)'), 'Visualization must render the main state contextually.');
+assertVisualization(str_contains($javascript, 'section.hidden = !isDisarmed;'), 'Arming controls must only be shown while disarmed.');
+assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
+assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
+assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');
+
 fwrite(STDOUT, "OpenHomeAlarm visualization foundation checks passed.\n");

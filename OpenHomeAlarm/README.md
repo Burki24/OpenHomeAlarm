@@ -157,9 +157,9 @@ Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, Start der Ei
 
 ### 12. Visualisierung
 
-OpenHomeAlarm besitzt jetzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Die Kachel zeigt den aktuellen Systemzustand, Scharfmodus, laufende Ein-/Ausgangsverzögerungen mit Countdown, Alarmgedächtnis, aktive Systemstörungen sowie die Bereitschaft und aktuellen Blockierer für **Zuhause**, **Abwesend** und **Nacht**.
+OpenHomeAlarm besitzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Das Dashboard ist zustandsorientiert aufgebaut: **Unscharf**, **Scharf**, **Ein-/Ausgangsverzögerung** und **Alarm** werden als zentraler Hauptzustand dargestellt. Countdown, Alarmgedächtnis, aktive Systemstörungen und temporär überbrückte Sensoren erscheinen nur dann als zusätzliche Hinweise, wenn sie tatsächlich relevant sind. Dadurch bleibt die Normalansicht kompakt und die jeweils wichtigste Information steht im Vordergrund.
 
-Bereite Modi können direkt aus der Kachel scharfgeschaltet werden. Ist kein Unscharfschaltcode konfiguriert, kann auch direkt unscharf geschaltet werden. Bei aktivem Code-Schutz zeigt die Kachel bereits an, dass ein Code erforderlich ist; das eigentliche Bildschirm-Codepad folgt im nächsten Visualisierungsschritt.
+Im unscharfen Zustand zeigt das Dashboard die Bereitschaft und aktuellen Blockierer für **Zuhause**, **Abwesend** und **Nacht** als kompakte Bedienkarten. Bereite Modi können direkt scharfgeschaltet werden; sobald die Anlage nicht mehr unscharf ist, wird diese Modusauswahl ausgeblendet. Ist kein Unscharfschaltcode konfiguriert, kann direkt unscharf geschaltet werden. Bei aktivem Code-Schutz zeigt die Kachel bereits an, dass ein Code erforderlich ist; das eigentliche Bildschirm-Codepad folgt im nächsten Visualisierungsschritt.
 
 Die Darstellung verwendet für die Kommunikation ausschließlich das passwortgeschützte HTML-SDK: Benutzeraktionen werden über `requestAction()` an `RequestAction()` des Moduls gesendet, während Statusänderungen über `UpdateVisualizationValue()` live an geöffnete Kacheln übertragen werden. Die statischen Dateien liegen unter `OpenHomeAlarm/visualization/` und werden über den zentralen `VisualizationAssetHelper` geladen.
 
