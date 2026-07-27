@@ -258,6 +258,36 @@ function ohaRenderBypasses(state) {
     document.getElementById('bypassDetail').textContent = bypassed.map((sensor) => sensor.Name).join(', ');
 }
 
+function ohaCodeInputAllowed() {
+    return Boolean(ohaState?.Capabilities?.CodeRequired && ohaState?.Capabilities?.CanDisarm);
+}
+
+function ohaRenderInlineCodepad(state) {
+    const panel = document.getElementById('inlineCodepad');
+    const enabled = Boolean(state.Capabilities?.CodeRequired && state.Capabilities?.CanDisarm);
+    const codeRequired = Boolean(state.Capabilities?.CodeRequired);
+
+    panel.dataset.enabled = enabled ? 'true' : 'false';
+    document.getElementById('inlineCodepadKicker').textContent = ohaTranslate('Security control');
+    document.getElementById('inlineCodepadTitle').textContent = ohaTranslate('Code pad');
+    document.getElementById('inlineCodepadState').textContent = ohaTranslate(enabled ? 'Active' : 'Inactive');
+
+    if (enabled) {
+        document.getElementById('inlineCodepadHint').textContent = ohaTranslate('Enter the 4 to 8 digit disarm code.');
+    } else if (codeRequired) {
+        document.getElementById('inlineCodepadHint').textContent = ohaTranslate('Code entry becomes available when disarming is possible.');
+    } else {
+        document.getElementById('inlineCodepadHint').textContent = ohaTranslate('Code protection is not enabled.');
+    }
+
+    if (!enabled && (ohaCodeBuffer !== '' || ohaCodeBusy)) {
+        ohaResetCodeEntry();
+        return;
+    }
+
+    ohaUpdateCodepad();
+}
+
 function ohaRenderDisarm(state) {
     const bar = document.getElementById('controlBar');
     const button = document.getElementById('disarmButton');
@@ -267,6 +297,8 @@ function ohaRenderDisarm(state) {
     const canDisarm = Boolean(state.Capabilities?.CanDisarm);
 
     bar.hidden = !canDisarm;
+    bar.dataset.codeRequired = codeRequired ? 'true' : 'false';
+
     if (!canDisarm) {
         ohaCloseCodepad();
         return;
@@ -289,6 +321,10 @@ function ohaRenderStaticText() {
     document.getElementById('codepadDelete').setAttribute('aria-label', ohaTranslate('Delete last digit'));
     document.getElementById('codepadConfirm').setAttribute('aria-label', ohaTranslate('Confirm code'));
     document.getElementById('codepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
+    document.getElementById('inlineCodepad').setAttribute('aria-label', ohaTranslate('Code pad'));
+    document.getElementById('inlineCodepadDelete').setAttribute('aria-label', ohaTranslate('Delete last digit'));
+    document.getElementById('inlineCodepadConfirm').setAttribute('aria-label', ohaTranslate('Confirm code'));
+    document.getElementById('inlineCodepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
 }
 
 function ohaRender() {
@@ -302,6 +338,7 @@ function ohaRender() {
     ohaRenderFaults(ohaState);
     ohaRenderBypasses(ohaState);
     ohaRenderArming(ohaState);
+    ohaRenderInlineCodepad(ohaState);
     ohaRenderDisarm(ohaState);
 }
 
@@ -319,67 +356,73 @@ function ohaClearCodeRequestTimer() {
 }
 
 function ohaSetCodeError(message) {
-    const error = document.getElementById('codepadError');
-    error.hidden = message === '';
-    error.textContent = message;
+    for (const error of document.querySelectorAll('[data-code-error]')) {
+        error.hidden = message === '';
+        error.textContent = message;
+    }
 }
 
 function ohaUpdateCodepad() {
-    const display = document.getElementById('codepadDisplay');
-    const confirm = document.getElementById('codepadConfirm');
-    const digits = display.querySelectorAll('.oha-code-dot');
+    const inputAllowed = ohaCodeInputAllowed();
 
-    digits.forEach((dot, index) => {
-        dot.dataset.filled = index < ohaCodeBuffer.length ? 'true' : 'false';
-    });
+    for (const display of document.querySelectorAll('[data-code-display]')) {
+        const digits = display.querySelectorAll('.oha-code-dot');
+        digits.forEach((dot, index) => {
+            dot.dataset.filled = index < ohaCodeBuffer.length ? 'true' : 'false';
+        });
+        display.setAttribute(
+            'aria-label',
+            `${ohaTranslate('Code entry')}: ${ohaCodeBuffer.length} ${ohaTranslate('digits entered')}`
+        );
+    }
 
-    display.setAttribute(
-        'aria-label',
-        `${ohaTranslate('Code entry')}: ${ohaCodeBuffer.length} ${ohaTranslate('digits entered')}`
-    );
-    confirm.disabled = ohaCodeBusy || ohaCodeBuffer.length < 4 || ohaCodeBuffer.length > 8;
-    document.getElementById('codepadDelete').disabled = ohaCodeBusy || ohaCodeBuffer.length === 0;
+    for (const button of document.querySelectorAll('[data-code-confirm]')) {
+        button.disabled = !inputAllowed || ohaCodeBusy || ohaCodeBuffer.length < 4 || ohaCodeBuffer.length > 8;
+    }
+
+    for (const button of document.querySelectorAll('[data-code-delete]')) {
+        button.disabled = !inputAllowed || ohaCodeBusy || ohaCodeBuffer.length === 0;
+    }
 
     for (const button of document.querySelectorAll('[data-code-digit]')) {
-        button.disabled = ohaCodeBusy || ohaCodeBuffer.length >= 8;
+        button.disabled = !inputAllowed || ohaCodeBusy || ohaCodeBuffer.length >= 8;
     }
 }
 
-function ohaOpenCodepad() {
-    if (!ohaState?.Capabilities?.CodeRequired || !ohaState?.Capabilities?.CanDisarm) {
-        return;
-    }
-
-    const overlay = document.getElementById('codepadOverlay');
+function ohaResetCodeEntry() {
     ohaClearCodeRequestTimer();
     ohaCodeBuffer = '';
     ohaCodeBusy = false;
     ohaSetCodeError('');
+    ohaUpdateCodepad();
+}
+
+function ohaOpenCodepad() {
+    if (!ohaCodeInputAllowed()) {
+        return;
+    }
+
+    const overlay = document.getElementById('codepadOverlay');
+    ohaResetCodeEntry();
     overlay.hidden = false;
     document.body.classList.add('oha-modal-open');
-    ohaUpdateCodepad();
 
     window.requestAnimationFrame(() => {
-        document.querySelector('[data-code-digit="1"]')?.focus();
+        document.querySelector('#codepadOverlay [data-code-digit="1"]')?.focus();
     });
 }
 
 function ohaCloseCodepad() {
     const overlay = document.getElementById('codepadOverlay');
-    if (!overlay || overlay.hidden) {
-        return;
+    if (overlay) {
+        overlay.hidden = true;
     }
-
-    ohaClearCodeRequestTimer();
-    ohaCodeBuffer = '';
-    ohaCodeBusy = false;
-    ohaSetCodeError('');
-    overlay.hidden = true;
     document.body.classList.remove('oha-modal-open');
+    ohaResetCodeEntry();
 }
 
 function ohaAppendCodeDigit(digit) {
-    if (ohaCodeBusy || !/^[0-9]$/.test(digit) || ohaCodeBuffer.length >= 8) {
+    if (!ohaCodeInputAllowed() || ohaCodeBusy || !/^[0-9]$/.test(digit) || ohaCodeBuffer.length >= 8) {
         return;
     }
 
@@ -389,7 +432,7 @@ function ohaAppendCodeDigit(digit) {
 }
 
 function ohaDeleteCodeDigit() {
-    if (ohaCodeBusy || ohaCodeBuffer.length === 0) {
+    if (!ohaCodeInputAllowed() || ohaCodeBusy || ohaCodeBuffer.length === 0) {
         return;
     }
 
@@ -399,7 +442,7 @@ function ohaDeleteCodeDigit() {
 }
 
 function ohaSubmitCode() {
-    if (ohaCodeBusy || ohaCodeBuffer.length < 4 || ohaCodeBuffer.length > 8) {
+    if (!ohaCodeInputAllowed() || ohaCodeBusy || ohaCodeBuffer.length < 4 || ohaCodeBuffer.length > 8) {
         return;
     }
 
@@ -413,7 +456,7 @@ function ohaSubmitCode() {
     ohaClearCodeRequestTimer();
     ohaCodeRequestTimer = window.setTimeout(() => {
         ohaCodeRequestTimer = null;
-        if (!document.getElementById('codepadOverlay').hidden && ohaCodeBusy) {
+        if (ohaCodeBusy) {
             ohaCodeBusy = false;
             ohaSetCodeError(ohaTranslate('No response from the alarm system. Please try again.'));
             ohaUpdateCodepad();
@@ -465,6 +508,14 @@ for (const button of document.querySelectorAll('[data-code-digit]')) {
     });
 }
 
+for (const button of document.querySelectorAll('[data-code-delete]')) {
+    button.addEventListener('click', ohaDeleteCodeDigit);
+}
+
+for (const button of document.querySelectorAll('[data-code-confirm]')) {
+    button.addEventListener('click', ohaSubmitCode);
+}
+
 document.getElementById('disarmButton').addEventListener('click', () => {
     if (ohaState?.Capabilities?.CodeRequired) {
         ohaOpenCodepad();
@@ -475,8 +526,6 @@ document.getElementById('disarmButton').addEventListener('click', () => {
 });
 
 document.getElementById('codepadClose').addEventListener('click', ohaCloseCodepad);
-document.getElementById('codepadDelete').addEventListener('click', ohaDeleteCodeDigit);
-document.getElementById('codepadConfirm').addEventListener('click', ohaSubmitCode);
 
 document.getElementById('codepadOverlay').addEventListener('click', (event) => {
     if (event.target === event.currentTarget && !ohaCodeBusy) {
@@ -486,7 +535,11 @@ document.getElementById('codepadOverlay').addEventListener('click', (event) => {
 
 document.addEventListener('keydown', (event) => {
     const overlay = document.getElementById('codepadOverlay');
-    if (overlay.hidden) {
+    const inlineCodepad = document.getElementById('inlineCodepad');
+    const overlayOpen = !overlay.hidden;
+    const inlineFocused = inlineCodepad.contains(document.activeElement);
+
+    if ((!overlayOpen && !inlineFocused) || !ohaCodeInputAllowed()) {
         return;
     }
 
@@ -510,9 +563,22 @@ document.addEventListener('keydown', (event) => {
 
     if (event.key === 'Escape' && !ohaCodeBusy) {
         event.preventDefault();
-        ohaCloseCodepad();
+        if (overlayOpen) {
+            ohaCloseCodepad();
+        } else {
+            ohaResetCodeEntry();
+        }
     }
 });
+
+const ohaDesktopCodepadQuery = window.matchMedia('(min-width: 900px)');
+if (typeof ohaDesktopCodepadQuery.addEventListener === 'function') {
+    ohaDesktopCodepadQuery.addEventListener('change', (event) => {
+        if (event.matches && !document.getElementById('codepadOverlay').hidden) {
+            ohaCloseCodepad();
+        }
+    });
+}
 
 document.getElementById('refreshButton').addEventListener('click', () => {
     ohaRequestAction('RefreshVisualization', true);

@@ -542,6 +542,108 @@ button:focus-visible {
     color: #ffffff;
 }
 
+
+.oha-inline-codepad {
+    display: none;
+}
+
+.oha-inline-codepad-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.oha-inline-codepad-head h2 {
+    margin: 3px 0 0;
+    font-size: 1.05rem;
+}
+
+.oha-inline-codepad-state {
+    display: inline-flex;
+    min-height: 27px;
+    align-items: center;
+    padding: 4px 9px;
+    border: 1px solid var(--oha-border);
+    border-radius: 999px;
+    background: var(--oha-surface-soft);
+    color: var(--oha-muted);
+    font-size: 0.7rem;
+    font-weight: 760;
+    white-space: nowrap;
+}
+
+.oha-inline-codepad[data-enabled="true"] .oha-inline-codepad-state {
+    border-color: var(--oha-success-border);
+    background: var(--oha-success-soft);
+    color: var(--oha-success);
+}
+
+.oha-inline-codepad-hint {
+    min-height: 2.7em;
+    margin: 8px 0 0;
+    color: var(--oha-muted);
+    font-size: 0.75rem;
+    line-height: 1.35;
+}
+
+.oha-code-display-inline {
+    min-height: 52px;
+    gap: 8px;
+    margin: 14px 0 10px;
+    padding: 10px;
+}
+
+.oha-code-grid-inline .oha-code-key {
+    min-height: 50px;
+}
+
+.oha-inline-codepad[data-enabled="false"] .oha-code-display,
+.oha-inline-codepad[data-enabled="false"] .oha-code-grid {
+    opacity: 0.62;
+}
+
+.oha-inline-codepad[data-enabled="false"] .oha-code-key:disabled {
+    opacity: 0.72;
+}
+
+@media (min-width: 900px) {
+    .oha-shell {
+        grid-template-columns: minmax(0, 1fr) 292px;
+        align-items: start;
+    }
+
+    .oha-topbar {
+        grid-column: 1 / -1;
+    }
+
+    .oha-hero,
+    .oha-context-grid,
+    .oha-arm-section,
+    .oha-control-bar {
+        grid-column: 1;
+    }
+
+    .oha-inline-codepad {
+        position: sticky;
+        top: 16px;
+        display: grid;
+        grid-column: 2;
+        grid-row: 2 / span 4;
+        gap: 0;
+        align-self: start;
+        padding: 16px;
+        border: 1px solid var(--oha-border);
+        border-radius: 18px;
+        background: var(--oha-surface);
+        box-shadow: var(--oha-shadow);
+    }
+
+    .oha-control-bar[data-code-required="true"] {
+        display: none;
+    }
+}
+
 @media (max-width: 860px) {
     .oha-context-grid,
     .oha-mode-grid {

@@ -39,11 +39,14 @@ assertCodepad(
 );
 
 assertCodepad(str_contains($html, 'id="codepadOverlay"'), 'The visualization must contain a codepad overlay.');
+assertCodepad(str_contains($html, 'id="inlineCodepad"'), 'Wide visualizations must contain a permanently integrated codepad.');
+assertCodepad(str_contains($html, 'id="inlineCodepadDisplay"'), 'The integrated codepad must provide its own protected code display.');
+assertCodepad(str_contains($html, 'data-code-surface="inline"'), 'Integrated codepad controls must be explicitly addressable as the inline surface.');
 assertCodepad(str_contains($html, 'role="dialog"'), 'The codepad must be exposed as a dialog.');
-assertCodepad(substr_count($html, 'data-code-digit=') === 10, 'The codepad must provide digits 0 through 9.');
+assertCodepad(substr_count($html, 'data-code-digit=') === 20, 'Inline and popup codepads must each provide digits 0 through 9.');
 assertCodepad(str_contains($html, 'id="codepadDelete"'), 'The codepad must provide a delete key.');
 assertCodepad(str_contains($html, 'id="codepadConfirm"'), 'The codepad must provide a confirm key.');
-assertCodepad(substr_count($html, 'class="oha-code-dot"') === 8, 'The code display must support up to eight digits.');
+assertCodepad(substr_count($html, 'class="oha-code-dot"') === 16, 'Both code displays must support up to eight digits.');
 
 assertCodepad(
     str_contains($javascript, "ohaRequestAction('DisarmWithCode', code);"),
@@ -74,6 +77,12 @@ assertCodepad(
     'Code protection must open the codepad instead of disabling the disarm button.'
 );
 
+assertCodepad(str_contains($css, '.oha-inline-codepad'), 'The permanently integrated codepad must be styled.');
+assertCodepad(str_contains($css, '@media (min-width: 900px)'), 'The integrated codepad must use a tile-width breakpoint.');
+assertCodepad(str_contains($css, '.oha-control-bar[data-code-required="true"]'), 'The popup trigger must be hidden on wide code-protected views.');
+assertCodepad(str_contains($javascript, 'function ohaRenderInlineCodepad(state)'), 'The inline codepad must be rendered from the current control state.');
+assertCodepad(str_contains($javascript, 'function ohaCodeInputAllowed()'), 'Both codepad surfaces must share the same backend-driven enablement rule.');
+assertCodepad(str_contains($javascript, "window.matchMedia('(min-width: 900px)')"), 'Switching to the wide layout must close a previously opened popup codepad.');
 assertCodepad(str_contains($css, '.oha-codepad-overlay'), 'The codepad overlay must be styled.');
 assertCodepad(str_contains($css, '.oha-code-grid'), 'The numeric code grid must be styled.');
 assertCodepad(str_contains($css, '@media (max-width: 420px)'), 'The codepad must have a mobile layout.');
@@ -89,7 +98,10 @@ foreach ([
     'Code entry',
     'digits entered',
     'Code not accepted. Please try again.',
-    'No response from the alarm system. Please try again.'
+    'No response from the alarm system. Please try again.',
+    'Inactive',
+    'Code protection is not enabled.',
+    'Code entry becomes available when disarming is possible.'
 ] as $translationKey) {
     assertCodepad(
         isset($translations[$translationKey]),

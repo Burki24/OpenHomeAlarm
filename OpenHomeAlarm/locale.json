@@ -154,7 +154,10 @@
             "Code entry": "Code-Eingabe",
             "digits entered": "Ziffern eingegeben",
             "Code not accepted. Please try again.": "Code nicht akzeptiert. Bitte erneut versuchen.",
-            "No response from the alarm system. Please try again.": "Keine Rückmeldung von der Alarmanlage. Bitte erneut versuchen."
+            "No response from the alarm system. Please try again.": "Keine Rückmeldung von der Alarmanlage. Bitte erneut versuchen.",
+            "Inactive": "Inaktiv",
+            "Code protection is not enabled.": "Code-Schutz ist nicht aktiviert.",
+            "Code entry becomes available when disarming is possible.": "Die Code-Eingabe wird verfügbar, sobald die Anlage unscharf geschaltet werden kann."
         }
     }
 }
