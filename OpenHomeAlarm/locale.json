@@ -135,7 +135,14 @@
             "An alarm has been triggered.": "Ein Alarm wurde ausgelöst.",
             "Select security mode": "Scharfmodus wählen",
             "more": "weitere",
-            "System control": "Anlagensteuerung"
+            "System control": "Anlagensteuerung",
+            "No action": "Keine Aktion",
+            "Use action": "Aktion verwenden",
+            "Alarm start action": "Alarmstart",
+            "Alarm output reset action": "Rücksetzung des Alarmausgangs",
+            "Disarm-after-alarm action": "Unscharfschalten nach Alarm",
+            "New fault action": "Neue Störung",
+            "Fault cleared action": "Behobene Störung"
         }
     }
 }

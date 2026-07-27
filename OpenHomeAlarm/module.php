@@ -97,12 +97,25 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
     private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
+    private const PROPERTY_ALARM_ACTION_ENABLED = 'AlarmActionEnabled';
     private const PROPERTY_ALARM_ACTION = 'AlarmAction';
+    private const PROPERTY_ALARM_RESET_ACTION_ENABLED = 'AlarmResetActionEnabled';
     private const PROPERTY_ALARM_RESET_ACTION = 'AlarmResetAction';
+    private const PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED = 'DisarmAfterAlarmActionEnabled';
     private const PROPERTY_DISARM_AFTER_ALARM_ACTION = 'DisarmAfterAlarmAction';
+    private const PROPERTY_FAULT_ACTION_ENABLED = 'FaultActionEnabled';
     private const PROPERTY_FAULT_ACTION = 'FaultAction';
+    private const PROPERTY_FAULT_CLEARED_ACTION_ENABLED = 'FaultClearedActionEnabled';
     private const PROPERTY_FAULT_CLEARED_ACTION = 'FaultClearedAction';
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
+
+    private const OPTIONAL_ACTION_FIELDS = [
+        self::PROPERTY_ALARM_ACTION              => self::PROPERTY_ALARM_ACTION_ENABLED,
+        self::PROPERTY_ALARM_RESET_ACTION        => self::PROPERTY_ALARM_RESET_ACTION_ENABLED,
+        self::PROPERTY_DISARM_AFTER_ALARM_ACTION => self::PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED,
+        self::PROPERTY_FAULT_ACTION              => self::PROPERTY_FAULT_ACTION_ENABLED,
+        self::PROPERTY_FAULT_CLEARED_ACTION      => self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED
+    ];
 
     private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
     private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
@@ -150,10 +163,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
+        $this->RegisterPropertyInteger(self::PROPERTY_ALARM_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ACTION, '');
+        $this->RegisterPropertyInteger(self::PROPERTY_ALARM_RESET_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_RESET_ACTION, '');
+        $this->RegisterPropertyInteger(self::PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_DISARM_AFTER_ALARM_ACTION, '');
+        $this->RegisterPropertyInteger(self::PROPERTY_FAULT_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, '');
+        $this->RegisterPropertyInteger(self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
 
@@ -459,9 +477,27 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         if (isset($form['elements']) && is_array($form['elements'])) {
             $this->PopulateConfigurationListValues($form['elements']);
+            $this->ConfigureOptionalActionFields($form['elements']);
         }
 
         return $this->EncodeConfigurationForm($form);
+    }
+
+    /**
+     * Enables or disables an optional SelectAction field in an open configuration form.
+     *
+     * The associated integer property is updated by the configuration form itself.
+     * This method only keeps the native action selector in sync while the user edits
+     * the form, so disabled optional actions do not participate in native validation.
+     */
+    public function SetOptionalActionFieldEnabled(string $fieldName, bool $enabled): void
+    {
+        if (!array_key_exists($fieldName, self::OPTIONAL_ACTION_FIELDS)) {
+            throw new InvalidArgumentException('Unknown optional action field.');
+        }
+
+        $this->UpdateFormField($fieldName, 'enabled', $enabled);
+        $this->UpdateFormField($fieldName, 'visible', $enabled);
     }
 
     /**
@@ -1349,6 +1385,36 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             if (isset($element['items']) && is_array($element['items'])) {
                 $this->PopulateConfigurationListValues($element['items']);
+            }
+        }
+        unset($element);
+    }
+
+    /**
+     * Applies the persisted optional-action switches to SelectAction fields.
+     *
+     * @param list<array<string,mixed>> $elements
+     */
+    private function ConfigureOptionalActionFields(array &$elements): void
+    {
+        foreach ($elements as &$element) {
+            if (!is_array($element)) {
+                continue;
+            }
+
+            $name = $element['name'] ?? null;
+            if (
+                ($element['type'] ?? null) === 'SelectAction'
+                && is_string($name)
+                && array_key_exists($name, self::OPTIONAL_ACTION_FIELDS)
+            ) {
+                $enabled = $this->ReadPropertyInteger(self::OPTIONAL_ACTION_FIELDS[$name]) === 1;
+                $element['enabled'] = $enabled;
+                $element['visible'] = $enabled;
+            }
+
+            if (isset($element['items']) && is_array($element['items'])) {
+                $this->ConfigureOptionalActionFields($element['items']);
             }
         }
         unset($element);
@@ -3803,6 +3869,11 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function RunConfiguredAction(string $propertyName): bool
     {
+        $enabledProperty = self::OPTIONAL_ACTION_FIELDS[$propertyName] ?? null;
+        if (is_string($enabledProperty) && $this->ReadPropertyInteger($enabledProperty) !== 1) {
+            return true;
+        }
+
         $encodedAction = trim($this->ReadPropertyString($propertyName));
         if ($encodedAction === '' || $encodedAction === '{}') {
             return true;

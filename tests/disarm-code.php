@@ -88,6 +88,13 @@ class IPSModuleStrict
         return is_string($value) ? $value : '';
     }
 
+    protected function ReadPropertyInteger(string $name): int
+    {
+        $value = $this->properties[$name] ?? 0;
+
+        return is_int($value) ? $value : 0;
+    }
+
     protected function RegisterAttributeInteger(string $name, int $default): void
     {
         $this->attributes[$name] = $this->attributes[$name] ?? $default;

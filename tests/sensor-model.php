@@ -129,6 +129,13 @@ class IPSModuleStrict
         return $this->properties[$name] ?? '';
     }
 
+    protected function ReadPropertyInteger(string $name): int
+    {
+        $value = $this->properties[$name] ?? 0;
+
+        return is_int($value) ? $value : 0;
+    }
+
     protected function RegisterVariableInteger(string $ident, string $name, array $presentation, int $position): bool
     {
         $this->registeredVariables[$ident] = [
