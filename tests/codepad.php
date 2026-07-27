@@ -61,13 +61,20 @@ assertCodepad(
     'Each accepted digit must be appended to the existing code buffer instead of replacing it.'
 );
 assertCodepad(
-    str_contains($javascript, "for (const button of document.querySelectorAll('[data-code-digit]'))")
-        && str_contains($javascript, "button.addEventListener('click'"),
-    'Each codepad key must use a direct click handler compatible with the HTML-SDK visualization.'
+    str_contains($html, 'onclick="ohaAppendCodeDigit(\'1\')"')
+        && str_contains($html, 'onclick="ohaSubmitCode()"')
+        && str_contains($html, 'onclick="ohaDeleteCodeDigit()"'),
+    'Codepad controls must invoke their handlers directly from the rendered HTML.'
 );
 assertCodepad(
-    !str_contains($javascript, "document.addEventListener('pointerup'"),
-    'Codepad input must not depend on delegated pointer events.'
+    !str_contains($javascript, "document.addEventListener('pointerup'")
+        && !str_contains($javascript, "button.addEventListener('click'"),
+    'Codepad input must not depend on delegated or post-render listener registration.'
+);
+assertCodepad(
+    !str_contains($javascript, 'button.disabled = !inputAllowed')
+        && str_contains($javascript, 'button.dataset.enabled = digitEnabled'),
+    'Codepad keys must remain native clickable buttons and use state data instead of disabled attributes.'
 );
 assertCodepad(
     str_contains($javascript, 'function ohaClearCodeEntry()'),
@@ -124,7 +131,11 @@ foreach ([
     'No response from the alarm system. Please try again.',
     'Inactive',
     'Code protection is not enabled.',
-    'Code entry becomes available when disarming is possible.'
+    'Code entry becomes available when disarming is possible.',
+    'Deactivate',
+    'Activate',
+    'Blocked',
+    'Deactivate first to change mode'
 ] as $translationKey) {
     assertCodepad(
         isset($translations[$translationKey]),

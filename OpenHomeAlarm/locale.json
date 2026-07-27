@@ -168,7 +168,11 @@
             "Security zones": "Sicherheitsbereiche",
             "Monitoring overview": "Überwachungsübersicht",
             "Active mode": "Aktiver Modus",
-            "Clear code entry": "Code-Eingabe löschen"
+            "Clear code entry": "Code-Eingabe löschen",
+            "Activate": "Aktivieren",
+            "Blocked": "Blockiert",
+            "Deactivate first to change mode": "Zum Wechseln zuerst deaktivieren",
+            "Deactivate": "Deaktivieren"
         }
     }
 }

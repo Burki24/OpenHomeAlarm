@@ -448,17 +448,32 @@ button:focus-visible {
     text-align: left;
     touch-action: manipulation;
     user-select: none;
+    position: relative;
+    overflow: hidden;
     transition: transform 120ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
 }
 
-.oha-mode-button:hover:not(:disabled) {
+.oha-mode-button::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--oha-faint);
+    content: "";
+}
+
+.oha-mode-button[data-can-arm="true"]::before,
+.oha-mode-button[data-active="true"]::before {
+    background: var(--oha-accent);
+}
+
+.oha-mode-button:hover[data-can-arm="true"] {
     transform: translateY(-1px);
     border-color: var(--oha-accent);
     background: linear-gradient(135deg, var(--oha-accent-soft), var(--oha-surface));
     box-shadow: var(--oha-shadow);
 }
 
-.oha-mode-button:active:not(:disabled) {
+.oha-mode-button:active[data-can-arm="true"] {
     transform: translateY(1px);
 }
 
@@ -467,9 +482,9 @@ button:focus-visible {
     outline-offset: 2px;
 }
 
-.oha-mode-button:disabled {
+.oha-mode-button[data-can-arm="false"] {
     cursor: default;
-    opacity: 0.70;
+    opacity: 0.78;
 }
 
 .oha-mode-button[data-ready="true"] {
@@ -542,7 +557,7 @@ button:focus-visible {
     font-size: 0.8rem;
 }
 
-.oha-mode-button:not(:disabled) .oha-mode-chevron {
+.oha-mode-button[data-can-arm="true"] .oha-mode-chevron {
     color: var(--oha-accent);
 }
 
@@ -568,6 +583,24 @@ button:focus-visible {
 
 .oha-blocker + .oha-blocker {
     margin-top: 2px;
+}
+
+.oha-mode-action {
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 5px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--oha-surface-strong);
+    color: var(--oha-muted);
+    font-size: 0.66rem;
+    font-weight: 760;
+}
+
+.oha-mode-button[data-can-arm="true"] .oha-mode-action,
+.oha-mode-button[data-active="true"] .oha-mode-action {
+    background: var(--oha-accent-soft);
+    color: var(--oha-accent);
 }
 
 .oha-control-bar {
@@ -628,21 +661,21 @@ button:focus-visible {
     transition: transform 100ms ease, background 120ms ease, color 120ms ease, opacity 120ms ease;
 }
 
-.oha-inline-disarm-button:hover:not(:disabled),
-.oha-modal-disarm-button:hover:not(:disabled) {
+.oha-inline-disarm-button:hover[data-enabled="true"],
+.oha-modal-disarm-button:hover[data-enabled="true"] {
     background: var(--oha-danger);
     color: #ffffff;
 }
 
-.oha-inline-disarm-button:active:not(:disabled),
-.oha-modal-disarm-button:active:not(:disabled) {
+.oha-inline-disarm-button:active[data-enabled="true"],
+.oha-modal-disarm-button:active[data-enabled="true"] {
     transform: translateY(1px);
 }
 
-.oha-inline-disarm-button:disabled,
-.oha-modal-disarm-button:disabled {
+.oha-inline-disarm-button[data-enabled="false"],
+.oha-modal-disarm-button[data-enabled="false"] {
     cursor: default;
-    opacity: 0.38;
+    opacity: 0.48;
 }
 
 
@@ -708,8 +741,10 @@ button:focus-visible {
     opacity: 0.62;
 }
 
-.oha-inline-codepad[data-enabled="false"] .oha-code-key:disabled {
-    opacity: 0.72;
+.oha-inline-codepad[data-enabled="false"] .oha-code-key,
+.oha-code-key[data-enabled="false"] {
+    cursor: default;
+    opacity: 0.58;
 }
 
 
@@ -973,18 +1008,18 @@ button:focus-visible {
     transition: transform 100ms ease, border-color 100ms ease, background 100ms ease, opacity 100ms ease;
 }
 
-.oha-code-key:hover:not(:disabled) {
+.oha-code-key:hover[data-enabled="true"] {
     border-color: rgba(37, 99, 235, 0.32);
     background: var(--oha-accent-soft);
 }
 
-.oha-code-key:active:not(:disabled) {
+.oha-code-key:active[data-enabled="true"] {
     transform: translateY(1px) scale(0.99);
 }
 
-.oha-code-key:disabled {
+.oha-code-key[data-enabled="false"] {
     cursor: default;
-    opacity: 0.38;
+    opacity: 0.48;
 }
 
 .oha-code-key-secondary {

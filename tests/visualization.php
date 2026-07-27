@@ -55,7 +55,7 @@ assertVisualization(str_contains($html, '{{OHA_INITIAL_STATE}}'), 'HTML must con
 assertVisualization(str_contains($javascript, 'function handleMessage(data)'), 'HTML-SDK handleMessage must be implemented.');
 assertVisualization(str_contains($javascript, "ohaRequestAction('Arm'"), 'Visualization must arm through RequestAction.');
 assertVisualization(str_contains($javascript, "ohaRequestAction('Disarm'"), 'Visualization must disarm through RequestAction.');
-assertVisualization(str_contains($javascript, "ohaRequestAction('RefreshVisualization'"), 'Visualization refresh action must be available.');
+assertVisualization(str_contains($html, "onclick=\"ohaRequestAction('RefreshVisualization', true)\""), 'Visualization refresh action must be available.');
 
 assertVisualization(str_contains($html, 'class="oha-hero"'), 'Visualization must use a state-focused hero area.');
 assertVisualization(str_contains($html, 'id="armingSection"'), 'Visualization must provide a dedicated arming section.');
@@ -63,9 +63,11 @@ assertVisualization(str_contains($html, 'id="contextGrid"'), 'Visualization must
 assertVisualization(str_contains($javascript, 'function ohaRenderHero(state)'), 'Visualization must render the main state contextually.');
 assertVisualization(
     str_contains($html, 'class="oha-mode-button"')
-        && str_contains($javascript, 'button.disabled = !modeState.CanArm;')
+        && str_contains($html, 'onclick="ohaHandleModeButton(this)"')
+        && str_contains($javascript, "button.dataset.canArm = modeState.CanArm ? 'true' : 'false';")
+        && !str_contains($javascript, 'button.disabled = !modeState.CanArm;')
         && str_contains($javascript, 'button.dataset.active = !isDisarmed'),
-    'Arming modes must be rendered as full-width buttons whose availability follows the control API.'
+    'Arming modes must be rendered as direct full-width controls without relying on native disabled buttons.'
 );
 assertVisualization(
     strpos($html, 'id="statusHero"') < strpos($html, 'id="armingSection"')
