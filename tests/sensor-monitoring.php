@@ -327,7 +327,7 @@ assertSensorMonitoring(
 // A3 must not modify mode/state or trigger alarm transitions.
 $moduleSource = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/module.php');
 $messageSinkStart = strpos($moduleSource, 'public function MessageSink');
-$messageSinkEnd = strpos($moduleSource, 'public function GetSensorEditForm');
+$messageSinkEnd = strpos($moduleSource, 'public function ArmHome');
 assertSensorMonitoring($messageSinkStart !== false && $messageSinkEnd !== false, 'MessageSink must exist in A3.');
 $messageSinkSource = substr($moduleSource, $messageSinkStart, $messageSinkEnd - $messageSinkStart);
 assertSensorMonitoring(

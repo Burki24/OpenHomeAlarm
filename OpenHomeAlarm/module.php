@@ -157,8 +157,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Reacts to updates of configured sensor variables.
      *
-     * A3 only observes and evaluates sensor states. Arming/disarming and alarm
-     * transitions deliberately remain part of the following development step.
+     * Sensor updates keep the readiness state current. Alarm and delay transitions
+     * deliberately remain part of later development steps.
      */
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
@@ -172,6 +172,41 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->UpdateReadyToArmFromSensors($sensors);
+    }
+
+    /**
+     * Arms the system in Home mode when every sensor assigned to Home is ready.
+     */
+    public function ArmHome(): bool
+    {
+        return $this->ArmMode(self::MODE_HOME);
+    }
+
+    /**
+     * Arms the system in Away mode when every sensor assigned to Away is ready.
+     */
+    public function ArmAway(): bool
+    {
+        return $this->ArmMode(self::MODE_AWAY);
+    }
+
+    /**
+     * Arms the system in Night mode when every sensor assigned to Night is ready.
+     */
+    public function ArmNight(): bool
+    {
+        return $this->ArmMode(self::MODE_NIGHT);
+    }
+
+    /**
+     * Disarms the system and clears the selected arming mode.
+     */
+    public function Disarm(): bool
+    {
+        $this->SetAlarmState(self::STATE_DISARMED);
+        $this->SetAlarmMode(self::MODE_NONE);
+
+        return true;
     }
 
     /**
@@ -956,9 +991,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Updates the global A3 readiness state from all enabled sensors which are used
-     * by at least one arming mode. A4 will later refine this check for the requested
-     * target mode while performing the actual arming operation.
+     * Updates the global readiness state from all enabled sensors which are used
+     * by at least one arming mode. Mode-specific arming uses an additional target-mode
+     * check so an unrelated sensor cannot block another arming mode.
      *
      * @param list<array{
      *     Enabled: bool,
@@ -1000,6 +1035,90 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->SetReadyToArm(true);
+    }
+
+    /**
+     * Tries to arm one concrete mode. Only sensors assigned to the requested mode
+     * participate in this decision.
+     *
+     * @param int $mode One of MODE_HOME, MODE_AWAY or MODE_NIGHT.
+     */
+    private function ArmMode(int $mode): bool
+    {
+        if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
+            throw new InvalidArgumentException('Unsupported arming target mode.');
+        }
+
+        $sensors = $this->ReadConfiguredSensors();
+        $this->UpdateReadyToArmFromSensors($sensors);
+
+        if (!$this->IsModeReadyToArm($mode, $sensors)) {
+            return false;
+        }
+
+        $this->SetAlarmMode($mode);
+        $this->SetAlarmState(self::STATE_ARMED);
+
+        return true;
+    }
+
+    /**
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function IsModeReadyToArm(int $mode, array $sensors): bool
+    {
+        foreach ($sensors as $sensor) {
+            if (!$sensor['Enabled'] || !$this->IsSensorRelevantForMode($sensor, $mode)) {
+                continue;
+            }
+
+            $variableID = $sensor['VariableID'];
+            if ($variableID === 0) {
+                continue;
+            }
+            if (!$this->IsExistingVariable($variableID)) {
+                return false;
+            }
+
+            if ($this->GetSensorTriggerState($sensor) !== false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     EntryDelay: bool
+     * } $sensor
+     */
+    private function IsSensorRelevantForMode(array $sensor, int $mode): bool
+    {
+        return match ($mode) {
+            self::MODE_HOME => $sensor['ArmHome'],
+            self::MODE_AWAY => $sensor['ArmAway'],
+            self::MODE_NIGHT => $sensor['ArmNight'],
+            default => throw new InvalidArgumentException('Unsupported arming target mode.')
+        };
     }
 
     /**

@@ -53,3 +53,6 @@ jobs:
 
       - name: Check active sensor monitoring
         run: php tests/sensor-monitoring.php
+
+      - name: Check arming and disarming logic
+        run: php tests/arming.php

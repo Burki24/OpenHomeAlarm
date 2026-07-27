@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell und aktive Sensorüberwachung sind implementiert. Die Scharf-/Unscharf-Logik und Code-Eingabe folgen schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung sowie die zielmodusabhängige Scharf-/Unscharf-Logik sind implementiert. Verzögerungen, Alarmauslösung und Code-Eingabe folgen schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -17,11 +17,11 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell und die aktive Sensorüberwachung bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung und die zielmodusabhängige Scharf-/Unscharf-Logik bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich werden Sensortyp, Auslösewert und die spätere Nutzung einer Eingangsverzögerung gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
-Die Scharf-/Unscharf-, Alarm- und Code-Logik wird in den folgenden Entwicklungsschritten ergänzt.
+Ein-/Ausgangsverzögerung, Alarmauslösung und Code-Logik werden in den folgenden Entwicklungsschritten ergänzt.
 
 ### 2. Voraussetzungen
 
@@ -71,7 +71,9 @@ Aktive, mindestens einem Scharfmodus zugeordnete Sensoren werden per `VM_UPDATE`
 
 `ReadyToArm` ist in diesem Entwicklungsschritt eine globale Bereitschaftsanzeige: Sie ist nur dann **Bereit**, wenn kein aktivierter, einem Scharfmodus zugeordneter Sensor ausgelöst ist. Nicht mehr vorhandene oder nicht auswertbare konfigurierte Sensorvariablen führen aus Sicherheitsgründen ebenfalls zu **Nicht bereit**. Ein noch nicht vollständig konfigurierter Eintrag mit `VariableID = 0` wird ignoriert.
 
-A3 verändert weder `Mode` noch `State` und löst noch keinen Alarm aus. Die zielmodusabhängige Scharfschaltprüfung sowie die eigentliche Scharf-/Unscharf-Logik folgen in A4.
+Beim Scharfschalten prüft OpenHomeAlarm nur die Sensoren, die dem angeforderten Zielmodus zugeordnet sind. Ein ausgelöster Sensor, der beispielsweise ausschließlich für **Abwesend** gilt, verhindert deshalb nicht das Scharfschalten von **Zuhause**. Fehlende oder nicht auswertbare Sensoren des angeforderten Modus blockieren die Scharfschaltung aus Sicherheitsgründen. Unvollständige Listeneinträge mit `VariableID = 0` bleiben weiterhin ohne Wirkung.
+
+A4 schaltet nach erfolgreicher Prüfung unmittelbar in den Zustand **Scharf**. Ein-/Ausgangsverzögerung sowie die Reaktion auf einen ausgelösten Sensor während des scharfen Betriebs folgen in den nächsten Entwicklungsschritten.
 
 ### 7. Visualisierung
 
@@ -79,4 +81,13 @@ Eine eigene Visualisierung einschließlich der vorgesehenen Code-Eingabe zum Dea
 
 ### 8. PHP-Befehlsreferenz
 
-Im aktuellen Entwicklungsstand stehen noch keine öffentlichen Modulbefehle zur Verfügung.
+Folgende öffentliche Modulbefehle stehen zur Verfügung:
+
+| PHP-Befehl | Rückgabe | Bedeutung |
+| --- | --- | --- |
+| `OHA_ArmHome($InstanzID)` | `bool` | Prüft die für **Zuhause** relevanten Sensoren und schaltet bei Erfolg scharf |
+| `OHA_ArmAway($InstanzID)` | `bool` | Prüft die für **Abwesend** relevanten Sensoren und schaltet bei Erfolg scharf |
+| `OHA_ArmNight($InstanzID)` | `bool` | Prüft die für **Nacht** relevanten Sensoren und schaltet bei Erfolg scharf |
+| `OHA_Disarm($InstanzID)` | `bool` | Schaltet die Anlage unscharf und setzt den Scharfmodus zurück |
+
+Die drei Scharfschaltbefehle liefern `false`, wenn mindestens ein für den Zielmodus relevanter Sensor ausgelöst, nicht vorhanden oder nicht auswertbar ist. In diesem Fall bleiben `Mode` und `State` unverändert.
