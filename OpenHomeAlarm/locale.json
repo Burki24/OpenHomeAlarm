@@ -54,7 +54,10 @@
             "Last alarm source": "Letzter Alarmauslöser",
             "Last alarm time": "Letzter Alarmzeitpunkt",
             "Variable #%d": "Variable #%d",
-            "Unknown trigger": "Unbekannter Auslöser"
+            "Unknown trigger": "Unbekannter Auslöser",
+            "24/7 active": "24/7 aktiv",
+            "24/7 sensors trigger immediately in every system state; mode assignments and entry delay are ignored.": "24/7-Sensoren lösen in jedem Systemzustand sofort aus; Moduszuordnungen und Eingangsverzögerung werden ignoriert.",
+            "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry delay are ignored.": "24/7-Sensoren lösen unabhängig vom aktuellen Scharfmodus sofort aus; Moduszuordnungen und Eingangsverzögerung werden ignoriert."
         }
     }
 }

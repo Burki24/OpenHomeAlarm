@@ -201,6 +201,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $sensors = $this->ReadConfiguredSensors();
         $this->SynchronizeSensorMessages($sensors);
         $this->UpdateReadyToArmFromSensors($sensors);
+        $this->EvaluateAlwaysActiveSensors($sensors);
         $this->RestoreDelayTimers();
     }
 
@@ -253,6 +254,10 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->UpdateReadyToArmFromSensors($sensors);
+        if ($this->HandleAlwaysActiveSensorUpdate($SenderID, $sensors)) {
+            return;
+        }
+
         $this->HandleSensorUpdateWhileArmed($SenderID, $sensors);
     }
 
@@ -489,8 +494,17 @@ class OpenHomeAlarm extends IPSModuleStrict
             ],
             [
                 'type'    => 'CheckBox',
+                'name'    => 'AlwaysActive',
+                'caption' => $this->Translate('24/7 active')
+            ],
+            [
+                'type'    => 'CheckBox',
                 'name'    => 'EntryDelay',
                 'caption' => $this->Translate('Entry delay')
+            ],
+            [
+                'type'    => 'Label',
+                'caption' => $this->Translate('24/7 sensors trigger immediately in every system state; mode assignments and entry delay are ignored.')
             ]
         ];
     }
@@ -988,6 +1002,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }>
      */
@@ -1032,6 +1047,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }
      */
@@ -1056,6 +1072,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             'ArmHome'      => $this->ReadSensorBoolean($sensor, 'ArmHome', false),
             'ArmAway'      => $this->ReadSensorBoolean($sensor, 'ArmAway', true),
             'ArmNight'     => $this->ReadSensorBoolean($sensor, 'ArmNight', false),
+            'AlwaysActive' => $this->ReadSensorBoolean($sensor, 'AlwaysActive', false),
             'EntryDelay'   => $this->ReadSensorBoolean($sensor, 'EntryDelay', false)
         ];
     }
@@ -1111,6 +1128,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -1118,7 +1136,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $wantedVariableIDs = [];
         foreach ($sensors as $sensor) {
-            if (!$sensor['Enabled'] || !$this->IsSensorUsedForArming($sensor)) {
+            if (!$sensor['Enabled'] || !$this->IsSensorMonitored($sensor)) {
                 continue;
             }
 
@@ -1156,6 +1174,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -1164,7 +1183,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         foreach ($sensors as $sensor) {
             if (
                 $sensor['Enabled']
-                && $this->IsSensorUsedForArming($sensor)
+                && $this->IsSensorMonitored($sensor)
                 && $sensor['VariableID'] === $variableID
             ) {
                 return true;
@@ -1188,13 +1207,14 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
     private function UpdateReadyToArmFromSensors(array $sensors): void
     {
         foreach ($sensors as $sensor) {
-            if (!$sensor['Enabled'] || !$this->IsSensorUsedForArming($sensor)) {
+            if (!$sensor['Enabled'] || !$this->IsSensorMonitored($sensor)) {
                 continue;
             }
 
@@ -1270,13 +1290,17 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
     private function IsModeReadyToArm(int $mode, array $sensors): bool
     {
         foreach ($sensors as $sensor) {
-            if (!$sensor['Enabled'] || !$this->IsSensorRelevantForMode($sensor, $mode)) {
+            if (
+                !$sensor['Enabled']
+                || (!$sensor['AlwaysActive'] && !$this->IsSensorRelevantForMode($sensor, $mode))
+            ) {
                 continue;
             }
 
@@ -1306,6 +1330,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * } $sensor
      */
@@ -1329,12 +1354,36 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * } $sensor
      */
     private function IsSensorUsedForArming(array $sensor): bool
     {
         return $sensor['ArmHome'] || $sensor['ArmAway'] || $sensor['ArmNight'];
+    }
+
+    /**
+     * Returns whether an enabled sensor needs VM_UPDATE monitoring at all.
+     *
+     * 24/7 sensors are monitored even when they are not assigned to an arming mode.
+     *
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * } $sensor
+     */
+    private function IsSensorMonitored(array $sensor): bool
+    {
+        return $sensor['AlwaysActive'] || $this->IsSensorUsedForArming($sensor);
     }
 
     /**
@@ -1350,6 +1399,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * } $sensor
      */
@@ -1417,6 +1467,90 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Evaluates already active 24/7 sensors after ApplyChanges or a restart.
+     *
+     * This closes the restart gap where no VM_UPDATE would arrive for a sensor that
+     * was already triggered before the module became active again.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function EvaluateAlwaysActiveSensors(array $sensors): void
+    {
+        if ($this->ReadAlarmState() === self::STATE_ALARM) {
+            return;
+        }
+
+        foreach ($sensors as $sensor) {
+            if (!$sensor['Enabled'] || !$sensor['AlwaysActive'] || $sensor['VariableID'] <= 0) {
+                continue;
+            }
+            if (!$this->IsExistingVariable($sensor['VariableID'])) {
+                continue;
+            }
+            if ($this->GetSensorTriggerState($sensor) !== true) {
+                continue;
+            }
+
+            $this->EnterAlarmState($sensor, $sensor['VariableID']);
+
+            return;
+        }
+    }
+
+    /**
+     * Handles one update of a 24/7 sensor independently of the arming mode.
+     *
+     * 24/7 sensors always trigger immediately. Entry-delay settings and mode
+     * assignments are intentionally ignored for these sensors.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function HandleAlwaysActiveSensorUpdate(int $variableID, array $sensors): bool
+    {
+        foreach ($sensors as $sensor) {
+            if (
+                !$sensor['Enabled']
+                || !$sensor['AlwaysActive']
+                || $sensor['VariableID'] !== $variableID
+            ) {
+                continue;
+            }
+
+            if ($this->GetSensorTriggerState($sensor) !== true) {
+                continue;
+            }
+
+            $this->EnterAlarmState($sensor, $sensor['VariableID']);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Reacts to one monitored sensor update while the system is armed or already
      * counting down an entry delay.
      *
@@ -1429,6 +1563,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }> $sensors
      */
@@ -1448,6 +1583,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         foreach ($sensors as $sensor) {
             if (
                 !$sensor['Enabled']
+                || $sensor['AlwaysActive']
                 || $sensor['VariableID'] !== $variableID
                 || !$this->IsSensorRelevantForMode($sensor, $mode)
             ) {
@@ -1498,6 +1634,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }|null $sourceSensor
      */
@@ -1523,6 +1660,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }|null $sourceSensor
      */
@@ -1556,6 +1694,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }> $sensors
      *
@@ -1568,6 +1707,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
+     *     AlwaysActive: bool,
      *     EntryDelay: bool
      * }|null
      */

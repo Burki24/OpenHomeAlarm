@@ -335,6 +335,7 @@ $configuredSensors = [
         'ArmHome'      => true,
         'ArmAway'      => true,
         'ArmNight'     => true,
+        'AlwaysActive' => false,
         'EntryDelay'   => true
     ],
     [
@@ -346,6 +347,7 @@ $configuredSensors = [
         'ArmHome'      => false,
         'ArmAway'      => true,
         'ArmNight'     => false,
+        'AlwaysActive' => false,
         'EntryDelay'   => false
     ]
 ];
@@ -379,6 +381,7 @@ assertSensorModel(
         'ArmHome'      => false,
         'ArmAway'      => true,
         'ArmNight'     => false,
+        'AlwaysActive' => false,
         'EntryDelay'   => false
     ]],
     'Missing optional sensor fields must receive stable defaults.'
@@ -442,6 +445,7 @@ foreach ([
     'ArmHome',
     'ArmAway',
     'ArmNight',
+    'AlwaysActive',
     'EntryDelay'
 ] as $columnName) {
     assertSensorModel(isset($columns[$columnName]), 'Missing Sensors column ' . $columnName . '.');
@@ -463,6 +467,7 @@ assertSensorModel(($columns['TriggerValue']['add'] ?? null) === '1', 'New sensor
 assertSensorModel(($columns['ArmHome']['add'] ?? null) === false, 'New sensors must not be active in Home by default.');
 assertSensorModel(($columns['ArmAway']['add'] ?? null) === true, 'New sensors must be active in Away by default.');
 assertSensorModel(($columns['ArmNight']['add'] ?? null) === false, 'New sensors must not be active in Night by default.');
+assertSensorModel(($columns['AlwaysActive']['add'] ?? null) === false, 'New sensors must not be 24/7 active by default.');
 assertSensorModel(($columns['EntryDelay']['add'] ?? null) === false, 'New sensors must not use entry delay by default.');
 assertSensorModel(
     ($columns['VariableID']['width'] ?? null) === 'auto',
@@ -478,6 +483,7 @@ assertSensorModel(
     ($columns['ArmHome']['width'] ?? null) === '90px'
         && ($columns['ArmAway']['width'] ?? null) === '95px'
         && ($columns['ArmNight']['width'] ?? null) === '75px'
+        && ($columns['AlwaysActive']['width'] ?? null) === '70px'
         && ($columns['EntryDelay']['width'] ?? null) === '130px',
     'Mode and entry-delay columns must be wide enough for their captions.'
 );
@@ -555,6 +561,10 @@ foreach ($editForm as $field) {
 assertSensorModel(
     ($editFields['VariableID']['type'] ?? null) === 'SelectVariable',
     'Sensor editor must use SelectVariable for VariableID.'
+);
+assertSensorModel(
+    ($editFields['AlwaysActive']['type'] ?? null) === 'CheckBox',
+    'Sensor editor must expose 24/7 monitoring as a checkbox.'
 );
 assertSensorModel(
     ($editFields['VariableID']['onChange'] ?? null) === 'OHA_UpdateSensorTriggerValueForm($id, $VariableID, $TriggerValue);',
@@ -776,6 +786,9 @@ foreach ([
     'Water detector',
     'Panic trigger',
     'Other trigger',
+    '24/7 active',
+    '24/7 sensors trigger immediately in every system state; mode assignments and entry delay are ignored.',
+    '24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry delay are ignored.',
     'Select a variable to choose its trigger value.',
     'Off',
     'On',
