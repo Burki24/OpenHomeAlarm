@@ -1363,8 +1363,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function PublishVisualizationState(): void
     {
         try {
-            $state = json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-            $this->UpdateVisualizationValue($state);
+            $this->UpdateVisualizationValue($this->GetControlState());
         } catch (Throwable $exception) {
             $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
         }

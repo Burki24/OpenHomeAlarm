@@ -41,8 +41,12 @@ assertVisualization(
     'Visualization RequestAction gateway must be implemented.'
 );
 assertVisualization(
-    str_contains($module, '$this->UpdateVisualizationValue($state);'),
-    'Live control-state updates must use UpdateVisualizationValue.'
+    str_contains($module, '$this->UpdateVisualizationValue($this->GetControlState());'),
+    'Live control-state updates must send the JSON control state as a scalar string.'
+);
+assertVisualization(
+    !str_contains($module, '$this->UpdateVisualizationValue($state);'),
+    'UpdateVisualizationValue must not receive a decoded PHP array.'
 );
 
 assertVisualization(str_contains($html, '{{OHA_STYLE}}'), 'HTML must contain the CSS asset placeholder.');
