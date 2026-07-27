@@ -85,7 +85,7 @@ button:focus-visible {
 
 .oha-topbar,
 .oha-topbar-status,
-.oha-mode-card-head,
+.oha-mode-button,
 .oha-control-bar,
 .oha-context-card,
 .oha-section-heading {
@@ -120,7 +120,6 @@ button:focus-visible {
 }
 
 .oha-icon-button,
-.oha-arm-button,
 .oha-disarm-button {
     border: 0;
     cursor: pointer;
@@ -128,13 +127,11 @@ button:focus-visible {
 }
 
 .oha-icon-button:active,
-.oha-arm-button:active,
 .oha-disarm-button:active {
     transform: translateY(1px);
 }
 
 .oha-icon-button:disabled,
-.oha-arm-button:disabled,
 .oha-disarm-button:disabled {
     cursor: default;
     opacity: 0.42;
@@ -157,6 +154,15 @@ button:focus-visible {
     background: var(--oha-surface-strong);
 }
 
+
+.oha-topbar-actions {
+    justify-content: flex-end;
+    min-height: 38px;
+}
+
+.oha-section-heading-compact {
+    margin-bottom: 9px;
+}
 .oha-hero {
     --oha-state-color: var(--oha-accent);
     --oha-state-soft: var(--oha-accent-soft);
@@ -425,64 +431,84 @@ button:focus-visible {
     gap: 10px;
 }
 
-.oha-mode-card {
+.oha-mode-button {
     display: grid;
-    grid-template-rows: auto minmax(2.15rem, auto) auto;
-    gap: 10px;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 11px;
     min-width: 0;
-    padding: 13px;
+    min-height: 86px;
+    align-items: center;
+    padding: 14px 15px;
     border: 1px solid var(--oha-border);
-    border-radius: 14px;
-    background: var(--oha-surface);
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
-    transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+    border-radius: 15px;
+    background: linear-gradient(180deg, var(--oha-surface), var(--oha-surface-soft));
+    box-shadow: 0 7px 18px rgba(15, 23, 42, 0.05);
+    color: var(--oha-text);
+    cursor: pointer;
+    text-align: left;
+    touch-action: manipulation;
+    user-select: none;
+    transition: transform 120ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
 }
 
-.oha-mode-card[data-ready="true"] {
+.oha-mode-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--oha-accent);
+    background: linear-gradient(135deg, var(--oha-accent-soft), var(--oha-surface));
+    box-shadow: var(--oha-shadow);
+}
+
+.oha-mode-button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.oha-mode-button:focus-visible {
+    outline: 2px solid var(--oha-accent);
+    outline-offset: 2px;
+}
+
+.oha-mode-button:disabled {
+    cursor: default;
+    opacity: 0.70;
+}
+
+.oha-mode-button[data-ready="true"] {
     border-color: var(--oha-success-border);
 }
 
-.oha-mode-card[data-active="true"] {
+.oha-mode-button[data-active="true"] {
     border-color: var(--oha-accent);
     background: linear-gradient(135deg, var(--oha-accent-soft), var(--oha-surface));
     box-shadow: inset 0 0 0 1px var(--oha-accent-soft), var(--oha-shadow);
+    opacity: 1;
 }
 
-.oha-mode-card[data-active="true"] .oha-mode-icon {
+.oha-mode-button[data-active="true"] .oha-mode-icon {
     background: var(--oha-accent);
     color: #ffffff;
 }
 
-.oha-mode-card:hover {
-    transform: translateY(-1px);
-    background: var(--oha-surface-strong);
-}
-
-.oha-mode-card-head {
-    gap: 10px;
-    min-width: 0;
-}
-
 .oha-mode-icon {
     display: grid;
-    width: 36px;
-    height: 36px;
+    width: 42px;
+    height: 42px;
     flex: 0 0 auto;
     place-items: center;
-    border-radius: 10px;
+    border-radius: 12px;
     background: var(--oha-accent-soft);
     color: var(--oha-accent);
+    font-size: 1.05rem;
 }
 
-.oha-mode-card-copy {
+.oha-mode-button-copy {
     display: grid;
     min-width: 0;
-    gap: 1px;
+    gap: 2px;
 }
 
-.oha-mode-card-copy strong {
+.oha-mode-button-copy strong {
     overflow: hidden;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -490,10 +516,10 @@ button:focus-visible {
 .oha-readiness {
     color: var(--oha-danger);
     font-size: 0.73rem;
-    font-weight: 720;
+    font-weight: 760;
 }
 
-.oha-mode-card[data-ready="true"] .oha-readiness {
+.oha-mode-button[data-ready="true"] .oha-readiness {
     color: var(--oha-success);
 }
 
@@ -501,21 +527,32 @@ button:focus-visible {
     width: 8px;
     height: 8px;
     flex: 0 0 auto;
-    margin-left: auto;
     border-radius: 50%;
     background: var(--oha-danger);
     box-shadow: 0 0 0 4px var(--oha-danger-soft);
 }
 
-.oha-mode-card[data-ready="true"] .oha-ready-dot {
+.oha-mode-button[data-ready="true"] .oha-ready-dot {
     background: var(--oha-success);
     box-shadow: 0 0 0 4px var(--oha-success-soft);
 }
 
+.oha-mode-chevron {
+    color: var(--oha-faint);
+    font-size: 0.8rem;
+}
+
+.oha-mode-button:not(:disabled) .oha-mode-chevron {
+    color: var(--oha-accent);
+}
+
 .oha-blockers {
+    display: block;
+    overflow: hidden;
     color: var(--oha-muted);
-    font-size: 0.75rem;
-    line-height: 1.4;
+    font-size: 0.71rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
 }
 
 .oha-blockers[data-empty="true"] {
@@ -523,51 +560,14 @@ button:focus-visible {
 }
 
 .oha-blocker {
-    display: flex;
-    gap: 6px;
-    align-items: baseline;
-}
-
-.oha-blocker::before {
-    width: 4px;
-    height: 4px;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    background: var(--oha-danger);
-    content: "";
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .oha-blocker + .oha-blocker {
-    margin-top: 3px;
-}
-
-.oha-arm-button,
-.oha-disarm-button {
-    display: inline-flex;
-    min-height: 38px;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border-radius: 10px;
-    font-size: 0.8rem;
-    font-weight: 760;
-}
-
-.oha-arm-button {
-    width: 100%;
-    padding: 8px 11px;
-    background: var(--oha-accent-soft);
-    color: var(--oha-accent);
-}
-
-.oha-arm-button:hover:not(:disabled) {
-    background: var(--oha-accent);
-    color: #ffffff;
-}
-
-.oha-arm-button:disabled {
-    background: var(--oha-surface-soft);
-    color: var(--oha-faint);
+    margin-top: 2px;
 }
 
 .oha-control-bar {
@@ -621,6 +621,8 @@ button:focus-visible {
     background: var(--oha-danger-soft);
     color: var(--oha-danger);
     cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
     font-size: 0.82rem;
     font-weight: 800;
     transition: transform 100ms ease, background 120ms ease, color 120ms ease, opacity 120ms ease;
@@ -697,6 +699,8 @@ button:focus-visible {
 
 .oha-code-grid-inline .oha-code-key {
     min-height: 50px;
+    touch-action: manipulation;
+    user-select: none;
 }
 
 .oha-inline-codepad[data-enabled="false"] .oha-code-display,
@@ -708,6 +712,15 @@ button:focus-visible {
     opacity: 0.72;
 }
 
+
+.oha-mode-button,
+.oha-code-key,
+.oha-inline-disarm-button,
+.oha-modal-disarm-button,
+.oha-disarm-button,
+.oha-icon-button {
+    pointer-events: auto;
+}
 @media (min-width: 900px) {
     .oha-shell {
         grid-template-columns: minmax(0, 1fr) 330px;
@@ -756,24 +769,6 @@ button:focus-visible {
         grid-template-columns: 1fr;
     }
 
-    .oha-mode-card {
-        grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-rows: auto auto;
-        align-items: center;
-    }
-
-    .oha-mode-card-head,
-    .oha-blockers {
-        grid-column: 1;
-    }
-
-    .oha-arm-button {
-        grid-column: 2;
-        grid-row: 1 / span 2;
-        width: auto;
-        min-width: 150px;
-        align-self: stretch;
-    }
 }
 
 @media (max-width: 620px) {
@@ -824,22 +819,6 @@ button:focus-visible {
         align-items: flex-start;
     }
 
-    .oha-mode-card {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto;
-    }
-
-    .oha-mode-card-head,
-    .oha-blockers,
-    .oha-arm-button {
-        grid-column: 1;
-    }
-
-    .oha-arm-button {
-        grid-row: auto;
-        width: 100%;
-        min-width: 0;
-    }
 
     .oha-control-bar {
         align-items: stretch;
@@ -987,6 +966,8 @@ button:focus-visible {
     background: var(--oha-surface);
     color: var(--oha-text);
     cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
     font-size: 1.12rem;
     font-weight: 720;
     transition: transform 100ms ease, border-color 100ms ease, background 100ms ease, opacity 100ms ease;

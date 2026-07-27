@@ -62,9 +62,15 @@ assertVisualization(str_contains($html, 'id="armingSection"'), 'Visualization mu
 assertVisualization(str_contains($html, 'id="contextGrid"'), 'Visualization must provide contextual status cards.');
 assertVisualization(str_contains($javascript, 'function ohaRenderHero(state)'), 'Visualization must render the main state contextually.');
 assertVisualization(
-    str_contains($javascript, 'button.hidden = !isDisarmed;')
-        && str_contains($javascript, 'card.dataset.active = !isDisarmed'),
-    'Mode status cards must remain visible while armed, while arming buttons are hidden outside the disarmed state.'
+    str_contains($html, 'class="oha-mode-button"')
+        && str_contains($javascript, 'button.disabled = !modeState.CanArm;')
+        && str_contains($javascript, 'button.dataset.active = !isDisarmed'),
+    'Arming modes must be rendered as full-width buttons whose availability follows the control API.'
+);
+assertVisualization(
+    strpos($html, 'id="statusHero"') < strpos($html, 'id="armingSection"')
+        && strpos($html, 'id="armingSection"') < strpos($html, 'id="statusGrid"'),
+    'Arming-mode controls must sit directly below the security-status hero and before secondary status information.'
 );
 assertVisualization(str_contains($html, 'id="statusGrid"'), 'Visualization must provide a compact always-visible system overview.');
 assertVisualization(str_contains($javascript, 'function ohaRenderSummary(state)'), 'Visualization must render the system overview from the control state.');

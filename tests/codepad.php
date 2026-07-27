@@ -61,9 +61,13 @@ assertCodepad(
     'Each accepted digit must be appended to the existing code buffer instead of replacing it.'
 );
 assertCodepad(
-    str_contains($javascript, "document.addEventListener('pointerup'")
-        && str_contains($javascript, 'function ohaHandleCodeControlEvent(event)'),
-    'Repeated pointer input must use delegated codepad handling that survives dashboard rerenders.'
+    str_contains($javascript, "for (const button of document.querySelectorAll('[data-code-digit]'))")
+        && str_contains($javascript, "button.addEventListener('click'"),
+    'Each codepad key must use a direct click handler compatible with the HTML-SDK visualization.'
+);
+assertCodepad(
+    !str_contains($javascript, "document.addEventListener('pointerup'"),
+    'Codepad input must not depend on delegated pointer events.'
 );
 assertCodepad(
     str_contains($javascript, 'function ohaClearCodeEntry()'),

@@ -139,24 +139,26 @@ function ohaRenderHero(state) {
 }
 
 function ohaRenderMode(modeName, modeState) {
-    const card = document.querySelector(`.oha-mode-card[data-mode="${modeName}"]`);
-    if (!card) {
+    const button = document.querySelector(`.oha-mode-button[data-mode="${modeName}"]`);
+    if (!button) {
         return;
     }
 
-    card.dataset.ready = modeState.Ready ? 'true' : 'false';
+    button.dataset.ready = modeState.Ready ? 'true' : 'false';
+    button.disabled = !modeState.CanArm;
+    button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
 
-    const title = card.querySelector('[data-role="mode-title"]');
+    const title = button.querySelector('[data-role="mode-title"]');
     if (title) {
         title.textContent = ohaModeCaption(modeName);
     }
 
-    const readiness = card.querySelector('[data-role="readiness"]');
+    const readiness = button.querySelector('[data-role="readiness"]');
     if (readiness) {
         readiness.textContent = ohaTranslate(modeState.Ready ? 'Ready' : 'Not ready');
     }
 
-    const blockers = card.querySelector('[data-role="blockers"]');
+    const blockers = button.querySelector('[data-role="blockers"]');
     if (blockers) {
         blockers.replaceChildren();
         const items = Array.isArray(modeState.Blockers) ? modeState.Blockers : [];
@@ -165,28 +167,19 @@ function ohaRenderMode(modeName, modeState) {
         if (items.length === 0) {
             blockers.textContent = ohaTranslate('No blocking sensors');
         } else {
-            for (const blocker of items.slice(0, 3)) {
-                const line = document.createElement('div');
+            for (const blocker of items.slice(0, 2)) {
+                const line = document.createElement('span');
                 line.className = 'oha-blocker';
                 line.textContent = `${blocker.Name} · ${ohaReasonCaption(blocker.Reason)}`;
                 blockers.appendChild(line);
             }
 
-            if (items.length > 3) {
-                const more = document.createElement('div');
+            if (items.length > 2) {
+                const more = document.createElement('span');
                 more.className = 'oha-blocker';
-                more.textContent = `+${items.length - 3} ${ohaTranslate('more')}`;
+                more.textContent = `+${items.length - 2} ${ohaTranslate('more')}`;
                 blockers.appendChild(more);
             }
-        }
-    }
-
-    const button = card.querySelector('[data-action="arm"]');
-    if (button) {
-        button.disabled = !modeState.CanArm;
-        const label = button.querySelector('[data-role="button-label"]');
-        if (label) {
-            label.textContent = ohaModeButtonCaption(modeName);
         }
     }
 }
@@ -197,22 +190,19 @@ function ohaRenderArming(state) {
     const activeMode = state.Mode?.Name ?? 'none';
 
     section.hidden = false;
-    document.getElementById('armingKicker').textContent = ohaTranslate(isDisarmed ? 'Arming modes' : 'Security zones');
-    document.getElementById('armingTitle').textContent = ohaTranslate(isDisarmed ? 'Select security mode' : 'Monitoring overview');
+    document.getElementById('armingKicker').textContent = ohaTranslate('Arming modes');
+    document.getElementById('armingTitle').textContent = ohaTranslate(isDisarmed ? 'Select security mode' : 'Security zones');
     document.getElementById('armingHint').textContent = isDisarmed
         ? ohaTranslate('Select a ready mode to arm')
         : `${ohaTranslate('Active mode')}: ${ohaModeCaption(activeMode)}`;
 
     for (const modeName of ['home', 'away', 'night']) {
-        const card = document.querySelector(`.oha-mode-card[data-mode="${modeName}"]`);
-        if (card) {
-            card.dataset.active = !isDisarmed && activeMode === modeName ? 'true' : 'false';
+        const button = document.querySelector(`.oha-mode-button[data-mode="${modeName}"]`);
+        if (button) {
+            button.dataset.active = !isDisarmed && activeMode === modeName ? 'true' : 'false';
+            button.setAttribute('aria-pressed', button.dataset.active);
         }
         ohaRenderMode(modeName, state.Modes[modeName]);
-        const button = card?.querySelector('[data-action="arm"]');
-        if (button) {
-            button.hidden = !isDisarmed;
-        }
     }
 }
 
@@ -355,7 +345,6 @@ function ohaRenderDisarm(state) {
 }
 
 function ohaRenderStaticText() {
-    document.getElementById('brandSubtitle').textContent = ohaTranslate('Security control');
     document.getElementById('refreshButton').setAttribute('aria-label', ohaTranslate('Refresh'));
     document.getElementById('codepadTitle').textContent = ohaTranslate('Disarm system');
     document.getElementById('codepadHint').textContent = ohaTranslate('Enter the 4 to 8 digit disarm code.');
@@ -561,56 +550,29 @@ function handleMessage(data) {
 
 for (const button of document.querySelectorAll('[data-action="arm"]')) {
     button.addEventListener('click', () => {
-        ohaRequestAction('Arm', button.dataset.mode);
+        if (!button.disabled) {
+            ohaRequestAction('Arm', button.dataset.mode);
+        }
     });
 }
 
-function ohaHandleCodeControlEvent(event) {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target) {
-        return false;
-    }
-
-    const digitButton = target.closest('[data-code-digit]');
-    if (digitButton) {
-        event.preventDefault();
-        ohaAppendCodeDigit(digitButton.getAttribute('data-code-digit') ?? '');
-        return true;
-    }
-
-    if (target.closest('[data-code-delete]')) {
-        event.preventDefault();
-        ohaDeleteCodeDigit();
-        return true;
-    }
-
-    if (target.closest('[data-code-clear]')) {
-        event.preventDefault();
-        ohaClearCodeEntry();
-        return true;
-    }
-
-    if (target.closest('[data-code-confirm]')) {
-        event.preventDefault();
-        ohaSubmitCode();
-        return true;
-    }
-
-    return false;
+for (const button of document.querySelectorAll('[data-code-digit]')) {
+    button.addEventListener('click', () => {
+        ohaAppendCodeDigit(button.getAttribute('data-code-digit') ?? '');
+    });
 }
 
-document.addEventListener('pointerup', (event) => {
-    ohaHandleCodeControlEvent(event);
-});
+for (const button of document.querySelectorAll('[data-code-delete]')) {
+    button.addEventListener('click', ohaDeleteCodeDigit);
+}
 
-document.addEventListener('click', (event) => {
-    // Pointer interaction is handled on pointerup. Keyboard-activated buttons
-    // emit a click with detail === 0 and are handled here for accessibility.
-    if (event.detail === 0) {
-        ohaHandleCodeControlEvent(event);
-    }
-});
+for (const button of document.querySelectorAll('[data-code-clear]')) {
+    button.addEventListener('click', ohaClearCodeEntry);
+}
 
+for (const button of document.querySelectorAll('[data-code-confirm]')) {
+    button.addEventListener('click', ohaSubmitCode);
+}
 
 document.getElementById('disarmButton').addEventListener('click', () => {
     if (ohaState?.Capabilities?.CodeRequired) {

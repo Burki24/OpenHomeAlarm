@@ -8,11 +8,7 @@
 </head>
 <body>
     <main class="oha-shell" id="ohaRoot">
-        <header class="oha-topbar">
-            <div class="oha-topbar-status">
-                <span class="oha-live-dot" aria-hidden="true"></span>
-                <span id="brandSubtitle"></span>
-            </div>
+        <header class="oha-topbar oha-topbar-actions">
             <button class="oha-icon-button" id="refreshButton" type="button" aria-label="Refresh">
                 <i class="fa-light fa-arrows-rotate" aria-hidden="true"></i>
             </button>
@@ -33,6 +29,51 @@
                     <strong id="delayRemaining">0</strong>
                     <span id="countdownUnit"></span>
                 </div>
+            </div>
+        </section>
+
+        <section class="oha-arm-section" id="armingSection">
+            <div class="oha-section-heading oha-section-heading-compact">
+                <div>
+                    <div class="oha-section-kicker" id="armingKicker"></div>
+                    <h2 id="armingTitle"></h2>
+                </div>
+                <span class="oha-section-hint" id="armingHint"></span>
+            </div>
+
+            <div class="oha-mode-grid">
+                <button class="oha-mode-button" data-action="arm" data-mode="home" type="button">
+                    <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-house"></i></span>
+                    <span class="oha-mode-button-copy">
+                        <strong data-role="mode-title"></strong>
+                        <span class="oha-readiness" data-role="readiness"></span>
+                        <span class="oha-blockers" data-role="blockers"></span>
+                    </span>
+                    <span class="oha-ready-dot" aria-hidden="true"></span>
+                    <i class="fa-light fa-chevron-right oha-mode-chevron" aria-hidden="true"></i>
+                </button>
+
+                <button class="oha-mode-button" data-action="arm" data-mode="away" type="button">
+                    <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-person-walking-arrow-right"></i></span>
+                    <span class="oha-mode-button-copy">
+                        <strong data-role="mode-title"></strong>
+                        <span class="oha-readiness" data-role="readiness"></span>
+                        <span class="oha-blockers" data-role="blockers"></span>
+                    </span>
+                    <span class="oha-ready-dot" aria-hidden="true"></span>
+                    <i class="fa-light fa-chevron-right oha-mode-chevron" aria-hidden="true"></i>
+                </button>
+
+                <button class="oha-mode-button" data-action="arm" data-mode="night" type="button">
+                    <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-moon"></i></span>
+                    <span class="oha-mode-button-copy">
+                        <strong data-role="mode-title"></strong>
+                        <span class="oha-readiness" data-role="readiness"></span>
+                        <span class="oha-blockers" data-role="blockers"></span>
+                    </span>
+                    <span class="oha-ready-dot" aria-hidden="true"></span>
+                    <i class="fa-light fa-chevron-right oha-mode-chevron" aria-hidden="true"></i>
+                </button>
             </div>
         </section>
 
@@ -85,72 +126,6 @@
                     <span id="bypassDetail"></span>
                 </div>
             </article>
-        </section>
-
-        <section class="oha-arm-section" id="armingSection">
-            <div class="oha-section-heading">
-                <div>
-                    <div class="oha-section-kicker" id="armingKicker"></div>
-                    <h2 id="armingTitle"></h2>
-                </div>
-                <span class="oha-section-hint" id="armingHint"></span>
-            </div>
-
-            <div class="oha-mode-grid">
-                <article class="oha-mode-card" data-mode="home">
-                    <div class="oha-mode-card-head">
-                        <span class="oha-mode-icon" aria-hidden="true">
-                            <i class="fa-light fa-house"></i>
-                        </span>
-                        <div class="oha-mode-card-copy">
-                            <strong data-role="mode-title"></strong>
-                            <span class="oha-readiness" data-role="readiness"></span>
-                        </div>
-                        <span class="oha-ready-dot" aria-hidden="true"></span>
-                    </div>
-                    <div class="oha-blockers" data-role="blockers"></div>
-                    <button class="oha-arm-button" data-action="arm" data-mode="home" type="button">
-                        <span data-role="button-label"></span>
-                        <i class="fa-light fa-arrow-right" aria-hidden="true"></i>
-                    </button>
-                </article>
-
-                <article class="oha-mode-card" data-mode="away">
-                    <div class="oha-mode-card-head">
-                        <span class="oha-mode-icon" aria-hidden="true">
-                            <i class="fa-light fa-person-walking-arrow-right"></i>
-                        </span>
-                        <div class="oha-mode-card-copy">
-                            <strong data-role="mode-title"></strong>
-                            <span class="oha-readiness" data-role="readiness"></span>
-                        </div>
-                        <span class="oha-ready-dot" aria-hidden="true"></span>
-                    </div>
-                    <div class="oha-blockers" data-role="blockers"></div>
-                    <button class="oha-arm-button" data-action="arm" data-mode="away" type="button">
-                        <span data-role="button-label"></span>
-                        <i class="fa-light fa-arrow-right" aria-hidden="true"></i>
-                    </button>
-                </article>
-
-                <article class="oha-mode-card" data-mode="night">
-                    <div class="oha-mode-card-head">
-                        <span class="oha-mode-icon" aria-hidden="true">
-                            <i class="fa-light fa-moon"></i>
-                        </span>
-                        <div class="oha-mode-card-copy">
-                            <strong data-role="mode-title"></strong>
-                            <span class="oha-readiness" data-role="readiness"></span>
-                        </div>
-                        <span class="oha-ready-dot" aria-hidden="true"></span>
-                    </div>
-                    <div class="oha-blockers" data-role="blockers"></div>
-                    <button class="oha-arm-button" data-action="arm" data-mode="night" type="button">
-                        <span data-role="button-label"></span>
-                        <i class="fa-light fa-arrow-right" aria-hidden="true"></i>
-                    </button>
-                </article>
-            </div>
         </section>
 
         <aside class="oha-inline-codepad" id="inlineCodepad" data-enabled="false" aria-label="Code pad">
