@@ -24,7 +24,7 @@
                 {
                     "caption": "Name",
                     "name": "Name",
-                    "width": "auto",
+                    "width": "220px",
                     "add": "",
                     "edit": {
                         "type": "ValidationTextBox"
@@ -33,7 +33,7 @@
                 {
                     "caption": "Variable",
                     "name": "VariableID",
-                    "width": "180px",
+                    "width": "auto",
                     "add": 0,
                     "edit": {
                         "type": "SelectVariable"
@@ -42,7 +42,7 @@
                 {
                     "caption": "Sensor type",
                     "name": "SensorType",
-                    "width": "150px",
+                    "width": "170px",
                     "add": 0,
                     "edit": {
                         "type": "Select",
@@ -81,7 +81,7 @@
                 {
                     "caption": "Trigger value",
                     "name": "TriggerValue",
-                    "width": "100px",
+                    "width": "125px",
                     "add": "1",
                     "edit": {
                         "type": "ValidationTextBox"
@@ -106,7 +106,7 @@
                 {
                     "caption": "Home",
                     "name": "ArmHome",
-                    "width": "65px",
+                    "width": "90px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"
@@ -115,7 +115,7 @@
                 {
                     "caption": "Away",
                     "name": "ArmAway",
-                    "width": "65px",
+                    "width": "95px",
                     "add": true,
                     "edit": {
                         "type": "CheckBox"
@@ -124,7 +124,7 @@
                 {
                     "caption": "Night",
                     "name": "ArmNight",
-                    "width": "65px",
+                    "width": "75px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"
@@ -133,7 +133,7 @@
                 {
                     "caption": "Entry delay",
                     "name": "EntryDelay",
-                    "width": "100px",
+                    "width": "130px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"

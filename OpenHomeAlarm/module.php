@@ -124,6 +124,36 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->UpdateReadyToArmFromSensors($sensors);
     }
 
+    public function GetConfigurationForm(): string
+    {
+        $formJson = file_get_contents(__DIR__ . '/form.json');
+        if ($formJson === false) {
+            throw new RuntimeException('Unable to read configuration form.');
+        }
+
+        $form = json_decode($formJson, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($form)) {
+            throw new UnexpectedValueException('Configuration form must decode to an array.');
+        }
+
+        if (isset($form['elements']) && is_array($form['elements'])) {
+            foreach ($form['elements'] as &$element) {
+                if (($element['type'] ?? null) !== 'List' || ($element['name'] ?? null) !== self::PROPERTY_SENSORS) {
+                    continue;
+                }
+
+                $element['values'] = $this->CreateSensorListFormValues();
+                break;
+            }
+            unset($element);
+        }
+
+        return json_encode(
+            $form,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+    }
+
     /**
      * Reacts to updates of configured sensor variables.
      *
@@ -675,6 +705,57 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $options[0]['value'];
+    }
+
+    /**
+     * Supplies the non-persistent trigger editor fields with the stored trigger value.
+     *
+     * Symcon fills fields of an individual List edit form from same-named row values.
+     * The helper columns are intentionally not persisted, so their values are restored
+     * through the List values array whenever the configuration form is opened.
+     *
+     * @return list<array{TriggerValueSelection:string,TriggerValueManual:string}>
+     */
+    private function CreateSensorListFormValues(): array
+    {
+        try {
+            $rows = json_decode($this->ReadPropertyString(self::PROPERTY_SENSORS), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        if (!is_array($rows) || !array_is_list($rows)) {
+            return [];
+        }
+
+        $values = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                $values[] = [
+                    'TriggerValueSelection' => '',
+                    'TriggerValueManual'    => ''
+                ];
+                continue;
+            }
+
+            $variableID = is_int($row['VariableID'] ?? null) ? $row['VariableID'] : 0;
+            $triggerValue = is_string($row['TriggerValue'] ?? null) ? $row['TriggerValue'] : '1';
+            $selectionValue = $triggerValue;
+
+            if ($this->IsExistingVariable($variableID)) {
+                $triggerOptions = $this->CreateTriggerValueOptions($variableID);
+                if ($triggerOptions !== []) {
+                    $selectionValue = $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions);
+                }
+            }
+
+            $values[] = [
+                'TriggerValueSelection' => $selectionValue,
+                'TriggerValueManual'    => $triggerValue
+            ];
+        }
+
+        return $values;
     }
 
     /**

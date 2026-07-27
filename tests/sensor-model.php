@@ -423,6 +423,23 @@ assertSensorModel(($columns['ArmHome']['add'] ?? null) === false, 'New sensors m
 assertSensorModel(($columns['ArmAway']['add'] ?? null) === true, 'New sensors must be active in Away by default.');
 assertSensorModel(($columns['ArmNight']['add'] ?? null) === false, 'New sensors must not be active in Night by default.');
 assertSensorModel(($columns['EntryDelay']['add'] ?? null) === false, 'New sensors must not use entry delay by default.');
+assertSensorModel(
+    ($columns['VariableID']['width'] ?? null) === 'auto',
+    'Variable column must use the remaining list width so long Symcon paths stay readable.'
+);
+assertSensorModel(
+    ($columns['Name']['width'] ?? null) === '220px'
+        && ($columns['SensorType']['width'] ?? null) === '170px'
+        && ($columns['TriggerValue']['width'] ?? null) === '125px',
+    'Main sensor columns must use balanced fixed widths.'
+);
+assertSensorModel(
+    ($columns['ArmHome']['width'] ?? null) === '90px'
+        && ($columns['ArmAway']['width'] ?? null) === '95px'
+        && ($columns['ArmNight']['width'] ?? null) === '75px'
+        && ($columns['EntryDelay']['width'] ?? null) === '130px',
+    'Mode and entry-delay columns must be wide enough for their captions.'
+);
 
 assertSensorModel(
     ($list['form'][0] ?? null) === 'return OHA_GetSensorEditForm($id, $Sensors);',
@@ -436,6 +453,52 @@ assertSensorModel(
 assertSensorModel(
     isset($columns['TriggerValueManual']) && ($columns['TriggerValueManual']['save'] ?? true) === false,
     'TriggerValueManual must be a non-persistent helper column.'
+);
+
+$formValueInstance = new OpenHomeAlarm();
+$formValueInstance->Create();
+$formValueInstance->TestSetPropertyString(
+    'Sensors',
+    json_encode([
+        [
+            'VariableID'   => 23456,
+            'TriggerValue' => 'ALARM'
+        ],
+        [
+            'VariableID'   => 12345,
+            'TriggerValue' => 'true'
+        ],
+        [
+            'VariableID'   => 23456,
+            'TriggerValue' => '"IDLE"'
+        ]
+    ], JSON_THROW_ON_ERROR)
+);
+$generatedForm = json_decode($formValueInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+$generatedSensorList = null;
+foreach ($generatedForm['elements'] ?? [] as $element) {
+    if (($element['type'] ?? null) === 'List' && ($element['name'] ?? null) === 'Sensors') {
+        $generatedSensorList = $element;
+        break;
+    }
+}
+assertSensorModel(is_array($generatedSensorList), 'Generated configuration form must contain the Sensors list.');
+assertSensorModel(
+    ($generatedSensorList['values'] ?? null) === [
+        [
+            'TriggerValueSelection' => 'ALARM',
+            'TriggerValueManual'    => 'ALARM'
+        ],
+        [
+            'TriggerValueSelection' => 'true',
+            'TriggerValueManual'    => 'true'
+        ],
+        [
+            'TriggerValueSelection' => 'IDLE',
+            'TriggerValueManual'    => '"IDLE"'
+        ]
+    ],
+    'Generated List values must restore the persisted trigger value into non-persistent edit helper fields.'
 );
 
 $editForm = $instance->GetSensorEditForm(new IPSList([
