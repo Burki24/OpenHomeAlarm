@@ -129,18 +129,24 @@ $newInstance->Create();
 
 $variables = $newInstance->TestRegisteredVariables();
 assertStateModel(
-    array_keys($variables) === ['Mode', 'State', 'ReadyToArm', 'AlarmMemory', 'LastAlarmSource', 'LastAlarmTime'],
+    array_keys($variables) === ['Mode', 'State', 'ReadyToArm', 'ReadyHome', 'ReadyAway', 'ReadyNight', 'AlarmMemory', 'LastAlarmSource', 'LastAlarmTime'],
     'Unexpected status variables.'
 );
 assertStateModel($variables['Mode']['type'] === 'integer', 'Mode must be an integer variable.');
 assertStateModel($variables['State']['type'] === 'integer', 'State must be an integer variable.');
 assertStateModel($variables['ReadyToArm']['type'] === 'boolean', 'ReadyToArm must be a boolean variable.');
+assertStateModel($variables['ReadyHome']['type'] === 'boolean', 'ReadyHome must be a boolean variable.');
+assertStateModel($variables['ReadyAway']['type'] === 'boolean', 'ReadyAway must be a boolean variable.');
+assertStateModel($variables['ReadyNight']['type'] === 'boolean', 'ReadyNight must be a boolean variable.');
 assertStateModel($variables['AlarmMemory']['type'] === 'boolean', 'AlarmMemory must be a boolean variable.');
 assertStateModel($variables['LastAlarmSource']['type'] === 'string', 'LastAlarmSource must be a string variable.');
 assertStateModel($variables['LastAlarmTime']['type'] === 'string', 'LastAlarmTime must be a string variable.');
 assertStateModel($variables['Mode']['position'] === 10, 'Mode must use position 10.');
 assertStateModel($variables['State']['position'] === 20, 'State must use position 20.');
 assertStateModel($variables['ReadyToArm']['position'] === 30, 'ReadyToArm must use position 30.');
+assertStateModel($variables['ReadyHome']['position'] === 31, 'ReadyHome must use position 31.');
+assertStateModel($variables['ReadyAway']['position'] === 32, 'ReadyAway must use position 32.');
+assertStateModel($variables['ReadyNight']['position'] === 33, 'ReadyNight must use position 33.');
 assertStateModel($variables['AlarmMemory']['position'] === 40, 'AlarmMemory must use position 40.');
 assertStateModel($variables['LastAlarmSource']['position'] === 50, 'LastAlarmSource must use position 50.');
 assertStateModel($variables['LastAlarmTime']['position'] === 60, 'LastAlarmTime must use position 60.');
@@ -151,6 +157,9 @@ assertStateModel(
         'Mode'            => 0,
         'State'           => 0,
         'ReadyToArm'      => true,
+        'ReadyHome'       => true,
+        'ReadyAway'       => true,
+        'ReadyNight'      => true,
         'AlarmMemory'     => false,
         'LastAlarmSource' => '',
         'LastAlarmTime'   => ''
@@ -161,6 +170,9 @@ assertStateModel(
 $modePresentation = $variables['Mode']['presentation'];
 $statePresentation = $variables['State']['presentation'];
 $readyPresentation = $variables['ReadyToArm']['presentation'];
+$readyHomePresentation = $variables['ReadyHome']['presentation'];
+$readyAwayPresentation = $variables['ReadyAway']['presentation'];
+$readyNightPresentation = $variables['ReadyNight']['presentation'];
 $alarmMemoryPresentation = $variables['AlarmMemory']['presentation'];
 
 assertStateModel(
@@ -175,6 +187,12 @@ assertStateModel(
     ($readyPresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
     'ReadyToArm must use the native value presentation.'
 );
+foreach ([$readyHomePresentation, $readyAwayPresentation, $readyNightPresentation] as $modeReadinessPresentation) {
+    assertStateModel(
+        ($modeReadinessPresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+        'Mode-specific readiness variables must use the native value presentation.'
+    );
+}
 assertStateModel(
     ($alarmMemoryPresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
     'AlarmMemory must use the native value presentation.'
@@ -223,6 +241,9 @@ $existingInstance = new OpenHomeAlarm(
         'Mode'            => false,
         'State'           => false,
         'ReadyToArm'      => false,
+        'ReadyHome'       => false,
+        'ReadyAway'       => false,
+        'ReadyNight'      => false,
         'AlarmMemory'     => false,
         'LastAlarmSource' => false,
         'LastAlarmTime'   => false
@@ -245,6 +266,9 @@ foreach ([
     'Mode',
     'State',
     'Ready to arm',
+    'Ready Home',
+    'Ready Away',
+    'Ready Night',
     'No arming mode',
     'Home',
     'Away',

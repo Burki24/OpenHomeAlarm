@@ -313,7 +313,12 @@ $testValues[1001] = true;
 $instance->TestClearWrittenValues();
 $instance->MessageSink(1, 1001, VM_UPDATE, [true, true, false]);
 assertSensorMonitoring(
-    $instance->TestWrittenValues() === ['ReadyToArm' => false],
+    $instance->TestWrittenValues() === [
+        'ReadyToArm' => false,
+        'ReadyHome'  => true,
+        'ReadyAway'  => false,
+        'ReadyNight' => true
+    ],
     'A matching Boolean trigger value must make the system not ready to arm.'
 );
 
@@ -321,7 +326,12 @@ $testValues[1001] = false;
 $instance->TestClearWrittenValues();
 $instance->MessageSink(2, 1001, VM_UPDATE, [false, true, true]);
 assertSensorMonitoring(
-    $instance->TestWrittenValues() === ['ReadyToArm' => true],
+    $instance->TestWrittenValues() === [
+        'ReadyToArm' => true,
+        'ReadyHome'  => true,
+        'ReadyAway'  => true,
+        'ReadyNight' => true
+    ],
     'Clearing a Boolean trigger must restore readiness when all other sensors are inactive.'
 );
 
@@ -330,7 +340,12 @@ $testValues[1002] = 'ALARM';
 $instance->TestClearWrittenValues();
 $instance->MessageSink(3, 1002, VM_UPDATE, ['ALARM', true, 'IDLE']);
 assertSensorMonitoring(
-    $instance->TestWrittenValues() === ['ReadyToArm' => false],
+    $instance->TestWrittenValues() === [
+        'ReadyToArm' => false,
+        'ReadyHome'  => false,
+        'ReadyAway'  => true,
+        'ReadyNight' => true
+    ],
     'String trigger values must be compared as raw Strings.'
 );
 $testValues[1002] = 'IDLE';
@@ -340,7 +355,12 @@ $testValues[1004] = 2.5;
 $instance->TestClearWrittenValues();
 $instance->MessageSink(4, 1004, VM_UPDATE, [2.5, true, 1.5]);
 assertSensorMonitoring(
-    $instance->TestWrittenValues() === ['ReadyToArm' => false],
+    $instance->TestWrittenValues() === [
+        'ReadyToArm' => false,
+        'ReadyHome'  => true,
+        'ReadyAway'  => false,
+        'ReadyNight' => false
+    ],
     'Float trigger values must be evaluated according to the Symcon variable type.'
 );
 $testValues[1004] = 1.5;
@@ -385,7 +405,12 @@ assertSensorMonitoring(
     'Missing sensor variables must not receive VM_UPDATE subscriptions.'
 );
 assertSensorMonitoring(
-    $instance->TestWrittenValues() === ['ReadyToArm' => false],
+    $instance->TestWrittenValues() === [
+        'ReadyToArm' => false,
+        'ReadyHome'  => true,
+        'ReadyAway'  => false,
+        'ReadyNight' => true
+    ],
     'A missing configured sensor variable must fail safe to not ready.'
 );
 

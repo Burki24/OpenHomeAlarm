@@ -337,7 +337,12 @@ $testValues[5001] = false;
 $instance->TestClearWrittenValues();
 $instance->MessageSink(3, 5001, VM_UPDATE, [false, true, true]);
 assertAlwaysActive(
-    $instance->TestWrittenValues() === ['ReadyToArm' => true],
+    $instance->TestWrittenValues() === [
+        'ReadyToArm' => true,
+        'ReadyHome'  => true,
+        'ReadyAway'  => true,
+        'ReadyNight' => true
+    ],
     'Clearing a 24/7 sensor must restore readiness after the alarm has been disarmed.'
 );
 

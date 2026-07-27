@@ -318,6 +318,9 @@ assertSensorModel(
         'Mode',
         'State',
         'ReadyToArm',
+        'ReadyHome',
+        'ReadyAway',
+        'ReadyNight',
         'AlarmMemory',
         'LastAlarmSource',
         'LastAlarmTime'

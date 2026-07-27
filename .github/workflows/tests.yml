@@ -54,6 +54,9 @@ jobs:
       - name: Check active sensor monitoring
         run: php tests/sensor-monitoring.php
 
+      - name: Check mode-specific arming readiness
+        run: php tests/readiness.php
+
       - name: Check arming and disarming logic
         run: php tests/arming.php
 

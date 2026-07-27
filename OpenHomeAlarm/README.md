@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung, zielmodusabhängige Scharf-/Unscharf-Logik, 24/7-Sensoren, Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis sind implementiert. Die eigene Visualisierung folgt schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, 24/7-Sensoren, Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis sind implementiert. Die eigene Visualisierung folgt schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -20,7 +20,7 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die zielmodusabhängige Scharf-/Unscharf-Logik, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, eine optionale Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft, die zielmodusabhängige Scharf-/Unscharf-Logik, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, eine optionale Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich kann ein Sensor als **24/7 aktiv** markiert werden und löst dann unabhängig vom Scharfmodus sofort aus. Sensortyp, Auslösewert und die Nutzung der Eingangsverzögerung werden ebenfalls gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
@@ -48,7 +48,10 @@ OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
 | --- | --- | --- |
 | `Mode` | Gewählter Scharfmodus: Kein Scharfmodus, Zuhause, Abwesend oder Nacht | Kein Scharfmodus |
 | `State` | Aktuelle Systemphase: Unscharf, Ausgangsverzögerung, Scharf, Eingangsverzögerung oder Alarm | Unscharf |
-| `ReadyToArm` | Zeigt an, ob die Anlage scharfschaltbereit ist | Bereit |
+| `ReadyToArm` | Konservative Gesamtbereitschaft über alle überwachten Sensoren | Bereit |
+| `ReadyHome` | Scharfschaltbereitschaft für Zuhause | Bereit |
+| `ReadyAway` | Scharfschaltbereitschaft für Abwesend | Bereit |
+| `ReadyNight` | Scharfschaltbereitschaft für Nacht | Bereit |
 | `AlarmMemory` | Zeigt an, ob seit der letzten Quittierung ein Alarm gespeichert ist | Kein Alarm gespeichert |
 | `LastAlarmSource` | Name des Sensors, der den letzten Alarm ausgelöst hat | leer |
 | `LastAlarmTime` | Zeitpunkt des letzten Alarms im Format `TT.MM.JJJJ HH:MM:SS` | leer |
@@ -76,7 +79,7 @@ Beim Bearbeiten eines Eintrags liest OpenHomeAlarm die aktuelle Symcon-Variablen
 
 Aktive Sensoren werden per `VM_UPDATE` überwacht, sobald sie mindestens einem Scharfmodus zugeordnet oder als **24/7 aktiv** markiert sind. OpenHomeAlarm vergleicht den aktuellen Variablenwert typgerecht mit dem gespeicherten Rohwert. Boolean-, Integer-, Float- und Stringwerte werden entsprechend ihrem tatsächlichen Variablentyp ausgewertet.
 
-`ReadyToArm` ist in diesem Entwicklungsschritt eine globale Bereitschaftsanzeige: Sie ist nur dann **Bereit**, wenn kein aktivierter, einem Scharfmodus zugeordneter oder 24/7 aktiver Sensor ausgelöst ist. Nicht mehr vorhandene oder nicht auswertbare konfigurierte Sensorvariablen führen aus Sicherheitsgründen ebenfalls zu **Nicht bereit**. Ein noch nicht vollständig konfigurierter Eintrag mit `VariableID = 0` wird ignoriert.
+`ReadyToArm` bleibt als konservative Gesamtbereitschaft erhalten: Sie ist nur dann **Bereit**, wenn kein aktivierter, einem Scharfmodus zugeordneter oder 24/7 aktiver Sensor ausgelöst ist. Zusätzlich zeigen `ReadyHome`, `ReadyAway` und `ReadyNight` die tatsächliche Scharfschaltbereitschaft des jeweiligen Modus. Ein beispielsweise nur für **Abwesend** relevanter offener Kontakt setzt deshalb `ReadyAway` auf **Nicht bereit**, während `ReadyHome` und `ReadyNight` weiterhin **Bereit** bleiben können. 24/7-Sensoren wirken auf alle drei Modi. Nicht mehr vorhandene oder nicht auswertbare relevante Sensorvariablen führen aus Sicherheitsgründen ebenfalls zu **Nicht bereit**. Ein noch nicht vollständig konfigurierter Eintrag mit `VariableID = 0` wird ignoriert.
 
 Beim Scharfschalten prüft OpenHomeAlarm die Sensoren, die dem angeforderten Zielmodus zugeordnet sind, sowie alle 24/7 aktiven Sensoren. Ein ausgelöster Sensor, der beispielsweise ausschließlich für **Abwesend** gilt, verhindert deshalb nicht das Scharfschalten von **Zuhause**. Fehlende oder nicht auswertbare Sensoren des angeforderten Modus blockieren die Scharfschaltung aus Sicherheitsgründen. Unvollständige Listeneinträge mit `VariableID = 0` bleiben weiterhin ohne Wirkung.
 

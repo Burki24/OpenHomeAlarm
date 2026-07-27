@@ -282,6 +282,9 @@ assertArming($instance->ArmHome() === true, 'Home arming must succeed when all H
 assertArming(
     $instance->TestWrittenValues() === [
         'ReadyToArm' => true,
+        'ReadyHome'  => true,
+        'ReadyAway'  => true,
+        'ReadyNight' => true,
         'Mode'       => 1,
         'State'      => 2
     ],
@@ -294,7 +297,12 @@ $testValues[2002] = true;
 $instance->TestClearWrittenValues();
 assertArming($instance->ArmAway() === false, 'A triggered Away sensor must block Away arming.');
 assertArming(
-    $instance->TestWrittenValues() === ['ReadyToArm' => false],
+    $instance->TestWrittenValues() === [
+        'ReadyToArm' => false,
+        'ReadyHome'  => true,
+        'ReadyAway'  => false,
+        'ReadyNight' => true
+    ],
     'A failed arming attempt must not change Mode or State.'
 );
 
@@ -335,7 +343,12 @@ $instance->TestSetPropertyString('Sensors', json_encode($missingSensors, JSON_TH
 $instance->TestClearWrittenValues();
 assertArming($instance->ArmAway() === false, 'A missing Away sensor variable must block Away arming.');
 assertArming(
-    $instance->TestWrittenValues() === ['ReadyToArm' => false],
+    $instance->TestWrittenValues() === [
+        'ReadyToArm' => false,
+        'ReadyHome'  => true,
+        'ReadyAway'  => false,
+        'ReadyNight' => true
+    ],
     'A missing sensor must fail safe without changing Mode or State.'
 );
 
