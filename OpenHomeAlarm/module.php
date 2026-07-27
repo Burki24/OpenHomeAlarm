@@ -27,6 +27,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const SENSOR_TYPE_PANIC = 5;
     private const SENSOR_TYPE_OTHER = 6;
 
+    private const FAULT_TYPE_TAMPER = 0;
+    private const FAULT_TYPE_POWER = 1;
+    private const FAULT_TYPE_COMMUNICATION = 2;
+    private const FAULT_TYPE_DEVICE = 3;
+    private const FAULT_TYPE_OTHER = 4;
+
     private const EVENT_ARM_REJECTED = 'arm_rejected';
     private const EVENT_ARM_CANCELLED = 'arm_cancelled';
     private const EVENT_EXIT_DELAY_STARTED = 'exit_delay_started';
@@ -40,6 +46,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_SENSOR_BYPASS_REMOVED = 'sensor_bypass_removed';
     private const EVENT_SENSOR_BYPASSES_CLEARED = 'sensor_bypasses_cleared';
     private const EVENT_ALARM_MEMORY_CLEARED = 'alarm_memory_cleared';
+    private const EVENT_FAULT_ACTIVATED = 'fault_activated';
+    private const EVENT_FAULT_CLEARED = 'fault_cleared';
 
     private const EVENT_HISTORY_LIMIT = 100;
 
@@ -68,13 +76,24 @@ class OpenHomeAlarm extends IPSModuleStrict
         self::SENSOR_TYPE_OTHER
     ];
 
+    private const VALID_FAULT_TYPES = [
+        self::FAULT_TYPE_TAMPER,
+        self::FAULT_TYPE_POWER,
+        self::FAULT_TYPE_COMMUNICATION,
+        self::FAULT_TYPE_DEVICE,
+        self::FAULT_TYPE_OTHER
+    ];
+
     private const PROPERTY_SENSORS = 'Sensors';
+    private const PROPERTY_FAULT_INPUTS = 'FaultInputs';
     private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
     private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
     private const PROPERTY_ALARM_ACTION = 'AlarmAction';
     private const PROPERTY_ALARM_RESET_ACTION = 'AlarmResetAction';
     private const PROPERTY_DISARM_AFTER_ALARM_ACTION = 'DisarmAfterAlarmAction';
+    private const PROPERTY_FAULT_ACTION = 'FaultAction';
+    private const PROPERTY_FAULT_CLEARED_ACTION = 'FaultClearedAction';
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
 
     private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
@@ -83,6 +102,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_ALARM_OUTPUT_ACTIVE = 'AlarmOutputActive';
     private const ATTRIBUTE_PENDING_ALARM_SOURCE_ID = 'PendingAlarmSourceID';
     private const ATTRIBUTE_BYPASSED_SENSOR_IDS = 'BypassedSensorIDs';
+    private const ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS = 'ActiveFaultVariableIDs';
     private const ATTRIBUTE_EVENT_HISTORY = 'EventHistory';
 
     private const TIMER_EXIT_DELAY = 'ExitDelay';
@@ -105,18 +125,26 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const IDENT_ALARM_MEMORY = 'AlarmMemory';
     private const IDENT_LAST_ALARM_SOURCE = 'LastAlarmSource';
     private const IDENT_LAST_ALARM_TIME = 'LastAlarmTime';
+    private const IDENT_SYSTEM_FAULT = 'SystemFault';
+    private const IDENT_ACTIVE_FAULTS = 'ActiveFaults';
+    private const IDENT_BLOCKING_FAULTS = 'BlockingFaults';
+    private const IDENT_LAST_FAULT_SOURCE = 'LastFaultSource';
+    private const IDENT_LAST_FAULT_TIME = 'LastFaultTime';
 
     public function Create(): void
     {
         parent::Create();
 
         $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
+        $this->RegisterPropertyString(self::PROPERTY_FAULT_INPUTS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_ALARM_RESET_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_AFTER_ALARM_ACTION, '');
+        $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, '');
+        $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
@@ -125,6 +153,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
         $this->RegisterAttributeString(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, '[]');
+        $this->RegisterAttributeString(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS, '[]');
         $this->RegisterAttributeString(self::ATTRIBUTE_EVENT_HISTORY, '[]');
 
         $this->RegisterTimer(
@@ -279,6 +308,53 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->TextPresentation(),
             60
         );
+        $systemFaultCreated = $this->RegisterVariableBoolean(
+            self::IDENT_SYSTEM_FAULT,
+            $this->Translate('System fault'),
+            $this->OptionsPresentation([
+                [
+                    'Value'       => false,
+                    'Caption'     => $this->Translate('No system fault'),
+                    'IconActive'  => false,
+                    'IconValue'   => '',
+                    'ColorActive' => false,
+                    'ColorValue'  => -1
+                ],
+                [
+                    'Value'       => true,
+                    'Caption'     => $this->Translate('System fault active'),
+                    'IconActive'  => false,
+                    'IconValue'   => '',
+                    'ColorActive' => false,
+                    'ColorValue'  => -1
+                ]
+            ]),
+            70
+        );
+        $activeFaultsCreated = $this->RegisterVariableString(
+            self::IDENT_ACTIVE_FAULTS,
+            $this->Translate('Active faults'),
+            $this->TextPresentation(),
+            71
+        );
+        $blockingFaultsCreated = $this->RegisterVariableString(
+            self::IDENT_BLOCKING_FAULTS,
+            $this->Translate('Blocking faults'),
+            $this->TextPresentation(),
+            72
+        );
+        $lastFaultSourceCreated = $this->RegisterVariableString(
+            self::IDENT_LAST_FAULT_SOURCE,
+            $this->Translate('Last fault source'),
+            $this->TextPresentation(),
+            73
+        );
+        $lastFaultTimeCreated = $this->RegisterVariableString(
+            self::IDENT_LAST_FAULT_TIME,
+            $this->Translate('Last fault time'),
+            $this->TextPresentation(),
+            74
+        );
 
         if ($modeCreated) {
             $this->SetAlarmMode(self::MODE_NONE);
@@ -328,6 +404,21 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($lastAlarmTimeCreated) {
             $this->SetLastAlarmTime('');
         }
+        if ($systemFaultCreated) {
+            $this->SetSystemFault(false);
+        }
+        if ($activeFaultsCreated) {
+            $this->SetActiveFaults('');
+        }
+        if ($blockingFaultsCreated) {
+            $this->SetBlockingFaults('');
+        }
+        if ($lastFaultSourceCreated) {
+            $this->SetLastFaultSource('');
+        }
+        if ($lastFaultTimeCreated) {
+            $this->SetLastFaultTime('');
+        }
     }
 
     public function Destroy(): void
@@ -340,8 +431,10 @@ class OpenHomeAlarm extends IPSModuleStrict
         parent::ApplyChanges();
 
         $sensors = $this->ReadConfiguredSensors();
+        $faultInputs = $this->ReadConfiguredFaultInputs();
         $this->NormalizeSensorBypasses($sensors);
-        $this->SynchronizeSensorMessages($sensors);
+        $this->SynchronizeSensorMessages($sensors, $faultInputs);
+        $this->EvaluateFaultInputs($faultInputs);
         $this->UpdateReadinessFromSensors($sensors);
         $this->EvaluateAlwaysActiveSensors($sensors);
         $this->RestoreDelayTimers();
@@ -362,15 +455,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         if (isset($form['elements']) && is_array($form['elements'])) {
-            foreach ($form['elements'] as &$element) {
-                if (($element['type'] ?? null) !== 'List' || ($element['name'] ?? null) !== self::PROPERTY_SENSORS) {
-                    continue;
-                }
-
-                $element['values'] = $this->CreateSensorListFormValues();
-                break;
-            }
-            unset($element);
+            $this->PopulateConfigurationListValues($form['elements']);
         }
 
         return json_encode(
@@ -393,11 +478,20 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $sensors = $this->ReadConfiguredSensors();
-        if (!$this->IsMonitoredSensorVariable($SenderID, $sensors)) {
+        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $isSensorVariable = $this->IsMonitoredSensorVariable($SenderID, $sensors);
+        $isFaultVariable = $this->IsMonitoredFaultVariable($SenderID, $faultInputs);
+        if (!$isSensorVariable && !$isFaultVariable) {
             return;
         }
 
+        if ($isFaultVariable) {
+            $this->EvaluateFaultInputs($faultInputs);
+        }
         $this->UpdateReadinessFromSensors($sensors);
+        if ($this->ReadAlarmState() === self::STATE_ALARM || !$isSensorVariable) {
+            return;
+        }
         if ($this->HandleAlwaysActiveSensorUpdate($SenderID, $sensors)) {
             return;
         }
@@ -701,11 +795,15 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $sensors = $this->ReadConfiguredSensors();
         $this->UpdateReadinessFromSensors($sensors);
-        $strictReadiness = $this->EvaluateReadinessStatus($sensors, true)['readiness'];
+        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $strictReadiness = $this->ApplyFaultBlockingToReadiness(
+            $this->EvaluateReadinessStatus($sensors, true)['readiness'],
+            $faultInputs
+        );
         if (!$this->IsModeReady($mode, $strictReadiness)) {
             $this->AppendEvent(
                 self::EVENT_ARM_CANCELLED,
-                $this->ResolveBlockingSensorsForMode($mode, $sensors, true),
+                $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs, true),
                 $mode
             );
             $this->Disarm();
@@ -924,6 +1022,166 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Builds the individual editor for one 24/7 fault or tamper input.
+     *
+     * Fault inputs are independent from arming-mode sensor assignments. Their
+     * trigger value is selected from the underlying Symcon variable presentation
+     * in exactly the same way as normal alarm sensors.
+     *
+     * @param mixed $faultInput Current list row supplied by the Symcon configuration form.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function GetFaultInputEditForm(mixed $faultInput): array
+    {
+        $variableID = $this->ReadSensorEditInteger($faultInput, 'VariableID', 0);
+        $triggerValue = $this->ReadSensorEditString($faultInput, 'TriggerValue', '1');
+        $hasVariable = $this->IsExistingVariable($variableID);
+        $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
+        $hasTriggerOptions = $triggerOptions !== [];
+        $selectedTriggerValue = $hasTriggerOptions
+            ? $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions)
+            : $triggerValue;
+
+        return [
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'Enabled',
+                'caption' => $this->Translate('Enabled')
+            ],
+            [
+                'type'    => 'ValidationTextBox',
+                'name'    => 'Name',
+                'caption' => $this->Translate('Name')
+            ],
+            [
+                'type'     => 'SelectVariable',
+                'name'     => 'VariableID',
+                'caption'  => $this->Translate('Variable'),
+                'onChange' => 'OHA_UpdateFaultTriggerValueForm($id, $VariableID, $TriggerValue);'
+            ],
+            [
+                'type'    => 'Select',
+                'name'    => 'FaultType',
+                'caption' => $this->Translate('Fault type'),
+                'options' => $this->CreateFaultTypeOptions()
+            ],
+            [
+                'type'    => 'ValidationTextBox',
+                'name'    => 'TriggerValue',
+                'visible' => false
+            ],
+            [
+                'type'     => 'Select',
+                'name'     => 'TriggerValueSelection',
+                'caption'  => $this->Translate('Fault value'),
+                'options'  => $hasTriggerOptions ? $triggerOptions : $this->CreateEmptyTriggerValueOptions(),
+                'value'    => $selectedTriggerValue,
+                'visible'  => $hasVariable && $hasTriggerOptions,
+                'onChange' => 'OHA_SetFaultTriggerValue($id, $TriggerValueSelection);'
+            ],
+            [
+                'type'     => 'ValidationTextBox',
+                'name'     => 'TriggerValueManual',
+                'caption'  => $this->Translate('Fault value'),
+                'value'    => $triggerValue,
+                'visible'  => $hasVariable && !$hasTriggerOptions,
+                'onChange' => 'OHA_SetFaultTriggerValue($id, $TriggerValueManual);'
+            ],
+            [
+                'type'    => 'Label',
+                'name'    => 'TriggerValueHint',
+                'caption' => $this->Translate('Select a variable to choose its fault value.'),
+                'visible' => !$hasVariable
+            ],
+            [
+                'type'    => 'Label',
+                'name'    => 'TriggerValueManualHint',
+                'caption' => $this->Translate('This variable has no selectable states. Enter the raw fault value.'),
+                'visible' => $hasVariable && !$hasTriggerOptions
+            ],
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'BlockArming',
+                'caption' => $this->Translate('Block arming')
+            ],
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'TriggerAlarm',
+                'caption' => $this->Translate('Trigger alarm (24/7)')
+            ],
+            [
+                'type'    => 'Label',
+                'caption' => $this->Translate('Fault inputs are monitored continuously. Alarm triggering is immediate and independent of the selected arming mode.')
+            ]
+        ];
+    }
+
+    /**
+     * Rebuilds the fault-value choices when another Symcon variable is chosen.
+     */
+    public function UpdateFaultTriggerValueForm(int $variableID, string $triggerValue): void
+    {
+        $hasVariable = $this->IsExistingVariable($variableID);
+        $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
+        $hasTriggerOptions = $triggerOptions !== [];
+
+        if ($hasTriggerOptions) {
+            $selectedTriggerValue = $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions);
+
+            $this->UpdateFormField(
+                'TriggerValueSelection',
+                'options',
+                json_encode($triggerOptions, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            );
+            $this->UpdateFormField('TriggerValueSelection', 'value', $selectedTriggerValue);
+            $this->UpdateFormField('TriggerValue', 'value', $selectedTriggerValue);
+        } elseif ($hasVariable) {
+            $this->UpdateFormField('TriggerValueManual', 'value', $triggerValue);
+        }
+
+        $this->UpdateFormField('TriggerValueSelection', 'visible', $hasVariable && $hasTriggerOptions);
+        $this->UpdateFormField('TriggerValueManual', 'visible', $hasVariable && !$hasTriggerOptions);
+        $this->UpdateFormField('TriggerValueHint', 'visible', !$hasVariable);
+        $this->UpdateFormField('TriggerValueManualHint', 'visible', $hasVariable && !$hasTriggerOptions);
+    }
+
+    /**
+     * Copies the visible fault-value editor into the persisted TriggerValue field.
+     */
+    public function SetFaultTriggerValue(string $triggerValue): void
+    {
+        $this->UpdateFormField('TriggerValue', 'value', $triggerValue);
+    }
+
+    /**
+     * Injects non-persistent edit-helper values into Lists at any nesting level.
+     *
+     * @param list<array<string,mixed>> $elements
+     */
+    private function PopulateConfigurationListValues(array &$elements): void
+    {
+        foreach ($elements as &$element) {
+            if (!is_array($element)) {
+                continue;
+            }
+
+            if (($element['type'] ?? null) === 'List') {
+                if (($element['name'] ?? null) === self::PROPERTY_SENSORS) {
+                    $element['values'] = $this->CreateSensorListFormValues();
+                } elseif (($element['name'] ?? null) === self::PROPERTY_FAULT_INPUTS) {
+                    $element['values'] = $this->CreateFaultListFormValues();
+                }
+            }
+
+            if (isset($element['items']) && is_array($element['items'])) {
+                $this->PopulateConfigurationListValues($element['items']);
+            }
+        }
+        unset($element);
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function CreateModePresentation(): array
@@ -1020,6 +1278,20 @@ class OpenHomeAlarm extends IPSModuleStrict
             ['caption' => $this->Translate('Water detector'), 'value' => self::SENSOR_TYPE_WATER],
             ['caption' => $this->Translate('Panic trigger'), 'value' => self::SENSOR_TYPE_PANIC],
             ['caption' => $this->Translate('Other trigger'), 'value' => self::SENSOR_TYPE_OTHER]
+        ];
+    }
+
+    /**
+     * @return list<array{caption:string,value:int}>
+     */
+    private function CreateFaultTypeOptions(): array
+    {
+        return [
+            ['caption' => $this->Translate('Tamper'), 'value' => self::FAULT_TYPE_TAMPER],
+            ['caption' => $this->Translate('Battery / power'), 'value' => self::FAULT_TYPE_POWER],
+            ['caption' => $this->Translate('Communication'), 'value' => self::FAULT_TYPE_COMMUNICATION],
+            ['caption' => $this->Translate('Device fault'), 'value' => self::FAULT_TYPE_DEVICE],
+            ['caption' => $this->Translate('Other fault'), 'value' => self::FAULT_TYPE_OTHER]
         ];
     }
 
@@ -1392,6 +1664,176 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Supplies the non-persistent fault-value editor fields with the stored fault value.
+     *
+     * @return list<array{TriggerValueSelection:string,TriggerValueManual:string}>
+     */
+    private function CreateFaultListFormValues(): array
+    {
+        try {
+            $rows = json_decode($this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        if (!is_array($rows) || !array_is_list($rows)) {
+            return [];
+        }
+
+        $values = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                $values[] = [
+                    'TriggerValueSelection' => '',
+                    'TriggerValueManual'    => ''
+                ];
+                continue;
+            }
+
+            $variableID = is_int($row['VariableID'] ?? null) ? $row['VariableID'] : 0;
+            $triggerValue = is_string($row['TriggerValue'] ?? null) ? $row['TriggerValue'] : '1';
+            $selectionValue = $triggerValue;
+
+            if ($this->IsExistingVariable($variableID)) {
+                $triggerOptions = $this->CreateTriggerValueOptions($variableID);
+                if ($triggerOptions !== []) {
+                    $selectionValue = $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions);
+                }
+            }
+
+            $values[] = [
+                'TriggerValueSelection' => $selectionValue,
+                'TriggerValueManual'    => $triggerValue
+            ];
+        }
+
+        return $values;
+    }
+
+    /**
+     * @return list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * }>
+     */
+    private function ReadConfiguredFaultInputs(): array
+    {
+        $encodedFaultInputs = trim($this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS));
+        if ($encodedFaultInputs === '') {
+            return [];
+        }
+
+        try {
+            $faultInputs = json_decode($encodedFaultInputs, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new UnexpectedValueException('Invalid fault input configuration JSON.', 0, $exception);
+        }
+
+        if (!is_array($faultInputs) || !array_is_list($faultInputs)) {
+            throw new UnexpectedValueException('Fault input configuration must be a list.');
+        }
+
+        $normalizedFaultInputs = [];
+        $usedVariableIDs = [];
+        foreach ($faultInputs as $faultInput) {
+            if (!is_array($faultInput)) {
+                throw new UnexpectedValueException('Every fault input configuration must be an object.');
+            }
+
+            $normalized = $this->NormalizeFaultInput($faultInput);
+            if ($normalized['VariableID'] > 0) {
+                if (isset($usedVariableIDs[$normalized['VariableID']])) {
+                    throw new UnexpectedValueException('A fault input variable can only be configured once.');
+                }
+                $usedVariableIDs[$normalized['VariableID']] = true;
+            }
+            $normalizedFaultInputs[] = $normalized;
+        }
+
+        return $normalizedFaultInputs;
+    }
+
+    /**
+     * @param array<string,mixed> $faultInput
+     *
+     * @return array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * }
+     */
+    private function NormalizeFaultInput(array $faultInput): array
+    {
+        $variableID = $this->ReadFaultInteger($faultInput, 'VariableID', 0);
+        if ($variableID < 0) {
+            throw new UnexpectedValueException('Fault input VariableID must not be negative.');
+        }
+
+        $faultType = $this->ReadFaultInteger($faultInput, 'FaultType', self::FAULT_TYPE_TAMPER);
+        if (!in_array($faultType, self::VALID_FAULT_TYPES, true)) {
+            throw new UnexpectedValueException('Unsupported fault input type.');
+        }
+
+        return [
+            'Enabled'      => $this->ReadFaultBoolean($faultInput, 'Enabled', true),
+            'Name'         => trim($this->ReadFaultString($faultInput, 'Name', '')),
+            'VariableID'   => $variableID,
+            'FaultType'    => $faultType,
+            'TriggerValue' => $this->ReadFaultString($faultInput, 'TriggerValue', '1'),
+            'BlockArming'  => $this->ReadFaultBoolean($faultInput, 'BlockArming', false),
+            'TriggerAlarm' => $this->ReadFaultBoolean($faultInput, 'TriggerAlarm', false)
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $faultInput
+     */
+    private function ReadFaultBoolean(array $faultInput, string $key, bool $default): bool
+    {
+        $value = $faultInput[$key] ?? $default;
+        if (!is_bool($value)) {
+            throw new UnexpectedValueException(sprintf('Fault input field %s must be boolean.', $key));
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param array<string,mixed> $faultInput
+     */
+    private function ReadFaultInteger(array $faultInput, string $key, int $default): int
+    {
+        $value = $faultInput[$key] ?? $default;
+        if (!is_int($value)) {
+            throw new UnexpectedValueException(sprintf('Fault input field %s must be integer.', $key));
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param array<string,mixed> $faultInput
+     */
+    private function ReadFaultString(array $faultInput, string $key, string $default): string
+    {
+        $value = $faultInput[$key] ?? $default;
+        if (!is_string($value)) {
+            throw new UnexpectedValueException(sprintf('Fault input field %s must be string.', $key));
+        }
+
+        return $value;
+    }
+
+    /**
      * @return list<array{
      *     Enabled: bool,
      *     Name: string,
@@ -1535,7 +1977,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     EntryDelay: bool
      * }> $sensors
      */
-    private function SynchronizeSensorMessages(array $sensors): void
+    private function SynchronizeSensorMessages(array $sensors, array $faultInputs = []): void
     {
         $wantedVariableIDs = [];
         foreach ($sensors as $sensor) {
@@ -1544,6 +1986,16 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
 
             $variableID = $sensor['VariableID'];
+            if ($variableID > 0 && $this->IsExistingVariable($variableID)) {
+                $wantedVariableIDs[$variableID] = true;
+            }
+        }
+        foreach ($faultInputs as $faultInput) {
+            if (!$faultInput['Enabled']) {
+                continue;
+            }
+
+            $variableID = $faultInput['VariableID'];
             if ($variableID > 0 && $this->IsExistingVariable($variableID)) {
                 $wantedVariableIDs[$variableID] = true;
             }
@@ -1598,6 +2050,304 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * }> $faultInputs
+     */
+    private function IsMonitoredFaultVariable(int $variableID, array $faultInputs): bool
+    {
+        foreach ($faultInputs as $faultInput) {
+            if ($faultInput['Enabled'] && $faultInput['VariableID'] === $variableID) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Reads the current state of one fault input.
+     *
+     * True means the configured fault value is active, false means healthy and
+     * null means that the configured variable is missing or cannot be evaluated.
+     *
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * } $faultInput
+     */
+    private function GetFaultTriggerState(array $faultInput): ?bool
+    {
+        $variableID = $faultInput['VariableID'];
+        if ($variableID <= 0 || !$this->IsExistingVariable($variableID)) {
+            return null;
+        }
+
+        $variable = $this->GetSymconVariable($variableID);
+        if ($variable === null || !isset($variable['VariableType']) || !is_int($variable['VariableType'])) {
+            return null;
+        }
+
+        try {
+            $currentValue = GetValue($variableID);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $this->TriggerValueMatchesCurrentValue(
+            $variable['VariableType'],
+            $faultInput['TriggerValue'],
+            $currentValue
+        );
+    }
+
+    /**
+     * Returns a user-facing name for a fault input.
+     *
+     * @param array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * } $faultInput
+     */
+    private function ResolveFaultDisplayName(array $faultInput): string
+    {
+        if ($faultInput['Name'] !== '') {
+            return $faultInput['Name'];
+        }
+
+        return sprintf($this->Translate('Variable #%d'), $faultInput['VariableID']);
+    }
+
+    /**
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * }> $faultInputs
+     */
+    private function ResolveFaultNameByVariableID(int $variableID, array $faultInputs): string
+    {
+        foreach ($faultInputs as $faultInput) {
+            if ($faultInput['VariableID'] === $variableID) {
+                return $this->ResolveFaultDisplayName($faultInput);
+            }
+        }
+
+        return sprintf($this->Translate('Variable #%d'), $variableID);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function ReadActiveFaultVariableIDs(): array
+    {
+        $encodedIDs = $this->ReadAttributeString(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
+
+        try {
+            $decodedIDs = json_decode($encodedIDs, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        if (!is_array($decodedIDs) || !array_is_list($decodedIDs)) {
+            return [];
+        }
+
+        $variableIDs = [];
+        foreach ($decodedIDs as $variableID) {
+            if (is_int($variableID) && $variableID > 0) {
+                $variableIDs[$variableID] = true;
+            }
+        }
+
+        $result = array_map('intval', array_keys($variableIDs));
+        sort($result, SORT_NUMERIC);
+
+        return $result;
+    }
+
+    /**
+     * @param list<int> $variableIDs
+     */
+    private function WriteActiveFaultVariableIDs(array $variableIDs): void
+    {
+        $normalized = [];
+        foreach ($variableIDs as $variableID) {
+            if ($variableID > 0) {
+                $normalized[$variableID] = true;
+            }
+        }
+
+        $result = array_map('intval', array_keys($normalized));
+        sort($result, SORT_NUMERIC);
+
+        $this->WriteAttributeString(
+            self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS,
+            json_encode($result, JSON_THROW_ON_ERROR)
+        );
+    }
+
+    /**
+     * Re-evaluates all configured 24/7 fault and tamper inputs.
+     *
+     * A missing or unreadable configured variable is treated as an active system
+     * fault for status and optional arming blocking. It does not trigger the main
+     * Alarm state unless the configured fault value can positively be evaluated.
+     * Transition tracking is persisted so ApplyChanges or a restart does not emit
+     * duplicate fault events for an already active condition.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * }> $faultInputs
+     */
+    private function EvaluateFaultInputs(array $faultInputs): void
+    {
+        $previousActiveIDs = $this->ReadActiveFaultVariableIDs();
+        if ($faultInputs === [] && $previousActiveIDs === []) {
+            return;
+        }
+
+        $currentActiveIDs = [];
+        $activeNames = [];
+        $newlyActiveInputs = [];
+
+        foreach ($faultInputs as $faultInput) {
+            if (!$faultInput['Enabled'] || $faultInput['VariableID'] <= 0) {
+                continue;
+            }
+
+            $triggerState = $this->GetFaultTriggerState($faultInput);
+            if ($triggerState === false) {
+                continue;
+            }
+
+            $variableID = $faultInput['VariableID'];
+            $currentActiveIDs[] = $variableID;
+            $activeNames[] = $this->ResolveFaultDisplayName($faultInput);
+            if (!in_array($variableID, $previousActiveIDs, true)) {
+                $newlyActiveInputs[] = [$faultInput, $triggerState];
+            }
+        }
+
+        $currentActiveIDs = array_values(array_unique($currentActiveIDs));
+        sort($currentActiveIDs, SORT_NUMERIC);
+        $activeNames = array_values(array_unique($activeNames));
+        $clearedIDs = array_values(array_diff($previousActiveIDs, $currentActiveIDs));
+
+        $this->WriteActiveFaultVariableIDs($currentActiveIDs);
+        $this->SetSystemFault($currentActiveIDs !== []);
+        $this->SetActiveFaults(implode(', ', $activeNames));
+        $this->SetBlockingFaults(implode(', ', $this->ResolveBlockingFaultNames($faultInputs)));
+
+        foreach ($newlyActiveInputs as [$faultInput, $triggerState]) {
+            $sourceName = $this->ResolveFaultDisplayName($faultInput);
+            $this->SetLastFaultSource($sourceName);
+            $this->SetLastFaultTime(date('d.m.Y H:i:s'));
+            $this->AppendEvent(self::EVENT_FAULT_ACTIVATED, $sourceName);
+            $this->RunConfiguredAction(self::PROPERTY_FAULT_ACTION);
+
+            if ($triggerState === true && $faultInput['TriggerAlarm']) {
+                $this->EnterAlarmState(null, $faultInput['VariableID'], $sourceName);
+            }
+        }
+
+        foreach ($clearedIDs as $variableID) {
+            $sourceName = $this->ResolveFaultNameByVariableID($variableID, $faultInputs);
+            $this->AppendEvent(self::EVENT_FAULT_CLEARED, $sourceName);
+            $this->RunConfiguredAction(self::PROPERTY_FAULT_CLEARED_ACTION);
+        }
+    }
+
+    /**
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * }> $faultInputs
+     *
+     * @return list<string>
+     */
+    private function ResolveBlockingFaultNames(array $faultInputs): array
+    {
+        $blockingFaults = [];
+        foreach ($faultInputs as $faultInput) {
+            if (
+                !$faultInput['Enabled']
+                || !$faultInput['BlockArming']
+                || $faultInput['VariableID'] <= 0
+            ) {
+                continue;
+            }
+
+            if ($this->GetFaultTriggerState($faultInput) === false) {
+                continue;
+            }
+
+            $blockingFaults[] = $this->ResolveFaultDisplayName($faultInput);
+        }
+
+        return array_values(array_unique($blockingFaults));
+    }
+
+    /**
+     * @param array{global:bool,home:bool,away:bool,night:bool} $readiness
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * }> $faultInputs
+     *
+     * @return array{global:bool,home:bool,away:bool,night:bool}
+     */
+    private function ApplyFaultBlockingToReadiness(array $readiness, array $faultInputs): array
+    {
+        if ($this->ResolveBlockingFaultNames($faultInputs) === []) {
+            return $readiness;
+        }
+
+        return [
+            'global' => false,
+            'home'   => false,
+            'away'   => false,
+            'night'  => false
+        ];
+    }
+
+    /**
      * Evaluates and publishes the global and mode-specific arming readiness.
      *
      * ReadyToArm remains the global summary for starting an arming cycle.
@@ -1627,7 +2377,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function UpdateReadinessFromSensors(array $sensors): array
     {
         $status = $this->EvaluateReadinessStatus($sensors);
-        $readiness = $status['readiness'];
+        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $readiness = $this->ApplyFaultBlockingToReadiness($status['readiness'], $faultInputs);
 
         $this->SetReadyToArm($readiness['global']);
         $this->SetReadyHome($readiness['home']);
@@ -1843,6 +2594,53 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Combines mode-specific sensor blockers with active system faults that are
+     * configured to block arming.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     ExitDelay: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     FaultType: int,
+     *     TriggerValue: string,
+     *     BlockArming: bool,
+     *     TriggerAlarm: bool
+     * }> $faultInputs
+     */
+    private function ResolveArmingBlockersForMode(
+        int $mode,
+        array $sensors,
+        array $faultInputs,
+        bool $strict = false
+    ): string {
+        $blockers = [];
+        $sensorBlockers = $this->ResolveBlockingSensorsForMode($mode, $sensors, $strict);
+        if ($sensorBlockers !== '') {
+            $blockers[] = $sensorBlockers;
+        }
+
+        $faultBlockers = $this->ResolveBlockingFaultNames($faultInputs);
+        if ($faultBlockers !== []) {
+            $blockers[] = implode(', ', $faultBlockers);
+        }
+
+        return implode(', ', $blockers);
+    }
+
+    /**
      * Tries to arm one concrete mode. Only sensors assigned to the requested mode
      * plus all 24/7 sensors participate in this decision.
      *
@@ -1855,12 +2653,13 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $sensors = $this->ReadConfiguredSensors();
+        $faultInputs = $this->ReadConfiguredFaultInputs();
         $readiness = $this->UpdateReadinessFromSensors($sensors);
 
         if (!$this->IsModeReady($mode, $readiness)) {
             $this->AppendEvent(
                 self::EVENT_ARM_REJECTED,
-                $this->ResolveBlockingSensorsForMode($mode, $sensors),
+                $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs),
                 $mode
             );
 
@@ -2466,20 +3265,23 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     EntryDelay: bool
      * }|null $sourceSensor
      */
-    private function EnterAlarmState(?array $sourceSensor = null, int $fallbackVariableID = 0): void
-    {
+    private function EnterAlarmState(
+        ?array $sourceSensor = null,
+        int $fallbackVariableID = 0,
+        string $explicitSourceName = ''
+    ): void {
         if ($this->ReadAlarmState() === self::STATE_ALARM) {
             return;
         }
 
-        $this->RememberAlarm($sourceSensor, $fallbackVariableID);
+        $this->RememberAlarm($sourceSensor, $fallbackVariableID, $explicitSourceName);
         $this->CancelDelayTimers();
         $this->SetAlarmState(self::STATE_ALARM);
         $this->SetAlarmOutputActive(true);
         $this->StartAlarmDurationTimer();
         $this->AppendEvent(
             self::EVENT_ALARM,
-            $this->ResolveAlarmEventSource($sourceSensor, $fallbackVariableID)
+            $this->ResolveAlarmEventSource($sourceSensor, $fallbackVariableID, $explicitSourceName)
         );
         $this->RunConfiguredAction(self::PROPERTY_ALARM_ACTION);
     }
@@ -2499,10 +3301,13 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     EntryDelay: bool
      * }|null $sourceSensor
      */
-    private function RememberAlarm(?array $sourceSensor, int $fallbackVariableID): void
-    {
+    private function RememberAlarm(
+        ?array $sourceSensor,
+        int $fallbackVariableID,
+        string $explicitSourceName = ''
+    ): void {
         $timestamp = time();
-        $sourceName = $this->ResolveAlarmEventSource($sourceSensor, $fallbackVariableID);
+        $sourceName = $this->ResolveAlarmEventSource($sourceSensor, $fallbackVariableID, $explicitSourceName);
 
         $this->SetAlarmMemory(true);
         $this->SetLastAlarmSource($sourceName);
@@ -2524,10 +3329,13 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     EntryDelay: bool
      * }|null $sourceSensor
      */
-    private function ResolveAlarmEventSource(?array $sourceSensor, int $fallbackVariableID): string
-    {
-        $sourceName = '';
-        if ($sourceSensor !== null) {
+    private function ResolveAlarmEventSource(
+        ?array $sourceSensor,
+        int $fallbackVariableID,
+        string $explicitSourceName = ''
+    ): string {
+        $sourceName = trim($explicitSourceName);
+        if ($sourceName === '' && $sourceSensor !== null) {
             $sourceName = trim($sourceSensor['Name']);
             $fallbackVariableID = $sourceSensor['VariableID'];
         }
@@ -2996,5 +3804,30 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function SetLastAlarmTime(string $time): void
     {
         $this->SetValue(self::IDENT_LAST_ALARM_TIME, $time);
+    }
+
+    private function SetSystemFault(bool $active): void
+    {
+        $this->SetValue(self::IDENT_SYSTEM_FAULT, $active);
+    }
+
+    private function SetActiveFaults(string $faults): void
+    {
+        $this->SetValue(self::IDENT_ACTIVE_FAULTS, $faults);
+    }
+
+    private function SetBlockingFaults(string $faults): void
+    {
+        $this->SetValue(self::IDENT_BLOCKING_FAULTS, $faults);
+    }
+
+    private function SetLastFaultSource(string $source): void
+    {
+        $this->SetValue(self::IDENT_LAST_FAULT_SOURCE, $source);
+    }
+
+    private function SetLastFaultTime(string $time): void
+    {
+        $this->SetValue(self::IDENT_LAST_FAULT_TIME, $time);
     }
 }

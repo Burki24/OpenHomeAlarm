@@ -90,6 +90,11 @@ class IPSModuleStrict
     {
     }
 
+    protected function ReadPropertyString(string $name): string
+    {
+        return '[]';
+    }
+
     protected function RegisterPropertyInteger(string $name, int $default): void
     {
     }

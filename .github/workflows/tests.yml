@@ -89,3 +89,6 @@ jobs:
 
       - name: Check persistent security event history
         run: php tests/event-history.php
+
+      - name: Check tamper and fault monitoring
+        run: php tests/fault-monitoring.php

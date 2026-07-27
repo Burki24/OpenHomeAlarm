@@ -332,6 +332,10 @@ assertSensorModel(
     'Sensors property must default to an empty JSON list.'
 );
 assertSensorModel(
+    $instance->TestReadPropertyString('FaultInputs') === '[]',
+    'FaultInputs property must default to an empty JSON list.'
+);
+assertSensorModel(
     array_keys($instance->TestRegisteredVariables()) === [
         'Mode',
         'State',
@@ -348,7 +352,12 @@ assertSensorModel(
         'BypassedSensors',
         'AlarmMemory',
         'LastAlarmSource',
-        'LastAlarmTime'
+        'LastAlarmTime',
+        'SystemFault',
+        'ActiveFaults',
+        'BlockingFaults',
+        'LastFaultSource',
+        'LastFaultTime'
     ],
     'The sensor model must keep the expected module status variables.'
 );

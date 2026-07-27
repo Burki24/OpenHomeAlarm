@@ -100,6 +100,149 @@
             ]
         },
         {
+            "type": "ExpansionPanel",
+            "caption": "System monitoring",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Configure optional 24/7 inputs for tamper, battery/power, communication or device faults."
+                },
+                {
+                    "type": "SelectAction",
+                    "name": "FaultAction",
+                    "caption": "On new fault",
+                    "targetID": -2,
+                    "width": "100%"
+                },
+                {
+                    "type": "SelectAction",
+                    "name": "FaultClearedAction",
+                    "caption": "On fault cleared",
+                    "targetID": -2,
+                    "width": "100%"
+                },
+                {
+                    "type": "List",
+                    "name": "FaultInputs",
+                    "caption": "Tamper and fault inputs",
+                    "rowCount": 6,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "220px",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Variable",
+                            "name": "VariableID",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": {
+                                "type": "SelectVariable"
+                            }
+                        },
+                        {
+                            "caption": "Fault type",
+                            "name": "FaultType",
+                            "width": "180px",
+                            "add": 0,
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "Tamper",
+                                        "value": 0
+                                    },
+                                    {
+                                        "caption": "Battery / power",
+                                        "value": 1
+                                    },
+                                    {
+                                        "caption": "Communication",
+                                        "value": 2
+                                    },
+                                    {
+                                        "caption": "Device fault",
+                                        "value": 3
+                                    },
+                                    {
+                                        "caption": "Other fault",
+                                        "value": 4
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "caption": "Fault value",
+                            "name": "TriggerValue",
+                            "width": "125px",
+                            "add": "1",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "",
+                            "name": "TriggerValueSelection",
+                            "width": "1px",
+                            "visible": false,
+                            "add": "",
+                            "save": false
+                        },
+                        {
+                            "caption": "",
+                            "name": "TriggerValueManual",
+                            "width": "1px",
+                            "visible": false,
+                            "add": "",
+                            "save": false
+                        },
+                        {
+                            "caption": "Block arming",
+                            "name": "BlockArming",
+                            "width": "120px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Alarm",
+                            "name": "TriggerAlarm",
+                            "width": "80px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetFaultInputEditForm($id, $FaultInputs);"
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Missing or unreadable configured fault variables are reported as a system fault and can block arming, but do not trigger the main alarm unless the configured fault value is positively detected."
+                }
+            ]
+        },
+        {
             "type": "List",
             "name": "Sensors",
             "caption": "Sensors and triggers",

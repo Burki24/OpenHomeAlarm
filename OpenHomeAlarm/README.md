@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status und konfigurierbarem Ausgangsweg, konfigurierbare Alarmaktionen mit Alarmdauer und Rücksetzung des Alarmausgangs, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis sowie ein persistentes Sicherheits-Ereignisprotokoll sind implementiert. Die eigene Visualisierung folgt schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status und konfigurierbarem Ausgangsweg, konfigurierbare Alarmaktionen mit Alarmdauer und Rücksetzung des Alarmausgangs, eine 24/7-Systemüberwachung für Manipulation und technische Störungen, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis sowie ein persistentes Sicherheits-Ereignisprotokoll sind implementiert. Die eigene Visualisierung folgt schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -12,16 +12,17 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 4. [Einrichten der Instanz in Symcon](#4-einrichten-der-instanz-in-symcon)
 5. [Statusvariablen und Darstellungen](#5-statusvariablen-und-darstellungen)
 6. [Sensoren und Auslöser](#6-sensoren-und-auslöser)
-7. [Code-Schutz](#7-code-schutz)
-8. [Alarmaktionen](#8-alarmaktionen)
-9. [Alarmgedächtnis](#9-alarmgedächtnis)
-10. [Ereignisprotokoll](#10-ereignisprotokoll)
-11. [Visualisierung](#11-visualisierung)
-12. [PHP-Befehlsreferenz](#12-php-befehlsreferenz)
+7. [Systemüberwachung](#7-systemüberwachung)
+8. [Code-Schutz](#8-code-schutz)
+9. [Alarmaktionen](#9-alarmaktionen)
+10. [Alarmgedächtnis](#10-alarmgedächtnis)
+11. [Ereignisprotokoll](#11-ereignisprotokoll)
+12. [Visualisierung](#12-visualisierung)
+13. [PHP-Befehlsreferenz](#13-php-befehlsreferenz)
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen mit laufendem Countdown-Status und Ausgangsweg-Sensoren, konfigurierbare Alarmaktionen mit optionaler automatischer Alarmdauer und separater Rücksetzungsaktion, eine optionale Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis sowie ein persistentes Sicherheits-Ereignisprotokoll bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen mit laufendem Countdown-Status und Ausgangsweg-Sensoren, konfigurierbare Alarmaktionen mit optionaler automatischer Alarmdauer und separater Rücksetzungsaktion, eine 24/7-Systemüberwachung für Manipulation, Batterie-/Stromversorgung, Kommunikation und Gerätestörungen mit optionaler Scharfschaltblockade oder Alarmauslösung, eine optionale Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis sowie ein persistentes Sicherheits-Ereignisprotokoll bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich kann ein Sensor als **24/7 aktiv** markiert werden und löst dann unabhängig vom Scharfmodus sofort aus. Sensortyp, Auslösewert sowie die Nutzung als Ausgangsweg und der Eingangsverzögerung werden ebenfalls gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
@@ -39,7 +40,7 @@ Die Library kann über die Modulverwaltung von Symcon aus dem GitHub-Repository 
 
 Unter **Instanz hinzufügen** kann das Modul **OpenHomeAlarm** gefunden und angelegt werden.
 
-Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Im Abschnitt **Code-Schutz** kann optional ein vier- bis achtstelliger **Unscharfschaltcode** hinterlegt werden. Im Abschnitt **Alarmaktionen** werden die **Alarmdauer** sowie optional die Aktionen **Bei Alarm**, **Bei Rücksetzung des Alarmausgangs** und **Beim Unscharfschalten nach Alarm** konfiguriert. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Dort kann ein Sensor zusätzlich als **Ausgangsweg** markiert werden. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
+Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Im Abschnitt **Code-Schutz** kann optional ein vier- bis achtstelliger **Unscharfschaltcode** hinterlegt werden. Im Abschnitt **Alarmaktionen** werden die **Alarmdauer** sowie optional die Aktionen **Bei Alarm**, **Bei Rücksetzung des Alarmausgangs** und **Beim Unscharfschalten nach Alarm** konfiguriert. Im Abschnitt **Systemüberwachung** können zusätzliche 24/7-Eingänge für Manipulation und technische Störungen samt optionalen Aktionen bei Auftreten und Behebung hinterlegt werden. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Dort kann ein Sensor zusätzlich als **Ausgangsweg** markiert werden. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
 
 ### 5. Statusvariablen und Darstellungen
 
@@ -63,6 +64,11 @@ OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
 | `AlarmMemory` | Zeigt an, ob seit der letzten Quittierung ein Alarm gespeichert ist | Kein Alarm gespeichert |
 | `LastAlarmSource` | Name des Sensors, der den letzten Alarm ausgelöst hat | leer |
 | `LastAlarmTime` | Zeitpunkt des letzten Alarms im Format `TT.MM.JJJJ HH:MM:SS` | leer |
+| `SystemFault` | Zeigt an, ob mindestens ein konfigurierter Störungs-/Manipulationseingang aktiv oder nicht auswertbar ist | Keine Systemstörung |
+| `ActiveFaults` | Namen aller aktuell aktiven bzw. nicht auswertbaren Störungseingänge | leer |
+| `BlockingFaults` | Aktive Störungen, die die Scharfschaltung aller Modi blockieren | leer |
+| `LastFaultSource` | Name der zuletzt neu aufgetretenen Störung/Manipulation | leer |
+| `LastFaultTime` | Zeitpunkt der zuletzt neu aufgetretenen Störung im Format `TT.MM.JJJJ HH:MM:SS` | leer |
 
 Die Variablen verwenden native Symcon-Darstellungen. Bereits vorhandene Betriebszustände werden bei einem Modulupdate nicht auf die Initialwerte zurückgesetzt.
 
@@ -103,13 +109,23 @@ Temporäre Sensorüberbrückungen können ausschließlich im Zustand **Unscharf*
 
 Beim Unscharfschalten werden laufende Ein- und Ausgangsverzögerungen immer beendet. Ist der Alarmausgang zu diesem Zeitpunkt noch aktiv, wird er zuerst zurückgesetzt. Wird ein bereits aktiver Alarm unscharf geschaltet, wird anschließend einmalig die konfigurierte Aktion **Beim Unscharfschalten nach Alarm** ausgeführt. Ein Abbruch während Ein- oder Ausgangsverzögerung löst diese Aktion nicht aus. Die Timer für Ein-/Ausgangsverzögerung und Alarmdauer verwenden persistierte Ablaufzeitpunkte und werden nach `ApplyChanges()` bzw. einem Symcon-Neustart mit der verbleibenden Zeit wiederhergestellt.
 
-### 7. Code-Schutz
+### 7. Systemüberwachung
+
+Zusätzlich zu den eigentlichen Alarmsensoren können im Abschnitt **Systemüberwachung** unabhängige 24/7-Eingänge für **Manipulation**, **Batterie/Stromversorgung**, **Kommunikation**, **Gerätestörung** oder eine sonstige Störung angelegt werden. Jeder Eintrag verweist wie ein normaler Sensor auf eine Symcon-Variable; der Störwert wird aus deren Variablendarstellung übernommen oder bei Bedarf als Rohwert eingegeben.
+
+Für jeden Störungseingang kann separat festgelegt werden, ob eine aktive Störung die **Scharfschaltung blockiert** und ob sie den normalen Alarmzustand **sofort und 24/7 auslöst**. Dadurch kann beispielsweise ein Sabotagekontakt unmittelbar alarmieren, während eine schwache Batterie lediglich als Systemstörung angezeigt wird. Eine blockierende Störung setzt `ReadyHome`, `ReadyAway`, `ReadyNight` und `ReadyToArm` auf **Nicht bereit** und erscheint zusätzlich in `BlockingFaults`.
+
+Fehlende oder nicht auswertbare konfigurierte Störungsvariablen werden sicherheitsgerichtet als Systemstörung behandelt und können – sofern so konfiguriert – die Scharfschaltung blockieren. Sie lösen den Hauptalarm jedoch nicht allein aufgrund der fehlenden Auswertbarkeit aus; dafür muss der konfigurierte Störwert eindeutig erkannt werden.
+
+Optional können die nativen Symcon-Aktionen **Bei neuer Störung** und **Bei behobener Störung** hinterlegt werden. Zustandswechsel werden persistent verfolgt, sodass ein `ApplyChanges()` oder Symcon-Neustart eine bereits aktive Störung nicht mehrfach als neu meldet. Neu aufgetretene und behobene Störungen werden zusätzlich als `fault_activated` bzw. `fault_cleared` im Sicherheits-Ereignisprotokoll gespeichert.
+
+### 8. Code-Schutz
 
 Für die spätere benutzerseitige Bedienung kann im Konfigurationsformular ein vier- bis achtstelliger Zahlencode hinterlegt werden. Das Feld wird als Passwortfeld dargestellt. Ein leerer Wert deaktiviert die Code-Prüfung.
 
 `OHA_DisarmWithCode($InstanzID, $Code)` prüft den übergebenen Code und schaltet nur bei Übereinstimmung unscharf. Ein falscher Code verändert weder Modus noch Zustand. Die Prüfung erfolgt ohne Protokollierung des eingegebenen Codes. Der bestehende Befehl `OHA_Disarm($InstanzID)` bleibt als vertrauenswürdige direkte API für Automationen erhalten und umgeht bewusst die Code-Prüfung.
 
-### 8. Alarmaktionen
+### 9. Alarmaktionen
 
 OpenHomeAlarm verwendet für externe Reaktionen die nativen Symcon-Aktionen. Im Feld **Bei Alarm** kann ein beliebiges Ziel samt passender Aktion gewählt werden. Die Aktion wird genau einmal ausgeführt, wenn das System erstmals in den Zustand **Alarm** wechselt. Gleichzeitig wird `AlarmOutputActive` auf aktiv gesetzt.
 
@@ -123,27 +139,27 @@ Die Alarmdauer ist wiederanlaufsicher: Ein laufender Timer wird über einen pers
 
 Da die Zielauswahl Bestandteil der Symcon-Aktion ist, können sowohl einzelne Gerätevariablen als auch Skripte, Ablaufpläne und andere von Symcon angebotene Aktionsziele verwendet werden. Nicht konfigurierte Alarmaktionen haben keine Wirkung auf die Kernlogik. Auch eine fehlerhafte optionale Aktion verhindert nicht den Wechsel des Alarmzustands oder das Unscharfschalten.
 
-### 9. Alarmgedächtnis
+### 10. Alarmgedächtnis
 
 Beim tatsächlichen Eintritt in den Zustand **Alarm** speichert OpenHomeAlarm den auslösenden Sensor und den Alarmzeitpunkt. Bei einem Sensor mit Eingangsverzögerung wird dabei der Sensor gemerkt, der den Countdown gestartet hat; auch wenn dieser Sensor vor Ablauf der Verzögerung wieder in den Ruhezustand zurückkehrt, bleibt er die Alarmquelle. Ein Sensor ohne eingetragenen Namen wird ersatzweise über seine Variablen-ID bezeichnet.
 
 Das Alarmgedächtnis bleibt beim Unscharfschalten erhalten. Dadurch ist nach der Rückkehr weiterhin nachvollziehbar, welcher Sensor den letzten Alarm ausgelöst hat. `OHA_ClearAlarmMemory($InstanzID)` quittiert das Alarmgedächtnis und leert Quelle und Zeitpunkt. Während eines noch aktiven Alarms wird die Quittierung abgelehnt.
 
-### 10. Ereignisprotokoll
+### 11. Ereignisprotokoll
 
 OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle.
 
 Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbaren Ereignistyp, den zum Ereignis gehörenden `Mode` und `State` sowie optional `Source`. Als Quelle werden bei Alarmen, Eingangsverzögerungen und Sensorüberbrückungen die betroffenen Sensornamen gespeichert; bei abgelehnten oder nach der Ausgangsverzögerung abgebrochenen Scharfschaltungen enthält `Source` die blockierenden Sensoren.
 
-Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, Start der Ein- und Ausgangsverzögerung, Alarm, Rücksetzungen des Alarmausgangs, Unscharfschalten, temporäre Sensorüberbrückungen, das Löschen des Alarmgedächtnisses sowie abgewiesene Code-Eingaben. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
+Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, Start der Ein- und Ausgangsverzögerung, Alarm, Rücksetzungen des Alarmausgangs, Unscharfschalten, temporäre Sensorüberbrückungen, das Löschen des Alarmgedächtnisses, neu aufgetretene bzw. behobene Systemstörungen sowie abgewiesene Code-Eingaben. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
 
 `OHA_GetEventHistory($InstanzID)` liefert das Protokoll als JSON. Mit `OHA_ClearEventHistory($InstanzID)` kann es gezielt geleert werden. Das Ereignisprotokoll ist ein Bedien- und Diagnoseprotokoll und kein manipulationssicheres Audit-Log.
 
-### 11. Visualisierung
+### 12. Visualisierung
 
 Eine eigene Visualisierung mit Code-Eingabe zum Unscharfschalten wird in einem späteren Entwicklungsschritt umgesetzt. Sie verwendet dafür die bereits vorhandene Code-Prüfung, das Alarmgedächtnis und das Ereignisprotokoll des Moduls.
 
-### 12. PHP-Befehlsreferenz
+### 13. PHP-Befehlsreferenz
 
 Folgende öffentliche Modulbefehle stehen zur Verfügung:
 

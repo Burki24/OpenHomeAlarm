@@ -74,7 +74,32 @@
             "Configure optional Symcon actions for alarm start, automatic alarm-output reset and disarming after an alarm.": "Konfigurieren Sie optionale Symcon-Aktionen für Alarmstart, automatische Rücksetzung des Alarmausgangs und das Unscharfschalten nach einem Alarm.",
             "Alarm duration (seconds)": "Alarmdauer (Sekunden)",
             "A value of 0 keeps the alarm output active until it is reset manually or the system is disarmed.": "Der Wert 0 lässt den Alarmausgang aktiv, bis er manuell zurückgesetzt oder die Anlage unscharf geschaltet wird.",
-            "On alarm output reset": "Bei Rücksetzung des Alarmausgangs"
+            "On alarm output reset": "Bei Rücksetzung des Alarmausgangs",
+            "System monitoring": "Systemüberwachung",
+            "Configure optional 24/7 inputs for tamper, battery/power, communication or device faults.": "Konfigurieren Sie optionale 24/7-Eingänge für Manipulation, Batterie-/Stromversorgung, Kommunikation oder Gerätestörungen.",
+            "On new fault": "Bei neuer Störung",
+            "On fault cleared": "Bei behobener Störung",
+            "Tamper and fault inputs": "Manipulations- und Störungseingänge",
+            "Fault type": "Störungstyp",
+            "Fault value": "Störwert",
+            "Block arming": "Scharfschaltung blockieren",
+            "Trigger alarm (24/7)": "Alarm auslösen (24/7)",
+            "Tamper": "Manipulation",
+            "Battery / power": "Batterie / Stromversorgung",
+            "Communication": "Kommunikation",
+            "Device fault": "Gerätestörung",
+            "Other fault": "Sonstige Störung",
+            "Select a variable to choose its fault value.": "Wählen Sie zuerst eine Variable aus, um den Störwert festzulegen.",
+            "This variable has no selectable states. Enter the raw fault value.": "Für diese Variable sind keine auswählbaren Zustände definiert. Geben Sie den Rohwert des Störzustands ein.",
+            "Fault inputs are monitored continuously. Alarm triggering is immediate and independent of the selected arming mode.": "Störungseingänge werden dauerhaft überwacht. Eine konfigurierte Alarmauslösung erfolgt sofort und unabhängig vom gewählten Scharfmodus.",
+            "Missing or unreadable configured fault variables are reported as a system fault and can block arming, but do not trigger the main alarm unless the configured fault value is positively detected.": "Fehlende oder nicht auswertbare konfigurierte Störungsvariablen werden als Systemstörung gemeldet und können die Scharfschaltung blockieren, lösen den Hauptalarm jedoch nur aus, wenn der konfigurierte Störwert eindeutig erkannt wurde.",
+            "System fault": "Systemstörung",
+            "No system fault": "Keine Systemstörung",
+            "System fault active": "Systemstörung aktiv",
+            "Active faults": "Aktive Störungen",
+            "Blocking faults": "Blockierende Störungen",
+            "Last fault source": "Letzte Störungsquelle",
+            "Last fault time": "Letzter Störungszeitpunkt"
         }
     }
 }
