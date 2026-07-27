@@ -36,6 +36,7 @@
             "No selectable values": "Keine auswählbaren Werte",
             "This variable has no selectable states. Enter the raw trigger value.": "Für diese Variable sind keine auswählbaren Zustände definiert. Geben Sie den Rohwert des Auslösezustands ein.",
             "Selectable variable states are shown as a consistent list; variables without discrete states keep a raw-value input.": "Definierte Variablenzustände werden einheitlich als Auswahlliste angezeigt; Variablen ohne diskrete Zustände behalten eine Rohwerteingabe.",
+            "Delays": "Verzögerungen",
             "Exit delay (seconds)": "Ausgangsverzögerung (Sekunden)",
             "Entry delay (seconds)": "Eingangsverzögerung (Sekunden)",
             "A value of 0 disables the corresponding delay.": "Der Wert 0 deaktiviert die jeweilige Verzögerung."

@@ -5,27 +5,34 @@
             "caption": "Configure the Symcon variables that can act as alarm sensors or triggers."
         },
         {
-            "type": "RowLayout",
+            "type": "ExpansionPanel",
+            "caption": "Delays",
+            "expanded": true,
             "items": [
                 {
-                    "type": "NumberSpinner",
-                    "name": "ExitDelaySeconds",
-                    "caption": "Exit delay (seconds)",
-                    "minimum": 0,
-                    "width": "250px"
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "NumberSpinner",
+                            "name": "ExitDelaySeconds",
+                            "caption": "Exit delay (seconds)",
+                            "minimum": 0,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "EntryDelaySeconds",
+                            "caption": "Entry delay (seconds)",
+                            "minimum": 0,
+                            "width": "250px"
+                        }
+                    ]
                 },
                 {
-                    "type": "NumberSpinner",
-                    "name": "EntryDelaySeconds",
-                    "caption": "Entry delay (seconds)",
-                    "minimum": 0,
-                    "width": "250px"
+                    "type": "Label",
+                    "caption": "A value of 0 disables the corresponding delay."
                 }
             ]
-        },
-        {
-            "type": "Label",
-            "caption": "A value of 0 disables the corresponding delay."
         },
         {
             "type": "List",

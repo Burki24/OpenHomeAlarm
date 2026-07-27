@@ -492,4 +492,47 @@ assertDelay(
     'An immediate configuration row must take precedence when the same variable also has a delayed row.'
 );
 
+$form = json_decode(
+    (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$delayPanel = null;
+foreach ($form['elements'] ?? [] as $element) {
+    if (($element['type'] ?? null) === 'ExpansionPanel' && ($element['caption'] ?? null) === 'Delays') {
+        $delayPanel = $element;
+        break;
+    }
+}
+assertDelay(is_array($delayPanel), 'Configuration form must contain a dedicated Delays section.');
+assertDelay(($delayPanel['expanded'] ?? false) === true, 'Delays section must be expanded by default.');
+
+$delayFields = [];
+foreach ($delayPanel['items'] ?? [] as $item) {
+    if (($item['type'] ?? null) !== 'RowLayout') {
+        continue;
+    }
+    foreach ($item['items'] ?? [] as $field) {
+        if (isset($field['name'])) {
+            $delayFields[] = $field['name'];
+        }
+    }
+}
+assertDelay(
+    $delayFields === ['ExitDelaySeconds', 'EntryDelaySeconds'],
+    'Delays section must contain both configured delay fields.'
+);
+
+$locale = json_decode(
+    (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/locale.json'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertDelay(
+    ($locale['translations']['de']['Delays'] ?? null) === 'Verzögerungen',
+    'Delays section must have a German translation.'
+);
+
 fwrite(STDOUT, "OpenHomeAlarm delay checks passed.\n");
