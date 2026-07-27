@@ -121,12 +121,77 @@ class IPSModuleStrict
     }
 }
 
-/** @var array<int,bool> */
+/** @var array<int,array<string,mixed>> */
 $testVariables = [
-    12345 => true,
-    23456 => true,
-    34567 => true,
-    45678 => true
+    12345 => [
+        'VariableType'          => 0,
+        'VariableCustomProfile' => '',
+        'VariableProfile'       => ''
+    ],
+    23456 => [
+        'VariableType'          => 3,
+        'VariableCustomProfile' => '',
+        'VariableProfile'       => ''
+    ],
+    34567 => [
+        'VariableType'          => 1,
+        'VariableCustomProfile' => '',
+        'VariableProfile'       => ''
+    ],
+    45678 => [
+        'VariableType'          => 3,
+        'VariableCustomProfile' => '',
+        'VariableProfile'       => ''
+    ],
+    56789 => [
+        'VariableType'          => 1,
+        'VariableCustomProfile' => '',
+        'VariableProfile'       => 'Test.Legacy'
+    ]
+];
+
+/** @var array<int,array<string,mixed>> */
+$testVariablePresentations = [
+    12345 => [
+        'OPTIONS' => json_encode([
+            ['Value' => false, 'Caption' => 'Aus'],
+            ['Value' => true, 'Caption' => 'An']
+        ], JSON_THROW_ON_ERROR)
+    ],
+    23456 => [
+        'OPTIONS' => json_encode([
+            ['Value' => 'ALARM', 'Caption' => 'Alarm'],
+            ['Value' => 'IDLE', 'Caption' => 'Standby']
+        ], JSON_THROW_ON_ERROR)
+    ],
+    34567 => [
+        'INTERVALS' => json_encode([
+            [
+                'IntervalMinValue' => 0,
+                'IntervalMaxValue' => 0,
+                'ConstantActive'   => true,
+                'ConstantValue'    => 'Geschlossen'
+            ],
+            [
+                'IntervalMinValue' => 1,
+                'IntervalMaxValue' => 1,
+                'ConstantActive'   => true,
+                'ConstantValue'    => 'Offen'
+            ]
+        ], JSON_THROW_ON_ERROR)
+    ],
+    45678 => [],
+    56789 => []
+];
+
+/** @var array<string,array<string,mixed>> */
+$testVariableProfiles = [
+    'Test.Legacy' => [
+        'Associations' => [
+            ['Value' => 0.0, 'Name' => 'Inaktiv'],
+            ['Value' => 1.0, 'Name' => 'Aktiv']
+        ]
+    ]
 ];
 
 final class IPSList implements ArrayAccess
@@ -163,7 +228,39 @@ function IPS_VariableExists(int $variableID): bool
 {
     global $testVariables;
 
-    return $testVariables[$variableID] ?? false;
+    return array_key_exists($variableID, $testVariables);
+}
+
+/** @return array<string,mixed> */
+function IPS_GetVariablePresentation(int $variableID): array
+{
+    global $testVariablePresentations;
+
+    return $testVariablePresentations[$variableID] ?? [];
+}
+
+/** @return array<string,mixed> */
+function IPS_GetVariable(int $variableID): array
+{
+    global $testVariables;
+
+    if (!array_key_exists($variableID, $testVariables)) {
+        throw new RuntimeException('Unknown test variable.');
+    }
+
+    return $testVariables[$variableID];
+}
+
+/** @return array<string,mixed> */
+function IPS_GetVariableProfile(string $profileName): array
+{
+    global $testVariableProfiles;
+
+    if (!array_key_exists($profileName, $testVariableProfiles)) {
+        throw new RuntimeException('Unknown test profile.');
+    }
+
+    return $testVariableProfiles[$profileName];
 }
 
 function assertSensorModel(bool $condition, string $message): void
@@ -332,8 +429,18 @@ assertSensorModel(
     'Sensors list must use the dynamic individual edit form.'
 );
 
+assertSensorModel(
+    isset($columns['TriggerValueSelection']) && ($columns['TriggerValueSelection']['save'] ?? true) === false,
+    'TriggerValueSelection must be a non-persistent helper column.'
+);
+assertSensorModel(
+    isset($columns['TriggerValueManual']) && ($columns['TriggerValueManual']['save'] ?? true) === false,
+    'TriggerValueManual must be a non-persistent helper column.'
+);
+
 $editForm = $instance->GetSensorEditForm(new IPSList([
-    'VariableID' => 12345
+    'VariableID'   => 12345,
+    'TriggerValue' => 'true'
 ]));
 $editFields = [];
 foreach ($editForm as $field) {
@@ -346,32 +453,135 @@ assertSensorModel(
     'Sensor editor must use SelectVariable for VariableID.'
 );
 assertSensorModel(
-    ($editFields['VariableID']['onChange'] ?? null) === 'OHA_UpdateSensorTriggerValueForm($id, $VariableID);',
-    'Changing the sensor variable must refresh the trigger-value selector.'
+    ($editFields['VariableID']['onChange'] ?? null) === 'OHA_UpdateSensorTriggerValueForm($id, $VariableID, $TriggerValue);',
+    'Changing the sensor variable must rebuild the trigger-value editor.'
 );
 assertSensorModel(
-    ($editFields['TriggerValue']['type'] ?? null) === 'SelectValue',
-    'TriggerValue must use Symcon SelectValue in the sensor editor.'
+    ($editFields['TriggerValue']['type'] ?? null) === 'ValidationTextBox'
+        && ($editFields['TriggerValue']['visible'] ?? true) === false,
+    'TriggerValue must remain a hidden canonical string field.'
 );
 assertSensorModel(
-    ($editFields['TriggerValue']['variableID'] ?? null) === 12345,
-    'TriggerValue must be bound to the selected Symcon variable.'
+    ($editFields['TriggerValueSelection']['type'] ?? null) === 'Select',
+    'Discrete trigger values must use a consistent Select field.'
 );
 assertSensorModel(
-    ($editFields['TriggerValue']['visible'] ?? null) === true,
-    'TriggerValue selector must be visible for an existing variable.'
+    ($editFields['TriggerValueSelection']['options'] ?? null) === [
+        ['caption' => 'Aus', 'value' => 'false'],
+        ['caption' => 'An', 'value' => 'true']
+    ],
+    'Boolean presentation options must be exposed as selectable captions.'
 );
 assertSensorModel(
-    ($editFields['TriggerValueHint']['visible'] ?? null) === false,
-    'Trigger-value hint must be hidden for an existing variable.'
+    ($editFields['TriggerValueSelection']['value'] ?? null) === 'true'
+        && ($editFields['TriggerValueSelection']['visible'] ?? false) === true,
+    'Boolean trigger selection must restore the persisted raw value.'
 );
 assertSensorModel(
-    array_column($editFields['SensorType']['options'] ?? [], 'value') === [0, 1, 2, 3, 4, 5, 6],
-    'Dynamic sensor editor must expose all stable sensor types.'
+    ($editFields['TriggerValueManual']['visible'] ?? true) === false,
+    'Manual trigger input must be hidden when selectable states exist.'
+);
+
+$stringEditForm = $instance->GetSensorEditForm(new IPSList([
+    'VariableID'   => 23456,
+    'TriggerValue' => 'ALARM'
+]));
+$stringFields = [];
+foreach ($stringEditForm as $field) {
+    if (isset($field['name'])) {
+        $stringFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($stringFields['TriggerValueSelection']['options'] ?? null) === [
+        ['caption' => 'Alarm', 'value' => 'ALARM'],
+        ['caption' => 'Standby', 'value' => 'IDLE']
+    ],
+    'String presentation options must be exposed as a selectable list.'
+);
+assertSensorModel(
+    ($stringFields['TriggerValueSelection']['value'] ?? null) === 'ALARM',
+    'String trigger selection must preserve the raw String value.'
+);
+
+$legacySelectValueForm = $instance->GetSensorEditForm(new IPSList([
+    'VariableID'   => 23456,
+    'TriggerValue' => '"IDLE"'
+]));
+$legacySelectValueFields = [];
+foreach ($legacySelectValueForm as $field) {
+    if (isset($field['name'])) {
+        $legacySelectValueFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($legacySelectValueFields['TriggerValueSelection']['value'] ?? null) === 'IDLE',
+    'Previously JSON-encoded SelectValue strings must still resolve to their raw String option.'
+);
+
+$intervalEditForm = $instance->GetSensorEditForm(new IPSList([
+    'VariableID'   => 34567,
+    'TriggerValue' => '1'
+]));
+$intervalFields = [];
+foreach ($intervalEditForm as $field) {
+    if (isset($field['name'])) {
+        $intervalFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($intervalFields['TriggerValueSelection']['options'] ?? null) === [
+        ['caption' => 'Geschlossen', 'value' => '0'],
+        ['caption' => 'Offen', 'value' => '1']
+    ],
+    'Discrete value-presentation intervals must become selectable trigger states.'
+);
+
+$legacyEditForm = $instance->GetSensorEditForm(new IPSList([
+    'VariableID'   => 56789,
+    'TriggerValue' => '1'
+]));
+$legacyFields = [];
+foreach ($legacyEditForm as $field) {
+    if (isset($field['name'])) {
+        $legacyFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($legacyFields['TriggerValueSelection']['options'] ?? null) === [
+        ['caption' => 'Inaktiv', 'value' => '0'],
+        ['caption' => 'Aktiv', 'value' => '1']
+    ],
+    'Legacy profile associations must remain usable as trigger choices.'
+);
+
+$manualEditForm = $instance->GetSensorEditForm(new IPSList([
+    'VariableID'   => 45678,
+    'TriggerValue' => 'ALARM'
+]));
+$manualFields = [];
+foreach ($manualEditForm as $field) {
+    if (isset($field['name'])) {
+        $manualFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($manualFields['TriggerValueSelection']['visible'] ?? true) === false,
+    'Discrete trigger selector must be hidden when no states are defined.'
+);
+assertSensorModel(
+    ($manualFields['TriggerValueManual']['visible'] ?? false) === true
+        && ($manualFields['TriggerValueManual']['value'] ?? null) === 'ALARM',
+    'Variables without discrete states must keep the manual raw-value fallback.'
+);
+assertSensorModel(
+    ($manualFields['TriggerValueManualHint']['visible'] ?? false) === true,
+    'Manual raw-value input must explain why no selection list is available.'
 );
 
 $emptyEditForm = $instance->GetSensorEditForm(new IPSList([
-    'VariableID' => 0
+    'VariableID'   => 0,
+    'TriggerValue' => '1'
 ]));
 $emptyEditFields = [];
 foreach ($emptyEditForm as $field) {
@@ -380,33 +590,66 @@ foreach ($emptyEditForm as $field) {
     }
 }
 assertSensorModel(
-    ($emptyEditFields['TriggerValue']['visible'] ?? null) === false,
-    'TriggerValue selector must stay hidden until a variable is selected.'
+    ($emptyEditFields['TriggerValueSelection']['visible'] ?? true) === false
+        && ($emptyEditFields['TriggerValueManual']['visible'] ?? true) === false,
+    'Trigger-value editors must stay hidden until a variable is selected.'
 );
 assertSensorModel(
-    ($emptyEditFields['TriggerValueHint']['visible'] ?? null) === true,
+    ($emptyEditFields['TriggerValueHint']['visible'] ?? false) === true,
     'Trigger-value hint must be shown until a variable is selected.'
 );
 
 $instance->TestClearFormUpdates();
-$instance->UpdateSensorTriggerValueForm(23456);
+$instance->UpdateSensorTriggerValueForm(23456, '1');
+$expectedStringOptions = json_encode([
+    ['caption' => 'Alarm', 'value' => 'ALARM'],
+    ['caption' => 'Standby', 'value' => 'IDLE']
+], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 assertSensorModel(
     $instance->TestFormUpdates() === [
-        ['field' => 'TriggerValue', 'parameter' => 'variableID', 'value' => 23456],
-        ['field' => 'TriggerValue', 'parameter' => 'visible', 'value' => true],
-        ['field' => 'TriggerValueHint', 'parameter' => 'visible', 'value' => false]
+        ['field' => 'TriggerValueSelection', 'parameter' => 'options', 'value' => $expectedStringOptions],
+        ['field' => 'TriggerValueSelection', 'parameter' => 'value', 'value' => 'ALARM'],
+        ['field' => 'TriggerValue', 'parameter' => 'value', 'value' => 'ALARM'],
+        ['field' => 'TriggerValueSelection', 'parameter' => 'visible', 'value' => true],
+        ['field' => 'TriggerValueManual', 'parameter' => 'visible', 'value' => false],
+        ['field' => 'TriggerValueHint', 'parameter' => 'visible', 'value' => false],
+        ['field' => 'TriggerValueManualHint', 'parameter' => 'visible', 'value' => false]
     ],
-    'Selecting an existing variable must rebind and show the trigger-value selector.'
+    'Selecting a String variable with options must rebuild a consistent dropdown and persist a valid raw value.'
 );
 
 $instance->TestClearFormUpdates();
-$instance->UpdateSensorTriggerValueForm(99999);
+$instance->UpdateSensorTriggerValueForm(45678, 'ALARM');
 assertSensorModel(
     $instance->TestFormUpdates() === [
-        ['field' => 'TriggerValue', 'parameter' => 'visible', 'value' => false],
-        ['field' => 'TriggerValueHint', 'parameter' => 'visible', 'value' => true]
+        ['field' => 'TriggerValueManual', 'parameter' => 'value', 'value' => 'ALARM'],
+        ['field' => 'TriggerValueSelection', 'parameter' => 'visible', 'value' => false],
+        ['field' => 'TriggerValueManual', 'parameter' => 'visible', 'value' => true],
+        ['field' => 'TriggerValueHint', 'parameter' => 'visible', 'value' => false],
+        ['field' => 'TriggerValueManualHint', 'parameter' => 'visible', 'value' => true]
     ],
-    'Selecting an invalid variable must hide the trigger-value selector.'
+    'Variables without discrete states must switch to the manual trigger-value input.'
+);
+
+$instance->TestClearFormUpdates();
+$instance->UpdateSensorTriggerValueForm(99999, '1');
+assertSensorModel(
+    $instance->TestFormUpdates() === [
+        ['field' => 'TriggerValueSelection', 'parameter' => 'visible', 'value' => false],
+        ['field' => 'TriggerValueManual', 'parameter' => 'visible', 'value' => false],
+        ['field' => 'TriggerValueHint', 'parameter' => 'visible', 'value' => true],
+        ['field' => 'TriggerValueManualHint', 'parameter' => 'visible', 'value' => false]
+    ],
+    'Selecting an invalid variable must hide both trigger-value editors.'
+);
+
+$instance->TestClearFormUpdates();
+$instance->SetSensorTriggerValue('IDLE');
+assertSensorModel(
+    $instance->TestFormUpdates() === [
+        ['field' => 'TriggerValue', 'parameter' => 'value', 'value' => 'IDLE']
+    ],
+    'Visible trigger-value editors must update the canonical persisted TriggerValue field.'
 );
 
 $locale = json_decode(
@@ -430,7 +673,11 @@ foreach ([
     'Panic trigger',
     'Other trigger',
     'Select a variable to choose its trigger value.',
-    'The trigger value selector follows the selected Symcon variable and stores its raw value.'
+    'Off',
+    'On',
+    'No selectable values',
+    'This variable has no selectable states. Enter the raw trigger value.',
+    'Selectable variable states are shown as a consistent list; variables without discrete states keep a raw-value input.'
 ] as $translationKey) {
     assertSensorModel(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }
@@ -443,6 +690,12 @@ assertSensorModel(
 assertSensorModel(
     !str_contains($moduleSource, 'MessageSink('),
     'A2 must not evaluate sensor messages yet.'
+);
+
+assertSensorModel(
+    !str_contains($moduleSource, "'type'       => 'SelectValue'")
+        && !str_contains($moduleSource, "'type' => 'SelectValue'"),
+    'A2 trigger editing must not fall back to the inconsistent SelectValue control.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm sensor model checks passed.\n");

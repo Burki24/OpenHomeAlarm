@@ -136,7 +136,13 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function GetSensorEditForm(mixed $sensor): array
     {
         $variableID = $this->ReadSensorEditInteger($sensor, 'VariableID', 0);
+        $triggerValue = $this->ReadSensorEditString($sensor, 'TriggerValue', '1');
         $hasVariable = $this->IsExistingVariable($variableID);
+        $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
+        $hasTriggerOptions = $triggerOptions !== [];
+        $selectedTriggerValue = $hasTriggerOptions
+            ? $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions)
+            : $triggerValue;
 
         return [
             [
@@ -153,7 +159,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'type'     => 'SelectVariable',
                 'name'     => 'VariableID',
                 'caption'  => $this->Translate('Variable'),
-                'onChange' => 'OHA_UpdateSensorTriggerValueForm($id, $VariableID);'
+                'onChange' => 'OHA_UpdateSensorTriggerValueForm($id, $VariableID, $TriggerValue);'
             ],
             [
                 'type'    => 'Select',
@@ -162,17 +168,38 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'options' => $this->CreateSensorTypeOptions()
             ],
             [
-                'type'       => 'SelectValue',
-                'name'       => 'TriggerValue',
-                'caption'    => $this->Translate('Trigger value'),
-                'variableID' => $hasVariable ? $variableID : 1,
-                'visible'    => $hasVariable
+                'type'    => 'ValidationTextBox',
+                'name'    => 'TriggerValue',
+                'visible' => false
+            ],
+            [
+                'type'     => 'Select',
+                'name'     => 'TriggerValueSelection',
+                'caption'  => $this->Translate('Trigger value'),
+                'options'  => $hasTriggerOptions ? $triggerOptions : $this->CreateEmptyTriggerValueOptions(),
+                'value'    => $selectedTriggerValue,
+                'visible'  => $hasVariable && $hasTriggerOptions,
+                'onChange' => 'OHA_SetSensorTriggerValue($id, $TriggerValueSelection);'
+            ],
+            [
+                'type'     => 'ValidationTextBox',
+                'name'     => 'TriggerValueManual',
+                'caption'  => $this->Translate('Trigger value'),
+                'value'    => $triggerValue,
+                'visible'  => $hasVariable && !$hasTriggerOptions,
+                'onChange' => 'OHA_SetSensorTriggerValue($id, $TriggerValueManual);'
             ],
             [
                 'type'    => 'Label',
                 'name'    => 'TriggerValueHint',
                 'caption' => $this->Translate('Select a variable to choose its trigger value.'),
                 'visible' => !$hasVariable
+            ],
+            [
+                'type'    => 'Label',
+                'name'    => 'TriggerValueManualHint',
+                'caption' => $this->Translate('This variable has no selectable states. Enter the raw trigger value.'),
+                'visible' => $hasVariable && !$hasTriggerOptions
             ],
             [
                 'type'    => 'CheckBox',
@@ -198,18 +225,43 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Rebinds the trigger-value selector when another Symcon variable is chosen in the sensor editor.
+     * Rebuilds the trigger-value choices when another Symcon variable is chosen.
+     *
+     * A native Select is used for variables which expose discrete presentation values.
+     * This keeps Boolean, String and numeric enumerations visually consistent.
      */
-    public function UpdateSensorTriggerValueForm(int $variableID): void
+    public function UpdateSensorTriggerValueForm(int $variableID, string $triggerValue): void
     {
         $hasVariable = $this->IsExistingVariable($variableID);
+        $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
+        $hasTriggerOptions = $triggerOptions !== [];
 
-        if ($hasVariable) {
-            $this->UpdateFormField('TriggerValue', 'variableID', $variableID);
+        if ($hasTriggerOptions) {
+            $selectedTriggerValue = $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions);
+
+            $this->UpdateFormField(
+                'TriggerValueSelection',
+                'options',
+                json_encode($triggerOptions, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            );
+            $this->UpdateFormField('TriggerValueSelection', 'value', $selectedTriggerValue);
+            $this->UpdateFormField('TriggerValue', 'value', $selectedTriggerValue);
+        } elseif ($hasVariable) {
+            $this->UpdateFormField('TriggerValueManual', 'value', $triggerValue);
         }
 
-        $this->UpdateFormField('TriggerValue', 'visible', $hasVariable);
+        $this->UpdateFormField('TriggerValueSelection', 'visible', $hasVariable && $hasTriggerOptions);
+        $this->UpdateFormField('TriggerValueManual', 'visible', $hasVariable && !$hasTriggerOptions);
         $this->UpdateFormField('TriggerValueHint', 'visible', !$hasVariable);
+        $this->UpdateFormField('TriggerValueManualHint', 'visible', $hasVariable && !$hasTriggerOptions);
+    }
+
+    /**
+     * Copies the visible trigger-value editor into the persisted TriggerValue field.
+     */
+    public function SetSensorTriggerValue(string $triggerValue): void
+    {
+        $this->UpdateFormField('TriggerValue', 'value', $triggerValue);
     }
 
     /**
@@ -308,6 +360,300 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function IsExistingVariable(int $variableID): bool
     {
         return $variableID > 0 && IPS_VariableExists($variableID);
+    }
+
+    /**
+     * Reads a string from a List edit row. Symcon exposes the row as an IPSList
+     * object with array-style access instead of a native PHP array.
+     */
+    private function ReadSensorEditString(mixed $sensor, string $key, string $default): string
+    {
+        if (!is_array($sensor) && !is_object($sensor)) {
+            throw new UnexpectedValueException('Sensor edit row must support array-style access.');
+        }
+
+        $value = $sensor[$key] ?? $default;
+        if (!is_string($value)) {
+            throw new UnexpectedValueException(sprintf('Sensor edit field %s must be string.', $key));
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return list<array{caption:string,value:string}>
+     */
+    private function CreateTriggerValueOptions(int $variableID): array
+    {
+        if (!$this->IsExistingVariable($variableID)) {
+            return [];
+        }
+
+        try {
+            $presentation = IPS_GetVariablePresentation($variableID);
+        } catch (\Throwable) {
+            $presentation = [];
+        }
+
+        $options = $this->CreateTriggerOptionsFromPresentationOptions($presentation['OPTIONS'] ?? null);
+        if ($options !== []) {
+            return $options;
+        }
+
+        $options = $this->CreateTriggerOptionsFromPresentationIntervals($presentation['INTERVALS'] ?? null);
+        if ($options !== []) {
+            return $options;
+        }
+
+        $variable = $this->GetSymconVariable($variableID);
+        if ($variable === null) {
+            return [];
+        }
+
+        $options = $this->CreateTriggerOptionsFromVariableProfile($variable);
+        if ($options !== []) {
+            return $options;
+        }
+
+        if (($variable['VariableType'] ?? null) === 0) {
+            return [
+                ['caption' => $this->Translate('Off'), 'value' => 'false'],
+                ['caption' => $this->Translate('On'), 'value' => 'true']
+            ];
+        }
+
+        return [];
+    }
+
+    /**
+     * @return list<array{caption:string,value:string}>
+     */
+    private function CreateEmptyTriggerValueOptions(): array
+    {
+        return [
+            ['caption' => $this->Translate('No selectable values'), 'value' => '']
+        ];
+    }
+
+    /**
+     * @param mixed $encodedOptions
+     *
+     * @return list<array{caption:string,value:string}>
+     */
+    private function CreateTriggerOptionsFromPresentationOptions(mixed $encodedOptions): array
+    {
+        $presentationOptions = $this->DecodePresentationList($encodedOptions);
+        $options = [];
+
+        foreach ($presentationOptions as $option) {
+            if (!is_array($option) || !array_key_exists('Value', $option)) {
+                continue;
+            }
+
+            $value = $this->TriggerValueToStorageString($option['Value']);
+            if ($value === null) {
+                continue;
+            }
+
+            $caption = $option['Caption'] ?? $value;
+            if (!is_string($caption) || $caption === '') {
+                $caption = $value;
+            }
+
+            $options[$value] = [
+                'caption' => $caption,
+                'value'   => $value
+            ];
+        }
+
+        return array_values($options);
+    }
+
+    /**
+     * @param mixed $encodedIntervals
+     *
+     * @return list<array{caption:string,value:string}>
+     */
+    private function CreateTriggerOptionsFromPresentationIntervals(mixed $encodedIntervals): array
+    {
+        $presentationIntervals = $this->DecodePresentationList($encodedIntervals);
+        $options = [];
+
+        foreach ($presentationIntervals as $interval) {
+            if (!is_array($interval)
+                || ($interval['ConstantActive'] ?? false) !== true
+                || !array_key_exists('IntervalMinValue', $interval)
+                || !array_key_exists('IntervalMaxValue', $interval)
+                || ($interval['IntervalMinValue'] !== $interval['IntervalMaxValue'])) {
+                continue;
+            }
+
+            $value = $this->TriggerValueToStorageString($interval['IntervalMinValue']);
+            if ($value === null) {
+                continue;
+            }
+
+            $caption = $interval['ConstantValue'] ?? $value;
+            if (!is_string($caption) || $caption === '') {
+                $caption = $value;
+            }
+
+            $options[$value] = [
+                'caption' => $caption,
+                'value'   => $value
+            ];
+        }
+
+        return array_values($options);
+    }
+
+    /**
+     * @param array<string,mixed> $variable
+     *
+     * @return list<array{caption:string,value:string}>
+     */
+    private function CreateTriggerOptionsFromVariableProfile(array $variable): array
+    {
+        $profileName = '';
+        if (isset($variable['VariableCustomProfile']) && is_string($variable['VariableCustomProfile'])) {
+            $profileName = $variable['VariableCustomProfile'];
+        }
+        if ($profileName === '' && isset($variable['VariableProfile']) && is_string($variable['VariableProfile'])) {
+            $profileName = $variable['VariableProfile'];
+        }
+        if ($profileName === '') {
+            return [];
+        }
+
+        try {
+            $profile = IPS_GetVariableProfile($profileName);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $associations = $profile['Associations'] ?? [];
+        if (!is_array($associations)) {
+            return [];
+        }
+
+        $options = [];
+        foreach ($associations as $association) {
+            if (!is_array($association) || !array_key_exists('Value', $association)) {
+                continue;
+            }
+
+            $value = $this->TriggerValueToStorageString($association['Value'], $variable['VariableType'] ?? null);
+            if ($value === null) {
+                continue;
+            }
+
+            $caption = $association['Name'] ?? $value;
+            if (!is_string($caption) || $caption === '') {
+                $caption = $value;
+            }
+
+            $options[$value] = [
+                'caption' => $caption,
+                'value'   => $value
+            ];
+        }
+
+        return array_values($options);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function GetSymconVariable(int $variableID): ?array
+    {
+        try {
+            $variable = IPS_GetVariable($variableID);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return is_array($variable) ? $variable : null;
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function DecodePresentationList(mixed $value): array
+    {
+        if (is_array($value)) {
+            return array_is_list($value) ? $value : [];
+        }
+        if (!is_string($value) || $value === '') {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        return is_array($decoded) && array_is_list($decoded) ? $decoded : [];
+    }
+
+    private function TriggerValueToStorageString(mixed $value, ?int $variableType = null): ?string
+    {
+        if ($variableType === 0 && (is_bool($value) || is_int($value) || is_float($value))) {
+            return (bool) $value ? 'true' : 'false';
+        }
+        if ($variableType === 1 && (is_int($value) || is_float($value))) {
+            return (string) (int) $value;
+        }
+        if ($variableType === 2 && (is_int($value) || is_float($value))) {
+            return json_encode((float) $value, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
+        }
+        if ($variableType === 3 && is_scalar($value)) {
+            return (string) $value;
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+        if (is_int($value)) {
+            return (string) $value;
+        }
+        if (is_float($value)) {
+            return json_encode($value, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
+        }
+        if (is_string($value)) {
+            return $value;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<array{caption:string,value:string}> $options
+     */
+    private function ResolveTriggerValueSelection(string $triggerValue, array $options): string
+    {
+        $values = array_column($options, 'value');
+        if (in_array($triggerValue, $values, true)) {
+            return $triggerValue;
+        }
+
+        try {
+            $legacyValue = json_decode($triggerValue, true, 512, JSON_THROW_ON_ERROR);
+            $normalizedLegacyValue = $this->TriggerValueToStorageString($legacyValue);
+            if ($normalizedLegacyValue !== null && in_array($normalizedLegacyValue, $values, true)) {
+                return $normalizedLegacyValue;
+            }
+        } catch (JsonException) {
+        }
+
+        if (in_array('true', $values, true)) {
+            return 'true';
+        }
+        if (in_array('1', $values, true)) {
+            return '1';
+        }
+
+        return $options[0]['value'];
     }
 
     /**

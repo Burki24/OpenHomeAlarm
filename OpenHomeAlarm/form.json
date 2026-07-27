@@ -88,6 +88,22 @@
                     }
                 },
                 {
+                    "caption": "",
+                    "name": "TriggerValueSelection",
+                    "width": "1px",
+                    "visible": false,
+                    "add": "",
+                    "save": false
+                },
+                {
+                    "caption": "",
+                    "name": "TriggerValueManual",
+                    "width": "1px",
+                    "visible": false,
+                    "add": "",
+                    "save": false
+                },
+                {
                     "caption": "Home",
                     "name": "ArmHome",
                     "width": "65px",
@@ -130,7 +146,7 @@
         },
         {
             "type": "Label",
-            "caption": "The trigger value selector follows the selected Symcon variable and stores its raw value."
+            "caption": "Selectable variable states are shown as a consistent list; variables without discrete states keep a raw-value input."
         }
     ],
     "actions": [],
