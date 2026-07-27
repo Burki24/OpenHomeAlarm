@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
+require_once __DIR__ . '/../libs/helper/PersistentJsonCacheHelper.php';
 require_once __DIR__ . '/../libs/helper/VariablePresentationHelper.php';
 
 class OpenHomeAlarm extends IPSModuleStrict
 {
+    use \Burki24\SymconModuleHelper\ConfigurationFormHelper;
+    use \Burki24\SymconModuleHelper\PersistentJsonCacheHelper;
     use \Burki24\SymconModuleHelper\VariablePresentationHelper;
 
     private const CONTROL_API_VERSION = 1;
@@ -154,9 +158,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
-        $this->RegisterAttributeString(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, '[]');
-        $this->RegisterAttributeString(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS, '[]');
-        $this->RegisterAttributeString(self::ATTRIBUTE_EVENT_HISTORY, '[]');
+        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
+        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
+        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
 
         $this->RegisterTimer(
             self::TIMER_EXIT_DELAY,
@@ -446,24 +450,13 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        $formJson = file_get_contents(__DIR__ . '/form.json');
-        if ($formJson === false) {
-            throw new RuntimeException('Unable to read configuration form.');
-        }
-
-        $form = json_decode($formJson, true, 512, JSON_THROW_ON_ERROR);
-        if (!is_array($form)) {
-            throw new UnexpectedValueException('Configuration form must decode to an array.');
-        }
+        $form = $this->LoadConfigurationForm();
 
         if (isset($form['elements']) && is_array($form['elements'])) {
             $this->PopulateConfigurationListValues($form['elements']);
         }
 
-        return json_encode(
-            $form,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        return $this->EncodeConfigurationForm($form);
     }
 
     /**
@@ -809,7 +802,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ClearEventHistory(): bool
     {
-        $this->WriteAttributeString(self::ATTRIBUTE_EVENT_HISTORY, '[]');
+        $this->ClearPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
 
         return true;
     }
@@ -2400,15 +2393,13 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ReadActiveFaultVariableIDs(): array
     {
-        $encodedIDs = $this->ReadAttributeString(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
-
         try {
-            $decodedIDs = json_decode($encodedIDs, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
+            $decodedIDs = $this->ReadPersistentJsonCache(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
+        } catch (UnexpectedValueException) {
             return [];
         }
 
-        if (!is_array($decodedIDs) || !array_is_list($decodedIDs)) {
+        if (!array_is_list($decodedIDs)) {
             return [];
         }
 
@@ -2440,10 +2431,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $result = array_map('intval', array_keys($normalized));
         sort($result, SORT_NUMERIC);
 
-        $this->WriteAttributeString(
-            self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS,
-            json_encode($result, JSON_THROW_ON_ERROR)
-        );
+        $this->WritePersistentJsonCache(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS, $result);
     }
 
     /**
@@ -3098,15 +3086,13 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ReadBypassedSensorIDs(): array
     {
-        $encodedIDs = $this->ReadAttributeString(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
-
         try {
-            $decodedIDs = json_decode($encodedIDs, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
+            $decodedIDs = $this->ReadPersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
+        } catch (UnexpectedValueException) {
             return [];
         }
 
-        if (!is_array($decodedIDs) || !array_is_list($decodedIDs)) {
+        if (!array_is_list($decodedIDs)) {
             return [];
         }
 
@@ -3137,10 +3123,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         sort($normalizedIDs, SORT_NUMERIC);
         $normalizedIDs = array_values(array_unique($normalizedIDs));
 
-        $this->WriteAttributeString(
-            self::ATTRIBUTE_BYPASSED_SENSOR_IDS,
-            json_encode($normalizedIDs, JSON_THROW_ON_ERROR)
-        );
+        $this->WritePersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, $normalizedIDs);
     }
 
     /**
@@ -3596,15 +3579,13 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ReadEventHistory(): array
     {
-        $encodedHistory = $this->ReadAttributeString(self::ATTRIBUTE_EVENT_HISTORY);
-
         try {
-            $decodedHistory = json_decode($encodedHistory, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
+            $decodedHistory = $this->ReadPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
+        } catch (UnexpectedValueException) {
             return [];
         }
 
-        if (!is_array($decodedHistory) || !array_is_list($decodedHistory)) {
+        if (!array_is_list($decodedHistory)) {
             return [];
         }
 
@@ -3658,12 +3639,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             'Source' => $source
         ]);
 
-        $this->WriteAttributeString(
+        $this->WritePersistentJsonCache(
             self::ATTRIBUTE_EVENT_HISTORY,
-            json_encode(
-                array_slice($history, 0, self::EVENT_HISTORY_LIMIT),
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-            )
+            array_slice($history, 0, self::EVENT_HISTORY_LIMIT)
         );
     }
 

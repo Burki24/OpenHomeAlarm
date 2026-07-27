@@ -4,6 +4,12 @@
     "base_branch": "dev",
     "readme_language": "de",
     "helpers": {
+        "ConfigurationFormHelper": {
+            "target": "libs/helper/ConfigurationFormHelper.php"
+        },
+        "PersistentJsonCacheHelper": {
+            "target": "libs/helper/PersistentJsonCacheHelper.php"
+        },
         "VariablePresentationHelper": {
             "target": "libs/helper/VariablePresentationHelper.php"
         }
