@@ -335,6 +335,8 @@ assertSensorModel(
     array_keys($instance->TestRegisteredVariables()) === [
         'Mode',
         'State',
+        'DelayRemaining',
+        'DelaySource',
         'ReadyToArm',
         'ReadyHome',
         'ReadyAway',

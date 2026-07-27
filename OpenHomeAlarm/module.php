@@ -66,8 +66,11 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private const TIMER_EXIT_DELAY = 'ExitDelay';
     private const TIMER_ENTRY_DELAY = 'EntryDelay';
+    private const TIMER_DELAY_STATUS = 'DelayStatus';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
+    private const IDENT_DELAY_REMAINING = 'DelayRemaining';
+    private const IDENT_DELAY_SOURCE = 'DelaySource';
     private const IDENT_READY_TO_ARM = 'ReadyToArm';
     private const IDENT_READY_HOME = 'ReadyHome';
     private const IDENT_READY_AWAY = 'ReadyAway';
@@ -106,6 +109,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             0,
             'OHA_CompleteEntryDelay($_IPS[\'TARGET\']);'
         );
+        $this->RegisterTimer(
+            self::TIMER_DELAY_STATUS,
+            0,
+            'OHA_UpdateDelayStatus($_IPS[\'TARGET\']);'
+        );
 
         $modeCreated = $this->RegisterVariableInteger(
             self::IDENT_MODE,
@@ -118,6 +126,18 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->Translate('State'),
             $this->CreateStatePresentation(),
             20
+        );
+        $delayRemainingCreated = $this->RegisterVariableInteger(
+            self::IDENT_DELAY_REMAINING,
+            $this->Translate('Delay remaining'),
+            $this->IntegerPresentation('s', 0),
+            21
+        );
+        $delaySourceCreated = $this->RegisterVariableString(
+            self::IDENT_DELAY_SOURCE,
+            $this->Translate('Delay source'),
+            $this->TextPresentation(),
+            22
         );
         $readinessPresentation = $this->CreateReadinessPresentation();
         $readyCreated = $this->RegisterVariableBoolean(
@@ -209,6 +229,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         if ($stateCreated) {
             $this->SetAlarmState(self::STATE_DISARMED);
+        }
+        if ($delayRemainingCreated) {
+            $this->SetDelayRemaining(0);
+        }
+        if ($delaySourceCreated) {
+            $this->SetDelaySource('');
         }
         if ($readyCreated) {
             $this->SetReadyToArm(true);
@@ -500,6 +526,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
 
         if ($this->ReadAlarmState() !== self::STATE_EXIT_DELAY) {
+            $this->ClearDelayStatus();
+
             return;
         }
 
@@ -518,6 +546,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
+        $this->ClearDelayStatus();
         $this->SetAlarmState(self::STATE_ARMED);
     }
 
@@ -531,12 +560,40 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         if ($this->ReadAlarmState() !== self::STATE_ENTRY_DELAY) {
             $this->ClearPendingAlarmSource();
+            $this->ClearDelayStatus();
 
             return;
         }
 
         $sourceSensor = $this->FindAlarmSourceSensor($pendingSourceID, $this->ReadConfiguredSensors());
         $this->EnterAlarmState($sourceSensor, $pendingSourceID);
+    }
+
+    /**
+     * Refreshes the user-facing countdown for a running entry or exit delay.
+     *
+     * The persisted deadline remains the source of truth. This one-second timer is
+     * active only while a delay is running and therefore does not affect the actual
+     * transition timing handled by the dedicated one-shot timers.
+     */
+    public function UpdateDelayStatus(): void
+    {
+        $state = $this->ReadAlarmState();
+        $deadline = match ($state) {
+            self::STATE_EXIT_DELAY  => $this->ReadAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE),
+            self::STATE_ENTRY_DELAY => $this->ReadAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE),
+            default                 => 0
+        };
+
+        if ($deadline <= 0) {
+            $this->ClearDelayStatus();
+
+            return;
+        }
+
+        $remainingSeconds = max(0, $deadline - time());
+        $this->SetDelayRemaining($remainingSeconds);
+        $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $remainingSeconds > 0 ? 1000 : 0);
     }
 
     /**
@@ -2056,6 +2113,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->WriteAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, $entryDelaySensor['VariableID']);
+        $this->SetDelaySource($this->ResolveSensorDisplayName($entryDelaySensor));
         $this->SetAlarmState(self::STATE_ENTRY_DELAY);
         $this->StartDelayTimer(
             self::TIMER_ENTRY_DELAY,
@@ -2244,6 +2302,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $this->WriteAttributeInteger($deadlineAttribute, time() + $seconds);
         $this->SetTimerInterval($timerName, $seconds * 1000);
+        $this->SetDelayRemaining($seconds);
+        $this->SetTimerInterval(self::TIMER_DELAY_STATUS, 1000);
     }
 
     private function StopDelayTimer(string $timerName, string $deadlineAttribute): void
@@ -2257,11 +2317,23 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
         $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
         $this->ClearPendingAlarmSource();
+        $this->ClearDelayStatus();
     }
 
     private function ClearPendingAlarmSource(): void
     {
         $this->WriteAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
+    }
+
+    private function ClearDelayStatus(): void
+    {
+        $this->SetTimerInterval(self::TIMER_DELAY_STATUS, 0);
+        if ($this->GetValue(self::IDENT_DELAY_REMAINING) !== 0) {
+            $this->SetDelayRemaining(0);
+        }
+        if ($this->GetValue(self::IDENT_DELAY_SOURCE) !== '') {
+            $this->SetDelaySource('');
+        }
     }
 
     /**
@@ -2274,6 +2346,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         if ($state === self::STATE_EXIT_DELAY) {
             $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
+            $this->SetDelaySource('');
             $this->RestoreDelayTimer(
                 self::TIMER_EXIT_DELAY,
                 self::ATTRIBUTE_EXIT_DELAY_DEADLINE,
@@ -2282,12 +2355,22 @@ class OpenHomeAlarm extends IPSModuleStrict
                     $this->CompleteExitDelay();
                 }
             );
+            if ($this->ReadAlarmState() === self::STATE_EXIT_DELAY) {
+                $this->UpdateDelayStatus();
+            }
 
             return;
         }
 
         if ($state === self::STATE_ENTRY_DELAY) {
             $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
+            $pendingSourceID = $this->ReadAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID);
+            $sourceSensor = $this->FindAlarmSourceSensor($pendingSourceID, $this->ReadConfiguredSensors());
+            $this->SetDelaySource(
+                $sourceSensor !== null
+                    ? $this->ResolveSensorDisplayName($sourceSensor)
+                    : ($pendingSourceID > 0 ? sprintf($this->Translate('Variable #%d'), $pendingSourceID) : '')
+            );
             $this->RestoreDelayTimer(
                 self::TIMER_ENTRY_DELAY,
                 self::ATTRIBUTE_ENTRY_DELAY_DEADLINE,
@@ -2296,6 +2379,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                     $this->CompleteEntryDelay();
                 }
             );
+            if ($this->ReadAlarmState() === self::STATE_ENTRY_DELAY) {
+                $this->UpdateDelayStatus();
+            }
 
             return;
         }
@@ -2338,6 +2424,16 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->SetValue(self::IDENT_STATE, $state);
+    }
+
+    private function SetDelayRemaining(int $seconds): void
+    {
+        $this->SetValue(self::IDENT_DELAY_REMAINING, max(0, $seconds));
+    }
+
+    private function SetDelaySource(string $source): void
+    {
+        $this->SetValue(self::IDENT_DELAY_SOURCE, $source);
     }
 
     private function SetReadyToArm(bool $ready): void

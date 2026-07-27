@@ -150,11 +150,13 @@ $newInstance->Create();
 
 $variables = $newInstance->TestRegisteredVariables();
 assertStateModel(
-    array_keys($variables) === ['Mode', 'State', 'ReadyToArm', 'ReadyHome', 'ReadyAway', 'ReadyNight', 'BlockingHomeSensors', 'BlockingAwaySensors', 'BlockingNightSensors', 'BypassedSensors', 'AlarmMemory', 'LastAlarmSource', 'LastAlarmTime'],
+    array_keys($variables) === ['Mode', 'State', 'DelayRemaining', 'DelaySource', 'ReadyToArm', 'ReadyHome', 'ReadyAway', 'ReadyNight', 'BlockingHomeSensors', 'BlockingAwaySensors', 'BlockingNightSensors', 'BypassedSensors', 'AlarmMemory', 'LastAlarmSource', 'LastAlarmTime'],
     'Unexpected status variables.'
 );
 assertStateModel($variables['Mode']['type'] === 'integer', 'Mode must be an integer variable.');
 assertStateModel($variables['State']['type'] === 'integer', 'State must be an integer variable.');
+assertStateModel($variables['DelayRemaining']['type'] === 'integer', 'DelayRemaining must be an integer variable.');
+assertStateModel($variables['DelaySource']['type'] === 'string', 'DelaySource must be a string variable.');
 assertStateModel($variables['ReadyToArm']['type'] === 'boolean', 'ReadyToArm must be a boolean variable.');
 assertStateModel($variables['ReadyHome']['type'] === 'boolean', 'ReadyHome must be a boolean variable.');
 assertStateModel($variables['ReadyAway']['type'] === 'boolean', 'ReadyAway must be a boolean variable.');
@@ -168,6 +170,8 @@ assertStateModel($variables['LastAlarmSource']['type'] === 'string', 'LastAlarmS
 assertStateModel($variables['LastAlarmTime']['type'] === 'string', 'LastAlarmTime must be a string variable.');
 assertStateModel($variables['Mode']['position'] === 10, 'Mode must use position 10.');
 assertStateModel($variables['State']['position'] === 20, 'State must use position 20.');
+assertStateModel($variables['DelayRemaining']['position'] === 21, 'DelayRemaining must use position 21.');
+assertStateModel($variables['DelaySource']['position'] === 22, 'DelaySource must use position 22.');
 assertStateModel($variables['ReadyToArm']['position'] === 30, 'ReadyToArm must use position 30.');
 assertStateModel($variables['ReadyHome']['position'] === 31, 'ReadyHome must use position 31.');
 assertStateModel($variables['ReadyAway']['position'] === 32, 'ReadyAway must use position 32.');
@@ -185,6 +189,8 @@ assertStateModel(
     $initialValues === [
         'Mode'                 => 0,
         'State'                => 0,
+        'DelayRemaining'       => 0,
+        'DelaySource'          => '',
         'ReadyToArm'           => true,
         'ReadyHome'            => true,
         'ReadyAway'            => true,
@@ -202,6 +208,7 @@ assertStateModel(
 
 $modePresentation = $variables['Mode']['presentation'];
 $statePresentation = $variables['State']['presentation'];
+$delayRemainingPresentation = $variables['DelayRemaining']['presentation'];
 $readyPresentation = $variables['ReadyToArm']['presentation'];
 $readyHomePresentation = $variables['ReadyHome']['presentation'];
 $readyAwayPresentation = $variables['ReadyAway']['presentation'];
@@ -215,6 +222,11 @@ assertStateModel(
 assertStateModel(
     ($statePresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
     'State must use the native value presentation.'
+);
+assertStateModel(
+    ($delayRemainingPresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION
+    && ($delayRemainingPresentation['SUFFIX'] ?? null) === ' s',
+    'DelayRemaining must use a native seconds value presentation.'
 );
 assertStateModel(
     ($readyPresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
@@ -273,6 +285,8 @@ $existingInstance = new OpenHomeAlarm(
     [
         'Mode'                 => false,
         'State'                => false,
+        'DelayRemaining'       => false,
+        'DelaySource'          => false,
         'ReadyToArm'           => false,
         'ReadyHome'            => false,
         'ReadyAway'            => false,
@@ -302,6 +316,8 @@ $translations = $locale['translations']['de'] ?? [];
 foreach ([
     'Mode',
     'State',
+    'Delay remaining',
+    'Delay source',
     'Ready to arm',
     'Ready Home',
     'Ready Away',

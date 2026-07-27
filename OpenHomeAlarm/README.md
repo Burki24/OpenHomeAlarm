@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis sind implementiert. Die eigene Visualisierung folgt schrittweise.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status, konfigurierbare Alarmaktionen, Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis sind implementiert. Die eigene Visualisierung folgt schrittweise.
 
 ### Inhaltsverzeichnis
 
@@ -20,11 +20,11 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen, konfigurierbare Alarmaktionen, eine optionale Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen mit laufendem Countdown-Status, konfigurierbare Alarmaktionen, eine optionale Code-Prüfung zum Unscharfschalten sowie ein quittierbares Alarmgedächtnis bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich kann ein Sensor als **24/7 aktiv** markiert werden und löst dann unabhängig vom Scharfmodus sofort aus. Sensortyp, Auslösewert und die Nutzung der Eingangsverzögerung werden ebenfalls gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
-Ausgangs- und Eingangsverzögerung sind global in Sekunden konfigurierbar. Der Wert `0` deaktiviert die jeweilige Verzögerung. Zusätzlich können zwei native Symcon-Aktionen hinterlegt werden: eine Aktion beim Eintritt in den Alarmzustand und eine Aktion beim Unscharfschalten eines bereits aktiven Alarms. Dadurch lassen sich unter anderem Sirenen, Benachrichtigungen, Skripte oder Ablaufpläne ohne hardwarespezifische Kopplung anbinden. Für benutzerseitiges Unscharfschalten kann optional ein vier- bis achtstelliger Zahlencode hinterlegt werden.
+Ausgangs- und Eingangsverzögerung sind global in Sekunden konfigurierbar. Der Wert `0` deaktiviert die jeweilige Verzögerung. Während eines laufenden Countdowns veröffentlicht `DelayRemaining` die verbleibenden Sekunden. Bei einer Eingangsverzögerung nennt `DelaySource` zusätzlich den Sensor, der den Countdown gestartet hat; beide Statuswerte werden beim Abbruch, Abschluss oder Alarm wieder zurückgesetzt. Zusätzlich können zwei native Symcon-Aktionen hinterlegt werden: eine Aktion beim Eintritt in den Alarmzustand und eine Aktion beim Unscharfschalten eines bereits aktiven Alarms. Dadurch lassen sich unter anderem Sirenen, Benachrichtigungen, Skripte oder Ablaufpläne ohne hardwarespezifische Kopplung anbinden. Für benutzerseitiges Unscharfschalten kann optional ein vier- bis achtstelliger Zahlencode hinterlegt werden.
 
 ### 2. Voraussetzungen
 
@@ -48,6 +48,8 @@ OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
 | --- | --- | --- |
 | `Mode` | Gewählter Scharfmodus: Kein Scharfmodus, Zuhause, Abwesend oder Nacht | Kein Scharfmodus |
 | `State` | Aktuelle Systemphase: Unscharf, Ausgangsverzögerung, Scharf, Eingangsverzögerung oder Alarm | Unscharf |
+| `DelayRemaining` | Verbleibende Sekunden einer laufenden Ein- oder Ausgangsverzögerung | 0 s |
+| `DelaySource` | Sensor, der die aktuelle Eingangsverzögerung gestartet hat; bei Ausgangsverzögerung leer | leer |
 | `ReadyToArm` | Konservative Gesamtbereitschaft über alle überwachten Sensoren | Bereit |
 | `ReadyHome` | Scharfschaltbereitschaft für Zuhause | Bereit |
 | `ReadyAway` | Scharfschaltbereitschaft für Abwesend | Bereit |

@@ -3,6 +3,8 @@
         "de": {
             "Mode": "Modus",
             "State": "Status",
+            "Delay remaining": "Verbleibende Verzögerung",
+            "Delay source": "Auslöser Eingangsverzögerung",
             "Ready to arm": "Scharfschaltbereit",
             "Ready Home": "Zuhause scharfschaltbereit",
             "Ready Away": "Abwesend scharfschaltbereit",

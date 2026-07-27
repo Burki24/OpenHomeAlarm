@@ -317,13 +317,15 @@ $instance->TestClearWrittenValues();
 $timers = $instance->TestTimers();
 assertDelay(
     ($timers['ExitDelay']['interval'] ?? null) === 0
-    && ($timers['EntryDelay']['interval'] ?? null) === 0,
-    'A5 timers must be registered disabled.'
+    && ($timers['EntryDelay']['interval'] ?? null) === 0
+    && ($timers['DelayStatus']['interval'] ?? null) === 0,
+    'Delay timers must be registered disabled.'
 );
 assertDelay(
     ($timers['ExitDelay']['script'] ?? '') === 'OHA_CompleteExitDelay($_IPS[\'TARGET\']);'
-    && ($timers['EntryDelay']['script'] ?? '') === 'OHA_CompleteEntryDelay($_IPS[\'TARGET\']);',
-    'A5 timers must call their public module callbacks.'
+    && ($timers['EntryDelay']['script'] ?? '') === 'OHA_CompleteEntryDelay($_IPS[\'TARGET\']);'
+    && ($timers['DelayStatus']['script'] ?? '') === 'OHA_UpdateDelayStatus($_IPS[\'TARGET\']);',
+    'Delay timers must call their public module callbacks.'
 );
 
 // A successful arming request starts the configured exit delay.
@@ -340,6 +342,15 @@ assertDelay(
 assertDelay(
     ($instance->TestAttributes()['ExitDelayDeadline'] ?? 0) >= time() + 9,
     'Exit delay deadline must be persisted.'
+);
+assertDelay(
+    ($instance->TestWrittenValues()['DelayRemaining'] ?? null) === 10
+    && ($instance->TestTimers()['DelayStatus']['interval'] ?? null) === 1000,
+    'Starting the exit delay must publish its remaining seconds and enable the countdown status timer.'
+);
+assertDelay(
+    ($instance->TestWrittenValues()['DelaySource'] ?? '') === '',
+    'Exit delay must not publish an entry sensor source.'
 );
 
 // Sensor changes during exit delay only affect readiness. The final check happens at expiry.
@@ -363,14 +374,17 @@ assertDelay(
         'BlockingHomeSensors'  => '',
         'BlockingAwaySensors'  => 'Test 3001',
         'BlockingNightSensors' => '',
+        'DelayRemaining'       => 0,
         'State'                => 0,
         'Mode'                 => 0
     ],
     'An open relevant sensor at exit-delay expiry must safely cancel arming.'
 );
 assertDelay(
-    ($instance->TestTimers()['ExitDelay']['interval'] ?? null) === 0,
-    'Completing or cancelling exit delay must disable its timer.'
+    ($instance->TestTimers()['ExitDelay']['interval'] ?? null) === 0
+    && ($instance->TestTimers()['DelayStatus']['interval'] ?? null) === 0
+    && ($instance->TestWrittenValues()['DelayRemaining'] ?? null) === 0,
+    'Completing or cancelling exit delay must disable its timers and clear the countdown status.'
 );
 
 // A clear exit route allows the delay to complete into Armed.
@@ -396,6 +410,12 @@ $entryDeadline = $instance->TestAttributes()['EntryDelayDeadline'] ?? 0;
 assertDelay(
     ($instance->TestTimers()['EntryDelay']['interval'] ?? null) === 5000 && $entryDeadline >= time() + 4,
     'Entry delay timer and persisted deadline must use the configured duration.'
+);
+assertDelay(
+    ($instance->TestWrittenValues()['DelayRemaining'] ?? null) === 5
+    && ($instance->TestWrittenValues()['DelaySource'] ?? null) === 'Test 3001'
+    && ($instance->TestTimers()['DelayStatus']['interval'] ?? null) === 1000,
+    'Entry delay must publish its remaining seconds and the sensor that started the countdown.'
 );
 
 $testValues[3001] = false;
@@ -426,8 +446,11 @@ assertDelay(
 );
 assertDelay(
     ($instance->TestTimers()['EntryDelay']['interval'] ?? null) === 0
-    && ($instance->TestAttributes()['EntryDelayDeadline'] ?? null) === 0,
-    'Entering Alarm must cancel a running entry timer.'
+    && ($instance->TestTimers()['DelayStatus']['interval'] ?? null) === 0
+    && ($instance->TestAttributes()['EntryDelayDeadline'] ?? null) === 0
+    && ($instance->TestWrittenValues()['DelayRemaining'] ?? null) === 0
+    && ($instance->TestWrittenValues()['DelaySource'] ?? null) === '',
+    'Entering Alarm must cancel a running entry timer and clear its published delay status.'
 );
 
 // Disarming always cancels both countdowns.
@@ -494,6 +517,25 @@ $restoredInterval = $restoreInstance->TestTimers()['ExitDelay']['interval'] ?? 0
 assertDelay(
     $restoredInterval > 0 && $restoredInterval <= 20000,
     'ApplyChanges must restore the remaining exit-delay timer from its persisted deadline.'
+);
+$restoredRemaining = $restoreInstance->TestWrittenValues()['DelayRemaining'] ?? 0;
+assertDelay(
+    $restoredRemaining > 0
+    && $restoredRemaining <= 20
+    && ($restoreInstance->TestTimers()['DelayStatus']['interval'] ?? null) === 1000,
+    'ApplyChanges must restore the published countdown together with the exit-delay timer.'
+);
+
+$restoreInstance->TestSetCurrentValue('State', 3);
+$restoreInstance->TestSetAttributeInteger('PendingAlarmSourceID', 3001);
+$restoreInstance->TestSetAttributeInteger('EntryDelayDeadline', time() + 8);
+$restoreInstance->TestClearWrittenValues();
+$restoreInstance->ApplyChanges();
+assertDelay(
+    ($restoreInstance->TestWrittenValues()['DelaySource'] ?? null) === 'Test 3001'
+    && ($restoreInstance->TestWrittenValues()['DelayRemaining'] ?? 0) > 0
+    && ($restoreInstance->TestTimers()['DelayStatus']['interval'] ?? null) === 1000,
+    'ApplyChanges must restore the entry-delay source and remaining countdown.'
 );
 
 $restoreInstance->TestSetCurrentValue('State', 3);
