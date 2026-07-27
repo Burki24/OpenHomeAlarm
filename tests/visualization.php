@@ -56,8 +56,10 @@ assertVisualization(str_contains($javascript, 'function handleMessage(data)'), '
 assertVisualization(str_contains($javascript, "ohaRequestAction('Arm'"), 'Visualization must arm through RequestAction.');
 assertVisualization(str_contains($javascript, "ohaRequestAction('Disarm'"), 'Visualization must disarm through RequestAction.');
 assertVisualization(
-    str_contains($javascript, "refreshButton.onclick = () => ohaRequestAction('RefreshVisualization', true);"),
-    'Visualization refresh action must be bound by the visualization script.'
+    str_contains($javascript, "document.addEventListener('click', ohaHandleInteractiveClick, true);")
+        && str_contains($javascript, "if (control.id === 'refreshButton')")
+        && str_contains($javascript, "ohaRequestAction('RefreshVisualization', true);"),
+    'Visualization actions must use the shared capture-phase click dispatcher.'
 );
 
 assertVisualization(str_contains($html, 'class="oha-hero"'), 'Visualization must use a state-focused hero area.');
@@ -67,11 +69,12 @@ assertVisualization(str_contains($javascript, 'function ohaRenderHero(state)'), 
 assertVisualization(
     str_contains($html, 'class="oha-mode-button"')
         && !str_contains($html, 'onclick=')
-        && str_contains($javascript, 'button.onclick = () => ohaHandleModeButton(button);')
+        && str_contains($javascript, "if (control.matches('[data-action=\"arm\"]'))")
+        && str_contains($javascript, 'ohaHandleModeButton(control);')
         && str_contains($javascript, "button.dataset.canArm = modeState.CanArm ? 'true' : 'false';")
         && !str_contains($javascript, 'button.disabled = !modeState.CanArm;')
         && str_contains($javascript, 'button.dataset.active = !isDisarmed'),
-    'Arming modes must be rendered as direct full-width controls with script-bound interaction and without native disabled buttons.'
+    'Arming modes must be rendered as direct full-width controls through the shared click dispatcher and without native disabled buttons.'
 );
 assertVisualization(
     strpos($html, 'id="statusHero"') < strpos($html, 'id="armingSection"')

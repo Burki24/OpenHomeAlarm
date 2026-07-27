@@ -600,13 +600,16 @@ function ohaHandleInteraction(interaction) {
     ohaUpdateCodepad();
 }
 
-function ohaFindCodeControl(event) {
+function ohaFindInteractiveControl(event) {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) {
         return null;
     }
 
-    return target.closest('[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm]');
+    return target.closest(
+        '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm], '
+        + '[data-action="arm"], #disarmButton, #refreshButton, #codepadClose'
+    );
 }
 
 function ohaActivateCodeControl(control) {
@@ -634,58 +637,45 @@ function ohaActivateCodeControl(control) {
     }
 }
 
-function ohaHandleCodeControlPointer(event) {
-    const control = ohaFindCodeControl(event);
-    if (!control || event.isPrimary === false || event.button !== 0) {
-        return;
-    }
-
-    // Symcon's tile surface also observes pointer gestures. Handle keypad input
-    // in the capture phase on pointerdown so the digit is accepted before a
-    // parent gesture handler can consume the later click event.
-    event.preventDefault();
-    event.stopPropagation();
-    control.focus({preventScroll: true});
-    ohaActivateCodeControl(control);
-}
-
-function ohaHandleCodeControlClick(event) {
-    const control = ohaFindCodeControl(event);
+function ohaHandleInteractiveClick(event) {
+    const control = ohaFindInteractiveControl(event);
     if (!control) {
         return;
     }
 
-    // Pointer input is already handled on pointerdown. Keep click only for
-    // keyboard-activated buttons, whose synthetic click has detail === 0.
+    // Use the normal click event as the single source of truth. Symcon's tile
+    // surface can suppress pointer events while still delivering click events.
+    // Handling the click in the document capture phase makes every control work
+    // before a parent tile handler can consume the event.
     event.preventDefault();
-    event.stopPropagation();
-    if (event.detail === 0) {
+
+    if (control.matches('[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm]')) {
         ohaActivateCodeControl(control);
+        return;
+    }
+
+    if (control.matches('[data-action="arm"]')) {
+        ohaHandleModeButton(control);
+        return;
+    }
+
+    if (control.id === 'disarmButton') {
+        ohaHandleDisarmButton();
+        return;
+    }
+
+    if (control.id === 'refreshButton') {
+        ohaRequestAction('RefreshVisualization', true);
+        return;
+    }
+
+    if (control.id === 'codepadClose') {
+        ohaCloseCodepad();
     }
 }
 
 function ohaBindInteractions() {
-    const refreshButton = document.getElementById('refreshButton');
-    if (refreshButton) {
-        refreshButton.onclick = () => ohaRequestAction('RefreshVisualization', true);
-    }
-
-    for (const button of document.querySelectorAll('[data-action="arm"]')) {
-        button.onclick = () => ohaHandleModeButton(button);
-    }
-
-    const disarmButton = document.getElementById('disarmButton');
-    if (disarmButton) {
-        disarmButton.onclick = ohaHandleDisarmButton;
-    }
-
-    const codepadClose = document.getElementById('codepadClose');
-    if (codepadClose) {
-        codepadClose.onclick = ohaCloseCodepad;
-    }
-
-    document.addEventListener('pointerdown', ohaHandleCodeControlPointer, true);
-    document.addEventListener('click', ohaHandleCodeControlClick, true);
+    document.addEventListener('click', ohaHandleInteractiveClick, true);
 }
 
 function handleMessage(data) {
