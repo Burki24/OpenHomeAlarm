@@ -372,9 +372,9 @@ $instance->ApplyChanges();
 assertFaultMonitoring(
     $instance->TestMessages() === [
         0    => [IPS_KERNELSTARTED],
-        9001 => [VM_UPDATE],
-        9002 => [VM_UPDATE],
-        9003 => [VM_UPDATE]
+        9001 => [VM_UPDATE, OM_UNREGISTER],
+        9002 => [VM_UPDATE, OM_UNREGISTER],
+        9003 => [VM_UPDATE, OM_UNREGISTER]
     ],
     'Every enabled fault input must be monitored continuously.'
 );

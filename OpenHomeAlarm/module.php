@@ -124,6 +124,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
     private const PROPERTY_DISARM_MAX_ATTEMPTS = 'DisarmMaxAttempts';
     private const PROPERTY_DISARM_LOCKOUT_SECONDS = 'DisarmLockoutSeconds';
+    private const PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS = 'SensorIntegrityIntervalSeconds';
 
     private const OPTIONAL_ACTION_FIELDS = [
         self::PROPERTY_ALARM_ACTION              => self::PROPERTY_ALARM_ACTION_ENABLED,
@@ -163,6 +164,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_PENDING_ALARM_SOURCE_ID = 'PendingAlarmSourceID';
     private const ATTRIBUTE_BYPASSED_SENSOR_IDS = 'BypassedSensorIDs';
     private const ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS = 'ActiveFaultVariableIDs';
+    private const ATTRIBUTE_UNAVAILABLE_SENSOR_VARIABLE_IDS = 'UnavailableSensorVariableIDs';
     private const ATTRIBUTE_EVENT_HISTORY = 'EventHistory';
     private const ATTRIBUTE_DISARM_FAILED_ATTEMPTS = 'DisarmFailedAttempts';
     private const ATTRIBUTE_DISARM_LOCKOUT_UNTIL = 'DisarmLockoutUntil';
@@ -171,6 +173,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const TIMER_ENTRY_DELAY = 'EntryDelay';
     private const TIMER_DELAY_STATUS = 'DelayStatus';
     private const TIMER_ALARM_DURATION = 'AlarmDuration';
+    private const TIMER_SENSOR_INTEGRITY = 'SensorIntegrity';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
     private const IDENT_DELAY_REMAINING = 'DelayRemaining';
@@ -223,6 +226,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::PROPERTY_DISARM_LOCKOUT_SECONDS,
             self::DEFAULT_DISARM_LOCKOUT_SECONDS
         );
+        $this->RegisterPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS, 60);
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
@@ -231,6 +235,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
+        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_UNAVAILABLE_SENSOR_VARIABLE_IDS);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL, 0);
@@ -254,6 +259,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::TIMER_ALARM_DURATION,
             0,
             'OHA_CompleteAlarmDuration($_IPS[\'TARGET\']);'
+        );
+        $this->RegisterTimer(
+            self::TIMER_SENSOR_INTEGRITY,
+            0,
+            'OHA_CheckSensorIntegrity($_IPS[\'TARGET\']);'
         );
 
         $modeCreated = $this->RegisterVariableInteger(
@@ -509,6 +519,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         parent::ApplyChanges();
 
+        $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
         $this->RegisterMessage(0, IPS_KERNELSTARTED);
         if (IPS_GetKernelRunlevel() !== KR_READY) {
             return;
@@ -660,7 +671,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             ],
             'Faults' => [
                 'Active'      => $this->GetValue(self::IDENT_SYSTEM_FAULT) === true,
-                'Items'       => $this->BuildControlFaultDetails($faultInputs, false),
+                'Items'       => array_merge(
+                    $this->BuildControlFaultDetails($faultInputs, false),
+                    $this->BuildControlUnavailableSensorDetails($sensors)
+                ),
                 'Blocking'    => $this->BuildControlFaultDetails($faultInputs, true),
                 'LastSource'  => (string) $this->GetValue(self::IDENT_LAST_FAULT_SOURCE),
                 'LastTime'    => (string) $this->GetValue(self::IDENT_LAST_FAULT_TIME)
@@ -710,11 +724,11 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Reacts to updates of configured sensor variables.
+     * Reacts to updates and removals of configured sensor or fault variables.
      *
      * Sensor updates keep the readiness state current and, while armed, start the
-     * configured entry delay or move the state to Alarm. Configured external
-     * actions are executed centrally when the Alarm state is entered.
+     * configured entry delay or move the state to Alarm. Removing a monitored
+     * variable immediately refreshes the persistent system-fault state.
      */
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
@@ -726,7 +740,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         if (IPS_GetKernelRunlevel() !== KR_READY) {
             return;
         }
-        if ($Message !== VM_UPDATE) {
+        if (!in_array($Message, [VM_UPDATE, OM_UNREGISTER], true)) {
             return;
         }
 
@@ -738,8 +752,21 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
+        if ($Message === OM_UNREGISTER) {
+            $this->EvaluateSensorAvailability($sensors);
+            $this->EvaluateFaultInputs($faultInputs);
+            $this->SynchronizeSensorMessages($sensors, $faultInputs);
+            $this->UpdateReadinessFromSensors($sensors);
+            $this->PublishVisualizationState();
+
+            return;
+        }
+
         if ($isFaultVariable) {
             $this->EvaluateFaultInputs($faultInputs);
+        }
+        if ($isSensorVariable) {
+            $this->EvaluateSensorAvailability($sensors);
         }
         $this->UpdateReadinessFromSensors($sensors);
         if ($this->ReadAlarmState() === self::STATE_ALARM || !$isSensorVariable) {
@@ -754,6 +781,28 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->HandleSensorUpdateWhileArmed($SenderID, $sensors);
+        $this->PublishVisualizationState();
+    }
+
+    /**
+     * Re-evaluates every configured sensor and fault variable.
+     *
+     * The public method is used by the module timer and can also be called
+     * manually for diagnostics. Missing or unreadable sensor variables become
+     * persistent system faults but never trigger the main alarm by themselves.
+     */
+    public function CheckSensorIntegrity(): void
+    {
+        if (IPS_GetKernelRunlevel() !== KR_READY) {
+            return;
+        }
+
+        $sensors = $this->ReadConfiguredSensors();
+        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $this->SynchronizeSensorMessages($sensors, $faultInputs);
+        $this->EvaluateSensorAvailability($sensors);
+        $this->EvaluateFaultInputs($faultInputs);
+        $this->UpdateReadinessFromSensors($sensors);
         $this->PublishVisualizationState();
     }
 
@@ -1543,6 +1592,14 @@ class OpenHomeAlarm extends IPSModuleStrict
         return min(self::MAX_DISARM_LOCKOUT_SECONDS, $lockoutSeconds);
     }
 
+    private function ReadSensorIntegrityIntervalSeconds(): int
+    {
+        return max(
+            10,
+            min(3600, $this->ReadPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS))
+        );
+    }
+
     /**
      * Initializes sensor subscriptions and restores the persisted alarm runtime state.
      */
@@ -1550,8 +1607,13 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $sensors = $this->ReadConfiguredSensors();
         $faultInputs = $this->ReadConfiguredFaultInputs();
+        $this->SetTimerInterval(
+            self::TIMER_SENSOR_INTEGRITY,
+            $this->ReadSensorIntegrityIntervalSeconds() * 1000
+        );
         $this->NormalizeSensorBypasses($sensors);
         $this->SynchronizeSensorMessages($sensors, $faultInputs);
+        $this->EvaluateSensorAvailability($sensors);
         $this->EvaluateFaultInputs($faultInputs);
         $this->UpdateReadinessFromSensors($sensors);
         $this->EvaluateAlwaysActiveSensors($sensors);
@@ -1786,6 +1848,38 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'Reason'       => $triggerState === true ? 'active' : 'unavailable',
                 'BlockArming'  => $faultInput['BlockArming'],
                 'TriggerAlarm' => $faultInput['TriggerAlarm'],
+                'Bypassable'   => false
+            ];
+        }
+
+        return $details;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $sensors
+     *
+     * @return list<array{Kind:string,VariableID:int,Name:string,Reason:string,BlockArming:bool,TriggerAlarm:bool,Bypassable:bool}>
+     */
+    private function BuildControlUnavailableSensorDetails(array $sensors): array
+    {
+        $details = [];
+        foreach ($sensors as $sensor) {
+            if (
+                !$sensor['Enabled']
+                || !$this->IsSensorMonitored($sensor)
+                || $sensor['VariableID'] <= 0
+                || $this->GetSensorTriggerState($sensor) !== null
+            ) {
+                continue;
+            }
+
+            $details[] = [
+                'Kind'         => 'sensor',
+                'VariableID'   => $sensor['VariableID'],
+                'Name'         => $this->ResolveSensorDisplayName($sensor),
+                'Reason'       => 'unavailable',
+                'BlockArming'  => true,
+                'TriggerAlarm' => false,
                 'Bypassable'   => false
             ];
         }
@@ -2355,7 +2449,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Keeps VM_UPDATE subscriptions in sync with the enabled sensor configuration.
+     * Keeps value-update and object-removal subscriptions in sync with the
+     * enabled sensor and fault configuration.
      *
      * @param list<array{
      *     Enabled: bool,
@@ -2395,21 +2490,24 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
 
-        $registeredVariableIDs = [];
-        foreach ($this->GetMessageList() as $senderID => $messages) {
-            if (!is_array($messages) || !in_array(VM_UPDATE, $messages, true)) {
-                continue;
+        $messageList = $this->GetMessageList();
+        foreach ([VM_UPDATE, OM_UNREGISTER] as $messageID) {
+            $registeredVariableIDs = [];
+            foreach ($messageList as $senderID => $messages) {
+                if (!is_array($messages) || !in_array($messageID, $messages, true)) {
+                    continue;
+                }
+
+                $registeredVariableIDs[(int) $senderID] = true;
             }
 
-            $registeredVariableIDs[(int) $senderID] = true;
-        }
+            foreach (array_diff_key($registeredVariableIDs, $wantedVariableIDs) as $variableID => $_) {
+                $this->UnregisterMessage((int) $variableID, $messageID);
+            }
 
-        foreach (array_diff_key($registeredVariableIDs, $wantedVariableIDs) as $variableID => $_) {
-            $this->UnregisterMessage((int) $variableID, VM_UPDATE);
-        }
-
-        foreach (array_diff_key($wantedVariableIDs, $registeredVariableIDs) as $variableID => $_) {
-            $this->RegisterMessage((int) $variableID, VM_UPDATE);
+            foreach (array_diff_key($wantedVariableIDs, $registeredVariableIDs) as $variableID => $_) {
+                $this->RegisterMessage((int) $variableID, $messageID);
+            }
         }
     }
 
@@ -2555,8 +2653,40 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ReadActiveFaultVariableIDs(): array
     {
+        return $this->ReadPersistentVariableIDs(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
+    }
+
+    /**
+     * @param list<int> $variableIDs
+     */
+    private function WriteActiveFaultVariableIDs(array $variableIDs): void
+    {
+        $this->WritePersistentVariableIDs(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS, $variableIDs);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function ReadUnavailableSensorVariableIDs(): array
+    {
+        return $this->ReadPersistentVariableIDs(self::ATTRIBUTE_UNAVAILABLE_SENSOR_VARIABLE_IDS);
+    }
+
+    /**
+     * @param list<int> $variableIDs
+     */
+    private function WriteUnavailableSensorVariableIDs(array $variableIDs): void
+    {
+        $this->WritePersistentVariableIDs(self::ATTRIBUTE_UNAVAILABLE_SENSOR_VARIABLE_IDS, $variableIDs);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function ReadPersistentVariableIDs(string $attributeName): array
+    {
         try {
-            $decodedIDs = $this->ReadPersistentJsonCache(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
+            $decodedIDs = $this->ReadPersistentJsonCache($attributeName);
         } catch (UnexpectedValueException) {
             return [];
         }
@@ -2565,14 +2695,14 @@ class OpenHomeAlarm extends IPSModuleStrict
             return [];
         }
 
-        $variableIDs = [];
+        $normalized = [];
         foreach ($decodedIDs as $variableID) {
             if (is_int($variableID) && $variableID > 0) {
-                $variableIDs[$variableID] = true;
+                $normalized[$variableID] = true;
             }
         }
 
-        $result = array_map('intval', array_keys($variableIDs));
+        $result = array_map('intval', array_keys($normalized));
         sort($result, SORT_NUMERIC);
 
         return $result;
@@ -2581,7 +2711,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * @param list<int> $variableIDs
      */
-    private function WriteActiveFaultVariableIDs(array $variableIDs): void
+    private function WritePersistentVariableIDs(string $attributeName, array $variableIDs): void
     {
         $normalized = [];
         foreach ($variableIDs as $variableID) {
@@ -2593,7 +2723,106 @@ class OpenHomeAlarm extends IPSModuleStrict
         $result = array_map('intval', array_keys($normalized));
         sort($result, SORT_NUMERIC);
 
-        $this->WritePersistentJsonCache(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS, $result);
+        $this->WritePersistentJsonCache($attributeName, $result);
+    }
+
+    /**
+     * Tracks missing or unreadable configured sensor variables as persistent
+     * system faults without treating their absence as a confirmed alarm signal.
+     *
+     * @param list<array{
+     *     Enabled: bool,
+     *     Name: string,
+     *     VariableID: int,
+     *     SensorType: int,
+     *     TriggerValue: string,
+     *     ArmHome: bool,
+     *     ArmAway: bool,
+     *     ArmNight: bool,
+     *     AlwaysActive: bool,
+     *     ExitDelay: bool,
+     *     EntryDelay: bool
+     * }> $sensors
+     */
+    private function EvaluateSensorAvailability(array $sensors): void
+    {
+        $previousUnavailableIDs = $this->ReadUnavailableSensorVariableIDs();
+        $currentUnavailableIDs = [];
+
+        foreach ($sensors as $sensor) {
+            if (
+                !$sensor['Enabled']
+                || !$this->IsSensorMonitored($sensor)
+                || $sensor['VariableID'] <= 0
+            ) {
+                continue;
+            }
+
+            if ($this->GetSensorTriggerState($sensor) === null) {
+                $currentUnavailableIDs[] = $sensor['VariableID'];
+            }
+        }
+
+        $currentUnavailableIDs = array_values(array_unique($currentUnavailableIDs));
+        sort($currentUnavailableIDs, SORT_NUMERIC);
+        if ($currentUnavailableIDs === [] && $previousUnavailableIDs === []) {
+            return;
+        }
+
+        $newUnavailableIDs = array_values(array_diff($currentUnavailableIDs, $previousUnavailableIDs));
+        $restoredIDs = array_values(array_diff($previousUnavailableIDs, $currentUnavailableIDs));
+
+        $this->WriteUnavailableSensorVariableIDs($currentUnavailableIDs);
+        $this->UpdateSystemFaultStatus($this->ReadConfiguredFaultInputs(), $sensors);
+
+        foreach ($newUnavailableIDs as $variableID) {
+            $sourceName = $this->FormatUnavailableSensorName($variableID, $sensors);
+            $this->SetLastFaultSource($sourceName);
+            $this->SetLastFaultTime(date('d.m.Y H:i:s'));
+            $this->AppendEvent(self::EVENT_FAULT_ACTIVATED, $sourceName);
+            $this->RunConfiguredAction(self::PROPERTY_FAULT_ACTION);
+        }
+
+        foreach ($restoredIDs as $variableID) {
+            $this->AppendEvent(
+                self::EVENT_FAULT_CLEARED,
+                $this->FormatUnavailableSensorName($variableID, $sensors)
+            );
+            $this->RunConfiguredAction(self::PROPERTY_FAULT_CLEARED_ACTION);
+        }
+    }
+
+    /**
+     * @param list<array<string,mixed>> $faultInputs
+     * @param list<array<string,mixed>> $sensors
+     */
+    private function UpdateSystemFaultStatus(array $faultInputs, array $sensors): void
+    {
+        $activeFaultIDs = $this->ReadActiveFaultVariableIDs();
+        $unavailableSensorIDs = $this->ReadUnavailableSensorVariableIDs();
+        $activeNames = [];
+
+        foreach ($activeFaultIDs as $variableID) {
+            $activeNames[] = $this->ResolveFaultNameByVariableID($variableID, $faultInputs);
+        }
+        foreach ($unavailableSensorIDs as $variableID) {
+            $activeNames[] = $this->FormatUnavailableSensorName($variableID, $sensors);
+        }
+
+        $this->SetSystemFault($activeFaultIDs !== [] || $unavailableSensorIDs !== []);
+        $this->SetActiveFaults(implode(', ', array_values(array_unique($activeNames))));
+        $this->SetBlockingFaults(implode(', ', $this->ResolveBlockingFaultNames($faultInputs)));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $sensors
+     */
+    private function FormatUnavailableSensorName(int $variableID, array $sensors): string
+    {
+        return sprintf(
+            $this->Translate('Sensor unavailable: %s'),
+            $this->ResolveSensorNameByVariableID($variableID, $sensors)
+        );
     }
 
     /**
@@ -2623,7 +2852,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $currentActiveIDs = [];
-        $activeNames = [];
         $newlyActiveInputs = [];
 
         foreach ($faultInputs as $faultInput) {
@@ -2638,7 +2866,6 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             $variableID = $faultInput['VariableID'];
             $currentActiveIDs[] = $variableID;
-            $activeNames[] = $this->ResolveFaultDisplayName($faultInput);
             if (!in_array($variableID, $previousActiveIDs, true)) {
                 $newlyActiveInputs[] = [$faultInput, $triggerState];
             }
@@ -2646,13 +2873,10 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $currentActiveIDs = array_values(array_unique($currentActiveIDs));
         sort($currentActiveIDs, SORT_NUMERIC);
-        $activeNames = array_values(array_unique($activeNames));
         $clearedIDs = array_values(array_diff($previousActiveIDs, $currentActiveIDs));
 
         $this->WriteActiveFaultVariableIDs($currentActiveIDs);
-        $this->SetSystemFault($currentActiveIDs !== []);
-        $this->SetActiveFaults(implode(', ', $activeNames));
-        $this->SetBlockingFaults(implode(', ', $this->ResolveBlockingFaultNames($faultInputs)));
+        $this->UpdateSystemFaultStatus($faultInputs, $this->ReadConfiguredSensors());
 
         foreach ($newlyActiveInputs as [$faultInput, $triggerState]) {
             $sourceName = $this->ResolveFaultDisplayName($faultInput);
@@ -3205,26 +3429,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ReadBypassedSensorIDs(): array
     {
-        try {
-            $decodedIDs = $this->ReadPersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
-        } catch (UnexpectedValueException) {
-            return [];
-        }
-
-        if (!array_is_list($decodedIDs)) {
-            return [];
-        }
-
-        $bypassedIDs = [];
-        foreach ($decodedIDs as $variableID) {
-            if (is_int($variableID) && $variableID > 0) {
-                $bypassedIDs[] = $variableID;
-            }
-        }
-
-        sort($bypassedIDs, SORT_NUMERIC);
-
-        return array_values(array_unique($bypassedIDs));
+        return $this->ReadPersistentVariableIDs(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
     }
 
     /**
@@ -3232,17 +3437,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function WriteBypassedSensorIDs(array $variableIDs): void
     {
-        $normalizedIDs = [];
-        foreach ($variableIDs as $variableID) {
-            if ($variableID > 0) {
-                $normalizedIDs[] = $variableID;
-            }
-        }
-
-        sort($normalizedIDs, SORT_NUMERIC);
-        $normalizedIDs = array_values(array_unique($normalizedIDs));
-
-        $this->WritePersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, $normalizedIDs);
+        $this->WritePersistentVariableIDs(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, $variableIDs);
     }
 
     /**

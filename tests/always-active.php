@@ -322,8 +322,8 @@ $instance->ApplyChanges();
 assertAlwaysActive(
     $instance->TestMessages() === [
         0    => [IPS_KERNELSTARTED],
-        5001 => [VM_UPDATE],
-        5002 => [VM_UPDATE]
+        5001 => [VM_UPDATE, OM_UNREGISTER],
+        5002 => [VM_UPDATE, OM_UNREGISTER]
     ],
     '24/7 sensors must receive VM_UPDATE subscriptions even without a mode assignment.'
 );

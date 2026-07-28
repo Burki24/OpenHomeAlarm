@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 const IPS_KERNELSTARTED = 10001;
 const KR_READY = 10103;
+const OM_UNREGISTER = 10402;
 
 $testKernelRunlevel = KR_READY;
 

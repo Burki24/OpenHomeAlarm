@@ -104,12 +104,23 @@ class IPSModuleStrict
         $this->properties[$name] = $value;
     }
 
+    public function TestSetPropertyInteger(string $name, int $value): void
+    {
+        $this->properties[$name] = $value;
+    }
+
     /** @return array<int,list<int>> */
     public function TestMessages(): array
     {
         ksort($this->messages);
 
         return $this->messages;
+    }
+
+    /** @return array<string,array{interval:int,script:string}> */
+    public function TestTimers(): array
+    {
+        return $this->timers;
     }
 
     /** @return array<string,mixed> */
@@ -329,9 +340,9 @@ $instance->ApplyChanges();
 assertSensorMonitoring(
     $instance->TestMessages() === [
         0    => [IPS_KERNELSTARTED],
-        1001 => [VM_UPDATE],
-        1002 => [VM_UPDATE],
-        1004 => [VM_UPDATE]
+        1001 => [VM_UPDATE, OM_UNREGISTER],
+        1002 => [VM_UPDATE, OM_UNREGISTER],
+        1004 => [VM_UPDATE, OM_UNREGISTER]
     ],
     'A3 must subscribe exactly once to enabled, existing sensor variables used by at least one arming mode.'
 );
@@ -431,8 +442,8 @@ $instance->ApplyChanges();
 assertSensorMonitoring(
     $instance->TestMessages() === [
         0    => [IPS_KERNELSTARTED],
-        1002 => [VM_UPDATE],
-        1003 => [VM_UPDATE]
+        1002 => [VM_UPDATE, OM_UNREGISTER],
+        1003 => [VM_UPDATE, OM_UNREGISTER]
     ],
     'ApplyChanges must unregister removed sensor variables and subscribe newly configured variables.'
 );
@@ -451,16 +462,19 @@ assertSensorMonitoring(
     'Missing sensor variables must not receive VM_UPDATE subscriptions.'
 );
 assertSensorMonitoring(
-    $instance->TestWrittenValues() === [
-        'ReadyToArm'           => false,
-        'ReadyHome'            => true,
-        'ReadyAway'            => false,
-        'ReadyNight'           => true,
-        'BlockingHomeSensors'  => '',
-        'BlockingAwaySensors'  => 'Test 9999',
-        'BlockingNightSensors' => ''
-    ],
+    ($instance->TestWrittenValues()['ReadyToArm'] ?? null) === false
+    && ($instance->TestWrittenValues()['ReadyHome'] ?? null) === true
+    && ($instance->TestWrittenValues()['ReadyAway'] ?? null) === false
+    && ($instance->TestWrittenValues()['ReadyNight'] ?? null) === true
+    && ($instance->TestWrittenValues()['BlockingHomeSensors'] ?? null) === ''
+    && ($instance->TestWrittenValues()['BlockingAwaySensors'] ?? null) === 'Test 9999'
+    && ($instance->TestWrittenValues()['BlockingNightSensors'] ?? null) === '',
     'A missing configured sensor variable must fail safe to not ready.'
+);
+assertSensorMonitoring(
+    ($instance->TestWrittenValues()['SystemFault'] ?? null) === true
+    && ($instance->TestWrittenValues()['ActiveFaults'] ?? null) === 'Sensor unavailable: Test 9999',
+    'A missing configured sensor variable must also create a visible system fault.'
 );
 
 // A3 must not modify mode/state or trigger alarm transitions.
@@ -472,6 +486,90 @@ $messageSinkSource = substr($moduleSource, $messageSinkStart, $messageSinkEnd - 
 assertSensorMonitoring(
     !str_contains($messageSinkSource, 'SetAlarmMode(') && !str_contains($messageSinkSource, 'SetAlarmState('),
     'A3 sensor monitoring must not perform arming or alarm state transitions.'
+);
+
+// Configured sensor availability is checked both immediately and periodically.
+$integrity = new OpenHomeAlarm();
+$integrity->Create();
+$integrity->TestSetPropertyInteger('SensorIntegrityIntervalSeconds', 30);
+$integrity->TestSetPropertyString(
+    'Sensors',
+    json_encode([sensor(1001, 'true')], JSON_THROW_ON_ERROR)
+);
+$testVariables[1001] = ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''];
+$testValues[1001] = false;
+$integrity->ApplyChanges();
+assertSensorMonitoring(
+    ($integrity->TestTimers()['SensorIntegrity']['interval'] ?? null) === 30000
+    && ($integrity->TestTimers()['SensorIntegrity']['script'] ?? null)
+        === 'OHA_CheckSensorIntegrity($_IPS[\'TARGET\']);',
+    'The configurable sensor-integrity timer must run in milliseconds.'
+);
+
+unset($testVariables[1001], $testValues[1001]);
+$integrity->TestClearWrittenValues();
+$integrity->MessageSink(10, 1001, OM_UNREGISTER, []);
+$integrityWritten = $integrity->TestWrittenValues();
+assertSensorMonitoring(
+    ($integrityWritten['SystemFault'] ?? null) === true
+    && ($integrityWritten['ActiveFaults'] ?? null) === 'Sensor unavailable: Test 1001'
+    && ($integrityWritten['ReadyAway'] ?? null) === false,
+    'Removing a monitored sensor variable must immediately publish a system fault and block its arming mode.'
+);
+assertSensorMonitoring(
+    !array_key_exists('State', $integrityWritten),
+    'Sensor loss alone must never be treated as a confirmed alarm signal.'
+);
+$controlState = json_decode($integrity->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertSensorMonitoring(
+    ($controlState['Faults']['Items'][0]['Kind'] ?? null) === 'sensor'
+    && ($controlState['Faults']['Items'][0]['Reason'] ?? null) === 'unavailable'
+    && ($controlState['Faults']['Items'][0]['Name'] ?? null) === 'Test 1001',
+    'The public control state must expose unavailable sensors to the Tile.'
+);
+$historyAfterLoss = json_decode($integrity->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertSensorMonitoring(
+    ($historyAfterLoss[0]['Event'] ?? null) === 'fault_activated'
+    && ($historyAfterLoss[0]['Source'] ?? null) === 'Sensor unavailable: Test 1001',
+    'A newly unavailable sensor must create one persistent fault event.'
+);
+
+$integrity->CheckSensorIntegrity();
+$historyAfterRepeatedCheck = json_decode($integrity->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertSensorMonitoring(
+    count($historyAfterRepeatedCheck) === count($historyAfterLoss),
+    'Repeated integrity checks must not duplicate an already active sensor-loss event.'
+);
+
+$testVariables[1001] = ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''];
+$testValues[1001] = false;
+$integrity->TestClearWrittenValues();
+$integrity->CheckSensorIntegrity();
+$integrityWritten = $integrity->TestWrittenValues();
+assertSensorMonitoring(
+    ($integrityWritten['SystemFault'] ?? null) === false
+    && ($integrityWritten['ActiveFaults'] ?? null) === ''
+    && ($integrityWritten['ReadyAway'] ?? null) === true,
+    'The periodic integrity check must clear the system fault when the sensor becomes readable again.'
+);
+$historyAfterRecovery = json_decode($integrity->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertSensorMonitoring(
+    ($historyAfterRecovery[0]['Event'] ?? null) === 'fault_cleared'
+    && ($historyAfterRecovery[0]['Source'] ?? null) === 'Sensor unavailable: Test 1001',
+    'Restoring sensor availability must create one fault-cleared event.'
+);
+assertSensorMonitoring(
+    ($integrity->TestMessages()[1001] ?? null) === [VM_UPDATE, OM_UNREGISTER],
+    'The integrity check must restore both subscriptions when a configured variable becomes readable again.'
+);
+
+$form = json_decode($integrity->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+assertSensorMonitoring(
+    str_contains(
+        json_encode($form, JSON_THROW_ON_ERROR),
+        '"name":"SensorIntegrityIntervalSeconds"'
+    ),
+    'The configuration form must expose the sensor-integrity interval.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm sensor monitoring checks passed.\n");

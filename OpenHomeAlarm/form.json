@@ -165,6 +165,18 @@
                     "caption": "Configure optional 24/7 inputs for tamper, battery/power, communication or device faults."
                 },
                 {
+                    "type": "NumberSpinner",
+                    "name": "SensorIntegrityIntervalSeconds",
+                    "caption": "Sensor integrity check (seconds)",
+                    "minimum": 10,
+                    "maximum": 3600,
+                    "width": "300px"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Configured sensor variables are checked periodically and immediately when Symcon reports their removal."
+                },
+                {
                     "type": "Label",
                     "caption": "Optional fault actions are disabled by default. Enable one and apply once before selecting the Symcon action."
                 },
