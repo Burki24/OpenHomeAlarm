@@ -130,6 +130,17 @@ assertVisualization(
     'OpenHomeAlarm must consume the shared Symcon visualization tokens.'
 );
 assertVisualization(str_contains($javascript, 'function ohaRenderSummary(state)'), 'Visualization must render the system overview from the control state.');
+assertVisualization(
+    str_contains($javascript, 'function ohaUpdateOperationsLayout()')
+        && str_contains($javascript, 'grid.dataset.visiblePanels = String(visiblePanels);')
+        && str_contains($css, '.oha-operations-grid[data-visible-panels="1"]'),
+    'Visualization must expand a single operation panel to the available width.'
+);
+assertVisualization(
+    str_contains($css, '@media (min-width: 900px) and (max-width: 1250px)')
+        && str_contains($css, '.oha-shell[data-codepad-visible="true"] .oha-hero-meta'),
+    'Visualization must reflow the hero while the inline code pad narrows the content area.'
+);
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
 assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');

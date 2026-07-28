@@ -201,11 +201,14 @@ button:focus-visible {
 }
 
 .oha-state {
+    min-width: 0;
     margin: 4px 0 0;
     color: var(--oha-state-color);
     font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+    hyphens: auto;
     line-height: 1.02;
     letter-spacing: -0.03em;
+    overflow-wrap: break-word;
 }
 
 .oha-hero-message {
@@ -674,6 +677,10 @@ button:focus-visible {
     gap: 10px;
 }
 
+.oha-operations-grid[data-visible-panels="1"] {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .oha-operation-panel {
     min-width: 0;
     overflow: hidden;
@@ -971,6 +978,29 @@ button:focus-visible {
 
 }
 
+@media (min-width: 900px) and (max-width: 1250px) {
+    .oha-shell[data-codepad-visible="true"] .oha-hero {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .oha-shell[data-codepad-visible="true"] .oha-hero-meta {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        display: flex;
+        width: 100%;
+        align-items: end;
+        justify-content: space-between;
+    }
+
+    .oha-shell[data-codepad-visible="true"] .oha-countdown {
+        margin-left: auto;
+    }
+
+    .oha-shell[data-codepad-visible="true"] .oha-countdown strong {
+        font-size: 2.4rem;
+    }
+}
+
 @media (max-width: 860px) {
     .oha-status-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -982,33 +1012,8 @@ button:focus-visible {
         grid-template-columns: 1fr;
     }
 
-}
-
-@media (max-width: 620px) {
-    .oha-shell {
-        gap: 11px;
-        padding: 11px;
-    }
-
-    .oha-section-hint {
-        display: none;
-    }
-
-    .oha-status-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-
     .oha-hero {
         grid-template-columns: auto minmax(0, 1fr);
-        min-height: 0;
-        padding: 16px;
-    }
-
-    .oha-hero-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
-        font-size: 1.35rem;
     }
 
     .oha-hero-meta {
@@ -1026,6 +1031,33 @@ button:focus-visible {
 
     .oha-countdown strong {
         font-size: 2.4rem;
+    }
+}
+
+@media (max-width: 620px) {
+    .oha-shell {
+        gap: 11px;
+        padding: 11px;
+    }
+
+    .oha-section-hint {
+        display: none;
+    }
+
+    .oha-status-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .oha-hero {
+        min-height: 0;
+        padding: 16px;
+    }
+
+    .oha-hero-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        font-size: 1.35rem;
     }
 
     .oha-section-heading {

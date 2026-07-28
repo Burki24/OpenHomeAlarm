@@ -517,6 +517,16 @@ function ohaRenderEventHistory(state) {
     }
 }
 
+function ohaUpdateOperationsLayout() {
+    const grid = document.getElementById('operationsGrid');
+    const visiblePanels = Array.from(grid.querySelectorAll('.oha-operation-panel'))
+        .filter((panel) => !panel.hidden)
+        .length;
+
+    grid.hidden = visiblePanels === 0;
+    grid.dataset.visiblePanels = String(visiblePanels);
+}
+
 function ohaCanDisarm(state = ohaState) {
     const stateName = state?.State?.Name ?? 'disarmed';
     const modeName = state?.Mode?.Name ?? 'none';
@@ -628,6 +638,7 @@ function ohaRender() {
     ohaRenderBypasses(ohaState);
     ohaRenderSensorManagement(ohaState);
     ohaRenderEventHistory(ohaState);
+    ohaUpdateOperationsLayout();
     ohaRenderArming(ohaState);
     ohaRenderInlineCodepad(ohaState);
     ohaRenderDisarm(ohaState);
