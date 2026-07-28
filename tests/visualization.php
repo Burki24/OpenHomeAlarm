@@ -147,6 +147,12 @@ assertVisualization(
         && str_contains($css, 'font-size: clamp(2.1rem, 7cqi, 4.1rem);'),
     'Visualization must scale the hero typography against the available hero width.'
 );
+assertVisualization(
+    str_contains($css, '.oha-topbar-actions {')
+        && str_contains($css, 'position: sticky;')
+        && str_contains($css, 'box-shadow: 0 0 0 14px var(--oha-bg);'),
+    'Visualization must shield scrolled content below the sticky Symcon tile title.'
+);
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
 assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');

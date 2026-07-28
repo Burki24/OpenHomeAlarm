@@ -130,8 +130,13 @@ button:focus-visible {
 
 
 .oha-topbar-actions {
+    position: sticky;
+    z-index: 30;
+    top: 14px;
     justify-content: flex-end;
     min-height: 38px;
+    background: var(--oha-bg);
+    box-shadow: 0 0 0 14px var(--oha-bg);
 }
 
 .oha-section-heading-compact {
@@ -1035,6 +1040,11 @@ button:focus-visible {
     .oha-shell {
         gap: 11px;
         padding: 11px;
+    }
+
+    .oha-topbar-actions {
+        top: 11px;
+        box-shadow: 0 0 0 11px var(--oha-bg);
     }
 
     .oha-section-hint {
