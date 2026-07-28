@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/symcon-runtime.php';
+
 const VARIABLE_PRESENTATION_VALUE_PRESENTATION = '{3319437D-7CDE-699D-750A-3C6A3841FA75}';
 const VM_UPDATE = 10603;
 
@@ -319,6 +321,7 @@ $instance->TestClearWrittenValues();
 $instance->ApplyChanges();
 assertAlwaysActive(
     $instance->TestMessages() === [
+        0    => [IPS_KERNELSTARTED],
         5001 => [VM_UPDATE],
         5002 => [VM_UPDATE]
     ],

@@ -481,17 +481,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         parent::ApplyChanges();
 
-        $sensors = $this->ReadConfiguredSensors();
-        $faultInputs = $this->ReadConfiguredFaultInputs();
-        $this->NormalizeSensorBypasses($sensors);
-        $this->SynchronizeSensorMessages($sensors, $faultInputs);
-        $this->EvaluateFaultInputs($faultInputs);
-        $this->UpdateReadinessFromSensors($sensors);
-        $this->EvaluateAlwaysActiveSensors($sensors);
-        $this->RestoreDelayTimers();
-        $this->EvaluateArmedSensorsAfterApplyChanges($sensors);
-        $this->RestoreAlarmDurationTimer();
-        $this->PublishVisualizationState();
+        $this->RegisterMessage(0, IPS_KERNELSTARTED);
+        if (IPS_GetKernelRunlevel() !== KR_READY) {
+            return;
+        }
+
+        $this->InitializeRuntime();
     }
 
     public function GetConfigurationForm(): string
@@ -683,6 +678,14 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
+        if ($SenderID === 0 && $Message === IPS_KERNELSTARTED) {
+            $this->InitializeRuntime();
+
+            return;
+        }
+        if (IPS_GetKernelRunlevel() !== KR_READY) {
+            return;
+        }
         if ($Message !== VM_UPDATE) {
             return;
         }
@@ -1379,6 +1382,24 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function SetFaultTriggerValue(string $triggerValue): void
     {
         $this->UpdateFormField('TriggerValue', 'value', $triggerValue);
+    }
+
+    /**
+     * Initializes sensor subscriptions and restores the persisted alarm runtime state.
+     */
+    private function InitializeRuntime(): void
+    {
+        $sensors = $this->ReadConfiguredSensors();
+        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $this->NormalizeSensorBypasses($sensors);
+        $this->SynchronizeSensorMessages($sensors, $faultInputs);
+        $this->EvaluateFaultInputs($faultInputs);
+        $this->UpdateReadinessFromSensors($sensors);
+        $this->EvaluateAlwaysActiveSensors($sensors);
+        $this->RestoreDelayTimers();
+        $this->EvaluateArmedSensorsAfterApplyChanges($sensors);
+        $this->RestoreAlarmDurationTimer();
+        $this->PublishVisualizationState();
     }
 
     /**

@@ -54,6 +54,19 @@ foreach (['Create', 'Destroy', 'ApplyChanges'] as $method) {
     );
 }
 
+assertFoundation(
+    str_contains($moduleSource, 'RegisterMessage(0, IPS_KERNELSTARTED)')
+        && preg_match(
+            '/public function ApplyChanges\(\): void[\s\S]*?IPS_GetKernelRunlevel\(\) !== KR_READY[\s\S]*?InitializeRuntime\(\)/',
+            $moduleSource
+        ) === 1
+        && preg_match(
+            '/public function MessageSink\([\s\S]*?IPS_KERNELSTARTED[\s\S]*?InitializeRuntime\(\)/',
+            $moduleSource
+        ) === 1,
+    'Runtime sensor access must be deferred until the Symcon kernel is ready.'
+);
+
 $workflow = (string) file_get_contents($root . '/.github/workflows/tests.yml');
 assertFoundation(
     str_contains($workflow, "php-version: '8.5'"),

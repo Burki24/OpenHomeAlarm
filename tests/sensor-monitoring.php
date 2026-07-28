@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/symcon-runtime.php';
+
 const VARIABLE_PRESENTATION_VALUE_PRESENTATION = '{3319437D-7CDE-699D-750A-3C6A3841FA75}';
 const VM_UPDATE = 10603;
 
@@ -326,6 +328,7 @@ $instance->ApplyChanges();
 
 assertSensorMonitoring(
     $instance->TestMessages() === [
+        0    => [IPS_KERNELSTARTED],
         1001 => [VM_UPDATE],
         1002 => [VM_UPDATE],
         1004 => [VM_UPDATE]
@@ -427,6 +430,7 @@ $instance->TestClearWrittenValues();
 $instance->ApplyChanges();
 assertSensorMonitoring(
     $instance->TestMessages() === [
+        0    => [IPS_KERNELSTARTED],
         1002 => [VM_UPDATE],
         1003 => [VM_UPDATE]
     ],
@@ -443,7 +447,7 @@ $instance->TestSetPropertyString('Sensors', json_encode($missingSensor, JSON_THR
 $instance->TestClearWrittenValues();
 $instance->ApplyChanges();
 assertSensorMonitoring(
-    $instance->TestMessages() === [],
+    $instance->TestMessages() === [0 => [IPS_KERNELSTARTED]],
     'Missing sensor variables must not receive VM_UPDATE subscriptions.'
 );
 assertSensorMonitoring(

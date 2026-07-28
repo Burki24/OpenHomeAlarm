@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/symcon-runtime.php';
+
 const VARIABLE_PRESENTATION_VALUE_PRESENTATION = '{3319437D-7CDE-699D-750A-3C6A3841FA75}';
 const VM_UPDATE = 10603;
 
@@ -344,16 +346,25 @@ function createArmedRestartInstance(array $sensors, int $entryDelaySeconds = 5):
 
 global $testValues;
 
-// A regular sensor that changed while Symcon was down must be detected on ApplyChanges.
+// ApplyChanges must defer runtime access until Symcon reports a ready kernel.
 $immediateInstance = createArmedRestartInstance([
     restartSensor(8001, 'Front door')
 ]);
 $testValues[8001] = true;
+TestSetKernelRunlevel(0);
 $immediateInstance->ApplyChanges();
+assertRestartRecovery(
+    !array_key_exists('State', $immediateInstance->TestWrittenValues()),
+    'ApplyChanges must not evaluate sensors before the Symcon kernel is ready.'
+);
+
+// The kernel-start message must initialize subscriptions and recover the current sensor state.
+TestSetKernelRunlevel(KR_READY);
+$immediateInstance->MessageSink(1, 0, IPS_KERNELSTARTED, []);
 $immediateWrites = $immediateInstance->TestWrittenValues();
 assertRestartRecovery(
     ($immediateWrites['State'] ?? null) === 4,
-    'ApplyChanges must enter Alarm when a relevant immediate sensor is already triggered after restart.'
+    'Kernel-ready initialization must enter Alarm when a relevant immediate sensor is already triggered after restart.'
 );
 assertRestartRecovery(
     ($immediateWrites['AlarmMemory'] ?? null) === true
