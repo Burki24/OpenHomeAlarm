@@ -1911,6 +1911,76 @@ html.oha-ipsview.oha-theme-adaptive:not(.oha-transparent) .oha-shell {
     background: var(--oha-bg);
 }
 
+html.oha-ipsview.oha-theme-linked {
+    font-family: Roboto, "Segoe UI", Arial, sans-serif;
+    --symc-radius-small: 5px;
+    --symc-radius-medium: 7px;
+    --symc-radius-large: 10px;
+}
+
+html.oha-ipsview.oha-theme-linked .oha-hero,
+html.oha-ipsview.oha-theme-linked .oha-mode-button,
+html.oha-ipsview.oha-theme-linked .oha-status-card,
+html.oha-ipsview.oha-theme-linked .oha-context-card,
+html.oha-ipsview.oha-theme-linked .oha-operation-panel,
+html.oha-ipsview.oha-theme-linked .oha-inline-codepad,
+html.oha-ipsview.oha-theme-linked .oha-control-bar,
+html.oha-ipsview.oha-theme-linked .oha-codepad {
+    border-color: var(--oha-panel-border);
+    background: var(--oha-surface);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+html.oha-ipsview.oha-theme-linked .oha-hero {
+    background:
+        linear-gradient(90deg, var(--oha-state-soft), transparent 32%),
+        var(--oha-surface-strong);
+}
+
+html.oha-ipsview.oha-theme-linked .oha-mode-button[data-active="true"] {
+    background:
+        linear-gradient(90deg, var(--oha-accent-soft), transparent 54%),
+        var(--oha-surface-strong);
+}
+
+html.oha-ipsview.oha-theme-linked .oha-section-heading {
+    border-color: var(--oha-page-label-border);
+    background: var(--oha-page-label-bg);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+html.oha-ipsview.oha-theme-linked .oha-operation-head,
+html.oha-ipsview.oha-theme-linked .oha-operation-row,
+html.oha-ipsview.oha-theme-linked .oha-history-row {
+    border-color: color-mix(in srgb, var(--oha-panel-text) 13%, transparent);
+}
+
+html.oha-ipsview.oha-theme-linked .oha-mode-pill,
+html.oha-ipsview.oha-theme-linked .oha-operation-count,
+html.oha-ipsview.oha-theme-linked .oha-code-display,
+html.oha-ipsview.oha-theme-linked .oha-code-key,
+html.oha-ipsview.oha-theme-linked .oha-icon-button,
+html.oha-ipsview.oha-theme-linked .oha-row-action,
+html.oha-ipsview.oha-theme-linked .oha-card-action,
+html.oha-ipsview.oha-theme-linked .oha-secondary-button {
+    border-color: var(--oha-panel-border);
+    background-color: var(--oha-surface-soft);
+    box-shadow: none;
+}
+
+html.oha-ipsview.oha-theme-linked .oha-mode-button:hover[data-can-arm="true"],
+html.oha-ipsview.oha-theme-linked .oha-code-key:hover[data-enabled="true"] {
+    background-color: color-mix(in srgb, var(--oha-accent) 22%, var(--oha-surface-strong));
+}
+
+html.oha-ipsview.oha-theme-linked .oha-shell {
+    text-shadow: none;
+}
+
 @media (min-width: 900px) {
     html.oha-ipsview .oha-shell {
         grid-template-columns: minmax(0, 1fr) 292px;

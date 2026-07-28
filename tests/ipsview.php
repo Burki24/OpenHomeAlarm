@@ -109,6 +109,26 @@ assertIPSView(
     'Adaptive IPSView colors must calculate readable text for every generated surface and protect labels on textured backgrounds.'
 );
 assertIPSView(
+    str_contains($module, "private const PROPERTY_IPSVIEW_PAGE_COLOR_VARIABLE = 'IPSViewPageColorVariable';")
+        && str_contains($module, "private const PROPERTY_IPSVIEW_SURFACE_COLOR_VARIABLE = 'IPSViewSurfaceColorVariable';")
+        && str_contains($module, "private const PROPERTY_IPSVIEW_TEXT_COLOR_VARIABLE = 'IPSViewTextColorVariable';")
+        && str_contains($module, 'private function IPSViewPalette(): array')
+        && str_contains($module, "preg_match('/^#?([0-9a-fA-F]{6})$/'")
+        && str_contains($module, "'palette'            => \$ipsViewPalette")
+        && str_contains($module, "? 'oha-theme-linked'"),
+    'IPSView must be able to consume the same RGB hexadecimal color variables as the surrounding View.'
+);
+assertIPSView(
+    str_contains($javascript, 'function ohaConfiguredIPSViewPalette()')
+        && str_contains($javascript, 'function ohaApplyLinkedIPSViewTheme(root, palette)')
+        && str_contains($javascript, "root.dataset.paletteSource = 'ipsview-variables';")
+        && str_contains($javascript, 'function ohaBackgroundForText(background, text, minimumRatio = 4.5)')
+        && str_contains($css, 'html.oha-ipsview.oha-theme-linked')
+        && str_contains($css, 'font-family: Roboto, "Segoe UI", Arial, sans-serif;')
+        && str_contains($css, 'box-shadow: none;'),
+    'A linked IPSView palette must use the View colors directly while preserving readable text and native-looking flat surfaces.'
+);
+assertIPSView(
     str_contains($css, 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;')
         && str_contains($css, 'html.oha-ipsview .oha-topbar-actions')
         && str_contains($css, 'grid-template-areas:')
@@ -121,11 +141,16 @@ assertIPSView(
         && str_contains($form, '"name": "IPSViewTransparent"')
         && str_contains($form, '"name": "IPSViewTheme"')
         && str_contains($form, '"caption": "Adaptive to environment"')
-        && str_contains($form, '"name": "IPSViewFontScale"'),
-    'The configuration form must expose the IPSView settings including adaptive environment colors.'
+        && str_contains($form, '"name": "IPSViewFontScale"')
+        && str_contains($form, '"name": "IPSViewPageColorVariable"')
+        && str_contains($form, '"name": "IPSViewSurfaceColorVariable"')
+        && str_contains($form, '"name": "IPSViewTextColorVariable"'),
+    'The configuration form must expose the IPSView settings including linked View color variables.'
 );
 assertIPSView(
-    str_contains($readme, 'IPSView') && str_contains($readme, 'Browser des Clients'),
+    str_contains($readme, 'IPSView')
+        && str_contains($readme, 'Browser des Clients')
+        && str_contains($readme, 'RGB-Hexadezimalwerte'),
     'The module documentation must explain IPSView setup.'
 );
 

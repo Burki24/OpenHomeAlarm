@@ -59,6 +59,46 @@
                 },
                 {
                     "type": "Label",
+                    "caption": "Optional: link the RGB hexadecimal color variables already used by IPSView. The dashboard then follows the same page, control and text colors instead of estimating them from the browser."
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectVariable",
+                            "name": "IPSViewPageColorVariable",
+                            "caption": "Page/background color variable",
+                            "width": "250px",
+                            "validVariableTypes": [
+                                3
+                            ]
+                        },
+                        {
+                            "type": "SelectVariable",
+                            "name": "IPSViewSurfaceColorVariable",
+                            "caption": "Control/surface color variable",
+                            "width": "250px",
+                            "validVariableTypes": [
+                                3
+                            ]
+                        },
+                        {
+                            "type": "SelectVariable",
+                            "name": "IPSViewTextColorVariable",
+                            "caption": "Text color variable (optional)",
+                            "width": "250px",
+                            "validVariableTypes": [
+                                3
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "The selected variables must be String variables containing six RGB hexadecimal digits, for example 4A1B07. The color-variable link is used only with Adaptive to environment."
+                },
+                {
+                    "type": "Label",
                     "caption": "In IPSView, use an HTML-Box with the client browser renderer so JavaScript and the controls are available."
                 }
             ]
