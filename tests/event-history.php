@@ -109,6 +109,11 @@ class IPSModuleStrict
         $this->properties[$name] = $value;
     }
 
+    public function TestSetAttributeInteger(string $name, int $value): void
+    {
+        $this->attributes[$name] = $value;
+    }
+
     /** @return array<string,mixed> */
     public function TestWrittenValues(): array
     {
@@ -418,6 +423,8 @@ assertEventHistory(($entryHistory[0]['Source'] ?? null) === 'Terrassentür', 'En
 
 for ($attempt = 0; $attempt < 110; ++$attempt) {
     assertEventHistory($instance->DisarmWithCode('0000') === false, 'Wrong code attempts used for history limit testing must remain rejected.');
+    $instance->TestSetAttributeInteger('DisarmFailedAttempts', 0);
+    $instance->TestSetAttributeInteger('DisarmLockoutUntil', 0);
 }
 $history = readEventHistory($instance);
 assertEventHistory(count($history) === 100, 'The persistent event history must be bounded to 100 entries.');

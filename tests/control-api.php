@@ -340,6 +340,11 @@ assertControlApi(
     'The initial control state must expose stable machine-readable mode and state names.'
 );
 assertControlApi(($state['Capabilities']['CodeRequired'] ?? null) === false, 'An empty code must not require a codepad.');
+assertControlApi(
+    ($state['CodeProtection']['Locked'] ?? null) === false
+        && ($state['CodeProtection']['RemainingAttempts'] ?? null) === 5,
+    'Disabled code protection must expose a safe, unlocked default state.'
+);
 assertControlApi(($state['Capabilities']['CanManageBypasses'] ?? null) === true, 'Bypasses must be manageable while disarmed.');
 assertControlApi(($state['Modes']['home']['Ready'] ?? null) === false, 'The triggered Home sensor must block Home.');
 assertControlApi(($state['Modes']['home']['CanArm'] ?? null) === false, 'A blocked Home mode must not be armable.');
@@ -379,6 +384,11 @@ assertControlApi($instance->DisarmWithCode('') === true, 'An empty configured co
 $instance->TestSetPropertyString('DisarmCode', '2468');
 $state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
 assertControlApi(($state['Capabilities']['CodeRequired'] ?? null) === true, 'A configured disarm code must be announced to the visualization.');
+assertControlApi(
+    ($state['CodeProtection']['Locked'] ?? null) === false
+        && ($state['CodeProtection']['MaxAttempts'] ?? null) === 5,
+    'Configured code protection must expose its lockout capability.'
+);
 assertControlApi(!str_contains($instance->GetControlState(), '2468'), 'The configured disarm code must never be exposed by the control API.');
 
 $faults = [

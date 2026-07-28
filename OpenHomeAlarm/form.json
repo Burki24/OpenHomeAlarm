@@ -51,8 +51,33 @@
                     "width": "250px"
                 },
                 {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "NumberSpinner",
+                            "name": "DisarmMaxAttempts",
+                            "caption": "Maximum failed attempts",
+                            "minimum": 1,
+                            "maximum": 20,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "DisarmLockoutSeconds",
+                            "caption": "Temporary lockout (seconds)",
+                            "minimum": 1,
+                            "maximum": 3600,
+                            "width": "250px"
+                        }
+                    ]
+                },
+                {
                     "type": "Label",
                     "caption": "Leave empty to allow disarming without a code."
+                },
+                {
+                    "type": "Label",
+                    "caption": "After too many failed attempts, code entry is blocked temporarily. Trusted automations can still use Disarm()."
                 }
             ]
         },

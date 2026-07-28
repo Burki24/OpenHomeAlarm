@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 
+require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
@@ -34,6 +36,23 @@ function assertDomainThrows(callable $operation, string $expectedMessage): void
 
     throw new RuntimeException(sprintf('Expected validation exception: %s', $expectedMessage));
 }
+
+$codeStatus = AlarmCodeProtection::status(true, 0, 0, 3, 1000);
+assertDomainSame(3, $codeStatus['RemainingAttempts'], 'A new code-protection state must expose every attempt.');
+$codeStatus = AlarmCodeProtection::registerFailure($codeStatus, 60, 1000);
+assertDomainSame(1, $codeStatus['FailedAttempts'], 'A rejected code must increment the failed-attempt counter.');
+$codeStatus = AlarmCodeProtection::registerFailure($codeStatus, 60, 1000);
+$codeStatus = AlarmCodeProtection::registerFailure($codeStatus, 60, 1000);
+assertDomainSame(true, $codeStatus['Locked'], 'The configured number of rejected codes must start a lockout.');
+assertDomainSame(1060, $codeStatus['LockoutUntil'], 'The lockout deadline must use the configured duration.');
+assertDomainSame(
+    60,
+    $codeStatus['LockoutRemaining'],
+    'The lockout state must expose its remaining duration.'
+);
+$codeStatus = AlarmCodeProtection::status(true, 3, 1060, 3, 1061);
+assertDomainSame(false, $codeStatus['Locked'], 'An expired code lockout must be released.');
+assertDomainSame(0, $codeStatus['FailedAttempts'], 'An expired code lockout must reset failed attempts.');
 
 $sensors = AlarmConfigurationNormalizer::sensors(
     json_encode(

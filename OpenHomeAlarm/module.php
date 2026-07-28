@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 
+require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
@@ -57,6 +59,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_ALARM_OUTPUT_RESET = 'alarm_output_reset';
     private const EVENT_DISARMED = 'disarmed';
     private const EVENT_DISARM_CODE_REJECTED = 'disarm_code_rejected';
+    private const EVENT_DISARM_CODE_LOCKED = 'disarm_code_locked';
     private const EVENT_SENSOR_BYPASSED = 'sensor_bypassed';
     private const EVENT_SENSOR_BYPASS_REMOVED = 'sensor_bypass_removed';
     private const EVENT_SENSOR_BYPASSES_CLEARED = 'sensor_bypasses_cleared';
@@ -65,6 +68,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_FAULT_CLEARED = 'fault_cleared';
 
     private const EVENT_HISTORY_LIMIT = 100;
+    private const DEFAULT_DISARM_MAX_ATTEMPTS = 5;
+    private const DEFAULT_DISARM_LOCKOUT_SECONDS = 60;
+    private const MAX_DISARM_ATTEMPTS = 20;
+    private const MAX_DISARM_LOCKOUT_SECONDS = 3600;
 
     private const VALID_MODES = [
         self::MODE_NONE,
@@ -115,6 +122,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_FAULT_CLEARED_ACTION_ENABLED = 'FaultClearedActionEnabled';
     private const PROPERTY_FAULT_CLEARED_ACTION = 'FaultClearedAction';
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
+    private const PROPERTY_DISARM_MAX_ATTEMPTS = 'DisarmMaxAttempts';
+    private const PROPERTY_DISARM_LOCKOUT_SECONDS = 'DisarmLockoutSeconds';
 
     private const OPTIONAL_ACTION_FIELDS = [
         self::PROPERTY_ALARM_ACTION              => self::PROPERTY_ALARM_ACTION_ENABLED,
@@ -155,6 +164,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_BYPASSED_SENSOR_IDS = 'BypassedSensorIDs';
     private const ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS = 'ActiveFaultVariableIDs';
     private const ATTRIBUTE_EVENT_HISTORY = 'EventHistory';
+    private const ATTRIBUTE_DISARM_FAILED_ATTEMPTS = 'DisarmFailedAttempts';
+    private const ATTRIBUTE_DISARM_LOCKOUT_UNTIL = 'DisarmLockoutUntil';
 
     private const TIMER_EXIT_DELAY = 'ExitDelay';
     private const TIMER_ENTRY_DELAY = 'EntryDelay';
@@ -204,6 +215,14 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
+        $this->RegisterPropertyInteger(
+            self::PROPERTY_DISARM_MAX_ATTEMPTS,
+            self::DEFAULT_DISARM_MAX_ATTEMPTS
+        );
+        $this->RegisterPropertyInteger(
+            self::PROPERTY_DISARM_LOCKOUT_SECONDS,
+            self::DEFAULT_DISARM_LOCKOUT_SECONDS
+        );
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
@@ -213,6 +232,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS, 0);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL, 0);
 
         $this->RegisterTimer(
             self::TIMER_EXIT_DELAY,
@@ -568,9 +589,12 @@ class OpenHomeAlarm extends IPSModuleStrict
                     throw new InvalidArgumentException('DisarmWithCode action requires a code string.');
                 }
                 if (!$this->DisarmWithCode($Value)) {
+                    $codeProtection = $this->ReadDisarmCodeProtectionStatus();
                     $this->PublishVisualizationState([
-                        'Type'    => 'disarm_code',
-                        'Success' => false
+                        'Type'             => 'disarm_code',
+                        'Success'          => false,
+                        'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
+                        'LockoutRemaining' => $codeProtection['LockoutRemaining']
                     ]);
                 }
                 break;
@@ -600,6 +624,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $isDisarmed = $state === self::STATE_DISARMED;
         $alarmMemory = $this->GetValue(self::IDENT_ALARM_MEMORY) === true;
         $alarmOutputActive = $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true;
+        $codeProtection = $this->ReadDisarmCodeProtectionStatus();
 
         $payload = [
             'ApiVersion' => self::CONTROL_API_VERSION,
@@ -639,6 +664,14 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'Blocking'    => $this->BuildControlFaultDetails($faultInputs, true),
                 'LastSource'  => (string) $this->GetValue(self::IDENT_LAST_FAULT_SOURCE),
                 'LastTime'    => (string) $this->GetValue(self::IDENT_LAST_FAULT_TIME)
+            ],
+            'CodeProtection' => [
+                'Locked'             => $codeProtection['Locked'],
+                'FailedAttempts'     => $codeProtection['FailedAttempts'],
+                'MaxAttempts'        => $codeProtection['MaxAttempts'],
+                'RemainingAttempts'  => $codeProtection['RemainingAttempts'],
+                'LockoutUntil'       => $codeProtection['LockoutUntil'],
+                'LockoutRemaining'   => $codeProtection['LockoutRemaining']
             ],
             'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors)
         ];
@@ -771,6 +804,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SetAlarmState(self::STATE_DISARMED);
         $this->SetAlarmMode(self::MODE_NONE);
         $this->ClearSensorBypassesInternal();
+        $this->ResetDisarmCodeProtection();
 
         if ($wasAlarm) {
             $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
@@ -804,9 +838,20 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
+        $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+        if ($codeProtection['Locked']) {
+            $this->SendDebug(__FUNCTION__, 'Disarm code entry is temporarily locked.', 0);
+
+            return false;
+        }
+
         if (!hash_equals($configuredCode, trim($code))) {
             $this->SendDebug(__FUNCTION__, 'Disarm code rejected.', 0);
             $this->AppendEvent(self::EVENT_DISARM_CODE_REJECTED);
+            $codeProtection = $this->RegisterRejectedDisarmCode($codeProtection);
+            if ($codeProtection['Locked']) {
+                $this->AppendEvent(self::EVENT_DISARM_CODE_LOCKED);
+            }
 
             return false;
         }
@@ -1389,6 +1434,113 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function SetFaultTriggerValue(string $triggerValue): void
     {
         $this->UpdateFormField('TriggerValue', 'value', $triggerValue);
+    }
+
+    /**
+     * @return array{
+     *     Enabled: bool,
+     *     Locked: bool,
+     *     FailedAttempts: int,
+     *     MaxAttempts: int,
+     *     RemainingAttempts: int,
+     *     LockoutUntil: int,
+     *     LockoutRemaining: int
+     * }
+     */
+    private function ReadDisarmCodeProtectionStatus(): array
+    {
+        $now = time();
+        $status = AlarmCodeProtection::status(
+            trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== '',
+            $this->ReadAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS),
+            $this->ReadAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL),
+            $this->ReadDisarmMaximumAttempts(),
+            $now
+        );
+        $this->PersistDisarmCodeProtectionStatus($status);
+
+        return $status;
+    }
+
+    /**
+     * @param array{
+     *     Enabled: bool,
+     *     Locked: bool,
+     *     FailedAttempts: int,
+     *     MaxAttempts: int,
+     *     RemainingAttempts: int,
+     *     LockoutUntil: int,
+     *     LockoutRemaining: int
+     * } $status
+     *
+     * @return array{
+     *     Enabled: bool,
+     *     Locked: bool,
+     *     FailedAttempts: int,
+     *     MaxAttempts: int,
+     *     RemainingAttempts: int,
+     *     LockoutUntil: int,
+     *     LockoutRemaining: int
+     * }
+     */
+    private function RegisterRejectedDisarmCode(array $status): array
+    {
+        $status = AlarmCodeProtection::registerFailure(
+            $status,
+            $this->ReadDisarmLockoutSeconds(),
+            time()
+        );
+        $this->PersistDisarmCodeProtectionStatus($status);
+
+        return $status;
+    }
+
+    /**
+     * @param array{
+     *     FailedAttempts: int,
+     *     LockoutUntil: int
+     * } $status
+     */
+    private function PersistDisarmCodeProtectionStatus(array $status): void
+    {
+        if ($this->ReadAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS) !== $status['FailedAttempts']) {
+            $this->WriteAttributeInteger(
+                self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS,
+                $status['FailedAttempts']
+            );
+        }
+        if ($this->ReadAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL) !== $status['LockoutUntil']) {
+            $this->WriteAttributeInteger(
+                self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL,
+                $status['LockoutUntil']
+            );
+        }
+    }
+
+    private function ResetDisarmCodeProtection(): void
+    {
+        $this->WriteAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS, 0);
+        $this->WriteAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL, 0);
+    }
+
+    private function ReadDisarmMaximumAttempts(): int
+    {
+        $maximumAttempts = $this->ReadPropertyInteger(self::PROPERTY_DISARM_MAX_ATTEMPTS);
+        if ($maximumAttempts < 1) {
+            return self::DEFAULT_DISARM_MAX_ATTEMPTS;
+        }
+
+        return min(self::MAX_DISARM_ATTEMPTS, $maximumAttempts);
+    }
+
+    private function ReadDisarmLockoutSeconds(): int
+    {
+        $lockoutSeconds = $this->ReadPropertyInteger(self::PROPERTY_DISARM_LOCKOUT_SECONDS);
+        if ($lockoutSeconds < 1) {
+            return self::DEFAULT_DISARM_LOCKOUT_SECONDS;
+        }
+
+        return min(self::MAX_DISARM_LOCKOUT_SECONDS, $lockoutSeconds);
     }
 
     /**

@@ -30,7 +30,12 @@ assertCodepad(
     'Visualization code submission must use the existing DisarmWithCode API.'
 );
 assertCodepad(
-    str_contains($module, "'Type'    => 'disarm_code'") && str_contains($module, "'Success' => false"),
+    str_contains($module, "'Type'")
+        && str_contains($module, "=> 'disarm_code'")
+        && str_contains($module, "'Success'")
+        && str_contains($module, '=> false')
+        && str_contains($module, "'Reason'")
+        && str_contains($module, "? 'locked' : 'rejected'"),
     'Rejected visualization codes must produce codepad feedback without exposing the code.'
 );
 assertCodepad(
@@ -95,7 +100,8 @@ assertCodepad(
     'The codepad must enforce the configured 4 to 8 digit input range in the UI.'
 );
 assertCodepad(
-    str_contains($javascript, "ohaTranslate('Code not accepted. Please try again.')"),
+    str_contains($javascript, "'Code not accepted. Please try again.'")
+        && str_contains($javascript, "'Code entry is temporarily locked.'"),
     'Rejected codes must be reported directly in the codepad.'
 );
 assertCodepad(
@@ -132,6 +138,16 @@ assertCodepad(
 assertCodepad(str_contains($javascript, 'function ohaRenderInlineCodepad(state)'), 'The inline codepad must be rendered from the current control state.');
 assertCodepad(str_contains($javascript, 'function ohaCodeInputAllowed()'), 'Both codepad surfaces must share the same backend-driven enablement rule.');
 assertCodepad(
+    str_contains($javascript, 'function ohaCodeProtectionLocked(state = ohaState)')
+        && str_contains($javascript, '!ohaCodeProtectionLocked(ohaState)'),
+    'Codepad input must be disabled while the backend reports a temporary lockout.'
+);
+assertCodepad(
+    str_contains($javascript, 'function ohaScheduleCodeLockRefresh(state)')
+        && str_contains($javascript, "ohaRequestAction('RefreshVisualization', true);"),
+    'The visualization must refresh automatically after a temporary code lockout.'
+);
+assertCodepad(
     str_contains($javascript, 'function ohaCanDisarm(state = ohaState)')
         && str_contains($javascript, "return stateName !== 'disarmed' || modeName !== 'none';")
         && !str_contains($javascript, 'Capabilities?.CanDisarm'),
@@ -160,6 +176,7 @@ foreach ([
     'Code entry',
     'digits entered',
     'Code not accepted. Please try again.',
+    'Code entry is temporarily locked.',
     'No response from the alarm system. Please try again.',
     'Inactive',
     'Code protection is not enabled.',

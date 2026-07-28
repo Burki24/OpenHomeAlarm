@@ -4,6 +4,7 @@ let ohaState = window.OHA_INITIAL_STATE ?? null;
 let ohaCodeBuffer = '';
 let ohaCodeBusy = false;
 let ohaCodeRequestTimer = null;
+let ohaCodeLockTimer = null;
 
 function ohaTranslate(text) {
     return typeof translate === 'function' ? translate(text) : text;
@@ -314,21 +315,34 @@ function ohaCanDisarm(state = ohaState) {
     return stateName !== 'disarmed' || modeName !== 'none';
 }
 
+function ohaCodeProtectionLocked(state = ohaState) {
+    return Boolean(state?.CodeProtection?.Locked);
+}
+
 function ohaCodeInputAllowed() {
-    return Boolean(ohaState?.Capabilities?.CodeRequired && ohaCanDisarm(ohaState));
+    return Boolean(
+        ohaState?.Capabilities?.CodeRequired
+        && !ohaCodeProtectionLocked(ohaState)
+        && ohaCanDisarm(ohaState)
+    );
 }
 
 function ohaRenderInlineCodepad(state) {
     const panel = document.getElementById('inlineCodepad');
-    const enabled = Boolean(state.Capabilities?.CodeRequired && ohaCanDisarm(state));
+    const locked = ohaCodeProtectionLocked(state);
+    const enabled = Boolean(state.Capabilities?.CodeRequired && !locked && ohaCanDisarm(state));
     const codeRequired = Boolean(state.Capabilities?.CodeRequired);
 
     panel.dataset.enabled = enabled ? 'true' : 'false';
     document.getElementById('inlineCodepadKicker').textContent = ohaTranslate('Security control');
     document.getElementById('inlineCodepadTitle').textContent = ohaTranslate('Code pad');
-    document.getElementById('inlineCodepadState').textContent = ohaTranslate(enabled ? 'Active' : 'Inactive');
+    document.getElementById('inlineCodepadState').textContent = ohaTranslate(
+        locked ? 'Blocked' : (enabled ? 'Active' : 'Inactive')
+    );
 
-    if (enabled) {
+    if (locked) {
+        document.getElementById('inlineCodepadHint').textContent = ohaTranslate('Code entry is temporarily locked.');
+    } else if (enabled) {
         document.getElementById('inlineCodepadHint').textContent = ohaTranslate('Enter the 4 to 8 digit disarm code.');
     } else if (codeRequired) {
         document.getElementById('inlineCodepadHint').textContent = ohaTranslate('Code entry becomes available when disarming is possible.');
@@ -346,6 +360,7 @@ function ohaRenderDisarm(state) {
     const label = document.getElementById('disarmButtonLabel');
     const codeHint = document.getElementById('codeHint');
     const codeRequired = Boolean(state.Capabilities?.CodeRequired);
+    const codeLocked = ohaCodeProtectionLocked(state);
     const canDisarm = ohaCanDisarm(state);
 
     bar.hidden = !canDisarm;
@@ -358,9 +373,11 @@ function ohaRenderDisarm(state) {
 
     document.getElementById('controlTitle').textContent = ohaTranslate('System control');
     codeHint.hidden = !codeRequired;
-    codeHint.textContent = codeRequired ? ohaTranslate('Code required for disarming') : '';
-    button.dataset.enabled = 'true';
-    button.setAttribute('aria-disabled', 'false');
+    codeHint.textContent = codeRequired
+        ? ohaTranslate(codeLocked ? 'Code entry is temporarily locked.' : 'Code required for disarming')
+        : '';
+    button.dataset.enabled = codeLocked ? 'false' : 'true';
+    button.setAttribute('aria-disabled', codeLocked ? 'true' : 'false');
     button.dataset.codeRequired = codeRequired ? 'true' : 'false';
     label.textContent = ohaTranslate('Deactivate');
 }
@@ -396,6 +413,7 @@ function ohaRender() {
     ohaRenderArming(ohaState);
     ohaRenderInlineCodepad(ohaState);
     ohaRenderDisarm(ohaState);
+    ohaScheduleCodeLockRefresh(ohaState);
 }
 
 function ohaRequestAction(ident, value) {
@@ -437,7 +455,7 @@ function ohaFocusInlineCodepad() {
 }
 
 function ohaHandleDisarmButton() {
-    if (!ohaCanDisarm(ohaState)) {
+    if (!ohaCanDisarm(ohaState) || ohaCodeProtectionLocked(ohaState)) {
         return;
     }
 
@@ -456,6 +474,26 @@ function ohaClearCodeRequestTimer() {
         window.clearTimeout(ohaCodeRequestTimer);
         ohaCodeRequestTimer = null;
     }
+}
+
+function ohaClearCodeLockTimer() {
+    if (ohaCodeLockTimer !== null) {
+        window.clearTimeout(ohaCodeLockTimer);
+        ohaCodeLockTimer = null;
+    }
+}
+
+function ohaScheduleCodeLockRefresh(state) {
+    ohaClearCodeLockTimer();
+    if (!ohaCodeProtectionLocked(state)) {
+        return;
+    }
+
+    const remaining = Math.max(0, Number(state.CodeProtection?.LockoutRemaining) || 0);
+    ohaCodeLockTimer = window.setTimeout(() => {
+        ohaCodeLockTimer = null;
+        ohaRequestAction('RefreshVisualization', true);
+    }, Math.max(250, (remaining + 1) * 1000));
 }
 
 function ohaSetCodeError(message) {
@@ -593,7 +631,11 @@ function ohaHandleInteraction(interaction) {
     ohaCodeBuffer = '';
 
     if (interaction.Success === false) {
-        ohaSetCodeError(ohaTranslate('Code not accepted. Please try again.'));
+        ohaSetCodeError(ohaTranslate(
+            interaction.Reason === 'locked'
+                ? 'Code entry is temporarily locked.'
+                : 'Code not accepted. Please try again.'
+        ));
     } else {
         ohaSetCodeError('');
     }
