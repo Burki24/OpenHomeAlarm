@@ -4,6 +4,8 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 > **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status und konfigurierbarem Ausgangsweg, konfigurierbare Alarmaktionen mit Alarmdauer und Rücksetzung des Alarmausgangs, eine 24/7-Systemüberwachung für Manipulation und technische Störungen, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll, eine stabile öffentliche Bedien-API sowie die professionelle HTML-SDK-Visualisierung sind implementiert. Die Kachel unterstützt Scharf-/Unscharfschalten, Code-Eingabe, Sensorüberbrückungen, Rücksetzung des Alarmausgangs, Quittierung des Alarmgedächtnisses und die Anzeige der letzten Sicherheitsereignisse.
 
+> **Sicherheitshinweis:** OpenHomeAlarm ist keine zertifizierte Einbruch-, Brand- oder Gefahrenmeldeanlage. Die Verfügbarkeit hängt von Symcon, Hostsystem, Netzwerk, Sensoren und konfigurierten Aktionen ab. Für normativ oder versicherungsrechtlich geforderte Schutzaufgaben ist geeignete zertifizierte Sicherheitstechnik erforderlich. Weitere Hinweise enthält die [Sicherheitsrichtlinie](../SECURITY.md).
+
 ### Inhaltsverzeichnis
 
 1. [Funktionsumfang](#1-funktionsumfang)
@@ -126,6 +128,8 @@ Die generische Prüfung kann erkennen, ob eine Symcon-Variable fehlt oder nicht 
 ### 8. Code-Schutz
 
 Für die spätere benutzerseitige Bedienung kann im Konfigurationsformular ein vier- bis achtstelliger Zahlencode hinterlegt werden. Das Feld wird als Passwortfeld dargestellt. Ein leerer Wert deaktiviert die Code-Prüfung.
+
+Der Code wird als lokale Symcon-Instanzeigenschaft gespeichert. Das Passwortfeld verhindert die offene Anzeige im Konfigurationsformular, ersetzt aber keinen Schutz der Symcon-Administration, Sicherungen und JSON-RPC-Zugänge. Der Code wird nicht in Statusvariablen, Bedienzustand, Debug-Ausgaben oder Ereignisprotokoll übernommen.
 
 `OHA_DisarmWithCode($InstanzID, $Code)` prüft den übergebenen Code und schaltet nur bei Übereinstimmung unscharf. Ein falscher Code verändert weder Modus noch Zustand. Die Prüfung erfolgt ohne Protokollierung des eingegebenen Codes. Standardmäßig wird die Code-Eingabe nach fünf Fehlversuchen für 60 Sekunden gesperrt. Anzahl und Sperrdauer sind im Konfigurationsformular einstellbar. Fehlversuchszähler und Ablaufzeitpunkt der Sperre werden persistent gespeichert, sodass ein `ApplyChanges()` oder Symcon-Neustart die Sperre nicht umgeht. Nach Ablauf oder einem erfolgreichen Unscharfschalten wird der Zähler zurückgesetzt.
 

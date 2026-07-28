@@ -13,7 +13,8 @@ $testVariables = [
     8002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     8003 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     8004 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    8005 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    8005 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    8006 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
@@ -22,7 +23,8 @@ $testValues = [
     8002 => false,
     8003 => false,
     8004 => false,
-    8005 => false
+    8005 => false,
+    8006 => false
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -429,6 +431,22 @@ $otherModeInstance->ApplyChanges();
 assertRestartRecovery(
     !array_key_exists('State', $otherModeInstance->TestWrittenValues()),
     'A sensor that is irrelevant for the active mode must not enter Alarm after restart.'
+);
+
+// An unreadable sensor is a system fault, but not a confirmed alarm signal.
+$testValues[8006] = false;
+$unreadableInstance = createArmedRestartInstance([
+    restartSensor(8006, 'Temporarily unreadable window')
+]);
+unset($testValues[8006]);
+$unreadableInstance->TestClearWrittenValues();
+$unreadableInstance->ApplyChanges();
+$unreadableWrites = $unreadableInstance->TestWrittenValues();
+assertRestartRecovery(
+    !array_key_exists('State', $unreadableWrites)
+    && ($unreadableWrites['SystemFault'] ?? null) === true
+    && ($unreadableWrites['ReadyAway'] ?? null) === false,
+    'An unreadable sensor after restart must block arming as a system fault without entering Alarm.'
 );
 
 // A temporary bypass must remain effective across ApplyChanges.

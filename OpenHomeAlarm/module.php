@@ -198,6 +198,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const IDENT_LAST_FAULT_SOURCE = 'LastFaultSource';
     private const IDENT_LAST_FAULT_TIME = 'LastFaultTime';
 
+    /**
+     * Registers the persistent configuration, runtime state, timers and status variables.
+     */
     public function Create(): void
     {
         parent::Create();
@@ -512,11 +515,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
-    public function Destroy(): void
-    {
-        parent::Destroy();
-    }
-
+    /**
+     * Applies the configuration once the Symcon kernel is ready.
+     */
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
@@ -530,6 +531,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->InitializeRuntime();
     }
 
+    /**
+     * Returns the configuration form with runtime-dependent list and action fields.
+     */
     public function GetConfigurationForm(): string
     {
         $form = $this->LoadConfigurationForm();
@@ -1070,6 +1074,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function ClearEventHistory(): bool
     {
         $this->ClearPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
+        $this->PublishVisualizationState();
 
         return true;
     }
@@ -1090,10 +1095,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        $this->StopAlarmDurationTimer();
-        $actionSucceeded = $this->RunConfiguredAction(self::PROPERTY_ALARM_RESET_ACTION);
         $this->SetAlarmOutputActive(false);
+        $this->StopAlarmDurationTimer();
         $this->AppendEvent(self::EVENT_ALARM_OUTPUT_RESET);
+        $actionSucceeded = $this->RunConfiguredAction(self::PROPERTY_ALARM_RESET_ACTION);
         $this->PublishVisualizationState();
 
         return $actionSucceeded;
@@ -1661,9 +1666,9 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             if (($element['type'] ?? null) === 'List') {
                 if (($element['name'] ?? null) === self::PROPERTY_SENSORS) {
-                    $element['values'] = $this->CreateSensorListFormValues();
+                    $element['values'] = $this->CreateTriggerListFormValues(self::PROPERTY_SENSORS);
                 } elseif (($element['name'] ?? null) === self::PROPERTY_FAULT_INPUTS) {
-                    $element['values'] = $this->CreateFaultListFormValues();
+                    $element['values'] = $this->CreateTriggerListFormValues(self::PROPERTY_FAULT_INPUTS);
                 }
             }
 
@@ -2352,7 +2357,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Supplies the non-persistent trigger editor fields with the stored trigger value.
+     * Supplies one persisted sensor/fault List with its non-persistent trigger editors.
      *
      * Symcon fills fields of an individual List edit form from same-named row values.
      * The helper columns are intentionally not persisted, so their values are restored
@@ -2360,57 +2365,10 @@ class OpenHomeAlarm extends IPSModuleStrict
      *
      * @return list<array{TriggerValueSelection:string,TriggerValueManual:string}>
      */
-    private function CreateSensorListFormValues(): array
+    private function CreateTriggerListFormValues(string $propertyName): array
     {
         try {
-            $rows = json_decode($this->ReadPropertyString(self::PROPERTY_SENSORS), true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return [];
-        }
-
-        if (!is_array($rows) || !array_is_list($rows)) {
-            return [];
-        }
-
-        $values = [];
-        foreach ($rows as $row) {
-            if (!is_array($row)) {
-                $values[] = [
-                    'TriggerValueSelection' => '',
-                    'TriggerValueManual'    => ''
-                ];
-                continue;
-            }
-
-            $variableID = is_int($row['VariableID'] ?? null) ? $row['VariableID'] : 0;
-            $triggerValue = is_string($row['TriggerValue'] ?? null) ? $row['TriggerValue'] : '1';
-            $selectionValue = $triggerValue;
-
-            if ($this->IsExistingVariable($variableID)) {
-                $triggerOptions = $this->CreateTriggerValueOptions($variableID);
-                if ($triggerOptions !== []) {
-                    $selectionValue = $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions);
-                }
-            }
-
-            $values[] = [
-                'TriggerValueSelection' => $selectionValue,
-                'TriggerValueManual'    => $triggerValue
-            ];
-        }
-
-        return $values;
-    }
-
-    /**
-     * Supplies the non-persistent fault-value editor fields with the stored fault value.
-     *
-     * @return list<array{TriggerValueSelection:string,TriggerValueManual:string}>
-     */
-    private function CreateFaultListFormValues(): array
-    {
-        try {
-            $rows = json_decode($this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS), true, 512, JSON_THROW_ON_ERROR);
+            $rows = json_decode($this->ReadPropertyString($propertyName), true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             return [];
         }
@@ -3047,28 +3005,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SetBlockingNightSensors(implode(', ', $status['blockingNight']));
 
         return $readiness;
-    }
-
-    /**
-     * @param list<array{
-     *     Enabled: bool,
-     *     Name: string,
-     *     VariableID: int,
-     *     SensorType: int,
-     *     TriggerValue: string,
-     *     ArmHome: bool,
-     *     ArmAway: bool,
-     *     ArmNight: bool,
-     *     AlwaysActive: bool,
-     *     ExitDelay: bool,
-     *     EntryDelay: bool
-     * }> $sensors
-     *
-     * @return array{global:bool,home:bool,away:bool,night:bool}
-     */
-    private function EvaluateReadiness(array $sensors): array
-    {
-        return $this->EvaluateReadinessStatus($sensors)['readiness'];
     }
 
     /**
@@ -3796,11 +3732,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
 
             $triggered = $this->GetSensorTriggerState($sensor);
-            if ($triggered === false) {
+            if ($triggered !== true) {
                 continue;
             }
 
-            if ($triggered === null || !$sensor['EntryDelay']) {
+            if (!$sensor['EntryDelay']) {
                 $this->EnterAlarmState($sensor, $sensor['VariableID']);
 
                 return;

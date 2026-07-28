@@ -20,6 +20,9 @@ $testValues = [
 /** @var list<array{actionID:string,parameters:array<string,mixed>}> */
 $testActions = [];
 
+/** @var null|Closure(string,array<string,mixed>):void */
+$testActionCallback = null;
+
 function IPS_VariableExists(int $variableID): bool
 {
     global $testVariables;
@@ -65,12 +68,15 @@ function GetValue(int $variableID): mixed
 /** @param array<string,mixed> $parameters */
 function IPS_RunAction(string $actionID, array $parameters): bool
 {
-    global $testActions;
+    global $testActions, $testActionCallback;
 
     $testActions[] = [
         'actionID'   => $actionID,
         'parameters' => $parameters
     ];
+    if ($testActionCallback !== null) {
+        $testActionCallback($actionID, $parameters);
+    }
 
     return true;
 }
@@ -492,6 +498,34 @@ assertAlarmDuration(
     'Manual reset must silence only the alarm output and keep Alarm latched.'
 );
 assertAlarmDuration(count($testActions) === 2, 'Manual reset must run one alarm action and one reset action.');
+
+// A reset action may call back into the module without repeating itself recursively.
+$testActions = [];
+$testValues[7001] = false;
+$reentrant = new OpenHomeAlarm();
+$reentrant->Create();
+$reentrant->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$reentrant->TestSetPropertyInteger('AlarmDurationSeconds', 0);
+$reentrant->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
+$reentrant->TestSetPropertyString('AlarmResetAction', $resetAction);
+$reentrant->TestSetPropertyString('Sensors', json_encode([alarmDurationSensor(7001)], JSON_THROW_ON_ERROR));
+assertAlarmDuration($reentrant->ArmAway() === true, 'Reentrant reset setup must arm successfully.');
+$testValues[7001] = true;
+$reentrant->MessageSink(3, 7001, VM_UPDATE, [true, true, false]);
+$testActions = [];
+$testActionCallback = static function () use ($reentrant): void
+{
+    assertAlarmDuration(
+        $reentrant->ResetAlarmOutput() === false,
+        'A reentrant reset must see the alarm output as already inactive.'
+    );
+};
+assertAlarmDuration($reentrant->ResetAlarmOutput() === true, 'The outer alarm-output reset must succeed.');
+$testActionCallback = null;
+assertAlarmDuration(
+    count($testActions) === 1,
+    'A reentrant alarm-reset action must execute at most once per alarm cycle.'
+);
 
 // Persisted deadlines restore the remaining timeout after ApplyChanges/restart.
 $testActions = [];

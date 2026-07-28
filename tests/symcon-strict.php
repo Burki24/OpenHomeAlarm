@@ -47,12 +47,19 @@ assertFoundation(
     'OpenHomeAlarm must extend IPSModuleStrict.'
 );
 
-foreach (['Create', 'Destroy', 'ApplyChanges'] as $method) {
+foreach (['Create', 'ApplyChanges'] as $method) {
     assertFoundation(
         preg_match('/public function ' . $method . '\(\): void/', $moduleSource) === 1,
         $method . '() must declare the void return type.'
     );
 }
+assertFoundation(
+    !preg_match(
+        '/public function Destroy\(\): void\s*\{\s*parent::Destroy\(\);\s*\}/',
+        $moduleSource
+    ),
+    'OpenHomeAlarm must not override Destroy() without adding cleanup behavior.'
+);
 
 assertFoundation(
     str_contains($moduleSource, 'RegisterMessage(0, IPS_KERNELSTARTED)')

@@ -68,6 +68,10 @@ assertVisualization(str_contains($html, '{{SYMC_THEME}}'), 'HTML must contain th
 assertVisualization(str_contains($html, '{{OHA_SCRIPT}}'), 'HTML must contain the JavaScript asset placeholder.');
 assertVisualization(str_contains($html, '{{OHA_INITIAL_STATE}}'), 'HTML must contain the initial-state placeholder.');
 assertVisualization(str_contains($javascript, 'function handleMessage(data)'), 'HTML-SDK handleMessage must be implemented.');
+assertVisualization(
+    !str_contains($javascript, '.innerHTML ='),
+    'Visualization state must be rendered without assigning HTML strings.'
+);
 assertVisualization(str_contains($javascript, "ohaRequestAction('Arm'"), 'Visualization must arm through RequestAction.');
 assertVisualization(str_contains($javascript, "ohaRequestAction('Disarm'"), 'Visualization must disarm through RequestAction.');
 foreach ([

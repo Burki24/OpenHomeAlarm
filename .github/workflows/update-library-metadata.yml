@@ -29,12 +29,7 @@ jobs:
           python-version: "3.13"
 
       - name: Validate Symcon module structure
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -f tests/validate_structure.py ]]; then
-            python3 tests/validate_structure.py
-          fi
+        run: python3 tests/validate_structure.py
 
       - name: Test metadata updater
         run: python3 tests/test_update_library_metadata.py

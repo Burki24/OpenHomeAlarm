@@ -26,6 +26,9 @@ jobs:
       - name: Verify vendored helper integrity
         run: python3 tests/helper_integrity.py
 
+      - name: Validate Symcon module structure
+        run: python3 tests/validate_structure.py
+
       - name: Lint PHP files
         shell: bash
         run: |

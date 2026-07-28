@@ -1,5 +1,7 @@
 'use strict';
 
+document.documentElement.lang = navigator.language || 'en';
+
 let ohaState = window.OHA_INITIAL_STATE ?? null;
 let ohaCodeBuffer = '';
 let ohaCodeBusy = false;
@@ -41,16 +43,6 @@ function ohaReasonCaption(reason) {
     };
 
     return ohaTranslate(captions[reason] ?? reason);
-}
-
-function ohaModeButtonCaption(mode) {
-    const captions = {
-        home: 'Arm Home',
-        away: 'Arm Away',
-        night: 'Arm Night'
-    };
-
-    return ohaTranslate(captions[mode] ?? 'Arm');
 }
 
 function ohaEventCaption(eventName) {
@@ -166,7 +158,10 @@ function ohaRenderHero(state) {
     document.getElementById('stateLabel').textContent = ohaStateCaption(stateName);
     document.getElementById('heroMessage').textContent = ohaHeroMessage(state);
     document.getElementById('modeLabel').textContent = ohaModeCaption(state.Mode.Name);
-    document.getElementById('stateIcon').innerHTML = `<i class="fa-light ${ohaStateIcon(stateName)}" aria-hidden="true"></i>`;
+    const stateIcon = document.querySelector('#stateIcon i');
+    if (stateIcon) {
+        stateIcon.className = `fa-light ${ohaStateIcon(stateName)}`;
+    }
 
     const countdown = document.getElementById('heroCountdown');
     countdown.hidden = !countdownActive;
@@ -610,6 +605,7 @@ function ohaRenderDisarm(state) {
 
 function ohaRenderStaticText() {
     document.getElementById('refreshButton').setAttribute('aria-label', ohaTranslate('Refresh'));
+    document.getElementById('statusGrid').setAttribute('aria-label', ohaTranslate('System overview'));
     document.getElementById('codepadTitle').textContent = ohaTranslate('Disarm system');
     document.getElementById('codepadHint').textContent = ohaTranslate('Enter the 4 to 8 digit disarm code.');
     document.getElementById('codepadClose').setAttribute('aria-label', ohaTranslate('Cancel code entry'));

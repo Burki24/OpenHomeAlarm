@@ -212,7 +212,7 @@ function readinessSensor(
 
 $instance = new OpenHomeAlarm();
 $instance->Create();
-$evaluateReadiness = new ReflectionMethod(OpenHomeAlarm::class, 'EvaluateReadiness');
+$evaluateReadinessStatus = new ReflectionMethod(OpenHomeAlarm::class, 'EvaluateReadinessStatus');
 
 $sensors = [
     readinessSensor(6001, armHome: true),
@@ -220,7 +220,7 @@ $sensors = [
     readinessSensor(6003, alwaysActive: true)
 ];
 
-$readiness = $evaluateReadiness->invoke($instance, $sensors);
+$readiness = $evaluateReadinessStatus->invoke($instance, $sensors)['readiness'];
 assertReadiness(
     $readiness === ['global' => true, 'home' => true, 'away' => true, 'night' => true],
     'Inactive sensors must leave every arming mode ready.'
@@ -228,7 +228,7 @@ assertReadiness(
 
 global $testValues;
 $testValues[6001] = true;
-$readiness = $evaluateReadiness->invoke($instance, $sensors);
+$readiness = $evaluateReadinessStatus->invoke($instance, $sensors)['readiness'];
 assertReadiness(
     $readiness === ['global' => false, 'home' => false, 'away' => true, 'night' => true],
     'A Home-only trigger must block Home without blocking Away or Night.'
@@ -236,7 +236,7 @@ assertReadiness(
 
 $testValues[6001] = false;
 $testValues[6002] = true;
-$readiness = $evaluateReadiness->invoke($instance, $sensors);
+$readiness = $evaluateReadinessStatus->invoke($instance, $sensors)['readiness'];
 assertReadiness(
     $readiness === ['global' => false, 'home' => true, 'away' => false, 'night' => false],
     'A sensor assigned to Away and Night must block exactly those two modes.'
@@ -244,23 +244,26 @@ assertReadiness(
 
 $testValues[6002] = false;
 $testValues[6003] = true;
-$readiness = $evaluateReadiness->invoke($instance, $sensors);
+$readiness = $evaluateReadinessStatus->invoke($instance, $sensors)['readiness'];
 assertReadiness(
     $readiness === ['global' => false, 'home' => false, 'away' => false, 'night' => false],
     'A triggered 24/7 sensor must block every arming mode.'
 );
 
 $testValues[6003] = false;
-$readiness = $evaluateReadiness->invoke($instance, [readinessSensor(9999, armAway: true)]);
+$readiness = $evaluateReadinessStatus->invoke(
+    $instance,
+    [readinessSensor(9999, armAway: true)]
+)['readiness'];
 assertReadiness(
     $readiness === ['global' => false, 'home' => true, 'away' => false, 'night' => true],
     'A missing sensor must fail safe only for the modes to which it is assigned.'
 );
 
-$readiness = $evaluateReadiness->invoke($instance, [
+$readiness = $evaluateReadinessStatus->invoke($instance, [
     readinessSensor(6001, armHome: true, enabled: false),
     readinessSensor(0, armAway: true)
-]);
+])['readiness'];
 assertReadiness(
     $readiness === ['global' => true, 'home' => true, 'away' => true, 'night' => true],
     'Disabled and incomplete sensor rows must not block readiness.'
