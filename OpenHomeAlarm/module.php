@@ -15,6 +15,7 @@ require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
 require_once __DIR__ . '/../libs/helper/PersistentJsonCacheHelper.php';
 require_once __DIR__ . '/../libs/helper/VariablePresentationHelper.php';
 require_once __DIR__ . '/../libs/helper/VisualizationAssetHelper.php';
+require_once __DIR__ . '/../libs/helper/VisualizationThemeHelper.php';
 
 class OpenHomeAlarm extends IPSModuleStrict
 {
@@ -22,6 +23,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     use \Burki24\SymconModuleHelper\PersistentJsonCacheHelper;
     use \Burki24\SymconModuleHelper\VariablePresentationHelper;
     use \Burki24\SymconModuleHelper\VisualizationAssetHelper;
+    use \Burki24\SymconModuleHelper\VisualizationThemeHelper;
 
     private const CONTROL_API_VERSION = 1;
 
@@ -565,8 +567,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
 
         return str_replace(
-            ['{{OHA_STYLE}}', '{{OHA_SCRIPT}}', '{{OHA_INITIAL_STATE}}'],
+            ['{{SYMC_THEME}}', '{{OHA_STYLE}}', '{{OHA_SCRIPT}}', '{{OHA_INITIAL_STATE}}'],
             [
+                $this->VisualizationThemeCSS(),
                 $this->VisualizationAsset('style.css'),
                 $this->VisualizationAsset('app.js'),
                 $initialState
@@ -612,6 +615,26 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             case 'RefreshVisualization':
                 $this->PublishVisualizationState();
+                break;
+
+            case 'BypassSensor':
+                $this->BypassSensor($this->VisualizationVariableID($Value));
+                break;
+
+            case 'RemoveSensorBypass':
+                $this->RemoveSensorBypass($this->VisualizationVariableID($Value));
+                break;
+
+            case 'ClearSensorBypasses':
+                $this->ClearSensorBypasses();
+                break;
+
+            case 'ClearAlarmMemory':
+                $this->ClearAlarmMemory();
+                break;
+
+            case 'ResetAlarmOutput':
+                $this->ResetAlarmOutput();
                 break;
 
             default:
@@ -687,7 +710,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'LockoutUntil'       => $codeProtection['LockoutUntil'],
                 'LockoutRemaining'   => $codeProtection['LockoutRemaining']
             ],
-            'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors)
+            'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors),
+            'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, 6)
         ];
 
         return json_encode(
@@ -1745,6 +1769,27 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::STATE_ALARM       => 'alarm',
             default                 => 'unknown'
         };
+    }
+
+    /**
+     * Normalizes a variable ID received from the HTML-SDK action channel.
+     *
+     * @param mixed $value Value delivered by requestAction().
+     *
+     * @return int Positive Symcon variable ID.
+     */
+    private function VisualizationVariableID(mixed $value): int
+    {
+        $variableID = filter_var(
+            $value,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
+        if ($variableID === false) {
+            throw new InvalidArgumentException('Visualization action requires a positive variable ID.');
+        }
+
+        return $variableID;
     }
 
     /**

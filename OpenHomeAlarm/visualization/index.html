@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="/icons.js"></script>
-    <style>{{OHA_STYLE}}</style>
+    <style>{{SYMC_THEME}}
+{{OHA_STYLE}}</style>
 </head>
 <body>
     <main class="oha-shell" id="ohaRoot">
@@ -85,10 +86,16 @@
                 <strong id="controlTitle"></strong>
                 <span id="codeHint" hidden></span>
             </div>
-            <button class="oha-disarm-button" id="disarmButton" type="button">
-                <i class="fa-light fa-lock-open" aria-hidden="true"></i>
-                <span id="disarmButtonLabel"></span>
-            </button>
+            <div class="oha-control-actions">
+                <button class="oha-secondary-button" id="resetAlarmOutputButton" data-operation="ResetAlarmOutput" data-enabled="false" type="button" hidden>
+                    <i class="fa-light fa-volume-xmark" aria-hidden="true"></i>
+                    <span id="resetAlarmOutputLabel"></span>
+                </button>
+                <button class="oha-disarm-button" id="disarmButton" type="button">
+                    <i class="fa-light fa-lock-open" aria-hidden="true"></i>
+                    <span id="disarmButtonLabel"></span>
+                </button>
+            </div>
         </section>
 
         <section class="oha-status-grid" id="statusGrid" aria-label="System overview">
@@ -119,6 +126,9 @@
                     <strong id="alarmMemoryTitle"></strong>
                     <span id="alarmMemoryDetail"></span>
                 </div>
+                <button class="oha-card-action" id="clearAlarmMemoryButton" data-operation="ClearAlarmMemory" data-enabled="false" type="button">
+                    <span id="clearAlarmMemoryLabel"></span>
+                </button>
             </article>
 
             <article class="oha-context-card oha-context-fault" id="faultPanel" hidden>
@@ -139,6 +149,32 @@
                     <strong id="bypassTitle"></strong>
                     <span id="bypassDetail"></span>
                 </div>
+                <button class="oha-card-action" id="clearBypassesButton" data-operation="ClearSensorBypasses" data-enabled="false" type="button">
+                    <span id="clearBypassesLabel"></span>
+                </button>
+            </article>
+        </section>
+
+        <section class="oha-operations-grid" id="operationsGrid">
+            <article class="oha-operation-panel" id="sensorManagementPanel" hidden>
+                <header class="oha-operation-head">
+                    <div>
+                        <div class="oha-section-kicker" id="sensorManagementKicker"></div>
+                        <h2 id="sensorManagementTitle"></h2>
+                    </div>
+                    <span class="oha-operation-count" id="sensorManagementCount"></span>
+                </header>
+                <div class="oha-operation-list" id="sensorManagementList"></div>
+            </article>
+
+            <article class="oha-operation-panel" id="eventHistoryPanel" hidden>
+                <header class="oha-operation-head">
+                    <div>
+                        <div class="oha-section-kicker" id="eventHistoryKicker"></div>
+                        <h2 id="eventHistoryTitle"></h2>
+                    </div>
+                </header>
+                <div class="oha-history-list" id="eventHistoryList"></div>
             </article>
         </section>
 

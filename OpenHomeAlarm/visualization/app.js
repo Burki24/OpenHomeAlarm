@@ -53,6 +53,43 @@ function ohaModeButtonCaption(mode) {
     return ohaTranslate(captions[mode] ?? 'Arm');
 }
 
+function ohaEventCaption(eventName) {
+    const captions = {
+        arm_rejected: 'Arming rejected',
+        arm_cancelled: 'Arming cancelled',
+        exit_delay_started: 'Exit delay started',
+        armed: 'System armed',
+        entry_delay_started: 'Entry delay started',
+        alarm: 'Alarm triggered',
+        alarm_output_reset: 'Alarm output reset',
+        disarmed: 'System disarmed',
+        disarm_code_rejected: 'Disarm code rejected',
+        disarm_code_locked: 'Code entry locked',
+        sensor_bypassed: 'Sensor bypassed',
+        sensor_bypass_removed: 'Sensor bypass restored',
+        sensor_bypasses_cleared: 'All bypasses cleared',
+        alarm_memory_cleared: 'Alarm memory acknowledged',
+        fault_activated: 'System fault detected',
+        fault_cleared: 'System fault cleared'
+    };
+
+    return ohaTranslate(captions[eventName] ?? eventName);
+}
+
+function ohaFormatEventTime(timestamp) {
+    const numericTimestamp = Number(timestamp);
+    if (!Number.isFinite(numericTimestamp) || numericTimestamp <= 0) {
+        return '';
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(new Date(numericTimestamp * 1000));
+}
+
 function ohaStateIcon(name) {
     const icons = {
         disarmed: 'fa-shield',
@@ -278,6 +315,12 @@ function ohaRenderAlarmMemory(state) {
         parts.push(state.Alarm.LastTime);
     }
     document.getElementById('alarmMemoryDetail').textContent = parts.join(' · ') || ohaTranslate('Alarm stored');
+
+    const clearButton = document.getElementById('clearAlarmMemoryButton');
+    const canClear = Boolean(state.Capabilities?.CanClearAlarmMemory);
+    clearButton.hidden = !canClear;
+    clearButton.dataset.enabled = canClear ? 'true' : 'false';
+    document.getElementById('clearAlarmMemoryLabel').textContent = ohaTranslate('Acknowledge');
 }
 
 function ohaRenderFaults(state) {
@@ -306,6 +349,172 @@ function ohaRenderBypasses(state) {
 
     document.getElementById('bypassTitle').textContent = ohaTranslate('Bypassed sensors');
     document.getElementById('bypassDetail').textContent = bypassed.map((sensor) => sensor.Name).join(', ');
+
+    const clearButton = document.getElementById('clearBypassesButton');
+    const canClear = Boolean(state.Capabilities?.CanManageBypasses);
+    clearButton.hidden = !canClear;
+    clearButton.dataset.enabled = canClear ? 'true' : 'false';
+    document.getElementById('clearBypassesLabel').textContent = ohaTranslate('Restore all');
+}
+
+function ohaCollectSensorOperations(state) {
+    const operations = new Map();
+    for (const modeName of ['home', 'away', 'night']) {
+        const blockers = Array.isArray(state.Modes?.[modeName]?.Blockers)
+            ? state.Modes[modeName].Blockers
+            : [];
+
+        for (const blocker of blockers) {
+            const key = `${blocker.Kind ?? 'unknown'}:${Number(blocker.VariableID) || 0}`;
+            const existing = operations.get(key);
+            if (existing) {
+                if (!existing.Modes.includes(modeName)) {
+                    existing.Modes.push(modeName);
+                }
+                existing.Bypassable = existing.Bypassable || Boolean(blocker.Bypassable);
+                continue;
+            }
+
+            operations.set(key, {
+                Kind: blocker.Kind ?? 'sensor',
+                VariableID: Number(blocker.VariableID) || 0,
+                Name: blocker.Name ?? ohaTranslate('Unknown sensor'),
+                Reason: blocker.Reason ?? 'active',
+                Bypassable: Boolean(blocker.Bypassable),
+                Modes: [modeName],
+                Bypassed: false
+            });
+        }
+    }
+
+    const bypassed = Array.isArray(state.BypassedSensors) ? state.BypassedSensors : [];
+    for (const sensor of bypassed) {
+        operations.set(`bypassed:${Number(sensor.VariableID) || 0}`, {
+            Kind: 'sensor',
+            VariableID: Number(sensor.VariableID) || 0,
+            Name: sensor.Name ?? ohaTranslate('Unknown sensor'),
+            Reason: 'bypassed',
+            Bypassable: false,
+            Modes: [],
+            Bypassed: true
+        });
+    }
+
+    return Array.from(operations.values());
+}
+
+function ohaCreateOperationButton(action, variableID, caption, tone = 'neutral') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'oha-row-action';
+    button.dataset.operation = action;
+    button.dataset.variableId = String(variableID);
+    button.dataset.tone = tone;
+    button.dataset.enabled = 'true';
+    button.textContent = ohaTranslate(caption);
+
+    return button;
+}
+
+function ohaRenderSensorManagement(state) {
+    const panel = document.getElementById('sensorManagementPanel');
+    const list = document.getElementById('sensorManagementList');
+    const operations = ohaCollectSensorOperations(state);
+
+    panel.hidden = operations.length === 0;
+    list.replaceChildren();
+    if (panel.hidden) {
+        return;
+    }
+
+    document.getElementById('sensorManagementKicker').textContent = ohaTranslate('Security zones');
+    document.getElementById('sensorManagementTitle').textContent = ohaTranslate('Sensor management');
+    document.getElementById('sensorManagementCount').textContent = String(operations.length);
+
+    for (const operation of operations) {
+        const row = document.createElement('div');
+        row.className = 'oha-operation-row';
+        row.dataset.tone = operation.Bypassed ? 'bypass' : (operation.Kind === 'fault' ? 'warning' : 'danger');
+
+        const icon = document.createElement('span');
+        icon.className = 'oha-operation-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        const iconElement = document.createElement('i');
+        iconElement.className = `fa-light ${operation.Bypassed
+            ? 'fa-eye-slash'
+            : (operation.Kind === 'fault' ? 'fa-triangle-exclamation' : 'fa-door-open')}`;
+        icon.appendChild(iconElement);
+
+        const copy = document.createElement('div');
+        copy.className = 'oha-operation-copy';
+        const title = document.createElement('strong');
+        title.textContent = operation.Name;
+        const detail = document.createElement('span');
+        if (operation.Bypassed) {
+            detail.textContent = ohaTranslate('Temporarily bypassed');
+        } else {
+            const modeLabels = operation.Modes.map((mode) => ohaModeCaption(mode)).join(', ');
+            detail.textContent = `${ohaReasonCaption(operation.Reason)}${modeLabels ? ` · ${modeLabels}` : ''}`;
+        }
+        copy.append(title, detail);
+
+        row.append(icon, copy);
+        if (operation.Bypassed && state.Capabilities?.CanManageBypasses) {
+            row.append(ohaCreateOperationButton(
+                'RemoveSensorBypass',
+                operation.VariableID,
+                'Restore',
+                'accent'
+            ));
+        } else if (
+            operation.Kind === 'sensor'
+            && operation.Bypassable
+            && state.Capabilities?.CanManageBypasses
+        ) {
+            row.append(ohaCreateOperationButton(
+                'BypassSensor',
+                operation.VariableID,
+                'Bypass once',
+                'warning'
+            ));
+        }
+
+        list.appendChild(row);
+    }
+}
+
+function ohaRenderEventHistory(state) {
+    const panel = document.getElementById('eventHistoryPanel');
+    const list = document.getElementById('eventHistoryList');
+    const events = Array.isArray(state.RecentEvents) ? state.RecentEvents : [];
+
+    panel.hidden = events.length === 0;
+    list.replaceChildren();
+    if (panel.hidden) {
+        return;
+    }
+
+    document.getElementById('eventHistoryKicker').textContent = ohaTranslate('System log');
+    document.getElementById('eventHistoryTitle').textContent = ohaTranslate('Recent activity');
+
+    for (const event of events) {
+        const row = document.createElement('div');
+        row.className = 'oha-history-row';
+
+        const marker = document.createElement('span');
+        marker.className = 'oha-history-marker';
+        marker.setAttribute('aria-hidden', 'true');
+
+        const copy = document.createElement('div');
+        copy.className = 'oha-history-copy';
+        const title = document.createElement('strong');
+        title.textContent = ohaEventCaption(event.Event);
+        const detail = document.createElement('span');
+        detail.textContent = [event.Source, ohaFormatEventTime(event.Time)].filter(Boolean).join(' · ');
+        copy.append(title, detail);
+        row.append(marker, copy);
+        list.appendChild(row);
+    }
 }
 
 function ohaCanDisarm(state = ohaState) {
@@ -333,6 +542,8 @@ function ohaRenderInlineCodepad(state) {
     const enabled = Boolean(state.Capabilities?.CodeRequired && !locked && ohaCanDisarm(state));
     const codeRequired = Boolean(state.Capabilities?.CodeRequired);
 
+    panel.hidden = !codeRequired || !ohaCanDisarm(state);
+    document.getElementById('ohaRoot').dataset.codepadVisible = panel.hidden ? 'false' : 'true';
     panel.dataset.enabled = enabled ? 'true' : 'false';
     document.getElementById('inlineCodepadKicker').textContent = ohaTranslate('Security control');
     document.getElementById('inlineCodepadTitle').textContent = ohaTranslate('Code pad');
@@ -362,6 +573,8 @@ function ohaRenderDisarm(state) {
     const codeRequired = Boolean(state.Capabilities?.CodeRequired);
     const codeLocked = ohaCodeProtectionLocked(state);
     const canDisarm = ohaCanDisarm(state);
+    const resetAlarmOutputButton = document.getElementById('resetAlarmOutputButton');
+    const canResetAlarmOutput = Boolean(state.Capabilities?.CanResetAlarmOutput);
 
     bar.hidden = !canDisarm;
     bar.dataset.codeRequired = codeRequired ? 'true' : 'false';
@@ -372,6 +585,9 @@ function ohaRenderDisarm(state) {
     }
 
     document.getElementById('controlTitle').textContent = ohaTranslate('System control');
+    resetAlarmOutputButton.hidden = !canResetAlarmOutput;
+    resetAlarmOutputButton.dataset.enabled = canResetAlarmOutput ? 'true' : 'false';
+    document.getElementById('resetAlarmOutputLabel').textContent = ohaTranslate('Silence alarm');
     codeHint.hidden = !codeRequired;
     codeHint.textContent = codeRequired
         ? ohaTranslate(codeLocked ? 'Code entry is temporarily locked.' : 'Code required for disarming')
@@ -410,6 +626,8 @@ function ohaRender() {
     ohaRenderAlarmMemory(ohaState);
     ohaRenderFaults(ohaState);
     ohaRenderBypasses(ohaState);
+    ohaRenderSensorManagement(ohaState);
+    ohaRenderEventHistory(ohaState);
     ohaRenderArming(ohaState);
     ohaRenderInlineCodepad(ohaState);
     ohaRenderDisarm(ohaState);
@@ -650,7 +868,7 @@ function ohaFindInteractiveControl(event) {
 
     return target.closest(
         '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm], '
-        + '[data-action="arm"], #disarmButton, #refreshButton, #codepadClose'
+        + '[data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
     );
 }
 
@@ -698,6 +916,16 @@ function ohaHandleInteractiveClick(event) {
 
     if (control.matches('[data-action="arm"]')) {
         ohaHandleModeButton(control);
+        return;
+    }
+
+    if (control.matches('[data-operation]')) {
+        if (control.dataset.enabled !== 'true') {
+            return;
+        }
+        const action = control.dataset.operation ?? '';
+        const variableID = Number(control.dataset.variableId) || 0;
+        ohaRequestAction(action, variableID > 0 ? variableID : true);
         return;
     }
 

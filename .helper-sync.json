@@ -15,6 +15,9 @@
         },
         "VisualizationAssetHelper": {
             "target": "libs/helper/VisualizationAssetHelper.php"
+        },
+        "VisualizationThemeHelper": {
+            "target": "libs/helper/VisualizationThemeHelper.php"
         }
     }
 }

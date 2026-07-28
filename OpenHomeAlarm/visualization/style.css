@@ -1,47 +1,22 @@
 :root {
-    color-scheme: light dark;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --oha-bg: rgba(248, 250, 252, 0.78);
-    --oha-surface: rgba(255, 255, 255, 0.92);
-    --oha-surface-strong: #ffffff;
-    --oha-surface-soft: rgba(241, 245, 249, 0.84);
-    --oha-border: rgba(15, 23, 42, 0.11);
-    --oha-text: #172033;
-    --oha-muted: #64748b;
-    --oha-faint: #94a3b8;
-    --oha-accent: #2563eb;
-    --oha-accent-soft: rgba(37, 99, 235, 0.10);
-    --oha-success: #16804a;
-    --oha-success-soft: rgba(22, 128, 74, 0.11);
-    --oha-success-border: rgba(22, 128, 74, 0.30);
-    --oha-warning: #b36b00;
-    --oha-warning-soft: rgba(179, 107, 0, 0.11);
-    --oha-danger: #c43131;
-    --oha-danger-soft: rgba(196, 49, 49, 0.11);
-    --oha-shadow: 0 12px 34px rgba(15, 23, 42, 0.07);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --oha-bg: rgba(10, 15, 28, 0.82);
-        --oha-surface: rgba(26, 36, 55, 0.92);
-        --oha-surface-strong: #1b2639;
-        --oha-surface-soft: rgba(31, 43, 64, 0.78);
-        --oha-border: rgba(226, 232, 240, 0.12);
-        --oha-text: #f1f5f9;
-        --oha-muted: #a7b4c6;
-        --oha-faint: #7f8da2;
-        --oha-accent: #78a4ff;
-        --oha-accent-soft: rgba(120, 164, 255, 0.13);
-        --oha-success: #63dc92;
-        --oha-success-soft: rgba(99, 220, 146, 0.12);
-        --oha-success-border: rgba(99, 220, 146, 0.28);
-        --oha-warning: #ffc15f;
-        --oha-warning-soft: rgba(255, 193, 95, 0.12);
-        --oha-danger: #ff7b7b;
-        --oha-danger-soft: rgba(255, 123, 123, 0.12);
-        --oha-shadow: 0 14px 36px rgba(0, 0, 0, 0.20);
-    }
+    --oha-bg: var(--symc-background);
+    --oha-surface: var(--symc-surface);
+    --oha-surface-strong: var(--symc-surface-raised);
+    --oha-surface-soft: var(--symc-surface);
+    --oha-border: var(--symc-border);
+    --oha-text: var(--symc-text);
+    --oha-muted: var(--symc-muted);
+    --oha-faint: var(--symc-subtle);
+    --oha-accent: var(--symc-accent);
+    --oha-accent-soft: var(--symc-accent-soft);
+    --oha-success: var(--symc-success);
+    --oha-success-soft: var(--symc-success-soft);
+    --oha-success-border: color-mix(in srgb, var(--oha-success) 34%, transparent);
+    --oha-warning: var(--symc-warning);
+    --oha-warning-soft: var(--symc-warning-soft);
+    --oha-danger: var(--symc-danger);
+    --oha-danger-soft: var(--symc-danger-soft);
+    --oha-shadow: none;
 }
 
 * {
@@ -65,8 +40,7 @@ button {
 }
 
 button:focus-visible {
-    outline: 2px solid var(--oha-accent);
-    outline-offset: 2px;
+    outline: none;
 }
 
 [hidden] {
@@ -79,7 +53,7 @@ button:focus-visible {
     width: 100%;
     min-height: 100vh;
     align-content: start;
-    padding: 16px;
+    padding: 14px;
     background: var(--oha-bg);
 }
 
@@ -174,9 +148,9 @@ button:focus-visible {
     padding: 22px;
     overflow: hidden;
     border: 1px solid var(--oha-border);
-    border-radius: 18px;
+    border-radius: var(--symc-radius-large);
     background:
-        radial-gradient(circle at 0 0, var(--oha-state-soft), transparent 42%),
+        linear-gradient(135deg, var(--oha-state-soft), transparent 44%),
         var(--oha-surface);
     box-shadow: var(--oha-shadow);
 }
@@ -389,6 +363,7 @@ button:focus-visible {
     display: grid;
     min-width: 0;
     gap: 2px;
+    flex: 1 1 auto;
 }
 
 .oha-context-copy strong {
@@ -401,6 +376,47 @@ button:focus-visible {
     font-size: 0.76rem;
     line-height: 1.35;
     text-overflow: ellipsis;
+}
+
+.oha-card-action,
+.oha-secondary-button,
+.oha-row-action {
+    min-height: 32px;
+    border: 1px solid var(--oha-border);
+    border-radius: var(--symc-radius-small);
+    background: var(--oha-surface-strong);
+    color: var(--oha-text);
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 700;
+    touch-action: manipulation;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 100ms ease;
+}
+
+.oha-card-action {
+    flex: 0 0 auto;
+    padding: 5px 9px;
+}
+
+.oha-card-action:hover,
+.oha-secondary-button:hover,
+.oha-row-action:hover {
+    border-color: var(--oha-accent);
+    background: var(--oha-accent-soft);
+    color: var(--oha-accent);
+}
+
+.oha-card-action:active,
+.oha-secondary-button:active,
+.oha-row-action:active {
+    transform: translateY(1px);
+}
+
+.oha-card-action[data-enabled="false"],
+.oha-secondary-button[data-enabled="false"],
+.oha-row-action[data-enabled="false"] {
+    cursor: default;
+    opacity: 0.46;
 }
 
 .oha-arm-section {
@@ -441,8 +457,8 @@ button:focus-visible {
     padding: 14px 15px;
     border: 1px solid var(--oha-border);
     border-radius: 15px;
-    background: linear-gradient(180deg, var(--oha-surface), var(--oha-surface-soft));
-    box-shadow: 0 7px 18px rgba(15, 23, 42, 0.05);
+    background: var(--oha-surface);
+    box-shadow: none;
     color: var(--oha-text);
     cursor: pointer;
     text-align: left;
@@ -469,7 +485,7 @@ button:focus-visible {
 .oha-mode-button:hover[data-can-arm="true"] {
     transform: translateY(-1px);
     border-color: var(--oha-accent);
-    background: linear-gradient(135deg, var(--oha-accent-soft), var(--oha-surface));
+    background: var(--oha-accent-soft);
     box-shadow: var(--oha-shadow);
 }
 
@@ -493,8 +509,8 @@ button:focus-visible {
 
 .oha-mode-button[data-active="true"] {
     border-color: var(--oha-accent);
-    background: linear-gradient(135deg, var(--oha-accent-soft), var(--oha-surface));
-    box-shadow: inset 0 0 0 1px var(--oha-accent-soft), var(--oha-shadow);
+    background: var(--oha-accent-soft);
+    box-shadow: inset 0 0 0 1px var(--oha-accent-soft);
     opacity: 1;
 }
 
@@ -627,11 +643,167 @@ button:focus-visible {
     font-size: 0.75rem;
 }
 
+.oha-control-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.oha-secondary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 12px;
+    border-color: color-mix(in srgb, var(--oha-warning) 36%, transparent);
+    background: var(--oha-warning-soft);
+    color: var(--oha-warning);
+}
+
 .oha-disarm-button {
     flex: 0 0 auto;
     padding: 8px 14px;
     background: var(--oha-danger-soft);
     color: var(--oha-danger);
+}
+
+.oha-operations-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+    gap: 10px;
+}
+
+.oha-operation-panel {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--oha-border);
+    border-radius: var(--symc-radius-medium);
+    background: var(--oha-surface);
+}
+
+.oha-operation-head {
+    display: flex;
+    min-height: 54px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--oha-border);
+}
+
+.oha-operation-head h2 {
+    margin: 2px 0 0;
+    font-size: 0.94rem;
+}
+
+.oha-operation-count {
+    display: grid;
+    min-width: 28px;
+    height: 28px;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--oha-surface-strong);
+    color: var(--oha-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.oha-operation-list,
+.oha-history-list {
+    display: grid;
+}
+
+.oha-operation-row,
+.oha-history-row {
+    display: grid;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+}
+
+.oha-operation-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.oha-operation-row + .oha-operation-row,
+.oha-history-row + .oha-history-row {
+    border-top: 1px solid var(--oha-border);
+}
+
+.oha-operation-icon {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 9px;
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+}
+
+.oha-operation-row[data-tone="warning"] .oha-operation-icon {
+    background: var(--oha-warning-soft);
+    color: var(--oha-warning);
+}
+
+.oha-operation-row[data-tone="bypass"] .oha-operation-icon {
+    background: var(--oha-accent-soft);
+    color: var(--oha-accent);
+}
+
+.oha-operation-copy,
+.oha-history-copy {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.oha-operation-copy strong,
+.oha-history-copy strong {
+    overflow: hidden;
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oha-operation-copy span,
+.oha-history-copy span {
+    overflow: hidden;
+    color: var(--oha-muted);
+    font-size: 0.7rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oha-row-action {
+    padding: 5px 9px;
+    white-space: nowrap;
+}
+
+.oha-row-action[data-tone="warning"] {
+    border-color: color-mix(in srgb, var(--oha-warning) 35%, transparent);
+    background: var(--oha-warning-soft);
+    color: var(--oha-warning);
+}
+
+.oha-row-action[data-tone="accent"] {
+    border-color: color-mix(in srgb, var(--oha-accent) 35%, transparent);
+    background: var(--oha-accent-soft);
+    color: var(--oha-accent);
+}
+
+.oha-history-row {
+    grid-template-columns: auto minmax(0, 1fr);
+}
+
+.oha-history-marker {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--oha-accent);
+    box-shadow: 0 0 0 4px var(--oha-accent-soft);
 }
 
 .oha-disarm-button:hover:not(:disabled) {
@@ -753,13 +925,20 @@ button:focus-visible {
 .oha-inline-disarm-button,
 .oha-modal-disarm-button,
 .oha-disarm-button,
-.oha-icon-button {
+.oha-icon-button,
+.oha-card-action,
+.oha-secondary-button,
+.oha-row-action {
     pointer-events: auto;
 }
 @media (min-width: 900px) {
     .oha-shell {
         grid-template-columns: minmax(0, 1fr) 330px;
         align-items: start;
+    }
+
+    .oha-shell[data-codepad-visible="false"] {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .oha-topbar {
@@ -769,6 +948,7 @@ button:focus-visible {
     .oha-hero,
     .oha-status-grid,
     .oha-context-grid,
+    .oha-operations-grid,
     .oha-arm-section,
     .oha-control-bar {
         grid-column: 1;
@@ -797,6 +977,7 @@ button:focus-visible {
     }
 
     .oha-context-grid,
+    .oha-operations-grid,
     .oha-mode-grid {
         grid-template-columns: 1fr;
     }
@@ -857,8 +1038,25 @@ button:focus-visible {
         flex-direction: column;
     }
 
+    .oha-control-actions {
+        width: 100%;
+    }
+
+    .oha-control-actions > button {
+        flex: 1 1 0;
+    }
+
     .oha-disarm-button {
         width: 100%;
+    }
+
+    .oha-operation-row {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .oha-row-action {
+        grid-column: 2;
+        justify-self: start;
     }
 }
 

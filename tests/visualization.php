@@ -16,6 +16,12 @@ $module = file_get_contents($root . '/OpenHomeAlarm/module.php');
 $html = file_get_contents($root . '/OpenHomeAlarm/visualization/index.html');
 $css = file_get_contents($root . '/OpenHomeAlarm/visualization/style.css');
 $javascript = file_get_contents($root . '/OpenHomeAlarm/visualization/app.js');
+$locale = json_decode(
+    (string) file_get_contents($root . '/OpenHomeAlarm/locale.json'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
 
 assertVisualization(is_string($module), 'module.php must be readable.');
 assertVisualization(is_string($html) && $html !== '', 'Visualization HTML must be present.');
@@ -25,6 +31,12 @@ assertVisualization(is_string($javascript) && $javascript !== '', 'Visualization
 assertVisualization(
     str_contains($module, "require_once __DIR__ . '/../libs/helper/VisualizationAssetHelper.php';"),
     'VisualizationAssetHelper must be required.'
+);
+assertVisualization(
+    str_contains($module, "require_once __DIR__ . '/../libs/helper/VisualizationThemeHelper.php';")
+        && str_contains($module, 'use \\Burki24\\SymconModuleHelper\\VisualizationThemeHelper;')
+        && str_contains($module, '$this->VisualizationThemeCSS()'),
+    'The visualization must use the shared Symcon theme helper.'
 );
 assertVisualization(
     str_contains($module, 'use \\Burki24\\SymconModuleHelper\\VisualizationAssetHelper;'),
@@ -52,11 +64,29 @@ assertVisualization(
 );
 
 assertVisualization(str_contains($html, '{{OHA_STYLE}}'), 'HTML must contain the CSS asset placeholder.');
+assertVisualization(str_contains($html, '{{SYMC_THEME}}'), 'HTML must contain the shared theme placeholder.');
 assertVisualization(str_contains($html, '{{OHA_SCRIPT}}'), 'HTML must contain the JavaScript asset placeholder.');
 assertVisualization(str_contains($html, '{{OHA_INITIAL_STATE}}'), 'HTML must contain the initial-state placeholder.');
 assertVisualization(str_contains($javascript, 'function handleMessage(data)'), 'HTML-SDK handleMessage must be implemented.');
 assertVisualization(str_contains($javascript, "ohaRequestAction('Arm'"), 'Visualization must arm through RequestAction.');
 assertVisualization(str_contains($javascript, "ohaRequestAction('Disarm'"), 'Visualization must disarm through RequestAction.');
+foreach ([
+    'BypassSensor',
+    'RemoveSensorBypass',
+    'ClearSensorBypasses',
+    'ClearAlarmMemory',
+    'ResetAlarmOutput'
+] as $operation) {
+    assertVisualization(
+        str_contains($module, "case '" . $operation . "':"),
+        'Visualization RequestAction must support ' . $operation . '.'
+    );
+    assertVisualization(
+        str_contains($html, 'data-operation="' . $operation . '"')
+            || str_contains($javascript, "'" . $operation . "'"),
+        'Visualization controls must expose ' . $operation . '.'
+    );
+}
 assertVisualization(
     str_contains($javascript, "document.addEventListener('click', ohaHandleInteractiveClick, true);")
         && str_contains($javascript, "if (control.id === 'refreshButton')")
@@ -85,9 +115,48 @@ assertVisualization(
     'Arming-mode controls and the disarm control must sit directly below the security-status hero and before secondary status information.'
 );
 assertVisualization(str_contains($html, 'id="statusGrid"'), 'Visualization must provide a compact always-visible system overview.');
+assertVisualization(str_contains($html, 'id="sensorManagementPanel"'), 'Visualization must provide contextual sensor management.');
+assertVisualization(str_contains($html, 'id="eventHistoryPanel"'), 'Visualization must provide recent security events.');
+assertVisualization(
+    str_contains($javascript, 'function ohaRenderSensorManagement(state)')
+        && str_contains($javascript, 'function ohaRenderEventHistory(state)')
+        && str_contains($module, "'RecentEvents'"),
+    'Sensor operations and recent security events must be rendered from the backend control state.'
+);
+assertVisualization(
+    str_contains($css, '--oha-accent: var(--symc-accent);')
+        && str_contains($css, '--oha-bg: var(--symc-background);')
+        && !str_contains($css, '--oha-accent: #2563eb;'),
+    'OpenHomeAlarm must consume the shared Symcon visualization tokens.'
+);
 assertVisualization(str_contains($javascript, 'function ohaRenderSummary(state)'), 'Visualization must render the system overview from the control state.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
 assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');
+
+$translations = $locale['translations']['de'] ?? [];
+foreach ([
+    'Acknowledge',
+    'Restore all',
+    'Temporarily bypassed',
+    'Restore',
+    'Bypass once',
+    'Sensor management',
+    'System log',
+    'Recent activity',
+    'Silence alarm',
+    'Alarm triggered',
+    'Alarm output reset',
+    'System disarmed',
+    'Sensor bypassed',
+    'Alarm memory acknowledged',
+    'System fault detected',
+    'System fault cleared'
+] as $translationKey) {
+    assertVisualization(
+        isset($translations[$translationKey]),
+        'Missing German visualization translation for ' . $translationKey . '.'
+    );
+}
 
 fwrite(STDOUT, "OpenHomeAlarm visualization foundation checks passed.\n");
