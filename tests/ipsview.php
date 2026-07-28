@@ -98,6 +98,17 @@ assertIPSView(
     'Adaptive IPSView colors must inspect the surrounding host when possible and derive translucent dashboard surfaces.'
 );
 assertIPSView(
+    str_contains($javascript, 'function ohaContrastRatio(first, second)')
+        && str_contains($javascript, 'function ohaReadableText(background)')
+        && str_contains($javascript, 'function ohaEnsureContrast(foreground, background, minimumRatio = 4.5)')
+        && str_contains($javascript, "root.dataset.paletteSource = palette.detected ? 'host' : 'safe-fallback';")
+        && str_contains($javascript, "root.style.setProperty('--oha-panel-text'")
+        && str_contains($javascript, "root.style.setProperty('--oha-page-label-bg'")
+        && str_contains($css, 'html.oha-ipsview.oha-theme-adaptive .oha-section-heading')
+        && str_contains($css, 'background: var(--oha-page-label-bg);'),
+    'Adaptive IPSView colors must calculate readable text for every generated surface and protect labels on textured backgrounds.'
+);
+assertIPSView(
     str_contains($css, 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;')
         && str_contains($css, 'html.oha-ipsview .oha-topbar-actions')
         && str_contains($css, 'grid-template-areas:')
