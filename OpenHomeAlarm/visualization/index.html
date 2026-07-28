@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="{{OHA_HTML_CLASSES}}" style="--oha-font-scale: {{OHA_FONT_SCALE}};">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -287,6 +287,8 @@
 
     <script>
         window.OHA_INITIAL_STATE = {{OHA_INITIAL_STATE}};
+        window.OHA_IPSVIEW = {{OHA_RUNTIME_CONFIG}};
+        window.OHA_TRANSLATIONS = {{OHA_TRANSLATIONS}};
     </script>
     <script>{{OHA_SCRIPT}}</script>
 </body>

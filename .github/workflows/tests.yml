@@ -108,5 +108,8 @@ jobs:
       - name: Check visualization disarm codepad
         run: php tests/codepad.php
 
+      - name: Check IPSView WebContent integration
+        run: php tests/ipsview.php
+
       - name: Check visualization JavaScript syntax
         run: node --check OpenHomeAlarm/visualization/app.js

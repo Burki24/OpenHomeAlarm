@@ -7,9 +7,19 @@ let ohaCodeBuffer = '';
 let ohaCodeBusy = false;
 let ohaCodeRequestTimer = null;
 let ohaCodeLockTimer = null;
+let ohaIPSViewPollTimer = null;
+let ohaIPSViewPendingRequests = 0;
+const ohaIPSViewConfig = window.OHA_IPSVIEW && typeof window.OHA_IPSVIEW === 'object'
+    ? window.OHA_IPSVIEW
+    : null;
 
 function ohaTranslate(text) {
-    return typeof translate === 'function' ? translate(text) : text;
+    if (typeof translate === 'function') {
+        return translate(text);
+    }
+
+    const translated = window.OHA_TRANSLATIONS?.[text];
+    return typeof translated === 'string' ? translated : text;
 }
 
 function ohaStateCaption(name) {
@@ -641,9 +651,100 @@ function ohaRender() {
     ohaScheduleCodeLockRefresh(ohaState);
 }
 
+async function ohaIPSViewRequest(action, value) {
+    if (!ohaIPSViewConfig?.endpoint || !ohaIPSViewConfig?.token) {
+        throw new Error('IPSView transport is not configured.');
+    }
+
+    const body = new URLSearchParams();
+    body.set('token', String(ohaIPSViewConfig.token));
+    body.set('action', action);
+    body.set('value', JSON.stringify(value));
+
+    ohaIPSViewPendingRequests += 1;
+    try {
+        const response = await fetch(String(ohaIPSViewConfig.endpoint), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+            },
+            body: body.toString(),
+            cache: 'no-store',
+            credentials: 'same-origin'
+        });
+        const payload = await response.json();
+        if (!response.ok || payload?.Error) {
+            throw new Error(payload?.Error || `HTTP ${response.status}`);
+        }
+
+        handleMessage(payload);
+        return payload;
+    } finally {
+        ohaIPSViewPendingRequests = Math.max(0, ohaIPSViewPendingRequests - 1);
+    }
+}
+
+function ohaHandleTransportError(ident, error) {
+    console.error('OpenHomeAlarm IPSView request failed:', error);
+    if (ident !== 'DisarmWithCode') {
+        return;
+    }
+
+    ohaClearCodeRequestTimer();
+    ohaCodeBusy = false;
+    ohaSetCodeError(ohaTranslate('No response from the alarm system. Please try again.'));
+    ohaUpdateCodepad();
+}
+
 function ohaRequestAction(ident, value) {
     if (typeof requestAction === 'function') {
         requestAction(ident, value);
+        return;
+    }
+
+    if (ohaIPSViewConfig) {
+        void ohaIPSViewRequest(ident === 'RefreshVisualization' ? 'GetState' : ident, value)
+            .catch((error) => ohaHandleTransportError(ident, error));
+    }
+}
+
+function ohaIPSViewPollInterval() {
+    if (document.visibilityState === 'hidden') {
+        return Math.max(5000, Number(ohaIPSViewConfig?.hiddenPollInterval) || 15000);
+    }
+
+    const stateName = ohaState?.State?.Name ?? '';
+    if (stateName === 'exit_delay' || stateName === 'entry_delay' || ohaCodeProtectionLocked(ohaState)) {
+        return Math.max(500, Number(ohaIPSViewConfig?.activePollInterval) || 1000);
+    }
+
+    return Math.max(1000, Number(ohaIPSViewConfig?.pollInterval) || 3000);
+}
+
+function ohaScheduleIPSViewPoll(delay = null) {
+    if (!ohaIPSViewConfig) {
+        return;
+    }
+
+    if (ohaIPSViewPollTimer !== null) {
+        window.clearTimeout(ohaIPSViewPollTimer);
+    }
+    ohaIPSViewPollTimer = window.setTimeout(ohaPollIPSViewState, delay ?? ohaIPSViewPollInterval());
+}
+
+async function ohaPollIPSViewState() {
+    ohaIPSViewPollTimer = null;
+    if (ohaIPSViewPendingRequests > 0) {
+        ohaScheduleIPSViewPoll(500);
+        return;
+    }
+
+    try {
+        await ohaIPSViewRequest('GetState', null);
+    } catch (error) {
+        console.error('OpenHomeAlarm IPSView refresh failed:', error);
+    } finally {
+        ohaScheduleIPSViewPoll();
     }
 }
 
@@ -1053,5 +1154,11 @@ if (typeof ohaDesktopCodepadQuery.addEventListener === 'function') {
     });
 }
 
+if (ohaIPSViewConfig) {
+    document.addEventListener('visibilitychange', () => ohaScheduleIPSViewPoll(100));
+    window.addEventListener('focus', () => ohaScheduleIPSViewPoll(100));
+}
+
 ohaBindInteractions();
 ohaRender();
+ohaScheduleIPSViewPoll(250);

@@ -6,6 +6,65 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "IPSView",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "CheckBox",
+                    "name": "EnableIPSView",
+                    "caption": "Provide IPSView HTML page"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box."
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "CheckBox",
+                            "name": "IPSViewTransparent",
+                            "caption": "Transparent background",
+                            "width": "250px"
+                        },
+                        {
+                            "type": "Select",
+                            "name": "IPSViewTheme",
+                            "caption": "Color scheme",
+                            "options": [
+                                {
+                                    "caption": "Automatic",
+                                    "value": 0
+                                },
+                                {
+                                    "caption": "Light",
+                                    "value": 1
+                                },
+                                {
+                                    "caption": "Dark",
+                                    "value": 2
+                                }
+                            ],
+                            "width": "250px"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "IPSViewFontScale",
+                            "caption": "Font size (%)",
+                            "minimum": 80,
+                            "maximum": 200,
+                            "width": "250px"
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "In IPSView, use an HTML-Box with the client browser renderer so JavaScript and the controls are available."
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "Delays",
             "expanded": true,
             "items": [

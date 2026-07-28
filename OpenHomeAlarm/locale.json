@@ -203,7 +203,18 @@
             "All bypasses cleared": "Alle Überbrückungen aufgehoben",
             "Alarm memory acknowledged": "Alarmgedächtnis quittiert",
             "System fault detected": "Systemstörung erkannt",
-            "System fault cleared": "Systemstörung behoben"
+            "System fault cleared": "Systemstörung behoben",
+            "IPSView": "IPSView",
+            "Provide IPSView HTML page": "IPSView-HTML-Seite bereitstellen",
+            "Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box.": "Erstellt eine WebContent-Variable mit einer vollständig bedienbaren Alarmanlagen-Oberfläche für eine IPSView-HTML-Box.",
+            "Transparent background": "Transparenter Hintergrund",
+            "Color scheme": "Farbschema",
+            "Automatic": "Automatisch",
+            "Light": "Hell",
+            "Dark": "Dunkel",
+            "Font size (%)": "Schriftgröße (%)",
+            "In IPSView, use an HTML-Box with the client browser renderer so JavaScript and the controls are available.": "In IPSView eine HTML-Box mit dem Renderer „Browser des Clients“ verwenden, damit JavaScript und die Bedienfunktionen verfügbar sind.",
+            "IPSView alarm system": "IPSView-Alarmanlage"
         }
     }
 }

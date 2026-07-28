@@ -130,8 +130,9 @@ assertVisualization(
 assertVisualization(
     str_contains($css, '--oha-accent: var(--symc-accent);')
         && str_contains($css, '--oha-bg: var(--symc-background);')
-        && !str_contains($css, '--oha-accent: #2563eb;'),
-    'OpenHomeAlarm must consume the shared Symcon visualization tokens.'
+        && str_contains($css, 'html.oha-ipsview {')
+        && str_contains($css, 'html.oha-ipsview.oha-theme-dark {'),
+    'The native tile must consume shared Symcon tokens while IPSView provides standalone light/dark tokens.'
 );
 assertVisualization(str_contains($javascript, 'function ohaRenderSummary(state)'), 'Visualization must render the system overview from the control state.');
 assertVisualization(

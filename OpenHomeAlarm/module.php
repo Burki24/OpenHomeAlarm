@@ -127,6 +127,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_DISARM_MAX_ATTEMPTS = 'DisarmMaxAttempts';
     private const PROPERTY_DISARM_LOCKOUT_SECONDS = 'DisarmLockoutSeconds';
     private const PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS = 'SensorIntegrityIntervalSeconds';
+    private const PROPERTY_ENABLE_IPSVIEW = 'EnableIPSView';
+    private const PROPERTY_IPSVIEW_TRANSPARENT = 'IPSViewTransparent';
+    private const PROPERTY_IPSVIEW_THEME = 'IPSViewTheme';
+    private const PROPERTY_IPSVIEW_FONT_SCALE = 'IPSViewFontScale';
 
     private const OPTIONAL_ACTION_FIELDS = [
         self::PROPERTY_ALARM_ACTION              => self::PROPERTY_ALARM_ACTION_ENABLED,
@@ -170,6 +174,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_EVENT_HISTORY = 'EventHistory';
     private const ATTRIBUTE_DISARM_FAILED_ATTEMPTS = 'DisarmFailedAttempts';
     private const ATTRIBUTE_DISARM_LOCKOUT_UNTIL = 'DisarmLockoutUntil';
+    private const ATTRIBUTE_IPSVIEW_TOKEN_1 = 'IPSViewToken1';
+    private const ATTRIBUTE_IPSVIEW_TOKEN_2 = 'IPSViewToken2';
+    private const ATTRIBUTE_IPSVIEW_TOKEN_3 = 'IPSViewToken3';
+    private const ATTRIBUTE_IPSVIEW_TOKEN_4 = 'IPSViewToken4';
 
     private const TIMER_EXIT_DELAY = 'ExitDelay';
     private const TIMER_ENTRY_DELAY = 'EntryDelay';
@@ -197,6 +205,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const IDENT_BLOCKING_FAULTS = 'BlockingFaults';
     private const IDENT_LAST_FAULT_SOURCE = 'LastFaultSource';
     private const IDENT_LAST_FAULT_TIME = 'LastFaultTime';
+    private const IDENT_IPSVIEW_ALARM = 'IPSViewAlarm';
 
     /**
      * Registers the persistent configuration, runtime state, timers and status variables.
@@ -232,6 +241,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::DEFAULT_DISARM_LOCKOUT_SECONDS
         );
         $this->RegisterPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS, 60);
+        $this->RegisterBooleanProperty(self::PROPERTY_ENABLE_IPSVIEW, false);
+        $this->RegisterBooleanProperty(self::PROPERTY_IPSVIEW_TRANSPARENT, true);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_THEME, 0);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE, 115);
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
@@ -244,6 +257,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL, 0);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_1, 0);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_2, 0);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_3, 0);
+        $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_4, 0);
+        $this->EnsureIPSViewToken();
+
+        if (method_exists($this, 'RegisterHook')) {
+            $this->RegisterHook($this->IPSViewHookAddress());
+        }
 
         $this->RegisterTimer(
             self::TIMER_EXIT_DELAY,
@@ -524,6 +546,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
         $this->RegisterMessage(0, IPS_KERNELSTARTED);
+        $this->MaintainIPSViewVariable();
         if (IPS_GetKernelRunlevel() !== KR_READY) {
             return;
         }
@@ -554,32 +577,18 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetVisualizationTile(): string
     {
-        $template = $this->VisualizationAsset('index.html');
-        if ($template === '') {
-            return '';
-        }
+        return $this->RenderVisualizationHTML(false);
+    }
 
-        $initialState = json_encode(
-            json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR),
-            JSON_THROW_ON_ERROR
-            | JSON_HEX_TAG
-            | JSON_HEX_AMP
-            | JSON_HEX_APOS
-            | JSON_HEX_QUOT
-            | JSON_UNESCAPED_UNICODE
-            | JSON_UNESCAPED_SLASHES
-        );
-
-        return str_replace(
-            ['{{SYMC_THEME}}', '{{OHA_STYLE}}', '{{OHA_SCRIPT}}', '{{OHA_INITIAL_STATE}}'],
-            [
-                $this->VisualizationThemeCSS(),
-                $this->VisualizationAsset('style.css'),
-                $this->VisualizationAsset('app.js'),
-                $initialState
-            ],
-            $template
-        );
+    /**
+     * Returns the standalone WebContent page used by an IPSView HTML-Box.
+     *
+     * Unlike the native HTML-SDK tile, IPSView communicates through the
+     * instance-specific WebHook and regularly refreshes the control state.
+     */
+    public function GetIPSViewHTML(): string
+    {
+        return $this->RenderVisualizationHTML(true);
     }
 
     /**
@@ -590,59 +599,9 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function RequestAction(string $Ident, mixed $Value): void
     {
-        switch ($Ident) {
-            case 'Arm':
-                if (!is_string($Value)) {
-                    throw new InvalidArgumentException('Arm action requires a mode string.');
-                }
-                $this->Arm($Value);
-                break;
-
-            case 'Disarm':
-                $this->DisarmWithCode('');
-                break;
-
-            case 'DisarmWithCode':
-                if (!is_string($Value)) {
-                    throw new InvalidArgumentException('DisarmWithCode action requires a code string.');
-                }
-                if (!$this->DisarmWithCode($Value)) {
-                    $codeProtection = $this->ReadDisarmCodeProtectionStatus();
-                    $this->PublishVisualizationState([
-                        'Type'             => 'disarm_code',
-                        'Success'          => false,
-                        'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
-                        'LockoutRemaining' => $codeProtection['LockoutRemaining']
-                    ]);
-                }
-                break;
-
-            case 'RefreshVisualization':
-                $this->PublishVisualizationState();
-                break;
-
-            case 'BypassSensor':
-                $this->BypassSensor($this->VisualizationVariableID($Value));
-                break;
-
-            case 'RemoveSensorBypass':
-                $this->RemoveSensorBypass($this->VisualizationVariableID($Value));
-                break;
-
-            case 'ClearSensorBypasses':
-                $this->ClearSensorBypasses();
-                break;
-
-            case 'ClearAlarmMemory':
-                $this->ClearAlarmMemory();
-                break;
-
-            case 'ResetAlarmOutput':
-                $this->ResetAlarmOutput();
-                break;
-
-            default:
-                throw new InvalidArgumentException('Unknown visualization action.');
+        $interaction = $this->ExecuteVisualizationAction($Ident, $Value);
+        if ($Ident === 'RefreshVisualization' || $interaction !== null) {
+            $this->PublishVisualizationState($interaction);
         }
     }
 
@@ -1515,6 +1474,65 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Handles the authenticated action bridge used by the IPSView HTML-Box.
+     */
+    protected function ProcessHookData(): void
+    {
+        if (!$this->ReadBooleanProperty(self::PROPERTY_ENABLE_IPSVIEW)) {
+            $this->OutputIPSViewResponse(['Error' => 'IPSView is disabled.'], 404);
+
+            return;
+        }
+
+        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
+            $this->OutputIPSViewResponse(['Error' => 'Method not allowed.'], 405);
+
+            return;
+        }
+
+        $request = $_POST;
+        if ($request === []) {
+            parse_str((string) file_get_contents('php://input'), $request);
+        }
+
+        $token = is_string($request['token'] ?? null) ? $request['token'] : '';
+        if ($token === '' || !hash_equals($this->IPSViewToken(), $token)) {
+            $this->OutputIPSViewResponse(['Error' => 'Unauthorized.'], 403);
+
+            return;
+        }
+
+        $action = is_string($request['action'] ?? null) ? $request['action'] : '';
+        if ($action === 'GetState') {
+            $this->OutputIPSViewResponse($this->ControlStatePayload());
+
+            return;
+        }
+
+        $rawValue = $request['value'] ?? 'null';
+        $value = null;
+        if (is_string($rawValue)) {
+            try {
+                $value = json_decode($rawValue, true, 32, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                $this->OutputIPSViewResponse(['Error' => 'Invalid value.'], 400);
+
+                return;
+            }
+        }
+
+        try {
+            $interaction = $this->ExecuteVisualizationAction($action, $value);
+            $this->OutputIPSViewResponse($this->ControlStatePayload($interaction));
+        } catch (InvalidArgumentException $exception) {
+            $this->OutputIPSViewResponse(['Error' => $exception->getMessage()], 400);
+        } catch (Throwable $exception) {
+            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
+            $this->OutputIPSViewResponse(['Error' => 'Action failed.'], 500);
+        }
+    }
+
+    /**
      * @return array{
      *     Enabled: bool,
      *     Locked: bool,
@@ -1650,6 +1668,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->EvaluateArmedSensorsAfterApplyChanges($sensors);
         $this->RestoreAlarmDurationTimer();
         $this->PublishVisualizationState();
+        $this->UpdateIPSViewHTML();
     }
 
     /**
@@ -1725,6 +1744,301 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $elements = $generated;
+    }
+
+    /**
+     * Registers boolean properties while keeping the lightweight test doubles
+     * compatible with older Symcon method stubs.
+     */
+    private function RegisterBooleanProperty(string $name, bool $default): void
+    {
+        if (method_exists($this, 'RegisterPropertyBoolean')) {
+            $this->RegisterPropertyBoolean($name, $default);
+
+            return;
+        }
+
+        $this->RegisterPropertyInteger($name, $default ? 1 : 0);
+    }
+
+    private function ReadBooleanProperty(string $name): bool
+    {
+        if (method_exists($this, 'ReadPropertyBoolean')) {
+            return $this->ReadPropertyBoolean($name);
+        }
+
+        return $this->ReadPropertyInteger($name) === 1;
+    }
+
+    private function IPSViewHookAddress(): string
+    {
+        return 'openhomealarm/' . $this->InstanceID;
+    }
+
+    private function EnsureIPSViewToken(): void
+    {
+        if (
+            !method_exists($this, 'ReadAttributeInteger')
+            || !method_exists($this, 'WriteAttributeInteger')
+        ) {
+            return;
+        }
+
+        if ($this->IPSViewToken() !== str_repeat('0', 32)) {
+            return;
+        }
+
+        foreach ([
+            self::ATTRIBUTE_IPSVIEW_TOKEN_1,
+            self::ATTRIBUTE_IPSVIEW_TOKEN_2,
+            self::ATTRIBUTE_IPSVIEW_TOKEN_3,
+            self::ATTRIBUTE_IPSVIEW_TOKEN_4
+        ] as $attribute) {
+            $this->WriteAttributeInteger($attribute, random_int(1, 0x7FFFFFFF));
+        }
+    }
+
+    private function IPSViewToken(): string
+    {
+        if (!method_exists($this, 'ReadAttributeInteger')) {
+            return str_repeat('0', 32);
+        }
+
+        return implode('', array_map(
+            fn (string $attribute): string => sprintf('%08x', $this->ReadAttributeInteger($attribute)),
+            [
+                self::ATTRIBUTE_IPSVIEW_TOKEN_1,
+                self::ATTRIBUTE_IPSVIEW_TOKEN_2,
+                self::ATTRIBUTE_IPSVIEW_TOKEN_3,
+                self::ATTRIBUTE_IPSVIEW_TOKEN_4
+            ]
+        ));
+    }
+
+    private function MaintainIPSViewVariable(): void
+    {
+        if (!method_exists($this, 'MaintainVariable')) {
+            return;
+        }
+
+        $this->MaintainVariable(
+            self::IDENT_IPSVIEW_ALARM,
+            $this->Translate('IPSView alarm system'),
+            VARIABLETYPE_STRING,
+            [
+                'PRESENTATION' => VARIABLE_PRESENTATION_WEB_CONTENT,
+                'HTML_TYPE'    => 0
+            ],
+            90,
+            $this->ReadBooleanProperty(self::PROPERTY_ENABLE_IPSVIEW)
+        );
+    }
+
+    private function UpdateIPSViewHTML(): void
+    {
+        if (
+            !$this->ReadBooleanProperty(self::PROPERTY_ENABLE_IPSVIEW)
+            || !method_exists($this, 'MaintainVariable')
+        ) {
+            return;
+        }
+
+        try {
+            $this->SetValue(self::IDENT_IPSVIEW_ALARM, $this->GetIPSViewHTML());
+        } catch (Throwable $exception) {
+            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
+        }
+    }
+
+    private function RenderVisualizationHTML(bool $ipsView): string
+    {
+        $template = $this->VisualizationAsset('index.html');
+        if ($template === '') {
+            return '';
+        }
+
+        $initialState = $this->EncodeVisualizationJSON($this->ControlStatePayload());
+        $runtimeConfig = $ipsView
+            ? $this->EncodeVisualizationJSON([
+                'endpoint'           => '/hook/' . $this->IPSViewHookAddress(),
+                'token'              => $this->IPSViewToken(),
+                'pollInterval'       => 3000,
+                'activePollInterval' => 1000,
+                'hiddenPollInterval' => 15000
+            ])
+            : 'null';
+        $translations = $ipsView
+            ? $this->EncodeVisualizationJSON($this->IPSViewTranslations())
+            : '{}';
+        $htmlClasses = $ipsView ? implode(' ', array_filter([
+            'oha-ipsview',
+            $this->ReadBooleanProperty(self::PROPERTY_IPSVIEW_TRANSPARENT) ? 'oha-transparent' : '',
+            match ($this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_THEME)) {
+                1       => 'oha-theme-light',
+                2       => 'oha-theme-dark',
+                default => ''
+            }
+        ])) : '';
+        $fontScale = $ipsView
+            ? max(80, min(200, $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE))) . '%'
+            : '100%';
+
+        return str_replace(
+            [
+                '{{SYMC_THEME}}',
+                '{{OHA_STYLE}}',
+                '{{OHA_SCRIPT}}',
+                '{{OHA_INITIAL_STATE}}',
+                '{{OHA_RUNTIME_CONFIG}}',
+                '{{OHA_TRANSLATIONS}}',
+                '{{OHA_HTML_CLASSES}}',
+                '{{OHA_FONT_SCALE}}'
+            ],
+            [
+                $ipsView ? '' : $this->VisualizationThemeCSS(),
+                $this->VisualizationAsset('style.css'),
+                $this->VisualizationAsset('app.js'),
+                $initialState,
+                $runtimeConfig,
+                $translations,
+                htmlspecialchars($htmlClasses, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                htmlspecialchars($fontScale, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+            ],
+            $template
+        );
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function EncodeVisualizationJSON(array $payload): string
+    {
+        return json_encode(
+            $payload,
+            JSON_THROW_ON_ERROR
+            | JSON_HEX_TAG
+            | JSON_HEX_AMP
+            | JSON_HEX_APOS
+            | JSON_HEX_QUOT
+            | JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_SLASHES
+        );
+    }
+
+    /** @return array<string,string> */
+    private function IPSViewTranslations(): array
+    {
+        $localeFile = __DIR__ . '/locale.json';
+        if (!is_file($localeFile)) {
+            return [];
+        }
+
+        try {
+            $locale = json_decode((string) file_get_contents($localeFile), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            return [];
+        }
+
+        $translations = [];
+        $sourceStrings = array_keys($locale['translations']['de'] ?? []);
+        foreach ($sourceStrings as $source) {
+            if (is_string($source)) {
+                $translations[$source] = $this->Translate($source);
+            }
+        }
+
+        return $translations;
+    }
+
+    /** @return array<string,mixed> */
+    private function ControlStatePayload(?array $interaction = null): array
+    {
+        $state = json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+        if ($interaction !== null) {
+            $state['Interaction'] = $interaction;
+        }
+
+        return $state;
+    }
+
+    /** @return array<string,mixed>|null */
+    private function ExecuteVisualizationAction(string $Ident, mixed $Value): ?array
+    {
+        switch ($Ident) {
+            case 'Arm':
+                if (!is_string($Value)) {
+                    throw new InvalidArgumentException('Arm action requires a mode string.');
+                }
+                $this->Arm($Value);
+
+                return null;
+
+            case 'Disarm':
+                $this->DisarmWithCode('');
+
+                return null;
+
+            case 'DisarmWithCode':
+                if (!is_string($Value)) {
+                    throw new InvalidArgumentException('DisarmWithCode action requires a code string.');
+                }
+                if ($this->DisarmWithCode($Value)) {
+                    return null;
+                }
+
+                $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+
+                return [
+                    'Type'             => 'disarm_code',
+                    'Success'          => false,
+                    'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
+                    'LockoutRemaining' => $codeProtection['LockoutRemaining']
+                ];
+
+            case 'RefreshVisualization':
+                return null;
+
+            case 'BypassSensor':
+                $this->BypassSensor($this->VisualizationVariableID($Value));
+
+                return null;
+
+            case 'RemoveSensorBypass':
+                $this->RemoveSensorBypass($this->VisualizationVariableID($Value));
+
+                return null;
+
+            case 'ClearSensorBypasses':
+                $this->ClearSensorBypasses();
+
+                return null;
+
+            case 'ClearAlarmMemory':
+                $this->ClearAlarmMemory();
+
+                return null;
+
+            case 'ResetAlarmOutput':
+                $this->ResetAlarmOutput();
+
+                return null;
+
+            default:
+                throw new InvalidArgumentException('Unknown visualization action.');
+        }
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function OutputIPSViewResponse(array $payload, int $statusCode = 200): void
+    {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('X-Content-Type-Options: nosniff');
+        header('Access-Control-Allow-Origin: *');
+
+        echo json_encode(
+            $payload,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
     }
 
     /**
