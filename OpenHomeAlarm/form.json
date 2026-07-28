@@ -33,7 +33,7 @@
                             "caption": "Color scheme",
                             "options": [
                                 {
-                                    "caption": "Automatic",
+                                    "caption": "Adaptive to environment",
                                     "value": 0
                                 },
                                 {

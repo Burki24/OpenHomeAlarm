@@ -82,8 +82,20 @@ assertIPSView(
 assertIPSView(
     str_contains($javascript, 'window.OHA_TRANSLATIONS?.[text]')
         && str_contains($css, 'html.oha-ipsview.oha-theme-dark')
-        && str_contains($css, 'html.oha-ipsview.oha-transparent'),
-    'IPSView must provide standalone localization, themes and transparency.'
+        && str_contains($css, 'html.oha-ipsview.oha-theme-adaptive')
+        && str_contains($css, 'html.oha-ipsview.oha-transparent')
+        && str_contains($module, "default => 'oha-theme-adaptive'"),
+    'IPSView must provide standalone localization, fixed themes, adaptive environment colors and transparency.'
+);
+assertIPSView(
+    str_contains($javascript, 'function ohaDetectHostPalette()')
+        && str_contains($javascript, 'window.parent.document')
+        && str_contains($javascript, 'elementFromPoint(')
+        && str_contains($javascript, 'function ohaApplyAdaptiveTheme()')
+        && str_contains($javascript, "root.style.setProperty('--oha-surface-strong'")
+        && str_contains($javascript, 'ohaInitializeAdaptiveTheme();')
+        && str_contains($css, 'backdrop-filter: var(--oha-adaptive-backdrop);'),
+    'Adaptive IPSView colors must inspect the surrounding host when possible and derive translucent dashboard surfaces.'
 );
 assertIPSView(
     str_contains($css, 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;')
@@ -97,8 +109,9 @@ assertIPSView(
     str_contains($form, '"name": "EnableIPSView"')
         && str_contains($form, '"name": "IPSViewTransparent"')
         && str_contains($form, '"name": "IPSViewTheme"')
+        && str_contains($form, '"caption": "Adaptive to environment"')
         && str_contains($form, '"name": "IPSViewFontScale"'),
-    'The configuration form must expose the IPSView settings.'
+    'The configuration form must expose the IPSView settings including adaptive environment colors.'
 );
 assertIPSView(
     str_contains($readme, 'IPSView') && str_contains($readme, 'Browser des Clients'),

@@ -1864,7 +1864,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'token'              => $this->IPSViewToken(),
                 'pollInterval'       => 3000,
                 'activePollInterval' => 1000,
-                'hiddenPollInterval' => 15000
+                'hiddenPollInterval' => 15000,
+                'theme'              => $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_THEME),
+                'transparent'        => $this->ReadBooleanProperty(self::PROPERTY_IPSVIEW_TRANSPARENT)
             ])
             : 'null';
         $translations = $ipsView
@@ -1876,7 +1878,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             match ($this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_THEME)) {
                 1       => 'oha-theme-light',
                 2       => 'oha-theme-dark',
-                default => ''
+                default => 'oha-theme-adaptive'
             }
         ])) : '';
         $fontScale = $ipsView

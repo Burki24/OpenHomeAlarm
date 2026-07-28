@@ -13,6 +13,381 @@ const ohaIPSViewConfig = window.OHA_IPSVIEW && typeof window.OHA_IPSVIEW === 'ob
     ? window.OHA_IPSVIEW
     : null;
 
+let ohaAdaptiveThemeTimer = null;
+let ohaAdaptiveThemeObserver = null;
+const ohaAdaptiveThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+const ohaAdaptiveBackgroundProperties = [
+    '--ipsview-background',
+    '--view-background',
+    '--page-background',
+    '--content-background',
+    '--background-color',
+    '--primary-background-color'
+];
+const ohaAdaptiveSurfaceProperties = [
+    '--card-color',
+    '--surface-color'
+];
+const ohaAdaptiveAccentProperties = [
+    '--ipsview-accent',
+    '--view-accent',
+    '--accent-color',
+    '--primary-color',
+    '--theme-accent'
+];
+
+function ohaClamp(value, minimum, maximum) {
+    return Math.min(maximum, Math.max(minimum, value));
+}
+
+function ohaParseRGBColor(value) {
+    const input = String(value ?? '').trim();
+    if (input === '' || input === 'transparent') {
+        return null;
+    }
+
+    const hex = input.match(/^#([0-9a-f]{3,8})$/i);
+    if (hex) {
+        const raw = hex[1];
+        const expanded = raw.length === 3 || raw.length === 4
+            ? raw.split('').map((character) => character + character).join('')
+            : raw;
+        const alpha = expanded.length === 8 ? parseInt(expanded.slice(6, 8), 16) / 255 : 1;
+        return {
+            red: parseInt(expanded.slice(0, 2), 16),
+            green: parseInt(expanded.slice(2, 4), 16),
+            blue: parseInt(expanded.slice(4, 6), 16),
+            alpha
+        };
+    }
+
+    const rgb = input.match(/^rgba?\((.+)\)$/i);
+    if (!rgb) {
+        return null;
+    }
+
+    const components = rgb[1].replace(/\//g, ' ').split(/[\s,]+/).filter(Boolean);
+    if (components.length < 3) {
+        return null;
+    }
+
+    const channel = (component) => component.endsWith('%')
+        ? ohaClamp(parseFloat(component) * 2.55, 0, 255)
+        : ohaClamp(parseFloat(component), 0, 255);
+    const alpha = components.length > 3
+        ? (components[3].endsWith('%') ? parseFloat(components[3]) / 100 : parseFloat(components[3]))
+        : 1;
+
+    const parsed = {
+        red: channel(components[0]),
+        green: channel(components[1]),
+        blue: channel(components[2]),
+        alpha: ohaClamp(Number.isFinite(alpha) ? alpha : 1, 0, 1)
+    };
+
+    return Object.values(parsed).every(Number.isFinite) ? parsed : null;
+}
+
+function ohaNormalizeCSSColor(value, documentContext = document) {
+    const direct = ohaParseRGBColor(value);
+    if (direct || !documentContext?.documentElement) {
+        return direct;
+    }
+
+    const probe = documentContext.createElement('span');
+    probe.style.position = 'fixed';
+    probe.style.pointerEvents = 'none';
+    probe.style.opacity = '0';
+    probe.style.color = '';
+    probe.style.color = String(value ?? '').trim();
+    if (probe.style.color === '') {
+        return null;
+    }
+
+    documentContext.documentElement.appendChild(probe);
+    const normalized = documentContext.defaultView.getComputedStyle(probe).color;
+    probe.remove();
+
+    return ohaParseRGBColor(normalized);
+}
+
+function ohaMixRGB(first, second, amount) {
+    const ratio = ohaClamp(amount, 0, 1);
+    return {
+        red: first.red + ((second.red - first.red) * ratio),
+        green: first.green + ((second.green - first.green) * ratio),
+        blue: first.blue + ((second.blue - first.blue) * ratio),
+        alpha: 1
+    };
+}
+
+function ohaRGBToHSL(color) {
+    const red = color.red / 255;
+    const green = color.green / 255;
+    const blue = color.blue / 255;
+    const maximum = Math.max(red, green, blue);
+    const minimum = Math.min(red, green, blue);
+    const delta = maximum - minimum;
+    const lightness = (maximum + minimum) / 2;
+    let hue = 0;
+    let saturation = 0;
+
+    if (delta !== 0) {
+        saturation = delta / (1 - Math.abs((2 * lightness) - 1));
+        if (maximum === red) {
+            hue = 60 * (((green - blue) / delta) % 6);
+        } else if (maximum === green) {
+            hue = 60 * (((blue - red) / delta) + 2);
+        } else {
+            hue = 60 * (((red - green) / delta) + 4);
+        }
+    }
+
+    return {
+        hue: hue < 0 ? hue + 360 : hue,
+        saturation,
+        lightness
+    };
+}
+
+function ohaHSLToRGB(hue, saturation, lightness) {
+    const normalizedHue = ((hue % 360) + 360) % 360;
+    const chroma = (1 - Math.abs((2 * lightness) - 1)) * saturation;
+    const part = chroma * (1 - Math.abs(((normalizedHue / 60) % 2) - 1));
+    const offset = lightness - (chroma / 2);
+    let red = 0;
+    let green = 0;
+    let blue = 0;
+
+    if (normalizedHue < 60) {
+        red = chroma;
+        green = part;
+    } else if (normalizedHue < 120) {
+        red = part;
+        green = chroma;
+    } else if (normalizedHue < 180) {
+        green = chroma;
+        blue = part;
+    } else if (normalizedHue < 240) {
+        green = part;
+        blue = chroma;
+    } else if (normalizedHue < 300) {
+        red = part;
+        blue = chroma;
+    } else {
+        red = chroma;
+        blue = part;
+    }
+
+    return {
+        red: (red + offset) * 255,
+        green: (green + offset) * 255,
+        blue: (blue + offset) * 255,
+        alpha: 1
+    };
+}
+
+function ohaRGBString(color, alpha = 1) {
+    const red = Math.round(ohaClamp(color.red, 0, 255));
+    const green = Math.round(ohaClamp(color.green, 0, 255));
+    const blue = Math.round(ohaClamp(color.blue, 0, 255));
+    return alpha >= 0.999
+        ? `rgb(${red}, ${green}, ${blue})`
+        : `rgba(${red}, ${green}, ${blue}, ${ohaClamp(alpha, 0, 1).toFixed(3)})`;
+}
+
+function ohaRelativeLuminance(color) {
+    const channel = (value) => {
+        const normalized = value / 255;
+        return normalized <= 0.03928
+            ? normalized / 12.92
+            : ((normalized + 0.055) / 1.055) ** 2.4;
+    };
+
+    return (0.2126 * channel(color.red))
+        + (0.7152 * channel(color.green))
+        + (0.0722 * channel(color.blue));
+}
+
+function ohaAdaptiveElements() {
+    const elements = [];
+    const appendChain = (element) => {
+        let current = element;
+        while (current) {
+            if (!elements.includes(current)) {
+                elements.push(current);
+            }
+            current = current.parentElement;
+        }
+    };
+
+    try {
+        if (window.parent !== window && window.frameElement) {
+            const frame = window.frameElement;
+            const parentDocument = window.parent.document;
+            const rectangle = frame.getBoundingClientRect();
+            const previousPointerEvents = frame.style.pointerEvents;
+            let underlying = null;
+            try {
+                frame.style.pointerEvents = 'none';
+                underlying = parentDocument.elementFromPoint(
+                    rectangle.left + (rectangle.width / 2),
+                    rectangle.top + (rectangle.height / 2)
+                );
+            } finally {
+                frame.style.pointerEvents = previousPointerEvents;
+            }
+
+            appendChain(underlying);
+            appendChain(frame.parentElement);
+            appendChain(parentDocument.body);
+            appendChain(parentDocument.documentElement);
+        }
+    } catch (error) {
+        console.debug('OpenHomeAlarm could not inspect the IPSView host theme.', error);
+    }
+
+    return elements;
+}
+
+function ohaAdaptiveColorFromStyle(style, properties, documentContext) {
+    for (const property of properties) {
+        const color = ohaNormalizeCSSColor(style.getPropertyValue(property), documentContext);
+        if (color && color.alpha >= 0.12) {
+            return color;
+        }
+    }
+
+    return null;
+}
+
+function ohaDetectHostPalette() {
+    for (const element of ohaAdaptiveElements()) {
+        const documentContext = element.ownerDocument;
+        const style = documentContext.defaultView.getComputedStyle(element);
+        const base = ohaAdaptiveColorFromStyle(style, ohaAdaptiveBackgroundProperties, documentContext)
+            ?? ohaNormalizeCSSColor(style.backgroundColor, documentContext)
+            ?? ohaAdaptiveColorFromStyle(style, ohaAdaptiveSurfaceProperties, documentContext);
+        const accent = ohaAdaptiveColorFromStyle(style, ohaAdaptiveAccentProperties, documentContext);
+
+        if (base && base.alpha >= 0.72) {
+            return {base, accent};
+        }
+    }
+
+    const fallbackBase = ohaAdaptiveThemeMedia.matches
+        ? {red: 36, green: 41, blue: 50, alpha: 1}
+        : {red: 222, green: 226, blue: 232, alpha: 1};
+
+    return {base: fallbackBase, accent: null};
+}
+
+function ohaDerivedAdaptiveAccent(base, detectedAccent) {
+    if (detectedAccent && detectedAccent.alpha >= 0.35) {
+        return detectedAccent;
+    }
+
+    const hsl = ohaRGBToHSL(base);
+    if (hsl.saturation < 0.12) {
+        return {red: 217, green: 221, blue: 228, alpha: 1};
+    }
+
+    return ohaHSLToRGB(
+        hsl.hue,
+        ohaClamp(Math.max(0.38, hsl.saturation * 1.25), 0.38, 0.72),
+        ohaClamp(hsl.lightness > 0.62 ? 0.64 : 0.70, 0.58, 0.74)
+    );
+}
+
+function ohaApplyAdaptiveTheme() {
+    const root = document.documentElement;
+    if (!root.classList.contains('oha-theme-adaptive')) {
+        return;
+    }
+
+    const {base, accent: detectedAccent} = ohaDetectHostPalette();
+    const lightEnvironment = ohaRelativeLuminance(base) >= 0.38;
+    const darkAnchor = lightEnvironment
+        ? {red: 15, green: 19, blue: 27, alpha: 1}
+        : {red: 7, green: 10, blue: 17, alpha: 1};
+    const surface = ohaMixRGB(base, darkAnchor, lightEnvironment ? 0.68 : 0.30);
+    const surfaceStrong = ohaMixRGB(base, darkAnchor, lightEnvironment ? 0.76 : 0.42);
+    const surfaceSoft = ohaMixRGB(base, darkAnchor, lightEnvironment ? 0.59 : 0.18);
+    const accent = ohaDerivedAdaptiveAccent(base, detectedAccent);
+    const transparent = root.classList.contains('oha-transparent') || ohaIPSViewConfig?.transparent === true;
+    const pageText = lightEnvironment
+        ? ohaMixRGB(base, {red: 10, green: 13, blue: 19, alpha: 1}, 0.84)
+        : {red: 248, green: 250, blue: 252, alpha: 1};
+
+    root.dataset.environmentTone = lightEnvironment ? 'light' : 'dark';
+    root.style.setProperty('--oha-environment-color', ohaRGBString(base));
+    root.style.setProperty('--oha-bg', transparent ? 'transparent' : ohaRGBString(base, 0.96));
+    root.style.setProperty('--oha-surface', ohaRGBString(surface, 0.74));
+    root.style.setProperty('--oha-surface-strong', ohaRGBString(surfaceStrong, 0.86));
+    root.style.setProperty('--oha-surface-soft', ohaRGBString(surfaceSoft, 0.62));
+    root.style.setProperty('--oha-border', ohaRGBString(pageText, 0.17));
+    root.style.setProperty('--oha-text', ohaRGBString(pageText));
+    root.style.setProperty('--oha-muted', ohaRGBString(pageText, 0.72));
+    root.style.setProperty('--oha-faint', ohaRGBString(pageText, 0.50));
+    root.style.setProperty('--oha-panel-text', '#f8fafc');
+    root.style.setProperty('--oha-panel-muted', 'rgba(248, 250, 252, 0.735)');
+    root.style.setProperty('--oha-panel-faint', 'rgba(248, 250, 252, 0.510)');
+    root.style.setProperty('--oha-panel-border', 'rgba(255, 255, 255, 0.165)');
+    root.style.setProperty('--oha-accent', ohaRGBString(accent));
+    root.style.setProperty('--oha-accent-soft', ohaRGBString(accent, 0.19));
+    root.style.setProperty('--oha-shadow', lightEnvironment
+        ? '0 12px 30px rgba(24, 18, 10, 0.16)'
+        : '0 12px 30px rgba(0, 0, 0, 0.22)');
+}
+
+function ohaScheduleAdaptiveTheme(delay = 0) {
+    if (!document.documentElement.classList.contains('oha-theme-adaptive')) {
+        return;
+    }
+
+    if (ohaAdaptiveThemeTimer !== null) {
+        window.clearTimeout(ohaAdaptiveThemeTimer);
+    }
+    ohaAdaptiveThemeTimer = window.setTimeout(() => {
+        ohaAdaptiveThemeTimer = null;
+        ohaApplyAdaptiveTheme();
+    }, delay);
+}
+
+function ohaInitializeAdaptiveTheme() {
+    if (!document.documentElement.classList.contains('oha-theme-adaptive')) {
+        return;
+    }
+
+    ohaApplyAdaptiveTheme();
+    window.addEventListener('resize', () => ohaScheduleAdaptiveTheme(120));
+    window.addEventListener('focus', () => ohaScheduleAdaptiveTheme(80));
+    window.addEventListener('pageshow', () => ohaScheduleAdaptiveTheme(80));
+
+    if (typeof ohaAdaptiveThemeMedia.addEventListener === 'function') {
+        ohaAdaptiveThemeMedia.addEventListener('change', () => ohaScheduleAdaptiveTheme(0));
+    }
+
+    try {
+        if (window.parent !== window) {
+            ohaAdaptiveThemeObserver = new MutationObserver(() => ohaScheduleAdaptiveTheme(120));
+            const parentDocument = window.parent.document;
+            ohaAdaptiveThemeObserver.observe(parentDocument.documentElement, {
+                attributes: true,
+                attributeFilter: ['class', 'style']
+            });
+            if (parentDocument.body) {
+                ohaAdaptiveThemeObserver.observe(parentDocument.body, {
+                    attributes: true,
+                    attributeFilter: ['class', 'style']
+                });
+            }
+        }
+    } catch (error) {
+        console.debug('OpenHomeAlarm could not observe the IPSView host theme.', error);
+    }
+}
+
 function ohaTranslate(text) {
     if (typeof translate === 'function') {
         return translate(text);
@@ -1159,6 +1534,7 @@ if (ohaIPSViewConfig) {
     window.addEventListener('focus', () => ohaScheduleIPSViewPoll(100));
 }
 
+ohaInitializeAdaptiveTheme();
 ohaBindInteractions();
 ohaRender();
 ohaScheduleIPSViewPoll(250);

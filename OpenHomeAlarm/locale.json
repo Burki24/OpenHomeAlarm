@@ -209,6 +209,7 @@
             "Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box.": "Erstellt eine WebContent-Variable mit einer vollständig bedienbaren Alarmanlagen-Oberfläche für eine IPSView-HTML-Box.",
             "Transparent background": "Transparenter Hintergrund",
             "Color scheme": "Farbschema",
+            "Adaptive to environment": "An Umgebung anpassen",
             "Automatic": "Automatisch",
             "Light": "Hell",
             "Dark": "Dunkel",

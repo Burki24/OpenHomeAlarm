@@ -68,8 +68,35 @@ html.oha-ipsview.oha-theme-dark {
     --oha-shadow: 0 14px 36px rgba(0, 0, 0, 0.20);
 }
 
+html.oha-ipsview.oha-theme-adaptive {
+    color-scheme: dark;
+    --oha-bg: transparent;
+    --oha-surface: rgba(42, 47, 56, 0.72);
+    --oha-surface-strong: rgba(33, 38, 47, 0.84);
+    --oha-surface-soft: rgba(53, 59, 69, 0.62);
+    --oha-border: rgba(255, 255, 255, 0.16);
+    --oha-text: #f8fafc;
+    --oha-muted: rgba(248, 250, 252, 0.72);
+    --oha-faint: rgba(248, 250, 252, 0.50);
+    --oha-panel-text: #f8fafc;
+    --oha-panel-muted: rgba(248, 250, 252, 0.72);
+    --oha-panel-faint: rgba(248, 250, 252, 0.50);
+    --oha-panel-border: rgba(255, 255, 255, 0.16);
+    --oha-accent: #c7a86a;
+    --oha-accent-soft: rgba(199, 168, 106, 0.18);
+    --oha-success: #6fdc9a;
+    --oha-success-soft: rgba(111, 220, 154, 0.17);
+    --oha-success-border: rgba(111, 220, 154, 0.32);
+    --oha-warning: #f4bf63;
+    --oha-warning-soft: rgba(244, 191, 99, 0.17);
+    --oha-danger: #ff8181;
+    --oha-danger-soft: rgba(255, 129, 129, 0.17);
+    --oha-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+    --oha-adaptive-backdrop: blur(11px) saturate(1.12);
+}
+
 @media (prefers-color-scheme: dark) {
-    html.oha-ipsview:not(.oha-theme-light):not(.oha-theme-dark) {
+    html.oha-ipsview:not(.oha-theme-light):not(.oha-theme-dark):not(.oha-theme-adaptive) {
         color-scheme: dark;
         --oha-bg: rgba(10, 15, 28, 0.96);
         --oha-surface: rgba(26, 36, 55, 0.94);
@@ -1762,6 +1789,69 @@ html.oha-ipsview.oha-transparent .oha-context-card,
 html.oha-ipsview.oha-transparent .oha-operation-panel,
 html.oha-ipsview.oha-transparent .oha-inline-codepad {
     background-color: color-mix(in srgb, var(--oha-surface-strong) 96%, transparent);
+}
+
+html.oha-ipsview.oha-theme-adaptive .oha-hero,
+html.oha-ipsview.oha-theme-adaptive .oha-mode-button,
+html.oha-ipsview.oha-theme-adaptive .oha-status-card,
+html.oha-ipsview.oha-theme-adaptive .oha-context-card,
+html.oha-ipsview.oha-theme-adaptive .oha-operation-panel,
+html.oha-ipsview.oha-theme-adaptive .oha-inline-codepad,
+html.oha-ipsview.oha-theme-adaptive .oha-control-bar,
+html.oha-ipsview.oha-theme-adaptive .oha-codepad {
+    --oha-text: var(--oha-panel-text);
+    --oha-muted: var(--oha-panel-muted);
+    --oha-faint: var(--oha-panel-faint);
+    --oha-border: var(--oha-panel-border);
+    border-color: var(--oha-border);
+    background-color: var(--oha-surface);
+    color: var(--oha-text);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.045),
+        var(--oha-shadow);
+    backdrop-filter: var(--oha-adaptive-backdrop);
+    -webkit-backdrop-filter: var(--oha-adaptive-backdrop);
+}
+
+html.oha-ipsview.oha-theme-adaptive .oha-hero {
+    background:
+        linear-gradient(135deg, var(--oha-state-soft), transparent 46%),
+        var(--oha-surface-strong);
+}
+
+html.oha-ipsview.oha-theme-adaptive .oha-mode-button[data-active="true"] {
+    background:
+        linear-gradient(135deg, var(--oha-accent-soft), transparent 76%),
+        var(--oha-surface-strong);
+}
+
+html.oha-ipsview.oha-theme-adaptive .oha-mode-button:hover[data-can-arm="true"] {
+    background-color: color-mix(in srgb, var(--oha-accent) 18%, var(--oha-surface-strong));
+}
+
+html.oha-ipsview.oha-theme-adaptive .oha-section-heading {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+html.oha-ipsview.oha-theme-adaptive .oha-operation-head,
+html.oha-ipsview.oha-theme-adaptive .oha-operation-row,
+html.oha-ipsview.oha-theme-adaptive .oha-history-row {
+    border-color: color-mix(in srgb, var(--oha-text) 12%, transparent);
+}
+
+html.oha-ipsview.oha-theme-adaptive .oha-mode-pill,
+html.oha-ipsview.oha-theme-adaptive .oha-operation-count,
+html.oha-ipsview.oha-theme-adaptive .oha-code-display,
+html.oha-ipsview.oha-theme-adaptive .oha-code-key,
+html.oha-ipsview.oha-theme-adaptive .oha-icon-button {
+    background-color: var(--oha-surface-soft);
+    border-color: var(--oha-border);
+}
+
+html.oha-ipsview.oha-theme-adaptive:not(.oha-transparent),
+html.oha-ipsview.oha-theme-adaptive:not(.oha-transparent) body,
+html.oha-ipsview.oha-theme-adaptive:not(.oha-transparent) .oha-shell {
+    background: var(--oha-bg);
 }
 
 @media (min-width: 900px) {
