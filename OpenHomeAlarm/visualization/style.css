@@ -20,7 +20,12 @@
 }
 html.oha-ipsview {
     color-scheme: light dark;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
     font-size: var(--oha-font-scale, 100%);
+    line-height: 1.35;
+    --symc-radius-small: 8px;
+    --symc-radius-medium: 12px;
+    --symc-radius-large: 16px;
     --oha-bg: rgba(248, 250, 252, 0.96);
     --oha-surface: rgba(255, 255, 255, 0.94);
     --oha-surface-strong: #ffffff;
@@ -1489,5 +1494,463 @@ button:focus-visible {
 
     .oha-code-key {
         min-height: 58px;
+    }
+}
+
+/* Compact standalone layout for IPSView HTML boxes. */
+html.oha-ipsview,
+html.oha-ipsview body {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+html.oha-ipsview .oha-shell {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    align-content: stretch;
+    gap: 8px;
+    padding: 8px;
+    overflow: hidden;
+}
+
+html.oha-ipsview .oha-topbar-actions {
+    display: none;
+}
+
+html.oha-ipsview .oha-hero {
+    min-height: 96px;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 14px;
+}
+
+html.oha-ipsview .oha-hero-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    font-size: 1.3rem;
+}
+
+html.oha-ipsview .oha-state {
+    margin-top: 2px;
+    font-size: clamp(1.55rem, 3.2vw, 2.15rem);
+    line-height: 1;
+}
+
+html.oha-ipsview .oha-hero-message {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    line-height: 1.3;
+}
+
+html.oha-ipsview .oha-hero-meta {
+    gap: 6px;
+}
+
+html.oha-ipsview .oha-mode-pill {
+    min-height: 26px;
+    padding: 3px 9px;
+    font-size: 0.69rem;
+}
+
+html.oha-ipsview .oha-countdown strong {
+    font-size: clamp(1.9rem, 5cqi, 3rem);
+}
+
+html.oha-ipsview .oha-arm-section {
+    gap: 6px;
+}
+
+html.oha-ipsview .oha-section-heading-compact {
+    margin-bottom: 2px;
+}
+
+html.oha-ipsview .oha-section-heading {
+    gap: 10px;
+    padding: 0 1px;
+}
+
+html.oha-ipsview .oha-section-heading h2 {
+    margin-top: 1px;
+    font-size: 0.92rem;
+}
+
+html.oha-ipsview .oha-section-hint {
+    font-size: 0.68rem;
+}
+
+html.oha-ipsview .oha-mode-grid {
+    gap: 8px;
+}
+
+html.oha-ipsview .oha-mode-button {
+    min-height: 68px;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 12px;
+}
+
+html.oha-ipsview .oha-mode-button::before {
+    width: 3px;
+}
+
+html.oha-ipsview .oha-mode-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+}
+
+html.oha-ipsview .oha-mode-button-copy {
+    gap: 0;
+}
+
+html.oha-ipsview .oha-mode-button-copy strong {
+    font-size: 0.83rem;
+}
+
+html.oha-ipsview .oha-readiness,
+html.oha-ipsview .oha-blockers,
+html.oha-ipsview .oha-mode-action {
+    font-size: 0.64rem;
+    line-height: 1.25;
+}
+
+html.oha-ipsview .oha-ready-dot {
+    width: 7px;
+    height: 7px;
+    box-shadow: 0 0 0 3px var(--oha-danger-soft);
+}
+
+html.oha-ipsview .oha-mode-button[data-ready="true"] .oha-ready-dot {
+    box-shadow: 0 0 0 3px var(--oha-success-soft);
+}
+
+html.oha-ipsview .oha-control-bar {
+    min-height: 46px;
+    gap: 10px;
+    padding: 8px 10px;
+}
+
+html.oha-ipsview .oha-status-grid,
+html.oha-ipsview .oha-context-grid,
+html.oha-ipsview .oha-operations-grid {
+    gap: 8px;
+}
+
+html.oha-ipsview .oha-status-card {
+    min-height: 48px;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 11px;
+}
+
+html.oha-ipsview .oha-status-card-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+}
+
+html.oha-ipsview .oha-status-card-label {
+    font-size: 0.59rem;
+}
+
+html.oha-ipsview .oha-status-card strong {
+    font-size: 0.75rem;
+}
+
+html.oha-ipsview .oha-context-card {
+    min-height: 46px;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 10px;
+}
+
+html.oha-ipsview .oha-context-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+}
+
+html.oha-ipsview .oha-context-copy strong {
+    font-size: 0.74rem;
+}
+
+html.oha-ipsview .oha-context-copy span {
+    font-size: 0.66rem;
+}
+
+html.oha-ipsview .oha-operations-grid {
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+html.oha-ipsview .oha-operation-panel {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    border-radius: 11px;
+}
+
+html.oha-ipsview .oha-operation-head {
+    min-height: 42px;
+    flex: 0 0 auto;
+    padding: 7px 10px;
+}
+
+html.oha-ipsview .oha-operation-head h2 {
+    font-size: 0.82rem;
+}
+
+html.oha-ipsview .oha-operation-count {
+    min-width: 24px;
+    height: 24px;
+    font-size: 0.64rem;
+}
+
+html.oha-ipsview .oha-operation-list,
+html.oha-ipsview .oha-history-list {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--oha-faint) transparent;
+}
+
+html.oha-ipsview .oha-operation-row,
+html.oha-ipsview .oha-history-row {
+    gap: 8px;
+    padding: 7px 10px;
+}
+
+html.oha-ipsview .oha-operation-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+}
+
+html.oha-ipsview .oha-operation-copy strong,
+html.oha-ipsview .oha-history-copy strong {
+    font-size: 0.72rem;
+}
+
+html.oha-ipsview .oha-operation-copy span,
+html.oha-ipsview .oha-history-copy span {
+    font-size: 0.63rem;
+}
+
+html.oha-ipsview .oha-row-action,
+html.oha-ipsview .oha-card-action,
+html.oha-ipsview .oha-secondary-button {
+    min-height: 28px;
+    padding: 4px 8px;
+    font-size: 0.64rem;
+}
+
+html.oha-ipsview.oha-transparent .oha-hero,
+html.oha-ipsview.oha-transparent .oha-mode-button,
+html.oha-ipsview.oha-transparent .oha-status-card,
+html.oha-ipsview.oha-transparent .oha-context-card,
+html.oha-ipsview.oha-transparent .oha-operation-panel,
+html.oha-ipsview.oha-transparent .oha-inline-codepad {
+    background-color: color-mix(in srgb, var(--oha-surface-strong) 96%, transparent);
+}
+
+@media (min-width: 900px) {
+    html.oha-ipsview .oha-shell {
+        grid-template-columns: minmax(0, 1fr) 292px;
+        grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+        grid-template-areas:
+            "hero codepad"
+            "arming codepad"
+            "control codepad"
+            "status codepad"
+            "context codepad"
+            "operations codepad";
+        align-items: stretch;
+    }
+
+    html.oha-ipsview .oha-shell[data-codepad-visible="false"] {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "hero"
+            "arming"
+            "control"
+            "status"
+            "context"
+            "operations";
+    }
+
+    html.oha-ipsview .oha-hero {
+        grid-area: hero;
+    }
+
+    html.oha-ipsview .oha-arm-section {
+        grid-area: arming;
+    }
+
+    html.oha-ipsview .oha-control-bar {
+        grid-area: control;
+    }
+
+    html.oha-ipsview .oha-status-grid {
+        grid-area: status;
+    }
+
+    html.oha-ipsview .oha-context-grid {
+        grid-area: context;
+    }
+
+    html.oha-ipsview .oha-operations-grid {
+        grid-area: operations;
+    }
+
+    html.oha-ipsview .oha-inline-codepad {
+        position: static;
+        grid-area: codepad;
+        min-height: 0;
+        max-height: 100%;
+        align-self: stretch;
+        padding: 12px;
+        overflow-y: auto;
+        border-radius: 14px;
+    }
+
+    html.oha-ipsview .oha-inline-codepad-head h2 {
+        font-size: 0.88rem;
+    }
+
+    html.oha-ipsview .oha-inline-codepad-hint {
+        min-height: 0;
+        margin-top: 5px;
+        font-size: 0.65rem;
+    }
+
+    html.oha-ipsview .oha-code-display-inline {
+        min-height: 42px;
+        margin: 9px 0 7px;
+        padding: 7px;
+    }
+
+    html.oha-ipsview .oha-code-grid-inline {
+        gap: 6px;
+    }
+
+    html.oha-ipsview .oha-code-grid-inline .oha-code-key {
+        min-height: 40px;
+        font-size: 0.88rem;
+    }
+
+    html.oha-ipsview .oha-inline-disarm-button {
+        min-height: 38px;
+        margin-top: 8px;
+        font-size: 0.72rem;
+    }
+}
+
+@media (max-width: 899px) {
+    html.oha-ipsview,
+    html.oha-ipsview body {
+        overflow: auto;
+    }
+
+    html.oha-ipsview .oha-shell {
+        height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+
+    html.oha-ipsview .oha-operations-grid {
+        height: auto;
+        overflow: visible;
+    }
+
+    html.oha-ipsview .oha-operation-list,
+    html.oha-ipsview .oha-history-list {
+        max-height: 240px;
+    }
+}
+
+@media (max-width: 620px) {
+    html.oha-ipsview .oha-shell {
+        gap: 7px;
+        padding: 7px;
+    }
+
+    html.oha-ipsview .oha-hero {
+        padding: 11px 12px;
+    }
+
+    html.oha-ipsview .oha-mode-button {
+        min-height: 62px;
+    }
+
+    html.oha-ipsview .oha-status-card {
+        min-height: 44px;
+    }
+}
+
+@media (max-height: 700px) and (min-width: 900px) {
+    html.oha-ipsview .oha-shell {
+        gap: 6px;
+        padding: 6px;
+    }
+
+    html.oha-ipsview .oha-hero {
+        min-height: 84px;
+        padding: 10px 13px;
+    }
+
+    html.oha-ipsview .oha-hero-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+    }
+
+    html.oha-ipsview .oha-state {
+        font-size: clamp(1.35rem, 2.8vw, 1.85rem);
+    }
+
+    html.oha-ipsview .oha-hero-message {
+        font-size: 0.69rem;
+    }
+
+    html.oha-ipsview .oha-mode-button {
+        min-height: 60px;
+        padding: 7px 9px;
+    }
+
+    html.oha-ipsview .oha-mode-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    html.oha-ipsview .oha-status-card {
+        min-height: 42px;
+        padding: 5px 8px;
+    }
+
+    html.oha-ipsview .oha-status-card-icon {
+        width: 27px;
+        height: 27px;
+    }
+
+    html.oha-ipsview .oha-operation-head {
+        min-height: 38px;
+        padding: 5px 9px;
+    }
+
+    html.oha-ipsview .oha-operation-row,
+    html.oha-ipsview .oha-history-row {
+        padding: 5px 9px;
     }
 }

@@ -86,6 +86,14 @@ assertIPSView(
     'IPSView must provide standalone localization, themes and transparency.'
 );
 assertIPSView(
+    str_contains($css, 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;')
+        && str_contains($css, 'html.oha-ipsview .oha-topbar-actions')
+        && str_contains($css, 'grid-template-areas:')
+        && str_contains($css, 'html.oha-ipsview .oha-operation-list')
+        && str_contains($css, 'overflow-y: auto;'),
+    'IPSView must use its own compact typography, remove the empty toolbar row and scroll only operation lists.'
+);
+assertIPSView(
     str_contains($form, '"name": "EnableIPSView"')
         && str_contains($form, '"name": "IPSViewTransparent"')
         && str_contains($form, '"name": "IPSViewTheme"')
