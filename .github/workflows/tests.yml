@@ -45,6 +45,9 @@ jobs:
       - name: Check Symcon Strict foundation
         run: php tests/symcon-strict.php
 
+      - name: Check extracted alarm domain model
+        run: php tests/domain-model.php
+
       - name: Check alarm state model
         run: php tests/state-model.php
 

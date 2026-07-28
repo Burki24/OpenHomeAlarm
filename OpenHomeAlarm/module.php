@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
+use Burki24\OpenHomeAlarm\AlarmEventHistory;
+use Burki24\OpenHomeAlarm\AlarmTriggerValue;
+
+require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
+require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
 require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
 require_once __DIR__ . '/../libs/helper/PersistentJsonCacheHelper.php';
 require_once __DIR__ . '/../libs/helper/VariablePresentationHelper.php';
@@ -1878,7 +1885,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
-            $value = $this->TriggerValueToStorageString($option['Value']);
+            $value = AlarmTriggerValue::toStorageString($option['Value']);
             if ($value === null) {
                 continue;
             }
@@ -1916,7 +1923,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
-            $value = $this->TriggerValueToStorageString($interval['IntervalMinValue']);
+            $value = AlarmTriggerValue::toStorageString($interval['IntervalMinValue']);
             if ($value === null) {
                 continue;
             }
@@ -1970,7 +1977,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
-            $value = $this->TriggerValueToStorageString($association['Value'], $variable['VariableType'] ?? null);
+            $value = AlarmTriggerValue::toStorageString($association['Value'], $variable['VariableType'] ?? null);
             if ($value === null) {
                 continue;
             }
@@ -2024,37 +2031,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         return is_array($decoded) && array_is_list($decoded) ? $decoded : [];
     }
 
-    private function TriggerValueToStorageString(mixed $value, ?int $variableType = null): ?string
-    {
-        if ($variableType === 0 && (is_bool($value) || is_int($value) || is_float($value))) {
-            return (bool) $value ? 'true' : 'false';
-        }
-        if ($variableType === 1 && (is_int($value) || is_float($value))) {
-            return (string) (int) $value;
-        }
-        if ($variableType === 2 && (is_int($value) || is_float($value))) {
-            return json_encode((float) $value, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
-        }
-        if ($variableType === 3 && is_scalar($value)) {
-            return (string) $value;
-        }
-
-        if (is_bool($value)) {
-            return $value ? 'true' : 'false';
-        }
-        if (is_int($value)) {
-            return (string) $value;
-        }
-        if (is_float($value)) {
-            return json_encode($value, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
-        }
-        if (is_string($value)) {
-            return $value;
-        }
-
-        return null;
-    }
-
     /**
      * @param list<array{caption:string,value:string}> $options
      */
@@ -2067,7 +2043,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         try {
             $legacyValue = json_decode($triggerValue, true, 512, JSON_THROW_ON_ERROR);
-            $normalizedLegacyValue = $this->TriggerValueToStorageString($legacyValue);
+            $normalizedLegacyValue = AlarmTriggerValue::toStorageString($legacyValue);
             if ($normalizedLegacyValue !== null && in_array($normalizedLegacyValue, $values, true)) {
                 return $normalizedLegacyValue;
             }
@@ -2195,114 +2171,11 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ReadConfiguredFaultInputs(): array
     {
-        $encodedFaultInputs = trim($this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS));
-        if ($encodedFaultInputs === '') {
-            return [];
-        }
-
-        try {
-            $faultInputs = json_decode($encodedFaultInputs, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new UnexpectedValueException('Invalid fault input configuration JSON.', 0, $exception);
-        }
-
-        if (!is_array($faultInputs) || !array_is_list($faultInputs)) {
-            throw new UnexpectedValueException('Fault input configuration must be a list.');
-        }
-
-        $normalizedFaultInputs = [];
-        $usedVariableIDs = [];
-        foreach ($faultInputs as $faultInput) {
-            if (!is_array($faultInput)) {
-                throw new UnexpectedValueException('Every fault input configuration must be an object.');
-            }
-
-            $normalized = $this->NormalizeFaultInput($faultInput);
-            if ($normalized['VariableID'] > 0) {
-                if (isset($usedVariableIDs[$normalized['VariableID']])) {
-                    throw new UnexpectedValueException('A fault input variable can only be configured once.');
-                }
-                $usedVariableIDs[$normalized['VariableID']] = true;
-            }
-            $normalizedFaultInputs[] = $normalized;
-        }
-
-        return $normalizedFaultInputs;
-    }
-
-    /**
-     * @param array<string,mixed> $faultInput
-     *
-     * @return array{
-     *     Enabled: bool,
-     *     Name: string,
-     *     VariableID: int,
-     *     FaultType: int,
-     *     TriggerValue: string,
-     *     BlockArming: bool,
-     *     TriggerAlarm: bool
-     * }
-     */
-    private function NormalizeFaultInput(array $faultInput): array
-    {
-        $variableID = $this->ReadFaultInteger($faultInput, 'VariableID', 0);
-        if ($variableID < 0) {
-            throw new UnexpectedValueException('Fault input VariableID must not be negative.');
-        }
-
-        $faultType = $this->ReadFaultInteger($faultInput, 'FaultType', self::FAULT_TYPE_TAMPER);
-        if (!in_array($faultType, self::VALID_FAULT_TYPES, true)) {
-            throw new UnexpectedValueException('Unsupported fault input type.');
-        }
-
-        return [
-            'Enabled'      => $this->ReadFaultBoolean($faultInput, 'Enabled', true),
-            'Name'         => trim($this->ReadFaultString($faultInput, 'Name', '')),
-            'VariableID'   => $variableID,
-            'FaultType'    => $faultType,
-            'TriggerValue' => $this->ReadFaultString($faultInput, 'TriggerValue', '1'),
-            'BlockArming'  => $this->ReadFaultBoolean($faultInput, 'BlockArming', false),
-            'TriggerAlarm' => $this->ReadFaultBoolean($faultInput, 'TriggerAlarm', false)
-        ];
-    }
-
-    /**
-     * @param array<string,mixed> $faultInput
-     */
-    private function ReadFaultBoolean(array $faultInput, string $key, bool $default): bool
-    {
-        $value = $faultInput[$key] ?? $default;
-        if (!is_bool($value)) {
-            throw new UnexpectedValueException(sprintf('Fault input field %s must be boolean.', $key));
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param array<string,mixed> $faultInput
-     */
-    private function ReadFaultInteger(array $faultInput, string $key, int $default): int
-    {
-        $value = $faultInput[$key] ?? $default;
-        if (!is_int($value)) {
-            throw new UnexpectedValueException(sprintf('Fault input field %s must be integer.', $key));
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param array<string,mixed> $faultInput
-     */
-    private function ReadFaultString(array $faultInput, string $key, string $default): string
-    {
-        $value = $faultInput[$key] ?? $default;
-        if (!is_string($value)) {
-            throw new UnexpectedValueException(sprintf('Fault input field %s must be string.', $key));
-        }
-
-        return $value;
+        return AlarmConfigurationNormalizer::faultInputs(
+            $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS),
+            self::VALID_FAULT_TYPES,
+            self::FAULT_TYPE_TAMPER
+        );
     }
 
     /**
@@ -2322,114 +2195,11 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ReadConfiguredSensors(): array
     {
-        try {
-            $sensors = json_decode(
-                $this->ReadPropertyString(self::PROPERTY_SENSORS),
-                true,
-                512,
-                JSON_THROW_ON_ERROR
-            );
-        } catch (JsonException $exception) {
-            throw new UnexpectedValueException('Invalid sensor configuration JSON.', 0, $exception);
-        }
-
-        if (!is_array($sensors) || !array_is_list($sensors)) {
-            throw new UnexpectedValueException('Sensor configuration must be a list.');
-        }
-
-        $normalizedSensors = [];
-        foreach ($sensors as $sensor) {
-            if (!is_array($sensor)) {
-                throw new UnexpectedValueException('Every sensor configuration must be an object.');
-            }
-
-            $normalizedSensors[] = $this->NormalizeSensor($sensor);
-        }
-
-        return $normalizedSensors;
-    }
-
-    /**
-     * @param array<string,mixed> $sensor
-     *
-     * @return array{
-     *     Enabled: bool,
-     *     Name: string,
-     *     VariableID: int,
-     *     SensorType: int,
-     *     TriggerValue: string,
-     *     ArmHome: bool,
-     *     ArmAway: bool,
-     *     ArmNight: bool,
-     *     AlwaysActive: bool,
-     *     ExitDelay: bool,
-     *     EntryDelay: bool
-     * }
-     */
-    private function NormalizeSensor(array $sensor): array
-    {
-        $variableID = $this->ReadSensorInteger($sensor, 'VariableID', 0);
-        if ($variableID < 0) {
-            throw new UnexpectedValueException('Sensor VariableID must not be negative.');
-        }
-
-        $sensorType = $this->ReadSensorInteger($sensor, 'SensorType', self::SENSOR_TYPE_OPENING);
-        if (!in_array($sensorType, self::VALID_SENSOR_TYPES, true)) {
-            throw new UnexpectedValueException('Unsupported sensor type.');
-        }
-
-        return [
-            'Enabled'      => $this->ReadSensorBoolean($sensor, 'Enabled', true),
-            'Name'         => trim($this->ReadSensorString($sensor, 'Name', '')),
-            'VariableID'   => $variableID,
-            'SensorType'   => $sensorType,
-            'TriggerValue' => $this->ReadSensorString($sensor, 'TriggerValue', '1'),
-            'ArmHome'      => $this->ReadSensorBoolean($sensor, 'ArmHome', false),
-            'ArmAway'      => $this->ReadSensorBoolean($sensor, 'ArmAway', true),
-            'ArmNight'     => $this->ReadSensorBoolean($sensor, 'ArmNight', false),
-            'AlwaysActive' => $this->ReadSensorBoolean($sensor, 'AlwaysActive', false),
-            'ExitDelay'    => $this->ReadSensorBoolean($sensor, 'ExitDelay', false),
-            'EntryDelay'   => $this->ReadSensorBoolean($sensor, 'EntryDelay', false)
-        ];
-    }
-
-    /**
-     * @param array<string,mixed> $sensor
-     */
-    private function ReadSensorBoolean(array $sensor, string $key, bool $default): bool
-    {
-        $value = $sensor[$key] ?? $default;
-        if (!is_bool($value)) {
-            throw new UnexpectedValueException(sprintf('Sensor field %s must be boolean.', $key));
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param array<string,mixed> $sensor
-     */
-    private function ReadSensorInteger(array $sensor, string $key, int $default): int
-    {
-        $value = $sensor[$key] ?? $default;
-        if (!is_int($value)) {
-            throw new UnexpectedValueException(sprintf('Sensor field %s must be integer.', $key));
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param array<string,mixed> $sensor
-     */
-    private function ReadSensorString(array $sensor, string $key, string $default): string
-    {
-        $value = $sensor[$key] ?? $default;
-        if (!is_string($value)) {
-            throw new UnexpectedValueException(sprintf('Sensor field %s must be string.', $key));
-        }
-
-        return $value;
+        return AlarmConfigurationNormalizer::sensors(
+            $this->ReadPropertyString(self::PROPERTY_SENSORS),
+            self::VALID_SENSOR_TYPES,
+            self::SENSOR_TYPE_OPENING
+        );
     }
 
     /**
@@ -2577,7 +2347,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             return null;
         }
 
-        return $this->TriggerValueMatchesCurrentValue(
+        return AlarmTriggerValue::matches(
             $variable['VariableType'],
             $faultInput['TriggerValue'],
             $currentValue
@@ -3271,54 +3041,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             return null;
         }
 
-        return $this->TriggerValueMatchesCurrentValue(
+        return AlarmTriggerValue::matches(
             $variable['VariableType'],
             $sensor['TriggerValue'],
             $currentValue
         );
-    }
-
-    private function TriggerValueMatchesCurrentValue(int $variableType, string $triggerValue, mixed $currentValue): ?bool
-    {
-        switch ($variableType) {
-            case 0:
-                if (!is_bool($currentValue)) {
-                    return null;
-                }
-
-                $normalizedTrigger = strtolower(trim($triggerValue));
-                if (in_array($normalizedTrigger, ['true', '1'], true)) {
-                    return $currentValue === true;
-                }
-                if (in_array($normalizedTrigger, ['false', '0'], true)) {
-                    return $currentValue === false;
-                }
-
-                return null;
-
-            case 1:
-                if (!is_int($currentValue) || preg_match('/^-?\d+$/', trim($triggerValue)) !== 1) {
-                    return null;
-                }
-
-                return $currentValue === (int) $triggerValue;
-
-            case 2:
-                if (!is_float($currentValue) || !is_numeric(trim($triggerValue))) {
-                    return null;
-                }
-
-                return $currentValue === (float) $triggerValue;
-
-            case 3:
-                if (!is_string($currentValue)) {
-                    return null;
-                }
-
-                return $currentValue === $triggerValue;
-        }
-
-        return null;
     }
 
     /**
@@ -3826,43 +3553,12 @@ class OpenHomeAlarm extends IPSModuleStrict
             return [];
         }
 
-        if (!array_is_list($decodedHistory)) {
-            return [];
-        }
-
-        $history = [];
-        foreach ($decodedHistory as $entry) {
-            if (!is_array($entry)) {
-                continue;
-            }
-
-            $time = $entry['Time'] ?? null;
-            $event = $entry['Event'] ?? null;
-            $mode = $entry['Mode'] ?? null;
-            $state = $entry['State'] ?? null;
-            $source = $entry['Source'] ?? null;
-            if (
-                !is_int($time)
-                || !is_string($event)
-                || !is_int($mode)
-                || !in_array($mode, self::VALID_MODES, true)
-                || !is_int($state)
-                || !in_array($state, self::VALID_STATES, true)
-                || !is_string($source)
-            ) {
-                continue;
-            }
-
-            $history[] = [
-                'Time'   => $time,
-                'Event'  => $event,
-                'Mode'   => $mode,
-                'State'  => $state,
-                'Source' => $source
-            ];
-        }
-
-        return array_slice($history, 0, self::EVENT_HISTORY_LIMIT);
+        return AlarmEventHistory::normalize(
+            $decodedHistory,
+            self::VALID_MODES,
+            self::VALID_STATES,
+            self::EVENT_HISTORY_LIMIT
+        );
     }
 
     private function AppendEvent(
@@ -3871,18 +3567,19 @@ class OpenHomeAlarm extends IPSModuleStrict
         ?int $mode = null,
         ?int $state = null
     ): void {
-        $history = $this->ReadEventHistory();
-        array_unshift($history, [
-            'Time'   => time(),
-            'Event'  => $event,
-            'Mode'   => $mode ?? $this->ReadAlarmMode(),
-            'State'  => $state ?? $this->ReadAlarmState(),
-            'Source' => $source
-        ]);
-
         $this->WritePersistentJsonCache(
             self::ATTRIBUTE_EVENT_HISTORY,
-            array_slice($history, 0, self::EVENT_HISTORY_LIMIT)
+            AlarmEventHistory::prepend(
+                $this->ReadEventHistory(),
+                [
+                    'Time'   => time(),
+                    'Event'  => $event,
+                    'Mode'   => $mode ?? $this->ReadAlarmMode(),
+                    'State'  => $state ?? $this->ReadAlarmState(),
+                    'Source' => $source
+                ],
+                self::EVENT_HISTORY_LIMIT
+            )
         );
     }
 
