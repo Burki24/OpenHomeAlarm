@@ -140,6 +140,7 @@ button:focus-visible {
 .oha-hero {
     --oha-state-color: var(--oha-accent);
     --oha-state-soft: var(--oha-accent-soft);
+    container-type: inline-size;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 16px;
@@ -205,6 +206,7 @@ button:focus-visible {
     margin: 4px 0 0;
     color: var(--oha-state-color);
     font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+    font-size: clamp(1.65rem, 5cqi, 2.75rem);
     hyphens: auto;
     line-height: 1.02;
     letter-spacing: -0.03em;
@@ -248,6 +250,7 @@ button:focus-visible {
 
 .oha-countdown strong {
     font-size: clamp(2.2rem, 6vw, 4.1rem);
+    font-size: clamp(2.1rem, 7cqi, 4.1rem);
     font-variant-numeric: tabular-nums;
     line-height: 0.9;
     letter-spacing: -0.05em;
@@ -996,9 +999,6 @@ button:focus-visible {
         margin-left: auto;
     }
 
-    .oha-shell[data-codepad-visible="true"] .oha-countdown strong {
-        font-size: 2.4rem;
-    }
 }
 
 @media (max-width: 860px) {
@@ -1029,9 +1029,6 @@ button:focus-visible {
         margin-left: auto;
     }
 
-    .oha-countdown strong {
-        font-size: 2.4rem;
-    }
 }
 
 @media (max-width: 620px) {

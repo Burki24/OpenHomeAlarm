@@ -141,6 +141,12 @@ assertVisualization(
         && str_contains($css, '.oha-shell[data-codepad-visible="true"] .oha-hero-meta'),
     'Visualization must reflow the hero while the inline code pad narrows the content area.'
 );
+assertVisualization(
+    str_contains($css, 'container-type: inline-size;')
+        && str_contains($css, 'font-size: clamp(1.65rem, 5cqi, 2.75rem);')
+        && str_contains($css, 'font-size: clamp(2.1rem, 7cqi, 4.1rem);'),
+    'Visualization must scale the hero typography against the available hero width.'
+);
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
 assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');
