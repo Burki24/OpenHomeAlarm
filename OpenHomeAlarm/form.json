@@ -124,7 +124,7 @@
                 {
                     "type": "Select",
                     "name": "AlarmResetActionEnabled",
-                    "caption": "Alarm output reset",
+                    "caption": "Reset alarm output",
                     "options": [
                         {
                             "caption": "No action",

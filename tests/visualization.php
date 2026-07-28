@@ -146,6 +146,7 @@ foreach ([
     'Recent activity',
     'Silence alarm',
     'Alarm triggered',
+    'Reset alarm output',
     'Alarm output reset',
     'System disarmed',
     'Sensor bypassed',
