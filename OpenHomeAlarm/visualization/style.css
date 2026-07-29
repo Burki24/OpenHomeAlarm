@@ -1983,7 +1983,7 @@ html.oha-ipsview.oha-theme-linked .oha-shell {
 
 @media (min-width: 900px) {
     html.oha-ipsview .oha-shell {
-        grid-template-columns: minmax(0, 1fr) 292px;
+        grid-template-columns: minmax(0, 1fr) clamp(310px, 18rem, 350px);
         grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
         grid-template-areas:
             "hero codepad"
@@ -2033,12 +2033,20 @@ html.oha-ipsview.oha-theme-linked .oha-shell {
     html.oha-ipsview .oha-inline-codepad {
         position: static;
         grid-area: codepad;
+        width: 100%;
+        min-width: 0;
         min-height: 0;
+        max-width: 100%;
         max-height: 100%;
         align-self: stretch;
         padding: 12px;
+        overflow-x: hidden;
         overflow-y: auto;
         border-radius: 14px;
+    }
+
+    html.oha-ipsview .oha-inline-codepad-head > div {
+        min-width: 0;
     }
 
     html.oha-ipsview .oha-inline-codepad-head h2 {

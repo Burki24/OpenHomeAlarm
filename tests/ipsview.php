@@ -105,6 +105,12 @@ assertIPSView(
     'IPSView must use its own compact typography, remove the empty toolbar row and scroll only operation lists.'
 );
 assertIPSView(
+    str_contains($css, 'grid-template-columns: minmax(0, 1fr) clamp(310px, 18rem, 350px);')
+        && str_contains($css, 'html.oha-ipsview .oha-inline-codepad-head > div')
+        && str_contains($css, 'overflow-x: hidden;'),
+    'The IPSView codepad column must scale with the configured font size without horizontal overflow.'
+);
+assertIPSView(
     str_contains($form, '"name": "EnableIPSView"')
         && str_contains($form, '"name": "IPSViewTransparent"')
         && str_contains($form, '"name": "IPSViewTheme"')
