@@ -108,8 +108,14 @@ assertIPSView(
         && str_contains($css, '.oha-mode-button[data-can-arm="false"]')
         && str_contains($css, 'opacity: 0.78;')
         && str_contains($css, 'linear-gradient(135deg, var(--oha-state-soft), transparent 46%)')
+        && str_contains($css, '--oha-state-gradient: color-mix(in srgb, var(--oha-state-color) 32%, transparent);')
+        && str_contains($css, 'background-image: linear-gradient(90deg, var(--oha-state-gradient), transparent 42%);')
+        && str_contains($css, '--oha-active-mode-gradient: color-mix(in srgb, var(--oha-accent) 28%, transparent);')
+        && str_contains($css, 'background-image: linear-gradient(90deg, var(--oha-active-mode-gradient), transparent 58%);')
+        && !str_contains($css, 'linear-gradient(90deg, var(--oha-state-soft), transparent 32%)')
+        && !str_contains($css, 'linear-gradient(90deg, var(--oha-accent-soft), transparent 54%)')
         && str_contains($css, 'box-shadow: none;'),
-    'The shared IPSView palette helper must provide contrast handling without changing inactive states or gradients.'
+    'The shared IPSView palette helper must preserve local inactive states and module-owned state gradients.'
 );
 assertIPSView(
     str_contains($css, 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;')

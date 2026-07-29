@@ -1948,15 +1948,15 @@ html.oha-ipsview.oha-theme-linked .oha-codepad {
 }
 
 html.oha-ipsview.oha-theme-linked .oha-hero {
-    background:
-        linear-gradient(90deg, var(--oha-state-soft), transparent 32%),
-        var(--oha-surface-strong);
+    --oha-state-gradient: color-mix(in srgb, var(--oha-state-color) 32%, transparent);
+    background-color: var(--oha-surface-strong);
+    background-image: linear-gradient(90deg, var(--oha-state-gradient), transparent 42%);
 }
 
 html.oha-ipsview.oha-theme-linked .oha-mode-button[data-active="true"] {
-    background:
-        linear-gradient(90deg, var(--oha-accent-soft), transparent 54%),
-        var(--oha-surface-strong);
+    --oha-active-mode-gradient: color-mix(in srgb, var(--oha-accent) 28%, transparent);
+    background-color: var(--oha-surface-strong);
+    background-image: linear-gradient(90deg, var(--oha-active-mode-gradient), transparent 58%);
 }
 
 html.oha-ipsview.oha-theme-linked .oha-section-heading {
