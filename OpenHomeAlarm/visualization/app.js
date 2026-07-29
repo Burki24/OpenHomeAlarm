@@ -13,29 +13,6 @@ const ohaIPSViewConfig = window.OHA_IPSVIEW && typeof window.OHA_IPSVIEW === 'ob
     ? window.OHA_IPSVIEW
     : null;
 
-let ohaAdaptiveThemeTimer = null;
-let ohaAdaptiveThemeObserver = null;
-const ohaAdaptiveThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
-const ohaAdaptiveBackgroundProperties = [
-    '--ipsview-background',
-    '--view-background',
-    '--page-background',
-    '--content-background',
-    '--background-color',
-    '--primary-background-color'
-];
-const ohaAdaptiveSurfaceProperties = [
-    '--card-color',
-    '--surface-color'
-];
-const ohaAdaptiveAccentProperties = [
-    '--ipsview-accent',
-    '--view-accent',
-    '--accent-color',
-    '--primary-color',
-    '--theme-accent'
-];
-
 function ohaClamp(value, minimum, maximum) {
     return Math.min(maximum, Math.max(minimum, value));
 }
@@ -121,72 +98,6 @@ function ohaMixRGB(first, second, amount) {
     };
 }
 
-function ohaRGBToHSL(color) {
-    const red = color.red / 255;
-    const green = color.green / 255;
-    const blue = color.blue / 255;
-    const maximum = Math.max(red, green, blue);
-    const minimum = Math.min(red, green, blue);
-    const delta = maximum - minimum;
-    const lightness = (maximum + minimum) / 2;
-    let hue = 0;
-    let saturation = 0;
-
-    if (delta !== 0) {
-        saturation = delta / (1 - Math.abs((2 * lightness) - 1));
-        if (maximum === red) {
-            hue = 60 * (((green - blue) / delta) % 6);
-        } else if (maximum === green) {
-            hue = 60 * (((blue - red) / delta) + 2);
-        } else {
-            hue = 60 * (((red - green) / delta) + 4);
-        }
-    }
-
-    return {
-        hue: hue < 0 ? hue + 360 : hue,
-        saturation,
-        lightness
-    };
-}
-
-function ohaHSLToRGB(hue, saturation, lightness) {
-    const normalizedHue = ((hue % 360) + 360) % 360;
-    const chroma = (1 - Math.abs((2 * lightness) - 1)) * saturation;
-    const part = chroma * (1 - Math.abs(((normalizedHue / 60) % 2) - 1));
-    const offset = lightness - (chroma / 2);
-    let red = 0;
-    let green = 0;
-    let blue = 0;
-
-    if (normalizedHue < 60) {
-        red = chroma;
-        green = part;
-    } else if (normalizedHue < 120) {
-        red = part;
-        green = chroma;
-    } else if (normalizedHue < 180) {
-        green = chroma;
-        blue = part;
-    } else if (normalizedHue < 240) {
-        green = part;
-        blue = chroma;
-    } else if (normalizedHue < 300) {
-        red = part;
-        blue = chroma;
-    } else {
-        red = chroma;
-        blue = part;
-    }
-
-    return {
-        red: (red + offset) * 255,
-        green: (green + offset) * 255,
-        blue: (blue + offset) * 255,
-        alpha: 1
-    };
-}
-
 function ohaRGBString(color, alpha = 1) {
     const red = Math.round(ohaClamp(color.red, 0, 255));
     const green = Math.round(ohaClamp(color.green, 0, 255));
@@ -209,262 +120,69 @@ function ohaRelativeLuminance(color) {
         + (0.0722 * channel(color.blue));
 }
 
-function ohaContrastRatio(first, second) {
-    const brighter = Math.max(ohaRelativeLuminance(first), ohaRelativeLuminance(second));
-    const darker = Math.min(ohaRelativeLuminance(first), ohaRelativeLuminance(second));
-    return (brighter + 0.05) / (darker + 0.05);
-}
-
-function ohaCompositeRGB(foreground, background, alpha = foreground.alpha ?? 1) {
-    const ratio = ohaClamp(alpha, 0, 1);
-    return {
-        red: (foreground.red * ratio) + (background.red * (1 - ratio)),
-        green: (foreground.green * ratio) + (background.green * (1 - ratio)),
-        blue: (foreground.blue * ratio) + (background.blue * (1 - ratio)),
-        alpha: 1
-    };
-}
-
-function ohaReadableText(background) {
-    const dark = {red: 24, green: 24, blue: 22, alpha: 1};
-    const light = {red: 250, green: 250, blue: 248, alpha: 1};
-    return ohaContrastRatio(dark, background) >= ohaContrastRatio(light, background) ? dark : light;
-}
-
-function ohaEnsureContrast(foreground, background, minimumRatio = 4.5) {
-    if (ohaContrastRatio(foreground, background) >= minimumRatio) {
-        return foreground;
-    }
-
-    const target = ohaReadableText(background);
-    for (let step = 1; step <= 20; step += 1) {
-        const adjusted = ohaMixRGB(foreground, target, step / 20);
-        if (ohaContrastRatio(adjusted, background) >= minimumRatio) {
-            return adjusted;
-        }
-    }
-
-    return target;
-}
-
-function ohaSecondaryText(primary, background, mixAmount, minimumRatio) {
-    return ohaEnsureContrast(ohaMixRGB(primary, background, mixAmount), background, minimumRatio);
-}
-
-function ohaAdaptiveElements() {
-    const elements = [];
-    const appendChain = (element) => {
-        let current = element;
-        while (current) {
-            if (!elements.includes(current)) {
-                elements.push(current);
-            }
-            current = current.parentElement;
-        }
-    };
-
-    try {
-        if (window.parent !== window && window.frameElement) {
-            const frame = window.frameElement;
-            const parentDocument = window.parent.document;
-            const rectangle = frame.getBoundingClientRect();
-            const previousPointerEvents = frame.style.pointerEvents;
-            let underlying = null;
-            try {
-                frame.style.pointerEvents = 'none';
-                underlying = parentDocument.elementFromPoint(
-                    rectangle.left + (rectangle.width / 2),
-                    rectangle.top + (rectangle.height / 2)
-                );
-            } finally {
-                frame.style.pointerEvents = previousPointerEvents;
-            }
-
-            appendChain(underlying);
-            appendChain(frame.parentElement);
-            appendChain(parentDocument.body);
-            appendChain(parentDocument.documentElement);
-        }
-    } catch (error) {
-        console.debug('OpenHomeAlarm could not inspect the IPSView host theme.', error);
-    }
-
-    return elements;
-}
-
-function ohaAdaptiveColorFromStyle(style, properties, documentContext) {
-    for (const property of properties) {
-        const color = ohaNormalizeCSSColor(style.getPropertyValue(property), documentContext);
-        if (color && color.alpha >= 0.12) {
-            return color;
-        }
-    }
-
-    return null;
-}
-
 function ohaConfiguredIPSViewPalette() {
     const palette = ohaIPSViewConfig?.palette;
-    if (!palette || palette.Linked !== true) {
+    if (!palette || palette.Custom !== true) {
         return null;
     }
 
-    const base = ohaNormalizeCSSColor(palette.Page);
-    const surface = ohaNormalizeCSSColor(palette.Surface);
-    const foreground = ohaNormalizeCSSColor(palette.Text);
-    if (!base && !surface) {
-        return null;
-    }
-
-    return {
-        base: base ?? surface,
-        surface: surface ?? base,
-        accent: null,
-        foreground: foreground ?? {red: 255, green: 255, blue: 255, alpha: 1},
-        detected: true,
-        linked: true,
-        complexBackground: true
+    const parsed = {
+        page: ohaNormalizeCSSColor(palette.Page),
+        surface: ohaNormalizeCSSColor(palette.Surface),
+        surfaceStrong: ohaNormalizeCSSColor(palette.SurfaceStrong),
+        text: ohaNormalizeCSSColor(palette.Text),
+        mutedText: ohaNormalizeCSSColor(palette.MutedText),
+        accent: ohaNormalizeCSSColor(palette.Accent),
+        success: ohaNormalizeCSSColor(palette.Success),
+        warning: ohaNormalizeCSSColor(palette.Warning),
+        danger: ohaNormalizeCSSColor(palette.Danger)
     };
+
+    return Object.values(parsed).every((color) => color !== null) ? parsed : null;
 }
 
-function ohaDetectHostPalette() {
-    const configured = ohaConfiguredIPSViewPalette();
-    if (configured) {
-        return configured;
-    }
-
-    for (const element of ohaAdaptiveElements()) {
-        const documentContext = element.ownerDocument;
-        const style = documentContext.defaultView.getComputedStyle(element);
-        const base = ohaAdaptiveColorFromStyle(style, ohaAdaptiveBackgroundProperties, documentContext)
-            ?? ohaNormalizeCSSColor(style.backgroundColor, documentContext)
-            ?? ohaAdaptiveColorFromStyle(style, ohaAdaptiveSurfaceProperties, documentContext);
-        const accent = ohaAdaptiveColorFromStyle(style, ohaAdaptiveAccentProperties, documentContext);
-        const foreground = ohaNormalizeCSSColor(style.color, documentContext);
-        const complexBackground = String(style.backgroundImage ?? '').trim() !== ''
-            && String(style.backgroundImage).trim() !== 'none';
-
-        if (base && base.alpha >= 0.72) {
-            return {
-                base,
-                surface: null,
-                accent,
-                foreground,
-                detected: true,
-                linked: false,
-                complexBackground
-            };
-        }
-    }
-
-    const transparent = document.documentElement.classList.contains('oha-transparent')
-        || ohaIPSViewConfig?.transparent === true;
-    const fallbackBase = transparent
-        ? {red: 218, green: 202, blue: 160, alpha: 1}
-        : (ohaAdaptiveThemeMedia.matches
-            ? {red: 36, green: 41, blue: 50, alpha: 1}
-            : {red: 222, green: 226, blue: 232, alpha: 1});
-
-    return {
-        base: fallbackBase,
-        surface: null,
-        accent: null,
-        foreground: null,
-        detected: false,
-        linked: false,
-        complexBackground: transparent
-    };
-}
-
-function ohaDerivedAdaptiveAccent(base, detectedAccent, lightEnvironment, panelBackground) {
-    let accent = detectedAccent && detectedAccent.alpha >= 0.35
-        ? detectedAccent
-        : null;
-
-    if (!accent) {
-        const hsl = ohaRGBToHSL(base);
-        if (hsl.saturation < 0.12) {
-            accent = lightEnvironment
-                ? {red: 72, green: 91, blue: 124, alpha: 1}
-                : {red: 160, green: 183, blue: 224, alpha: 1};
-        } else {
-            accent = ohaHSLToRGB(
-                hsl.hue,
-                ohaClamp(Math.max(0.44, hsl.saturation * 1.22), 0.44, 0.76),
-                lightEnvironment ? 0.34 : 0.72
-            );
-        }
-    }
-
-    return ohaEnsureContrast(accent, panelBackground, 4.5);
-}
-
-function ohaBackgroundForText(background, text, minimumRatio = 4.5) {
-    if (ohaContrastRatio(text, background) >= minimumRatio) {
-        return background;
-    }
-
-    const textIsLight = ohaRelativeLuminance(text) >= 0.5;
-    const target = textIsLight
-        ? {red: 8, green: 8, blue: 8, alpha: 1}
-        : {red: 250, green: 250, blue: 248, alpha: 1};
-    for (let step = 1; step <= 24; step += 1) {
-        const adjusted = ohaMixRGB(background, target, step / 24);
-        if (ohaContrastRatio(text, adjusted) >= minimumRatio) {
-            return adjusted;
-        }
-    }
-
-    return target;
-}
-
-function ohaApplyLinkedIPSViewTheme(root, palette) {
-    const page = palette.base;
-    const requestedText = palette.foreground ?? {red: 255, green: 255, blue: 255, alpha: 1};
-    const panel = ohaBackgroundForText(palette.surface ?? page, requestedText, 5.2);
-    const panelStrong = ohaBackgroundForText(ohaMixRGB(panel, {red: 0, green: 0, blue: 0, alpha: 1}, 0.10), requestedText, 5.6);
-    const panelSoft = ohaBackgroundForText(ohaMixRGB(panel, page, 0.28), requestedText, 4.5);
-    const label = ohaBackgroundForText(page, requestedText, 5.2);
-    const muted = ohaEnsureContrast(ohaMixRGB(requestedText, panel, 0.24), panel, 4.5);
-    const faint = ohaEnsureContrast(ohaMixRGB(requestedText, panel, 0.38), panel, 3.2);
-    const accentSeed = ohaMixRGB(label, requestedText, 0.46);
-    const accent = ohaEnsureContrast(accentSeed, panelStrong, 3.3);
-    const success = ohaEnsureContrast({red: 104, green: 226, blue: 145, alpha: 1}, panel, 4.5);
-    const warning = ohaEnsureContrast({red: 255, green: 214, blue: 102, alpha: 1}, panel, 4.5);
-    const danger = ohaEnsureContrast({red: 255, green: 127, blue: 118, alpha: 1}, panel, 4.5);
+function ohaApplyCustomIPSViewTheme(root, palette) {
+    const page = palette.page;
+    const panel = palette.surface;
+    const panelStrong = palette.surfaceStrong;
+    const panelSoft = ohaMixRGB(panel, page, 0.24);
+    const text = palette.text;
+    const muted = palette.mutedText;
+    const faint = ohaMixRGB(muted, panel, 0.30);
     const transparent = root.classList.contains('oha-transparent') || ohaIPSViewConfig?.transparent === true;
+    const lightEnvironment = ohaRelativeLuminance(panel) >= 0.40;
 
     root.classList.add('oha-theme-linked');
-    root.dataset.environmentTone = 'linked';
-    root.dataset.paletteSource = 'ipsview-variables';
-    root.style.setProperty('color-scheme', 'dark');
+    root.dataset.environmentTone = lightEnvironment ? 'light' : 'dark';
+    root.dataset.paletteSource = 'manual-config';
+    root.style.setProperty('color-scheme', lightEnvironment ? 'light' : 'dark');
     root.style.setProperty('--oha-environment-color', ohaRGBString(page));
     root.style.setProperty('--oha-host-page', ohaRGBString(page));
     root.style.setProperty('--oha-host-surface', ohaRGBString(panel));
-    root.style.setProperty('--oha-bg', transparent ? 'transparent' : ohaRGBString(label, 0.46));
-    root.style.setProperty('--oha-surface', ohaRGBString(panel, 0.84));
-    root.style.setProperty('--oha-surface-strong', ohaRGBString(panelStrong, 0.91));
-    root.style.setProperty('--oha-surface-soft', ohaRGBString(panelSoft, 0.70));
-    root.style.setProperty('--oha-border', ohaRGBString(requestedText, 0.13));
-    root.style.setProperty('--oha-text', ohaRGBString(requestedText));
+    root.style.setProperty('--oha-bg', transparent ? 'transparent' : ohaRGBString(page));
+    root.style.setProperty('--oha-surface', ohaRGBString(panel));
+    root.style.setProperty('--oha-surface-strong', ohaRGBString(panelStrong));
+    root.style.setProperty('--oha-surface-soft', ohaRGBString(panelSoft));
+    root.style.setProperty('--oha-border', ohaRGBString(text, 0.16));
+    root.style.setProperty('--oha-text', ohaRGBString(text));
     root.style.setProperty('--oha-muted', ohaRGBString(muted));
     root.style.setProperty('--oha-faint', ohaRGBString(faint));
-    root.style.setProperty('--oha-panel-text', ohaRGBString(requestedText));
+    root.style.setProperty('--oha-panel-text', ohaRGBString(text));
     root.style.setProperty('--oha-panel-muted', ohaRGBString(muted));
     root.style.setProperty('--oha-panel-faint', ohaRGBString(faint));
-    root.style.setProperty('--oha-panel-border', ohaRGBString(requestedText, 0.13));
-    root.style.setProperty('--oha-page-label-bg', ohaRGBString(label, 0.72));
-    root.style.setProperty('--oha-page-label-text', ohaRGBString(requestedText));
-    root.style.setProperty('--oha-page-label-border', ohaRGBString(requestedText, 0.10));
-    root.style.setProperty('--oha-accent', ohaRGBString(accent));
-    root.style.setProperty('--oha-accent-soft', ohaRGBString(accent, 0.19));
-    root.style.setProperty('--oha-success', ohaRGBString(success));
-    root.style.setProperty('--oha-success-soft', ohaRGBString(success, 0.16));
-    root.style.setProperty('--oha-success-border', ohaRGBString(success, 0.30));
-    root.style.setProperty('--oha-warning', ohaRGBString(warning));
-    root.style.setProperty('--oha-warning-soft', ohaRGBString(warning, 0.16));
-    root.style.setProperty('--oha-danger', ohaRGBString(danger));
-    root.style.setProperty('--oha-danger-soft', ohaRGBString(danger, 0.17));
+    root.style.setProperty('--oha-panel-border', ohaRGBString(text, 0.16));
+    root.style.setProperty('--oha-page-label-bg', ohaRGBString(panelStrong));
+    root.style.setProperty('--oha-page-label-text', ohaRGBString(text));
+    root.style.setProperty('--oha-page-label-border', ohaRGBString(text, 0.13));
+    root.style.setProperty('--oha-accent', ohaRGBString(palette.accent));
+    root.style.setProperty('--oha-accent-soft', ohaRGBString(palette.accent, 0.22));
+    root.style.setProperty('--oha-success', ohaRGBString(palette.success));
+    root.style.setProperty('--oha-success-soft', ohaRGBString(palette.success, 0.17));
+    root.style.setProperty('--oha-success-border', ohaRGBString(palette.success, 0.34));
+    root.style.setProperty('--oha-warning', ohaRGBString(palette.warning));
+    root.style.setProperty('--oha-warning-soft', ohaRGBString(palette.warning, 0.18));
+    root.style.setProperty('--oha-danger', ohaRGBString(palette.danger));
+    root.style.setProperty('--oha-danger-soft', ohaRGBString(palette.danger, 0.18));
     root.style.setProperty('--oha-shadow', 'none');
     root.style.setProperty('--oha-adaptive-backdrop', 'none');
     root.style.setProperty('--oha-rendered-surface', ohaRGBString(panel));
@@ -472,173 +190,20 @@ function ohaApplyLinkedIPSViewTheme(root, palette) {
     root.style.setProperty('--oha-rendered-surface-soft', ohaRGBString(panelSoft));
 }
 
-function ohaApplyAdaptiveTheme() {
+function ohaApplyCustomTheme() {
     const root = document.documentElement;
-    if (!root.classList.contains('oha-theme-adaptive')) {
+    if (!root.classList.contains('oha-theme-custom')) {
         return;
     }
 
-    const palette = ohaDetectHostPalette();
-    if (palette.linked) {
-        ohaApplyLinkedIPSViewTheme(root, palette);
-        return;
+    const palette = ohaConfiguredIPSViewPalette();
+    if (palette) {
+        ohaApplyCustomIPSViewTheme(root, palette);
     }
-
-    root.classList.remove('oha-theme-linked');
-    const base = palette.base;
-    const baseLuminance = ohaRelativeLuminance(base);
-    const transparent = root.classList.contains('oha-transparent') || ohaIPSViewConfig?.transparent === true;
-    const lightThreshold = transparent && palette.complexBackground ? 0.22 : 0.36;
-    let lightEnvironment = baseLuminance >= lightThreshold;
-
-    // Host text colors are only a weak hint. IPSView themes frequently use white
-    // labels over bright or textured backgrounds, so they must never override a
-    // clearly light background color.
-    if (
-        palette.foreground
-        && Math.abs(baseLuminance - lightThreshold) < 0.045
-    ) {
-        lightEnvironment = ohaRelativeLuminance(palette.foreground) < 0.34;
-    }
-
-    const white = {red: 255, green: 255, blue: 255, alpha: 1};
-    const black = {red: 12, green: 14, blue: 18, alpha: 1};
-
-    const surface = lightEnvironment
-        ? ohaMixRGB(base, white, palette.complexBackground ? 0.70 : 0.58)
-        : ohaMixRGB(base, black, palette.complexBackground ? 0.58 : 0.46);
-    const surfaceStrong = lightEnvironment
-        ? ohaMixRGB(base, white, palette.complexBackground ? 0.82 : 0.72)
-        : ohaMixRGB(base, black, palette.complexBackground ? 0.68 : 0.58);
-    const surfaceSoft = lightEnvironment
-        ? ohaMixRGB(base, white, palette.complexBackground ? 0.52 : 0.42)
-        : ohaMixRGB(base, black, palette.complexBackground ? 0.42 : 0.30);
-
-    const surfaceAlpha = palette.complexBackground ? 0.93 : 0.88;
-    const strongAlpha = palette.complexBackground ? 0.97 : 0.94;
-    const softAlpha = palette.complexBackground ? 0.88 : 0.80;
-    const renderedSurface = ohaCompositeRGB(surface, base, surfaceAlpha);
-    const renderedStrong = ohaCompositeRGB(surfaceStrong, base, strongAlpha);
-    const renderedSoft = ohaCompositeRGB(surfaceSoft, base, softAlpha);
-
-    const panelText = ohaReadableText(renderedSurface);
-    const panelMuted = ohaSecondaryText(panelText, renderedSurface, 0.34, 4.5);
-    const panelFaint = ohaSecondaryText(panelText, renderedSurface, 0.52, 3.1);
-    const pageText = ohaReadableText(base);
-    const pageMuted = ohaSecondaryText(pageText, base, 0.26, 4.5);
-    const pageFaint = ohaSecondaryText(pageText, base, 0.42, 3.1);
-    const accent = ohaDerivedAdaptiveAccent(base, palette.accent, lightEnvironment, renderedStrong);
-
-    const success = ohaEnsureContrast(
-        lightEnvironment
-            ? {red: 25, green: 112, blue: 66, alpha: 1}
-            : {red: 106, green: 225, blue: 153, alpha: 1},
-        renderedSurface,
-        4.5
-    );
-    const warning = ohaEnsureContrast(
-        lightEnvironment
-            ? {red: 139, green: 86, blue: 0, alpha: 1}
-            : {red: 255, green: 199, blue: 91, alpha: 1},
-        renderedSurface,
-        4.5
-    );
-    const danger = ohaEnsureContrast(
-        lightEnvironment
-            ? {red: 177, green: 46, blue: 46, alpha: 1}
-            : {red: 255, green: 132, blue: 132, alpha: 1},
-        renderedSurface,
-        4.5
-    );
-
-    root.dataset.environmentTone = lightEnvironment ? 'light' : 'dark';
-    root.dataset.paletteSource = palette.detected ? 'host' : 'safe-fallback';
-    root.style.setProperty('color-scheme', lightEnvironment ? 'light' : 'dark');
-    root.style.setProperty('--oha-environment-color', ohaRGBString(base));
-    root.style.setProperty('--oha-bg', transparent ? 'transparent' : ohaRGBString(base, 0.97));
-    root.style.setProperty('--oha-surface', ohaRGBString(surface, surfaceAlpha));
-    root.style.setProperty('--oha-surface-strong', ohaRGBString(surfaceStrong, strongAlpha));
-    root.style.setProperty('--oha-surface-soft', ohaRGBString(surfaceSoft, softAlpha));
-    root.style.setProperty('--oha-border', ohaRGBString(panelText, lightEnvironment ? 0.18 : 0.20));
-    root.style.setProperty('--oha-text', ohaRGBString(pageText));
-    root.style.setProperty('--oha-muted', ohaRGBString(pageMuted));
-    root.style.setProperty('--oha-faint', ohaRGBString(pageFaint));
-    root.style.setProperty('--oha-panel-text', ohaRGBString(panelText));
-    root.style.setProperty('--oha-panel-muted', ohaRGBString(panelMuted));
-    root.style.setProperty('--oha-panel-faint', ohaRGBString(panelFaint));
-    root.style.setProperty('--oha-panel-border', ohaRGBString(panelText, lightEnvironment ? 0.18 : 0.20));
-    root.style.setProperty('--oha-page-label-bg', ohaRGBString(surfaceStrong, strongAlpha));
-    root.style.setProperty('--oha-page-label-text', ohaRGBString(ohaReadableText(renderedStrong)));
-    root.style.setProperty('--oha-page-label-border', ohaRGBString(ohaReadableText(renderedStrong), 0.16));
-    root.style.setProperty('--oha-accent', ohaRGBString(accent));
-    root.style.setProperty('--oha-accent-soft', ohaRGBString(accent, lightEnvironment ? 0.13 : 0.18));
-    root.style.setProperty('--oha-success', ohaRGBString(success));
-    root.style.setProperty('--oha-success-soft', ohaRGBString(success, lightEnvironment ? 0.12 : 0.17));
-    root.style.setProperty('--oha-success-border', ohaRGBString(success, 0.30));
-    root.style.setProperty('--oha-warning', ohaRGBString(warning));
-    root.style.setProperty('--oha-warning-soft', ohaRGBString(warning, lightEnvironment ? 0.12 : 0.17));
-    root.style.setProperty('--oha-danger', ohaRGBString(danger));
-    root.style.setProperty('--oha-danger-soft', ohaRGBString(danger, lightEnvironment ? 0.12 : 0.17));
-    root.style.setProperty('--oha-shadow', lightEnvironment
-        ? '0 10px 24px rgba(63, 48, 27, 0.13)'
-        : '0 12px 30px rgba(0, 0, 0, 0.22)');
-    root.style.setProperty('--oha-adaptive-backdrop', palette.complexBackground
-        ? 'blur(14px) saturate(0.90)'
-        : 'blur(8px) saturate(1.04)');
-
-    // Keep the computed variables internally consistent even when a browser
-    // renders transparent layers over a textured IPSView background.
-    root.style.setProperty('--oha-rendered-surface', ohaRGBString(renderedSurface));
-    root.style.setProperty('--oha-rendered-surface-strong', ohaRGBString(renderedStrong));
-    root.style.setProperty('--oha-rendered-surface-soft', ohaRGBString(renderedSoft));
 }
 
-function ohaScheduleAdaptiveTheme(delay = 0) {
-    if (!document.documentElement.classList.contains('oha-theme-adaptive')) {
-        return;
-    }
-
-    if (ohaAdaptiveThemeTimer !== null) {
-        window.clearTimeout(ohaAdaptiveThemeTimer);
-    }
-    ohaAdaptiveThemeTimer = window.setTimeout(() => {
-        ohaAdaptiveThemeTimer = null;
-        ohaApplyAdaptiveTheme();
-    }, delay);
-}
-
-function ohaInitializeAdaptiveTheme() {
-    if (!document.documentElement.classList.contains('oha-theme-adaptive')) {
-        return;
-    }
-
-    ohaApplyAdaptiveTheme();
-    window.addEventListener('resize', () => ohaScheduleAdaptiveTheme(120));
-    window.addEventListener('focus', () => ohaScheduleAdaptiveTheme(80));
-    window.addEventListener('pageshow', () => ohaScheduleAdaptiveTheme(80));
-
-    if (typeof ohaAdaptiveThemeMedia.addEventListener === 'function') {
-        ohaAdaptiveThemeMedia.addEventListener('change', () => ohaScheduleAdaptiveTheme(0));
-    }
-
-    try {
-        if (window.parent !== window) {
-            ohaAdaptiveThemeObserver = new MutationObserver(() => ohaScheduleAdaptiveTheme(120));
-            const parentDocument = window.parent.document;
-            ohaAdaptiveThemeObserver.observe(parentDocument.documentElement, {
-                attributes: true,
-                attributeFilter: ['class', 'style']
-            });
-            if (parentDocument.body) {
-                ohaAdaptiveThemeObserver.observe(parentDocument.body, {
-                    attributes: true,
-                    attributeFilter: ['class', 'style']
-                });
-            }
-        }
-    } catch (error) {
-        console.debug('OpenHomeAlarm could not observe the IPSView host theme.', error);
-    }
+function ohaInitializeCustomTheme() {
+    ohaApplyCustomTheme();
 }
 
 function ohaTranslate(text) {
@@ -1787,7 +1352,7 @@ if (ohaIPSViewConfig) {
     window.addEventListener('focus', () => ohaScheduleIPSViewPoll(100));
 }
 
-ohaInitializeAdaptiveTheme();
+ohaInitializeCustomTheme();
 ohaBindInteractions();
 ohaRender();
 ohaScheduleIPSViewPoll(250);

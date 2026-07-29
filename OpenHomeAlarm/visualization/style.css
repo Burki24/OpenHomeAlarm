@@ -68,7 +68,7 @@ html.oha-ipsview.oha-theme-dark {
     --oha-shadow: 0 14px 36px rgba(0, 0, 0, 0.20);
 }
 
-html.oha-ipsview.oha-theme-adaptive {
+html.oha-ipsview.oha-theme-custom {
     color-scheme: light;
     --oha-bg: transparent;
     --oha-surface: rgba(244, 239, 225, 0.93);
@@ -99,7 +99,7 @@ html.oha-ipsview.oha-theme-adaptive {
 }
 
 @media (prefers-color-scheme: dark) {
-    html.oha-ipsview:not(.oha-theme-light):not(.oha-theme-dark):not(.oha-theme-adaptive) {
+    html.oha-ipsview:not(.oha-theme-light):not(.oha-theme-dark):not(.oha-theme-custom) {
         color-scheme: dark;
         --oha-bg: rgba(10, 15, 28, 0.96);
         --oha-surface: rgba(26, 36, 55, 0.94);
@@ -1794,14 +1794,14 @@ html.oha-ipsview.oha-transparent .oha-inline-codepad {
     background-color: color-mix(in srgb, var(--oha-surface-strong) 96%, transparent);
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-hero,
-html.oha-ipsview.oha-theme-adaptive .oha-mode-button,
-html.oha-ipsview.oha-theme-adaptive .oha-status-card,
-html.oha-ipsview.oha-theme-adaptive .oha-context-card,
-html.oha-ipsview.oha-theme-adaptive .oha-operation-panel,
-html.oha-ipsview.oha-theme-adaptive .oha-inline-codepad,
-html.oha-ipsview.oha-theme-adaptive .oha-control-bar,
-html.oha-ipsview.oha-theme-adaptive .oha-codepad {
+html.oha-ipsview.oha-theme-custom .oha-hero,
+html.oha-ipsview.oha-theme-custom .oha-mode-button,
+html.oha-ipsview.oha-theme-custom .oha-status-card,
+html.oha-ipsview.oha-theme-custom .oha-context-card,
+html.oha-ipsview.oha-theme-custom .oha-operation-panel,
+html.oha-ipsview.oha-theme-custom .oha-inline-codepad,
+html.oha-ipsview.oha-theme-custom .oha-control-bar,
+html.oha-ipsview.oha-theme-custom .oha-codepad {
     --oha-text: var(--oha-panel-text);
     --oha-muted: var(--oha-panel-muted);
     --oha-faint: var(--oha-panel-faint);
@@ -1816,55 +1816,55 @@ html.oha-ipsview.oha-theme-adaptive .oha-codepad {
     -webkit-backdrop-filter: var(--oha-adaptive-backdrop);
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-hero {
+html.oha-ipsview.oha-theme-custom .oha-hero {
     background:
         linear-gradient(135deg, var(--oha-state-soft), transparent 46%),
         var(--oha-surface-strong);
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-hero,
-html.oha-ipsview.oha-theme-adaptive .oha-mode-button,
-html.oha-ipsview.oha-theme-adaptive .oha-status-card,
-html.oha-ipsview.oha-theme-adaptive .oha-context-card,
-html.oha-ipsview.oha-theme-adaptive .oha-operation-panel,
-html.oha-ipsview.oha-theme-adaptive .oha-inline-codepad,
-html.oha-ipsview.oha-theme-adaptive .oha-control-bar,
-html.oha-ipsview.oha-theme-adaptive .oha-codepad {
+html.oha-ipsview.oha-theme-custom .oha-hero,
+html.oha-ipsview.oha-theme-custom .oha-mode-button,
+html.oha-ipsview.oha-theme-custom .oha-status-card,
+html.oha-ipsview.oha-theme-custom .oha-context-card,
+html.oha-ipsview.oha-theme-custom .oha-operation-panel,
+html.oha-ipsview.oha-theme-custom .oha-inline-codepad,
+html.oha-ipsview.oha-theme-custom .oha-control-bar,
+html.oha-ipsview.oha-theme-custom .oha-codepad {
     text-shadow: none;
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-mode-button-copy strong,
-html.oha-ipsview.oha-theme-adaptive .oha-status-card strong,
-html.oha-ipsview.oha-theme-adaptive .oha-context-copy strong,
-html.oha-ipsview.oha-theme-adaptive .oha-operation-head h2,
-html.oha-ipsview.oha-theme-adaptive .oha-operation-copy strong,
-html.oha-ipsview.oha-theme-adaptive .oha-history-copy strong,
-html.oha-ipsview.oha-theme-adaptive .oha-inline-codepad-head h2,
-html.oha-ipsview.oha-theme-adaptive .oha-codepad-title-wrap h2 {
+html.oha-ipsview.oha-theme-custom .oha-mode-button-copy strong,
+html.oha-ipsview.oha-theme-custom .oha-status-card strong,
+html.oha-ipsview.oha-theme-custom .oha-context-copy strong,
+html.oha-ipsview.oha-theme-custom .oha-operation-head h2,
+html.oha-ipsview.oha-theme-custom .oha-operation-copy strong,
+html.oha-ipsview.oha-theme-custom .oha-history-copy strong,
+html.oha-ipsview.oha-theme-custom .oha-inline-codepad-head h2,
+html.oha-ipsview.oha-theme-custom .oha-codepad-title-wrap h2 {
     color: var(--oha-panel-text);
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-blockers,
-html.oha-ipsview.oha-theme-adaptive .oha-status-card-label,
-html.oha-ipsview.oha-theme-adaptive .oha-context-copy span,
-html.oha-ipsview.oha-theme-adaptive .oha-operation-copy span,
-html.oha-ipsview.oha-theme-adaptive .oha-history-copy span,
-html.oha-ipsview.oha-theme-adaptive .oha-inline-codepad-hint,
-html.oha-ipsview.oha-theme-adaptive .oha-codepad-title-wrap p {
+html.oha-ipsview.oha-theme-custom .oha-blockers,
+html.oha-ipsview.oha-theme-custom .oha-status-card-label,
+html.oha-ipsview.oha-theme-custom .oha-context-copy span,
+html.oha-ipsview.oha-theme-custom .oha-operation-copy span,
+html.oha-ipsview.oha-theme-custom .oha-history-copy span,
+html.oha-ipsview.oha-theme-custom .oha-inline-codepad-hint,
+html.oha-ipsview.oha-theme-custom .oha-codepad-title-wrap p {
     color: var(--oha-panel-muted);
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-mode-button[data-active="true"] {
+html.oha-ipsview.oha-theme-custom .oha-mode-button[data-active="true"] {
     background:
         linear-gradient(135deg, var(--oha-accent-soft), transparent 76%),
         var(--oha-surface-strong);
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-mode-button:hover[data-can-arm="true"] {
+html.oha-ipsview.oha-theme-custom .oha-mode-button:hover[data-can-arm="true"] {
     background-color: color-mix(in srgb, var(--oha-accent) 18%, var(--oha-surface-strong));
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-section-heading {
+html.oha-ipsview.oha-theme-custom .oha-section-heading {
     --oha-text: var(--oha-page-label-text);
     --oha-muted: color-mix(in srgb, var(--oha-page-label-text) 72%, var(--oha-page-label-bg));
     --oha-faint: color-mix(in srgb, var(--oha-page-label-text) 56%, var(--oha-page-label-bg));
@@ -1878,36 +1878,36 @@ html.oha-ipsview.oha-theme-adaptive .oha-section-heading {
     -webkit-backdrop-filter: var(--oha-adaptive-backdrop);
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-section-heading h2,
-html.oha-ipsview.oha-theme-adaptive .oha-section-heading .oha-section-kicker,
-html.oha-ipsview.oha-theme-adaptive .oha-section-heading .oha-section-hint {
+html.oha-ipsview.oha-theme-custom .oha-section-heading h2,
+html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-kicker,
+html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-hint {
     color: inherit;
     text-shadow: none;
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-section-heading .oha-section-kicker,
-html.oha-ipsview.oha-theme-adaptive .oha-section-heading .oha-section-hint {
+html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-kicker,
+html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-hint {
     opacity: 0.72;
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-operation-head,
-html.oha-ipsview.oha-theme-adaptive .oha-operation-row,
-html.oha-ipsview.oha-theme-adaptive .oha-history-row {
+html.oha-ipsview.oha-theme-custom .oha-operation-head,
+html.oha-ipsview.oha-theme-custom .oha-operation-row,
+html.oha-ipsview.oha-theme-custom .oha-history-row {
     border-color: color-mix(in srgb, var(--oha-text) 12%, transparent);
 }
 
-html.oha-ipsview.oha-theme-adaptive .oha-mode-pill,
-html.oha-ipsview.oha-theme-adaptive .oha-operation-count,
-html.oha-ipsview.oha-theme-adaptive .oha-code-display,
-html.oha-ipsview.oha-theme-adaptive .oha-code-key,
-html.oha-ipsview.oha-theme-adaptive .oha-icon-button {
+html.oha-ipsview.oha-theme-custom .oha-mode-pill,
+html.oha-ipsview.oha-theme-custom .oha-operation-count,
+html.oha-ipsview.oha-theme-custom .oha-code-display,
+html.oha-ipsview.oha-theme-custom .oha-code-key,
+html.oha-ipsview.oha-theme-custom .oha-icon-button {
     background-color: var(--oha-surface-soft);
     border-color: var(--oha-border);
 }
 
-html.oha-ipsview.oha-theme-adaptive:not(.oha-transparent),
-html.oha-ipsview.oha-theme-adaptive:not(.oha-transparent) body,
-html.oha-ipsview.oha-theme-adaptive:not(.oha-transparent) .oha-shell {
+html.oha-ipsview.oha-theme-custom:not(.oha-transparent),
+html.oha-ipsview.oha-theme-custom:not(.oha-transparent) body,
+html.oha-ipsview.oha-theme-custom:not(.oha-transparent) .oha-shell {
     background: var(--oha-bg);
 }
 

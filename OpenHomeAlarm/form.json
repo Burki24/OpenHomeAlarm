@@ -33,7 +33,7 @@
                             "caption": "Color scheme",
                             "options": [
                                 {
-                                    "caption": "Adaptive to environment",
+                                    "caption": "Custom colors",
                                     "value": 0
                                 },
                                 {
@@ -59,43 +59,89 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Optional: link the RGB hexadecimal color variables already used by IPSView. The dashboard then follows the same page, control and text colors instead of estimating them from the browser."
+                    "caption": "For Custom colors, choose the dashboard palette directly. These colors are stored in the module configuration and do not require IPSView color variables."
                 },
                 {
                     "type": "RowLayout",
                     "items": [
                         {
-                            "type": "SelectVariable",
-                            "name": "IPSViewPageColorVariable",
-                            "caption": "Page/background color variable",
-                            "width": "250px",
-                            "validVariableTypes": [
-                                3
-                            ]
+                            "type": "SelectColor",
+                            "name": "IPSViewPageColor",
+                            "caption": "Page/background color",
+                            "allowTransparent": false,
+                            "width": "250px"
                         },
                         {
-                            "type": "SelectVariable",
-                            "name": "IPSViewSurfaceColorVariable",
-                            "caption": "Control/surface color variable",
-                            "width": "250px",
-                            "validVariableTypes": [
-                                3
-                            ]
+                            "type": "SelectColor",
+                            "name": "IPSViewSurfaceColor",
+                            "caption": "Cards and controls",
+                            "allowTransparent": false,
+                            "width": "250px"
                         },
                         {
-                            "type": "SelectVariable",
-                            "name": "IPSViewTextColorVariable",
-                            "caption": "Text color variable (optional)",
-                            "width": "250px",
-                            "validVariableTypes": [
-                                3
-                            ]
+                            "type": "SelectColor",
+                            "name": "IPSViewSurfaceStrongColor",
+                            "caption": "Highlighted surface",
+                            "allowTransparent": false,
+                            "width": "250px"
+                        }
+                    ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectColor",
+                            "name": "IPSViewTextColor",
+                            "caption": "Primary text color",
+                            "allowTransparent": false,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "SelectColor",
+                            "name": "IPSViewMutedTextColor",
+                            "caption": "Secondary text color",
+                            "allowTransparent": false,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "SelectColor",
+                            "name": "IPSViewAccentColor",
+                            "caption": "Accent/active color",
+                            "allowTransparent": false,
+                            "width": "250px"
+                        }
+                    ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectColor",
+                            "name": "IPSViewSuccessColor",
+                            "caption": "Ready/active color",
+                            "allowTransparent": false,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "SelectColor",
+                            "name": "IPSViewWarningColor",
+                            "caption": "Warning/delay color",
+                            "allowTransparent": false,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "SelectColor",
+                            "name": "IPSViewDangerColor",
+                            "caption": "Alarm/error color",
+                            "allowTransparent": false,
+                            "width": "250px"
                         }
                     ]
                 },
                 {
                     "type": "Label",
-                    "caption": "The selected variables must be String variables containing six RGB hexadecimal digits, for example 4A1B07. The color-variable link is used only with Adaptive to environment."
+                    "caption": "The selected colors are used exactly for the IPSView dashboard. Choose sufficient contrast between surfaces and text. Transparent background is controlled separately above."
                 },
                 {
                     "type": "Label",

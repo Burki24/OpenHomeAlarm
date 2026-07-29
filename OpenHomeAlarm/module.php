@@ -131,9 +131,15 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_IPSVIEW_TRANSPARENT = 'IPSViewTransparent';
     private const PROPERTY_IPSVIEW_THEME = 'IPSViewTheme';
     private const PROPERTY_IPSVIEW_FONT_SCALE = 'IPSViewFontScale';
-    private const PROPERTY_IPSVIEW_PAGE_COLOR_VARIABLE = 'IPSViewPageColorVariable';
-    private const PROPERTY_IPSVIEW_SURFACE_COLOR_VARIABLE = 'IPSViewSurfaceColorVariable';
-    private const PROPERTY_IPSVIEW_TEXT_COLOR_VARIABLE = 'IPSViewTextColorVariable';
+    private const PROPERTY_IPSVIEW_PAGE_COLOR = 'IPSViewPageColor';
+    private const PROPERTY_IPSVIEW_SURFACE_COLOR = 'IPSViewSurfaceColor';
+    private const PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR = 'IPSViewSurfaceStrongColor';
+    private const PROPERTY_IPSVIEW_TEXT_COLOR = 'IPSViewTextColor';
+    private const PROPERTY_IPSVIEW_MUTED_TEXT_COLOR = 'IPSViewMutedTextColor';
+    private const PROPERTY_IPSVIEW_ACCENT_COLOR = 'IPSViewAccentColor';
+    private const PROPERTY_IPSVIEW_SUCCESS_COLOR = 'IPSViewSuccessColor';
+    private const PROPERTY_IPSVIEW_WARNING_COLOR = 'IPSViewWarningColor';
+    private const PROPERTY_IPSVIEW_DANGER_COLOR = 'IPSViewDangerColor';
 
     private const OPTIONAL_ACTION_FIELDS = [
         self::PROPERTY_ALARM_ACTION              => self::PROPERTY_ALARM_ACTION_ENABLED,
@@ -248,9 +254,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterBooleanProperty(self::PROPERTY_IPSVIEW_TRANSPARENT, true);
         $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_THEME, 0);
         $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE, 115);
-        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_PAGE_COLOR_VARIABLE, 0);
-        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_SURFACE_COLOR_VARIABLE, 0);
-        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_TEXT_COLOR_VARIABLE, 0);
+        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_PAGE_COLOR, 'D8C59B');
+        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_SURFACE_COLOR, '9B795A');
+        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR, 'AD8A69');
+        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_TEXT_COLOR, 'FFFFFF');
+        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_MUTED_TEXT_COLOR, 'F1E6D5');
+        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_ACCENT_COLOR, 'E0BE63');
+        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_SUCCESS_COLOR, '78D79C');
+        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_WARNING_COLOR, 'FFD166');
+        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_DANGER_COLOR, 'FF8174');
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
@@ -720,8 +732,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      * Reacts to updates and removals of configured runtime variables.
      *
      * Sensor updates keep the readiness state current and, while armed, start the
-     * configured entry delay or move the state to Alarm. IPSView palette changes
-     * rebuild the WebContent document so an open HTML-Box follows the View colors.
+     * configured entry delay or move the state to Alarm.
      */
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
@@ -741,8 +752,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $faultInputs = $this->ReadConfiguredFaultInputs();
         $isSensorVariable = $this->IsMonitoredSensorVariable($SenderID, $sensors);
         $isFaultVariable = $this->IsMonitoredFaultVariable($SenderID, $faultInputs);
-        $isIPSViewPaletteVariable = $this->IsIPSViewPaletteVariable($SenderID);
-        if (!$isSensorVariable && !$isFaultVariable && !$isIPSViewPaletteVariable) {
+        if (!$isSensorVariable && !$isFaultVariable) {
             return;
         }
 
@@ -754,19 +764,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->PublishVisualizationState();
             }
             $this->SynchronizeSensorMessages($sensors, $faultInputs);
-            if ($isIPSViewPaletteVariable) {
-                $this->UpdateIPSViewHTML();
-            }
-
             return;
         }
 
-        if ($isIPSViewPaletteVariable) {
-            $this->UpdateIPSViewHTML();
-        }
-        if (!$isSensorVariable && !$isFaultVariable) {
-            return;
-        }
         if ($isFaultVariable) {
             $this->EvaluateFaultInputs($faultInputs);
         }
@@ -1868,89 +1868,68 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
-    /** @return list<int> */
-    private function IPSViewPaletteVariableIDs(): array
-    {
-        if (
-            !$this->ReadBooleanProperty(self::PROPERTY_ENABLE_IPSVIEW)
-            || $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_THEME) !== 0
-        ) {
-            return [];
-        }
-
-        $variableIDs = [
-            $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_PAGE_COLOR_VARIABLE),
-            $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_SURFACE_COLOR_VARIABLE),
-            $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_TEXT_COLOR_VARIABLE)
-        ];
-
-        return array_values(array_unique(array_filter(
-            $variableIDs,
-            static fn (int $variableID): bool => $variableID > 0
-        )));
-    }
-
-    private function IsIPSViewPaletteVariable(int $variableID): bool
-    {
-        return in_array($variableID, $this->IPSViewPaletteVariableIDs(), true);
-    }
-
     /**
-     * @return array{Linked:bool,Page:?string,Surface:?string,Text:?string}
+     * @return array{
+     *     Custom:bool,
+     *     Page:string,
+     *     Surface:string,
+     *     SurfaceStrong:string,
+     *     Text:string,
+     *     MutedText:string,
+     *     Accent:string,
+     *     Success:string,
+     *     Warning:string,
+     *     Danger:string
+     * }
      */
     private function IPSViewPalette(): array
     {
-        $page = $this->ReadIPSViewColorVariable(
-            $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_PAGE_COLOR_VARIABLE)
-        );
-        $surface = $this->ReadIPSViewColorVariable(
-            $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_SURFACE_COLOR_VARIABLE)
-        );
-        $text = $this->ReadIPSViewColorVariable(
-            $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_TEXT_COLOR_VARIABLE)
-        );
-        $linked = $page !== null || $surface !== null;
-
-        if (!$linked) {
-            return [
-                'Linked'  => false,
-                'Page'    => null,
-                'Surface' => null,
-                'Text'    => null
-            ];
-        }
-
         return [
-            'Linked'  => true,
-            'Page'    => $page ?? $surface,
-            'Surface' => $surface ?? $page,
-            'Text'    => $text ?? '#FFFFFF'
+            'Custom'        => true,
+            'Page'          => $this->NormalizeIPSViewColor(
+                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_PAGE_COLOR),
+                '#D8C59B'
+            ),
+            'Surface'       => $this->NormalizeIPSViewColor(
+                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_SURFACE_COLOR),
+                '#9B795A'
+            ),
+            'SurfaceStrong' => $this->NormalizeIPSViewColor(
+                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR),
+                '#AD8A69'
+            ),
+            'Text'          => $this->NormalizeIPSViewColor(
+                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_TEXT_COLOR),
+                '#FFFFFF'
+            ),
+            'MutedText'     => $this->NormalizeIPSViewColor(
+                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_MUTED_TEXT_COLOR),
+                '#F1E6D5'
+            ),
+            'Accent'        => $this->NormalizeIPSViewColor(
+                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_ACCENT_COLOR),
+                '#E0BE63'
+            ),
+            'Success'       => $this->NormalizeIPSViewColor(
+                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_SUCCESS_COLOR),
+                '#78D79C'
+            ),
+            'Warning'       => $this->NormalizeIPSViewColor(
+                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_WARNING_COLOR),
+                '#FFD166'
+            ),
+            'Danger'        => $this->NormalizeIPSViewColor(
+                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_DANGER_COLOR),
+                '#FF8174'
+            )
         ];
     }
 
-    private function ReadIPSViewColorVariable(int $variableID): ?string
+    private function NormalizeIPSViewColor(string $value, string $fallback): string
     {
-        if (!$this->IsExistingVariable($variableID)) {
-            return null;
-        }
-
-        $variable = $this->GetSymconVariable($variableID);
-        if (($variable['VariableType'] ?? null) !== VARIABLETYPE_STRING) {
-            return null;
-        }
-
-        try {
-            $value = GetValue($variableID);
-        } catch (Throwable) {
-            return null;
-        }
-        if (!is_string($value)) {
-            return null;
-        }
-
         $value = trim($value);
         if (!preg_match('/^#?([0-9a-fA-F]{6})$/', $value, $matches)) {
-            return null;
+            return $fallback;
         }
 
         return '#' . strtoupper($matches[1]);
@@ -1966,7 +1945,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $initialState = $this->EncodeVisualizationJSON($this->ControlStatePayload());
         $ipsViewTheme = $ipsView ? $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_THEME) : 0;
         $ipsViewPalette = $ipsView ? $this->IPSViewPalette() : [];
-        $linkedIPSViewPalette = $ipsViewTheme === 0 && ($ipsViewPalette['Linked'] ?? false);
+        $customIPSViewPalette = $ipsViewTheme === 0 && ($ipsViewPalette['Custom'] ?? false);
         $runtimeConfig = $ipsView
             ? $this->EncodeVisualizationJSON([
                 'endpoint'           => '/hook/' . $this->IPSViewHookAddress(),
@@ -1988,9 +1967,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             match ($ipsViewTheme) {
                 1       => 'oha-theme-light',
                 2       => 'oha-theme-dark',
-                default => 'oha-theme-adaptive'
+                default => 'oha-theme-custom'
             },
-            $linkedIPSViewPalette ? 'oha-theme-linked' : ''
+            $customIPSViewPalette ? 'oha-theme-linked' : ''
         ])) : '';
         $fontScale = $ipsView
             ? max(80, min(200, $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE))) . '%'
@@ -2916,11 +2895,6 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             $variableID = $faultInput['VariableID'];
             if ($variableID > 0 && $this->IsExistingVariable($variableID)) {
-                $wantedVariableIDs[$variableID] = true;
-            }
-        }
-        foreach ($this->IPSViewPaletteVariableIDs() as $variableID) {
-            if ($this->IsExistingVariable($variableID)) {
                 $wantedVariableIDs[$variableID] = true;
             }
         }

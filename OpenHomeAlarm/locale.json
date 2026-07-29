@@ -209,18 +209,24 @@
             "Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box.": "Erstellt eine WebContent-Variable mit einer vollständig bedienbaren Alarmanlagen-Oberfläche für eine IPSView-HTML-Box.",
             "Transparent background": "Transparenter Hintergrund",
             "Color scheme": "Farbschema",
-            "Adaptive to environment": "An Umgebung anpassen",
             "Automatic": "Automatisch",
             "Light": "Hell",
             "Dark": "Dunkel",
             "Font size (%)": "Schriftgröße (%)",
             "In IPSView, use an HTML-Box with the client browser renderer so JavaScript and the controls are available.": "In IPSView eine HTML-Box mit dem Renderer „Browser des Clients“ verwenden, damit JavaScript und die Bedienfunktionen verfügbar sind.",
             "IPSView alarm system": "IPSView-Alarmanlage",
-            "Optional: link the RGB hexadecimal color variables already used by IPSView. The dashboard then follows the same page, control and text colors instead of estimating them from the browser.": "Optional können die bereits von IPSView verwendeten RGB-Hexadezimal-Farbvariablen verknüpft werden. Die Darstellung übernimmt dann dieselben Seiten-, Element- und Textfarben, anstatt sie im Browser zu schätzen.",
-            "Page/background color variable": "Variable für Seiten-/Hintergrundfarbe",
-            "Control/surface color variable": "Variable für Element-/Flächenfarbe",
-            "Text color variable (optional)": "Variable für Textfarbe (optional)",
-            "The selected variables must be String variables containing six RGB hexadecimal digits, for example 4A1B07. The color-variable link is used only with Adaptive to environment.": "Die ausgewählten Variablen müssen String-Variablen mit sechs RGB-Hexadezimalstellen sein, zum Beispiel 4A1B07. Die Farbvariablen-Verknüpfung wird nur bei „An Umgebung anpassen“ verwendet."
+            "Custom colors": "Benutzerdefinierte Farben",
+            "For Custom colors, choose the dashboard palette directly. These colors are stored in the module configuration and do not require IPSView color variables.": "Für „Benutzerdefinierte Farben“ wird die Farbpalette direkt festgelegt. Die Farben werden in der Modulkonfiguration gespeichert; IPSView-Farbvariablen werden nicht benötigt.",
+            "Page/background color": "Seiten-/Hintergrundfarbe",
+            "Cards and controls": "Karten und Bedienelemente",
+            "Highlighted surface": "Hervorgehobene Fläche",
+            "Primary text color": "Primäre Schriftfarbe",
+            "Secondary text color": "Sekundäre Schriftfarbe",
+            "Accent/active color": "Akzent-/Aktivfarbe",
+            "Ready/active color": "Bereit-/Aktivfarbe",
+            "Warning/delay color": "Warn-/Verzögerungsfarbe",
+            "Alarm/error color": "Alarm-/Fehlerfarbe",
+            "The selected colors are used exactly for the IPSView dashboard. Choose sufficient contrast between surfaces and text. Transparent background is controlled separately above.": "Die gewählten Farben werden direkt für die IPSView-Darstellung verwendet. Bitte auf ausreichenden Kontrast zwischen Flächen und Schrift achten. Der transparente Hintergrund wird separat oben gesteuert."
         }
     }
 }
