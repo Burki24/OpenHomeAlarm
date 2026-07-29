@@ -66,21 +66,21 @@
                     "items": [
                         {
                             "type": "SelectColor",
-                            "name": "IPSViewPageColor",
+                            "name": "IPSViewPageColorValue",
                             "caption": "Page/background color",
                             "allowTransparent": false,
                             "width": "250px"
                         },
                         {
                             "type": "SelectColor",
-                            "name": "IPSViewSurfaceColor",
+                            "name": "IPSViewSurfaceColorValue",
                             "caption": "Cards and controls",
                             "allowTransparent": false,
                             "width": "250px"
                         },
                         {
                             "type": "SelectColor",
-                            "name": "IPSViewSurfaceStrongColor",
+                            "name": "IPSViewSurfaceStrongColorValue",
                             "caption": "Highlighted surface",
                             "allowTransparent": false,
                             "width": "250px"
@@ -92,21 +92,21 @@
                     "items": [
                         {
                             "type": "SelectColor",
-                            "name": "IPSViewTextColor",
+                            "name": "IPSViewTextColorValue",
                             "caption": "Primary text color",
                             "allowTransparent": false,
                             "width": "250px"
                         },
                         {
                             "type": "SelectColor",
-                            "name": "IPSViewMutedTextColor",
+                            "name": "IPSViewMutedTextColorValue",
                             "caption": "Secondary text color",
                             "allowTransparent": false,
                             "width": "250px"
                         },
                         {
                             "type": "SelectColor",
-                            "name": "IPSViewAccentColor",
+                            "name": "IPSViewAccentColorValue",
                             "caption": "Accent/active color",
                             "allowTransparent": false,
                             "width": "250px"
@@ -118,21 +118,21 @@
                     "items": [
                         {
                             "type": "SelectColor",
-                            "name": "IPSViewSuccessColor",
+                            "name": "IPSViewSuccessColorValue",
                             "caption": "Ready/active color",
                             "allowTransparent": false,
                             "width": "250px"
                         },
                         {
                             "type": "SelectColor",
-                            "name": "IPSViewWarningColor",
+                            "name": "IPSViewWarningColorValue",
                             "caption": "Warning/delay color",
                             "allowTransparent": false,
                             "width": "250px"
                         },
                         {
                             "type": "SelectColor",
-                            "name": "IPSViewDangerColor",
+                            "name": "IPSViewDangerColorValue",
                             "caption": "Alarm/error color",
                             "allowTransparent": false,
                             "width": "250px"

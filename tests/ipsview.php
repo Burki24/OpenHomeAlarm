@@ -116,18 +116,29 @@ assertIPSView(
         && str_contains($form, '"name": "IPSViewTheme"')
         && str_contains($form, '"caption": "Custom colors"')
         && str_contains($form, '"name": "IPSViewFontScale"')
-        && str_contains($form, '"name": "IPSViewPageColor"')
-        && str_contains($form, '"name": "IPSViewSurfaceColor"')
-        && str_contains($form, '"name": "IPSViewSurfaceStrongColor"')
-        && str_contains($form, '"name": "IPSViewTextColor"')
-        && str_contains($form, '"name": "IPSViewMutedTextColor"')
-        && str_contains($form, '"name": "IPSViewAccentColor"')
-        && str_contains($form, '"name": "IPSViewSuccessColor"')
-        && str_contains($form, '"name": "IPSViewWarningColor"')
-        && str_contains($form, '"name": "IPSViewDangerColor"')
+        && str_contains($form, '"name": "IPSViewPageColorValue"')
+        && str_contains($form, '"name": "IPSViewSurfaceColorValue"')
+        && str_contains($form, '"name": "IPSViewSurfaceStrongColorValue"')
+        && str_contains($form, '"name": "IPSViewTextColorValue"')
+        && str_contains($form, '"name": "IPSViewMutedTextColorValue"')
+        && str_contains($form, '"name": "IPSViewAccentColorValue"')
+        && str_contains($form, '"name": "IPSViewSuccessColorValue"')
+        && str_contains($form, '"name": "IPSViewWarningColorValue"')
+        && str_contains($form, '"name": "IPSViewDangerColorValue"')
         && substr_count($form, '"type": "SelectColor"') >= 9,
     'The configuration form must expose all manually selectable IPSView colors.'
 );
+
+assertIPSView(
+    str_contains($module, "RegisterPropertyInteger(self::PROPERTY_IPSVIEW_PAGE_COLOR, 0xD8C59B)")
+        && str_contains($module, "RegisterPropertyInteger(self::PROPERTY_IPSVIEW_TEXT_COLOR, 0xFFFFFF)")
+        && str_contains($module, "sprintf('#%06X', \$value)")
+        && str_contains($module, 'public function Migrate(string $JSONData): string')
+        && str_contains($module, 'LEGACY_IPSVIEW_COLOR_PROPERTIES')
+        && str_contains($module, '$persistence[\'configuration\'][$integerProperty] = hexdec($matches[1]);'),
+    'SelectColor fields must use integer properties and migrate the temporary string configuration.'
+);
+
 assertIPSView(
     str_contains($readme, 'IPSView')
         && str_contains($readme, 'Browser des Clients')

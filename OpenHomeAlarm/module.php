@@ -131,15 +131,27 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_IPSVIEW_TRANSPARENT = 'IPSViewTransparent';
     private const PROPERTY_IPSVIEW_THEME = 'IPSViewTheme';
     private const PROPERTY_IPSVIEW_FONT_SCALE = 'IPSViewFontScale';
-    private const PROPERTY_IPSVIEW_PAGE_COLOR = 'IPSViewPageColor';
-    private const PROPERTY_IPSVIEW_SURFACE_COLOR = 'IPSViewSurfaceColor';
-    private const PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR = 'IPSViewSurfaceStrongColor';
-    private const PROPERTY_IPSVIEW_TEXT_COLOR = 'IPSViewTextColor';
-    private const PROPERTY_IPSVIEW_MUTED_TEXT_COLOR = 'IPSViewMutedTextColor';
-    private const PROPERTY_IPSVIEW_ACCENT_COLOR = 'IPSViewAccentColor';
-    private const PROPERTY_IPSVIEW_SUCCESS_COLOR = 'IPSViewSuccessColor';
-    private const PROPERTY_IPSVIEW_WARNING_COLOR = 'IPSViewWarningColor';
-    private const PROPERTY_IPSVIEW_DANGER_COLOR = 'IPSViewDangerColor';
+    private const PROPERTY_IPSVIEW_PAGE_COLOR = 'IPSViewPageColorValue';
+    private const PROPERTY_IPSVIEW_SURFACE_COLOR = 'IPSViewSurfaceColorValue';
+    private const PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR = 'IPSViewSurfaceStrongColorValue';
+    private const PROPERTY_IPSVIEW_TEXT_COLOR = 'IPSViewTextColorValue';
+    private const PROPERTY_IPSVIEW_MUTED_TEXT_COLOR = 'IPSViewMutedTextColorValue';
+    private const PROPERTY_IPSVIEW_ACCENT_COLOR = 'IPSViewAccentColorValue';
+    private const PROPERTY_IPSVIEW_SUCCESS_COLOR = 'IPSViewSuccessColorValue';
+    private const PROPERTY_IPSVIEW_WARNING_COLOR = 'IPSViewWarningColorValue';
+    private const PROPERTY_IPSVIEW_DANGER_COLOR = 'IPSViewDangerColorValue';
+
+    private const LEGACY_IPSVIEW_COLOR_PROPERTIES = [
+        'IPSViewPageColor'          => self::PROPERTY_IPSVIEW_PAGE_COLOR,
+        'IPSViewSurfaceColor'       => self::PROPERTY_IPSVIEW_SURFACE_COLOR,
+        'IPSViewSurfaceStrongColor' => self::PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR,
+        'IPSViewTextColor'          => self::PROPERTY_IPSVIEW_TEXT_COLOR,
+        'IPSViewMutedTextColor'     => self::PROPERTY_IPSVIEW_MUTED_TEXT_COLOR,
+        'IPSViewAccentColor'        => self::PROPERTY_IPSVIEW_ACCENT_COLOR,
+        'IPSViewSuccessColor'       => self::PROPERTY_IPSVIEW_SUCCESS_COLOR,
+        'IPSViewWarningColor'       => self::PROPERTY_IPSVIEW_WARNING_COLOR,
+        'IPSViewDangerColor'        => self::PROPERTY_IPSVIEW_DANGER_COLOR
+    ];
 
     private const OPTIONAL_ACTION_FIELDS = [
         self::PROPERTY_ALARM_ACTION              => self::PROPERTY_ALARM_ACTION_ENABLED,
@@ -254,15 +266,18 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterBooleanProperty(self::PROPERTY_IPSVIEW_TRANSPARENT, true);
         $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_THEME, 0);
         $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE, 115);
-        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_PAGE_COLOR, 'D8C59B');
-        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_SURFACE_COLOR, '9B795A');
-        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR, 'AD8A69');
-        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_TEXT_COLOR, 'FFFFFF');
-        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_MUTED_TEXT_COLOR, 'F1E6D5');
-        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_ACCENT_COLOR, 'E0BE63');
-        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_SUCCESS_COLOR, '78D79C');
-        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_WARNING_COLOR, 'FFD166');
-        $this->RegisterPropertyString(self::PROPERTY_IPSVIEW_DANGER_COLOR, 'FF8174');
+        // SelectColor stores an RGB value as an integer. Using integer
+        // properties also lets the configuration form render the selected
+        // colors correctly after reopening the instance.
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_PAGE_COLOR, 0xD8C59B);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_SURFACE_COLOR, 0x9B795A);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR, 0xAD8A69);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_TEXT_COLOR, 0xFFFFFF);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_MUTED_TEXT_COLOR, 0xF1E6D5);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_ACCENT_COLOR, 0xE0BE63);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_SUCCESS_COLOR, 0x78D79C);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_WARNING_COLOR, 0xFFD166);
+        $this->RegisterPropertyInteger(self::PROPERTY_IPSVIEW_DANGER_COLOR, 0xFF8174);
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
@@ -558,6 +573,57 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Applies the configuration once the Symcon kernel is ready.
      */
+    /**
+     * Migrates the temporary string-based IPSView color properties introduced
+     * in v1.71 to integer SelectColor properties.
+     */
+    public function Migrate(string $JSONData): string
+    {
+        parent::Migrate($JSONData);
+
+        try {
+            $persistence = json_decode($JSONData, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return '';
+        }
+
+        if (
+            !is_array($persistence)
+            || !isset($persistence['configuration'])
+            || !is_array($persistence['configuration'])
+        ) {
+            return '';
+        }
+
+        $changed = false;
+        foreach (self::LEGACY_IPSVIEW_COLOR_PROPERTIES as $legacyProperty => $integerProperty) {
+            if (!array_key_exists($legacyProperty, $persistence['configuration'])) {
+                continue;
+            }
+
+            $legacyValue = $persistence['configuration'][$legacyProperty];
+            if (is_string($legacyValue) && preg_match('/^#?([0-9a-fA-F]{6})$/', trim($legacyValue), $matches)) {
+                $persistence['configuration'][$integerProperty] = hexdec($matches[1]);
+            }
+
+            unset($persistence['configuration'][$legacyProperty]);
+            $changed = true;
+        }
+
+        if (!$changed) {
+            return '';
+        }
+
+        try {
+            return json_encode(
+                $persistence,
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
+        } catch (JsonException) {
+            return '';
+        }
+    }
+
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
@@ -1887,53 +1953,53 @@ class OpenHomeAlarm extends IPSModuleStrict
         return [
             'Custom'        => true,
             'Page'          => $this->NormalizeIPSViewColor(
-                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_PAGE_COLOR),
+                $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_PAGE_COLOR),
                 '#D8C59B'
             ),
             'Surface'       => $this->NormalizeIPSViewColor(
-                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_SURFACE_COLOR),
+                $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_SURFACE_COLOR),
                 '#9B795A'
             ),
             'SurfaceStrong' => $this->NormalizeIPSViewColor(
-                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR),
+                $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_SURFACE_STRONG_COLOR),
                 '#AD8A69'
             ),
             'Text'          => $this->NormalizeIPSViewColor(
-                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_TEXT_COLOR),
+                $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_TEXT_COLOR),
                 '#FFFFFF'
             ),
             'MutedText'     => $this->NormalizeIPSViewColor(
-                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_MUTED_TEXT_COLOR),
+                $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_MUTED_TEXT_COLOR),
                 '#F1E6D5'
             ),
             'Accent'        => $this->NormalizeIPSViewColor(
-                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_ACCENT_COLOR),
+                $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_ACCENT_COLOR),
                 '#E0BE63'
             ),
             'Success'       => $this->NormalizeIPSViewColor(
-                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_SUCCESS_COLOR),
+                $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_SUCCESS_COLOR),
                 '#78D79C'
             ),
             'Warning'       => $this->NormalizeIPSViewColor(
-                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_WARNING_COLOR),
+                $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_WARNING_COLOR),
                 '#FFD166'
             ),
             'Danger'        => $this->NormalizeIPSViewColor(
-                $this->ReadPropertyString(self::PROPERTY_IPSVIEW_DANGER_COLOR),
+                $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_DANGER_COLOR),
                 '#FF8174'
             )
         ];
     }
 
-    private function NormalizeIPSViewColor(string $value, string $fallback): string
+    private function NormalizeIPSViewColor(int $value, string $fallback): string
     {
-        $value = trim($value);
-        if (!preg_match('/^#?([0-9a-fA-F]{6})$/', $value, $matches)) {
+        if ($value < 0 || $value > 0xFFFFFF) {
             return $fallback;
         }
 
-        return '#' . strtoupper($matches[1]);
+        return sprintf('#%06X', $value);
     }
+
 
     private function RenderVisualizationHTML(bool $ipsView): string
     {
