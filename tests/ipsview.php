@@ -138,14 +138,12 @@ assertIPSView(
         && str_contains($paletteHelper, "'Danger'        => 'IPSViewDangerColorValue'"),
     'The configuration form must inject all manually selectable colors from the shared helper.'
 );
-
 assertIPSView(
     str_contains($module, '$fontScalePercent = max(80, min(200, $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE)));')
         && str_contains($module, 'round(16 * $fontScalePercent / 100)')
         && str_contains($module, ". 'px'"),
     'IPSView font scaling must resolve to whole-pixel root sizes for clearer browser rendering.'
 );
-
 assertIPSView(
     str_contains($module, "'Page'          => 0xD8C59B")
         && str_contains($module, "'Text'          => 0xFFFFFF")
@@ -156,8 +154,6 @@ assertIPSView(
         && str_contains($module, "\$persistence['configuration'][\$integerProperty] = hexdec(\$matches[1]);"),
     'SelectColor fields must use shared integer properties and retain the legacy string migration.'
 );
-
-
 assertIPSView(
     str_contains($readme, 'IPSView')
         && str_contains($readme, 'Browser des Clients')
