@@ -16,6 +16,7 @@ $html = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/index.h
 $css = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/style.css');
 $javascript = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/app.js');
 $readme = (string) file_get_contents($root . '/OpenHomeAlarm/README.md');
+$paletteHelper = (string) file_get_contents($root . '/libs/helper/IPSViewColorPaletteHelper.php');
 
 assertIPSView(
     str_contains($module, "private const PROPERTY_ENABLE_IPSVIEW = 'EnableIPSView';")
@@ -62,7 +63,8 @@ assertIPSView(
     str_contains($html, '{{OHA_RUNTIME_CONFIG}}')
         && str_contains($html, '{{OHA_TRANSLATIONS}}')
         && str_contains($html, '{{OHA_HTML_CLASSES}}')
-        && str_contains($html, '{{OHA_FONT_SCALE}}'),
+        && str_contains($html, '{{OHA_FONT_SCALE}}')
+        && str_contains($html, '{{OHA_IPSVIEW_THEME}}'),
     'The shared visualization template must support the IPSView runtime.'
 );
 assertIPSView(
@@ -88,13 +90,18 @@ assertIPSView(
     'IPSView must provide standalone localization, fixed themes, custom colors and transparency.'
 );
 assertIPSView(
-    str_contains($javascript, 'palette.Custom !== true')
-        && str_contains($javascript, 'surfaceStrong: ohaNormalizeCSSColor(palette.SurfaceStrong)')
-        && str_contains($javascript, 'mutedText: ohaNormalizeCSSColor(palette.MutedText)')
-        && str_contains($javascript, 'function ohaContrastRatio(first, second)')
-        && str_contains($javascript, 'function ohaAdjustBackgroundsForContrast(backgrounds, foregrounds, minimumRatio)')
-        && str_contains($javascript, 'function ohaEnsureForegroundContrast(foreground, backgrounds, minimumRatio)')
-        && str_contains($javascript, "root.style.setProperty('--oha-page-label-muted'")
+    str_contains($module, "require_once __DIR__ . '/../libs/helper/IPSViewColorPaletteHelper.php';")
+        && str_contains($module, 'use \Burki24\SymconModuleHelper\IPSViewColorPaletteHelper;')
+        && str_contains($module, '$this->RegisterIPSViewColorProperties([')
+        && str_contains($module, "\$this->IPSViewColorFormItems('250px')")
+        && str_contains($module, "\$this->IPSViewColorCSSVariables(\$transparent, ':root')")
+        && str_contains($paletteHelper, 'protected function IPSViewResolvedColorPalette(): array')
+        && str_contains($paletteHelper, 'private function IPSViewAdjustBackgroundsForContrast(')
+        && str_contains($paletteHelper, 'private function IPSViewEnsureForegroundContrast(')
+        && !str_contains($javascript, 'function ohaContrastRatio(first, second)')
+        && !str_contains($javascript, 'function ohaApplyCustomIPSViewTheme(root, palette)')
+        && !str_contains($module, 'private function IPSViewPalette(): array')
+        && str_contains($module, '--oha-page-label-muted: var(--ipsview-muted);')
         && str_contains($css, 'html.oha-ipsview.oha-theme-linked')
         && str_contains($css, 'font-family: Roboto, "Segoe UI", Arial, sans-serif;')
         && str_contains($css, 'color: var(--oha-page-label-muted);')
@@ -102,7 +109,7 @@ assertIPSView(
         && str_contains($css, 'opacity: 0.78;')
         && str_contains($css, 'linear-gradient(135deg, var(--oha-state-soft), transparent 46%)')
         && str_contains($css, 'box-shadow: none;'),
-    'The manual IPSView palette must improve text contrast without removing inactive states or gradients.'
+    'The shared IPSView palette helper must provide contrast handling without changing inactive states or gradients.'
 );
 assertIPSView(
     str_contains($css, 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;')
@@ -124,17 +131,12 @@ assertIPSView(
         && str_contains($form, '"name": "IPSViewTheme"')
         && str_contains($form, '"caption": "Custom colors"')
         && str_contains($form, '"name": "IPSViewFontScale"')
-        && str_contains($form, '"name": "IPSViewPageColorValue"')
-        && str_contains($form, '"name": "IPSViewSurfaceColorValue"')
-        && str_contains($form, '"name": "IPSViewSurfaceStrongColorValue"')
-        && str_contains($form, '"name": "IPSViewTextColorValue"')
-        && str_contains($form, '"name": "IPSViewMutedTextColorValue"')
-        && str_contains($form, '"name": "IPSViewAccentColorValue"')
-        && str_contains($form, '"name": "IPSViewSuccessColorValue"')
-        && str_contains($form, '"name": "IPSViewWarningColorValue"')
-        && str_contains($form, '"name": "IPSViewDangerColorValue"')
-        && substr_count($form, '"type": "SelectColor"') >= 9,
-    'The configuration form must expose all manually selectable IPSView colors.'
+        && str_contains($form, '"caption": "Choose the IPSView palette directly. The colors are stored in the module configuration."')
+        && str_contains($module, "\$this->IPSViewColorFormItems('250px')")
+        && str_contains($paletteHelper, "'type'             => 'SelectColor'")
+        && str_contains($paletteHelper, "'Page'          => 'IPSViewPageColorValue'")
+        && str_contains($paletteHelper, "'Danger'        => 'IPSViewDangerColorValue'"),
+    'The configuration form must inject all manually selectable colors from the shared helper.'
 );
 
 assertIPSView(
@@ -145,14 +147,16 @@ assertIPSView(
 );
 
 assertIPSView(
-    str_contains($module, 'RegisterPropertyInteger(self::PROPERTY_IPSVIEW_PAGE_COLOR, 0xD8C59B)')
-        && str_contains($module, 'RegisterPropertyInteger(self::PROPERTY_IPSVIEW_TEXT_COLOR, 0xFFFFFF)')
-        && str_contains($module, "sprintf('#%06X', \$value)")
+    str_contains($module, "'Page'          => 0xD8C59B")
+        && str_contains($module, "'Text'          => 0xFFFFFF")
+        && str_contains($paletteHelper, '$this->RegisterPropertyInteger(self::IPSVIEW_COLOR_PROPERTY_NAMES[$key], $value);')
+        && str_contains($paletteHelper, "return sprintf('#%06X', \$value);")
         && str_contains($module, 'public function Migrate(string $JSONData): string')
         && str_contains($module, 'LEGACY_IPSVIEW_COLOR_PROPERTIES')
-        && str_contains($module, '$persistence[\'configuration\'][$integerProperty] = hexdec($matches[1]);'),
-    'SelectColor fields must use integer properties and migrate the temporary string configuration.'
+        && str_contains($module, "\$persistence['configuration'][\$integerProperty] = hexdec(\$matches[1]);"),
+    'SelectColor fields must use shared integer properties and retain the legacy string migration.'
 );
+
 
 assertIPSView(
     str_contains($readme, 'IPSView')

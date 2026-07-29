@@ -18,6 +18,9 @@
         },
         "VisualizationThemeHelper": {
             "target": "libs/helper/VisualizationThemeHelper.php"
+        },
+        "IPSViewColorPaletteHelper": {
+            "target": "libs/helper/IPSViewColorPaletteHelper.php"
         }
     }
 }
