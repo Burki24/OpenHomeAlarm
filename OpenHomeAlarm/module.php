@@ -624,6 +624,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
+    /**
+     * Applies the configured alarm, monitoring, visualization and timer settings.
+     */
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
@@ -2037,8 +2040,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             },
             $customIPSViewPalette ? 'oha-theme-linked' : ''
         ])) : '';
+        $fontScalePercent = max(80, min(200, $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE)));
         $fontScale = $ipsView
-            ? max(80, min(200, $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE))) . '%'
+            ? max(13, min(32, (int) round(16 * $fontScalePercent / 100))) . 'px'
             : '100%';
 
         return str_replace(

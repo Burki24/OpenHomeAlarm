@@ -226,7 +226,7 @@
             "Ready/active color": "Bereit-/Aktivfarbe",
             "Warning/delay color": "Warn-/Verzögerungsfarbe",
             "Alarm/error color": "Alarm-/Fehlerfarbe",
-            "The selected colors are used exactly for the IPSView dashboard. Choose sufficient contrast between surfaces and text. Transparent background is controlled separately above.": "Die gewählten Farben werden direkt für die IPSView-Darstellung verwendet. Bitte auf ausreichenden Kontrast zwischen Flächen und Schrift achten. Der transparente Hintergrund wird separat oben gesteuert."
+            "The selected colors define the IPSView palette. Card surfaces and text colors are corrected only when needed for readable contrast. Opacity for unavailable controls and the existing status gradients are preserved. Transparent background is controlled separately above.": "Die gewählten Farben bilden die IPSView-Palette. Flächen- und Schriftfarben werden nur bei unzureichendem Kontrast behutsam korrigiert. Die Abschwächung nicht verfügbarer Bedienelemente und die vorhandenen Statusverläufe bleiben erhalten. Der transparente Hintergrund wird separat oben gesteuert."
         }
     }
 }

@@ -141,7 +141,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "The selected colors are used exactly for the IPSView dashboard. Choose sufficient contrast between surfaces and text. Transparent background is controlled separately above."
+                    "caption": "The selected colors define the IPSView palette. Card surfaces and text colors are corrected only when needed for readable contrast. Opacity for unavailable controls and the existing status gradients are preserved. Transparent background is controlled separately above."
                 },
                 {
                     "type": "Label",

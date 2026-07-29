@@ -84,6 +84,7 @@ html.oha-ipsview.oha-theme-custom {
     --oha-panel-border: rgba(40, 33, 23, 0.18);
     --oha-page-label-bg: rgba(250, 247, 238, 0.97);
     --oha-page-label-text: #211c15;
+    --oha-page-label-muted: #5f5546;
     --oha-page-label-border: rgba(40, 33, 23, 0.16);
     --oha-accent: #7d5c22;
     --oha-accent-soft: rgba(125, 92, 34, 0.13);
@@ -1854,6 +1855,18 @@ html.oha-ipsview.oha-theme-custom .oha-codepad-title-wrap p {
     color: var(--oha-panel-muted);
 }
 
+html.oha-ipsview.oha-theme-custom .oha-blockers,
+html.oha-ipsview.oha-theme-custom .oha-status-card-label,
+html.oha-ipsview.oha-theme-custom .oha-context-copy span,
+html.oha-ipsview.oha-theme-custom .oha-operation-copy span,
+html.oha-ipsview.oha-theme-custom .oha-history-copy span,
+html.oha-ipsview.oha-theme-custom .oha-inline-codepad-hint,
+html.oha-ipsview.oha-theme-custom .oha-codepad-title-wrap p,
+html.oha-ipsview.oha-theme-custom .oha-section-hint,
+html.oha-ipsview.oha-theme-custom .oha-section-kicker {
+    font-weight: 500;
+}
+
 html.oha-ipsview.oha-theme-custom .oha-mode-button[data-active="true"] {
     background:
         linear-gradient(135deg, var(--oha-accent-soft), transparent 76%),
@@ -1887,7 +1900,8 @@ html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-hint {
 
 html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-kicker,
 html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-hint {
-    opacity: 0.72;
+    color: var(--oha-page-label-muted);
+    opacity: 1;
 }
 
 html.oha-ipsview.oha-theme-custom .oha-operation-head,

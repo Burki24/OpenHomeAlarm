@@ -91,10 +91,18 @@ assertIPSView(
     str_contains($javascript, 'palette.Custom !== true')
         && str_contains($javascript, 'surfaceStrong: ohaNormalizeCSSColor(palette.SurfaceStrong)')
         && str_contains($javascript, 'mutedText: ohaNormalizeCSSColor(palette.MutedText)')
+        && str_contains($javascript, 'function ohaContrastRatio(first, second)')
+        && str_contains($javascript, 'function ohaAdjustBackgroundsForContrast(backgrounds, foregrounds, minimumRatio)')
+        && str_contains($javascript, 'function ohaEnsureForegroundContrast(foreground, backgrounds, minimumRatio)')
+        && str_contains($javascript, "root.style.setProperty('--oha-page-label-muted'")
         && str_contains($css, 'html.oha-ipsview.oha-theme-linked')
         && str_contains($css, 'font-family: Roboto, "Segoe UI", Arial, sans-serif;')
+        && str_contains($css, 'color: var(--oha-page-label-muted);')
+        && str_contains($css, '.oha-mode-button[data-can-arm="false"]')
+        && str_contains($css, 'opacity: 0.78;')
+        && str_contains($css, 'linear-gradient(135deg, var(--oha-state-soft), transparent 46%)')
         && str_contains($css, 'box-shadow: none;'),
-    'The manual IPSView palette must drive the compact flat dashboard style.'
+    'The manual IPSView palette must improve text contrast without removing inactive states or gradients.'
 );
 assertIPSView(
     str_contains($css, 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;')
@@ -127,6 +135,13 @@ assertIPSView(
         && str_contains($form, '"name": "IPSViewDangerColorValue"')
         && substr_count($form, '"type": "SelectColor"') >= 9,
     'The configuration form must expose all manually selectable IPSView colors.'
+);
+
+assertIPSView(
+    str_contains($module, '$fontScalePercent = max(80, min(200, $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE)));')
+        && str_contains($module, 'round(16 * $fontScalePercent / 100)')
+        && str_contains($module, ". 'px'"),
+    'IPSView font scaling must resolve to whole-pixel root sizes for clearer browser rendering.'
 );
 
 assertIPSView(

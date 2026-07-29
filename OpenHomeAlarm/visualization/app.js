@@ -120,6 +120,87 @@ function ohaRelativeLuminance(color) {
         + (0.0722 * channel(color.blue));
 }
 
+function ohaContrastRatio(first, second) {
+    const firstLuminance = ohaRelativeLuminance(first);
+    const secondLuminance = ohaRelativeLuminance(second);
+    const lighter = Math.max(firstLuminance, secondLuminance);
+    const darker = Math.min(firstLuminance, secondLuminance);
+
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+function ohaMeetsContrast(foreground, backgrounds, minimumRatio) {
+    return backgrounds.every((background) => ohaContrastRatio(foreground, background) >= minimumRatio);
+}
+
+function ohaAdjustBackgroundsForContrast(backgrounds, foregrounds, minimumRatio) {
+    const alreadyReadable = backgrounds.every(
+        (background) => foregrounds.every(
+            (foreground) => ohaContrastRatio(foreground, background) >= minimumRatio
+        )
+    );
+    if (alreadyReadable) {
+        return backgrounds;
+    }
+
+    const targets = [
+        { red: 0, green: 0, blue: 0, alpha: 1 },
+        { red: 255, green: 255, blue: 255, alpha: 1 }
+    ];
+    let bestMatch = null;
+
+    targets.forEach((target) => {
+        for (let step = 1; step <= 100; step += 1) {
+            const amount = step / 100;
+            const candidates = backgrounds.map((background) => ohaMixRGB(background, target, amount));
+            const valid = candidates.every(
+                (candidate) => foregrounds.every(
+                    (foreground) => ohaContrastRatio(foreground, candidate) >= minimumRatio
+                )
+            );
+            if (!valid) {
+                continue;
+            }
+
+            if (bestMatch === null || amount < bestMatch.amount) {
+                bestMatch = { colors: candidates, amount };
+            }
+            break;
+        }
+    });
+
+    return bestMatch?.colors ?? backgrounds;
+}
+
+function ohaEnsureForegroundContrast(foreground, backgrounds, minimumRatio) {
+    if (ohaMeetsContrast(foreground, backgrounds, minimumRatio)) {
+        return foreground;
+    }
+
+    const targets = [
+        { red: 0, green: 0, blue: 0, alpha: 1 },
+        { red: 255, green: 255, blue: 255, alpha: 1 }
+    ];
+    let bestMatch = null;
+
+    targets.forEach((target) => {
+        for (let step = 1; step <= 100; step += 1) {
+            const amount = step / 100;
+            const candidate = ohaMixRGB(foreground, target, amount);
+            if (!ohaMeetsContrast(candidate, backgrounds, minimumRatio)) {
+                continue;
+            }
+
+            if (bestMatch === null || amount < bestMatch.amount) {
+                bestMatch = { color: candidate, amount };
+            }
+            break;
+        }
+    });
+
+    return bestMatch?.color ?? foreground;
+}
+
 function ohaConfiguredIPSViewPalette() {
     const palette = ohaIPSViewConfig?.palette;
     if (!palette || palette.Custom !== true) {
@@ -143,12 +224,23 @@ function ohaConfiguredIPSViewPalette() {
 
 function ohaApplyCustomIPSViewTheme(root, palette) {
     const page = palette.page;
-    const panel = palette.surface;
-    const panelStrong = palette.surfaceStrong;
-    const panelSoft = ohaMixRGB(panel, page, 0.24);
-    const text = palette.text;
-    const muted = palette.mutedText;
-    const faint = ohaMixRGB(muted, panel, 0.30);
+    const configuredText = palette.text;
+    const configuredMuted = palette.mutedText;
+    const configuredSurfaces = [
+        palette.surface,
+        palette.surfaceStrong,
+        ohaMixRGB(palette.surface, page, 0.24)
+    ];
+    const [panel, panelStrong, panelSoft] = ohaAdjustBackgroundsForContrast(
+        configuredSurfaces,
+        [configuredText, configuredMuted],
+        4.5
+    );
+    const panelBackgrounds = [panel, panelStrong, panelSoft];
+    const text = ohaEnsureForegroundContrast(configuredText, panelBackgrounds, 4.5);
+    const muted = ohaEnsureForegroundContrast(configuredMuted, panelBackgrounds, 4.5);
+    const faint = ohaEnsureForegroundContrast(ohaMixRGB(muted, panel, 0.18), panelBackgrounds, 3.5);
+    const pageLabelMuted = ohaEnsureForegroundContrast(muted, [panelStrong], 4.5);
     const transparent = root.classList.contains('oha-transparent') || ohaIPSViewConfig?.transparent === true;
     const lightEnvironment = ohaRelativeLuminance(panel) >= 0.40;
 
@@ -173,6 +265,7 @@ function ohaApplyCustomIPSViewTheme(root, palette) {
     root.style.setProperty('--oha-panel-border', ohaRGBString(text, 0.16));
     root.style.setProperty('--oha-page-label-bg', ohaRGBString(panelStrong));
     root.style.setProperty('--oha-page-label-text', ohaRGBString(text));
+    root.style.setProperty('--oha-page-label-muted', ohaRGBString(pageLabelMuted));
     root.style.setProperty('--oha-page-label-border', ohaRGBString(text, 0.13));
     root.style.setProperty('--oha-accent', ohaRGBString(palette.accent));
     root.style.setProperty('--oha-accent-soft', ohaRGBString(palette.accent, 0.22));
