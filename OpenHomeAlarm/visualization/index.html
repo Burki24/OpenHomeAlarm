@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="en" class="{{OHA_HTML_CLASSES}}" style="--oha-font-scale: {{OHA_FONT_SCALE}};">
+<html lang="{{HTML_LANGUAGE}}" class="{{HTML_CLASSES}}" style="--oha-font-scale: {{ROOT_FONT_SIZE}};">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="{{VIEWPORT_CONTENT}}">
+    <title>{{DOCUMENT_TITLE}}</title>
     <script src="/icons.js"></script>
-    <style>{{SYMC_THEME}}
-{{OHA_STYLE}}
-{{OHA_IPSVIEW_THEME}}</style>
+    <style>{{VISUALIZATION_THEME}}
+{{MODULE_STYLE}}
+{{IPSVIEW_STYLE}}</style>
 </head>
 <body>
     <main class="oha-shell" id="ohaRoot">
@@ -287,10 +288,8 @@
     </div>
 
     <script>
-        window.OHA_INITIAL_STATE = {{OHA_INITIAL_STATE}};
-        window.OHA_IPSVIEW = {{OHA_RUNTIME_CONFIG}};
-        window.OHA_TRANSLATIONS = {{OHA_TRANSLATIONS}};
+        window.SYMC_VISUALIZATION = {{BOOTSTRAP_JSON}};
     </script>
-    <script>{{OHA_SCRIPT}}</script>
+    <script>{{MODULE_SCRIPT}}</script>
 </body>
 </html>

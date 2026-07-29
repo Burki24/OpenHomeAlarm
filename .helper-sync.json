@@ -7,6 +7,9 @@
         "ConfigurationFormHelper": {
             "target": "libs/helper/ConfigurationFormHelper.php"
         },
+        "IPSViewHTMLPageHelper": {
+            "target": "libs/helper/IPSViewHTMLPageHelper.php"
+        },
         "IPSViewStyleHelper": {
             "target": "libs/helper/IPSViewStyleHelper.php"
         },

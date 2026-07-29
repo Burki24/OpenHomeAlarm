@@ -12,6 +12,7 @@ require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
 require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
+require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewStyleHelper.php';
 require_once __DIR__ . '/../libs/helper/PersistentJsonCacheHelper.php';
 require_once __DIR__ . '/../libs/helper/VariablePresentationHelper.php';
@@ -21,6 +22,7 @@ require_once __DIR__ . '/../libs/helper/VisualizationThemeHelper.php';
 class OpenHomeAlarm extends IPSModuleStrict
 {
     use \Burki24\SymconModuleHelper\ConfigurationFormHelper;
+    use \Burki24\SymconModuleHelper\IPSViewHTMLPageHelper;
     use \Burki24\SymconModuleHelper\IPSViewStyleHelper;
     use \Burki24\SymconModuleHelper\PersistentJsonCacheHelper;
     use \Burki24\SymconModuleHelper\VariablePresentationHelper;
@@ -2027,11 +2029,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
-    private function RenderIPSViewStyleCSS(): string
-    {
-        return $this->IPSViewStyleCSSVariables(':root');
-    }
-
     private function IPSViewRootFontSize(): string
     {
         $style = $this->IPSViewResolvedStyle();
@@ -2043,90 +2040,27 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function RenderVisualizationHTML(bool $ipsView): string
     {
-        $template = $this->VisualizationAsset('index.html');
-        if ($template === '') {
-            return '';
-        }
-
-        $initialState = $this->EncodeVisualizationJSON($this->ControlStatePayload());
-        $runtimeConfig = $ipsView
-            ? $this->EncodeVisualizationJSON([
+        $runtime = $ipsView
+            ? [
                 'endpoint'           => '/hook/' . $this->IPSViewHookAddress(),
                 'token'              => $this->IPSViewToken(),
                 'pollInterval'       => 3000,
                 'activePollInterval' => 1000,
                 'hiddenPollInterval' => 15000
-            ])
-            : 'null';
-        $translations = $ipsView
-            ? $this->EncodeVisualizationJSON($this->IPSViewTranslations())
-            : '{}';
+            ]
+            : null;
 
-        return str_replace(
-            [
-                '{{SYMC_THEME}}',
-                '{{OHA_STYLE}}',
-                '{{OHA_IPSVIEW_THEME}}',
-                '{{OHA_SCRIPT}}',
-                '{{OHA_INITIAL_STATE}}',
-                '{{OHA_RUNTIME_CONFIG}}',
-                '{{OHA_TRANSLATIONS}}',
-                '{{OHA_HTML_CLASSES}}',
-                '{{OHA_FONT_SCALE}}'
-            ],
-            [
-                $ipsView ? '' : $this->VisualizationThemeCSS(),
-                $this->VisualizationAsset('style.css'),
-                $ipsView ? $this->RenderIPSViewStyleCSS() : '',
-                $this->VisualizationAsset('app.js'),
-                $initialState,
-                $runtimeConfig,
-                $translations,
-                $ipsView ? 'oha-ipsview oha-style-shared' : '',
-                $ipsView ? $this->IPSViewRootFontSize() : '100%'
-            ],
-            $template
-        );
-    }
-
-    /** @param array<string,mixed> $payload */
-    private function EncodeVisualizationJSON(array $payload): string
-    {
-        return json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR
-            | JSON_HEX_TAG
-            | JSON_HEX_AMP
-            | JSON_HEX_APOS
-            | JSON_HEX_QUOT
-            | JSON_UNESCAPED_UNICODE
-            | JSON_UNESCAPED_SLASHES
-        );
-    }
-
-    /** @return array<string,string> */
-    private function IPSViewTranslations(): array
-    {
-        $localeFile = __DIR__ . '/locale.json';
-        if (!is_file($localeFile)) {
-            return [];
-        }
-
-        try {
-            $locale = json_decode((string) file_get_contents($localeFile), true, 512, JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return [];
-        }
-
-        $translations = [];
-        $sourceStrings = array_keys($locale['translations']['de'] ?? []);
-        foreach ($sourceStrings as $source) {
-            if (is_string($source)) {
-                $translations[$source] = $this->Translate($source);
-            }
-        }
-
-        return $translations;
+        return $this->RenderVisualizationHTMLPage($ipsView, [
+            'classes'           => $ipsView ? ['oha-ipsview', 'oha-style-shared'] : [],
+            'rootFontSize'      => $ipsView ? $this->IPSViewRootFontSize() : '100%',
+            'title'             => 'OpenHomeAlarm',
+            'visualizationTheme'=> $this->VisualizationThemeCSS(),
+            'ipsViewStyle'      => $this->IPSViewStyleCSSVariables(':root'),
+            'state'             => $this->ControlStatePayload(),
+            'runtime'           => $runtime,
+            'translations'      => $ipsView ? $this->IPSViewTranslationsFromLocale() : [],
+            'options'           => []
+        ]);
     }
 
     /** @return array<string,mixed> */

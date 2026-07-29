@@ -17,6 +17,7 @@ $css = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/style.cs
 $javascript = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/app.js');
 $readme = (string) file_get_contents($root . '/OpenHomeAlarm/README.md');
 $styleHelper = (string) file_get_contents($root . '/libs/helper/IPSViewStyleHelper.php');
+$htmlPageHelper = (string) file_get_contents($root . '/libs/helper/IPSViewHTMLPageHelper.php');
 
 assertIPSView(
     str_contains($module, "private const PROPERTY_ENABLE_IPSVIEW = 'EnableIPSView';")
@@ -60,12 +61,42 @@ assertIPSView(
     'The IPSView page must not embed Symcon credentials or call JSON-RPC.'
 );
 assertIPSView(
-    str_contains($html, '{{OHA_RUNTIME_CONFIG}}')
-        && str_contains($html, '{{OHA_TRANSLATIONS}}')
-        && str_contains($html, '{{OHA_HTML_CLASSES}}')
-        && str_contains($html, '{{OHA_FONT_SCALE}}')
-        && str_contains($html, '{{OHA_IPSVIEW_THEME}}'),
-    'The shared visualization template must support the IPSView runtime.'
+    str_contains($html, '{{HTML_LANGUAGE}}')
+        && str_contains($html, '{{HTML_CLASSES}}')
+        && str_contains($html, '{{VIEWPORT_CONTENT}}')
+        && str_contains($html, '{{ROOT_FONT_SIZE}}')
+        && str_contains($html, '{{VISUALIZATION_THEME}}')
+        && str_contains($html, '{{MODULE_STYLE}}')
+        && str_contains($html, '{{IPSVIEW_STYLE}}')
+        && str_contains($html, '{{BOOTSTRAP_JSON}}')
+        && str_contains($html, '{{MODULE_SCRIPT}}'),
+    'The visualization template must implement the shared HTML page contract.'
+);
+assertIPSView(
+    str_contains($module, "require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';")
+        && str_contains($module, 'use \\Burki24\\SymconModuleHelper\\IPSViewHTMLPageHelper;')
+        && str_contains($module, '$this->RenderVisualizationHTMLPage($ipsView, [')
+        && str_contains($module, '\'state\'             => $this->ControlStatePayload()')
+        && str_contains($module, '\'runtime\'           => $runtime')
+        && str_contains($module, '\'translations\'      => $ipsView ? $this->IPSViewTranslationsFromLocale() : []'),
+    'OpenHomeAlarm must delegate both page modes and their bootstrap data to the shared HTML page helper.'
+);
+assertIPSView(
+    str_contains($htmlPageHelper, '\'contractVersion\' => self::IPSVIEW_HTML_CONTRACT_VERSION')
+        && str_contains($htmlPageHelper, '\'mode\'            => $ipsView ? \'ipsview\' : \'symcon\'')
+        && str_contains($htmlPageHelper, 'protected function EncodeVisualizationHTMLJSON(')
+        && str_contains($htmlPageHelper, 'protected function IPSViewTranslationsFromLocale('),
+    'The shared HTML helper must own the bootstrap contract, safe JSON encoding and locale translation map.'
+);
+assertIPSView(
+    str_contains($javascript, 'const ohaVisualization = window.SYMC_VISUALIZATION')
+        && str_contains($javascript, "ohaVisualization.mode === 'ipsview'")
+        && str_contains($javascript, 'let ohaState = ohaVisualization.state ?? null;')
+        && str_contains($javascript, 'const translated = ohaTranslations[text];')
+        && !str_contains($javascript, 'window.OHA_INITIAL_STATE')
+        && !str_contains($javascript, 'window.OHA_IPSVIEW')
+        && !str_contains($javascript, 'window.OHA_TRANSLATIONS'),
+    'The alarm application must consume the shared bootstrap without legacy page globals.'
 );
 assertIPSView(
     str_contains($javascript, 'async function ohaIPSViewRequest(action, value)')
@@ -135,7 +166,7 @@ assertIPSView(
         && !str_contains($css, 'html.oha-ipsview.oha-theme-custom')
         && !str_contains($css, 'html.oha-ipsview.oha-theme-linked')
         && !str_contains($css, 'html.oha-ipsview.oha-transparent')
-        && str_contains($module, "\$ipsView ? 'oha-ipsview oha-style-shared' : ''"),
+        && str_contains($module, "\$ipsView ? ['oha-ipsview', 'oha-style-shared'] : []"),
     'Legacy module-owned IPSView theme classes must be removed.'
 );
 assertIPSView(

@@ -1,24 +1,31 @@
 'use strict';
 
-document.documentElement.lang = navigator.language || 'en';
+const ohaVisualization = window.SYMC_VISUALIZATION && typeof window.SYMC_VISUALIZATION === 'object'
+    ? window.SYMC_VISUALIZATION
+    : {};
+const ohaTranslations = ohaVisualization.translations && typeof ohaVisualization.translations === 'object'
+    ? ohaVisualization.translations
+    : {};
+const ohaIPSViewConfig = ohaVisualization.mode === 'ipsview'
+    && ohaVisualization.runtime
+    && typeof ohaVisualization.runtime === 'object'
+    ? ohaVisualization.runtime
+    : null;
 
-let ohaState = window.OHA_INITIAL_STATE ?? null;
+let ohaState = ohaVisualization.state ?? null;
 let ohaCodeBuffer = '';
 let ohaCodeBusy = false;
 let ohaCodeRequestTimer = null;
 let ohaCodeLockTimer = null;
 let ohaIPSViewPollTimer = null;
 let ohaIPSViewPendingRequests = 0;
-const ohaIPSViewConfig = window.OHA_IPSVIEW && typeof window.OHA_IPSVIEW === 'object'
-    ? window.OHA_IPSVIEW
-    : null;
 
 function ohaTranslate(text) {
     if (typeof translate === 'function') {
         return translate(text);
     }
 
-    const translated = window.OHA_TRANSLATIONS?.[text];
+    const translated = ohaTranslations[text];
     return typeof translated === 'string' ? translated : text;
 }
 

@@ -33,6 +33,12 @@ assertVisualization(
     'VisualizationAssetHelper must be required.'
 );
 assertVisualization(
+    str_contains($module, "require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';")
+        && str_contains($module, 'use \\Burki24\\SymconModuleHelper\\IPSViewHTMLPageHelper;')
+        && str_contains($module, '$this->RenderVisualizationHTMLPage($ipsView, ['),
+    'Native and IPSView documents must use the shared HTML page helper.'
+);
+assertVisualization(
     str_contains($module, "require_once __DIR__ . '/../libs/helper/VisualizationThemeHelper.php';")
         && str_contains($module, 'use \\Burki24\\SymconModuleHelper\\VisualizationThemeHelper;')
         && str_contains($module, '$this->VisualizationThemeCSS()'),
@@ -63,10 +69,34 @@ assertVisualization(
     'UpdateVisualizationValue must not receive a decoded PHP array.'
 );
 
-assertVisualization(str_contains($html, '{{OHA_STYLE}}'), 'HTML must contain the CSS asset placeholder.');
-assertVisualization(str_contains($html, '{{SYMC_THEME}}'), 'HTML must contain the shared theme placeholder.');
-assertVisualization(str_contains($html, '{{OHA_SCRIPT}}'), 'HTML must contain the JavaScript asset placeholder.');
-assertVisualization(str_contains($html, '{{OHA_INITIAL_STATE}}'), 'HTML must contain the initial-state placeholder.');
+foreach ([
+    '{{HTML_LANGUAGE}}',
+    '{{HTML_CLASSES}}',
+    '{{VIEWPORT_CONTENT}}',
+    '{{ROOT_FONT_SIZE}}',
+    '{{VISUALIZATION_THEME}}',
+    '{{MODULE_STYLE}}',
+    '{{IPSVIEW_STYLE}}',
+    '{{BOOTSTRAP_JSON}}',
+    '{{MODULE_SCRIPT}}'
+] as $placeholder) {
+    assertVisualization(
+        str_contains($html, $placeholder),
+        'HTML must contain the shared page placeholder ' . $placeholder . '.'
+    );
+}
+assertVisualization(
+    str_contains($html, 'window.SYMC_VISUALIZATION = {{BOOTSTRAP_JSON}};')
+        && !str_contains($html, 'window.OHA_INITIAL_STATE')
+        && !str_contains($html, 'window.OHA_IPSVIEW')
+        && !str_contains($html, 'window.OHA_TRANSLATIONS'),
+    'The template must use the shared visualization bootstrap only.'
+);
+assertVisualization(
+    str_contains($javascript, 'const ohaVisualization = window.SYMC_VISUALIZATION')
+        && str_contains($javascript, 'let ohaState = ohaVisualization.state ?? null;'),
+    'The application must initialize from the shared visualization bootstrap.'
+);
 assertVisualization(str_contains($javascript, 'function handleMessage(data)'), 'HTML-SDK handleMessage must be implemented.');
 assertVisualization(
     !str_contains($javascript, '.innerHTML ='),
