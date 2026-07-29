@@ -19,47 +19,8 @@
                     "caption": "Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box."
                 },
                 {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "CheckBox",
-                            "name": "IPSViewTransparent",
-                            "caption": "Transparent background",
-                            "width": "250px"
-                        },
-                        {
-                            "type": "Select",
-                            "name": "IPSViewTheme",
-                            "caption": "Color scheme",
-                            "options": [
-                                {
-                                    "caption": "Custom colors",
-                                    "value": 0
-                                },
-                                {
-                                    "caption": "Light",
-                                    "value": 1
-                                },
-                                {
-                                    "caption": "Dark",
-                                    "value": 2
-                                }
-                            ],
-                            "width": "250px"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "IPSViewFontScale",
-                            "caption": "Font size (%)",
-                            "minimum": 80,
-                            "maximum": 200,
-                            "width": "250px"
-                        }
-                    ]
-                },
-                {
                     "type": "Label",
-                    "caption": "Choose the IPSView palette directly. The colors are stored in the module configuration."
+                    "caption": "Configure the shared IPSView style used by the standalone HTML page."
                 },
                 {
                     "type": "Label",

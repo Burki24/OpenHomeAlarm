@@ -164,6 +164,25 @@ class IPSModuleStrict
         }
     }
 
+    protected function RegisterPropertyBoolean(string $name, bool $default): void
+    {
+        $this->RegisterPropertyInteger($name, $default ? 1 : 0);
+    }
+
+    protected function ReadPropertyBoolean(string $name): bool
+    {
+        return $this->ReadPropertyInteger($name) === 1;
+    }
+
+    protected function RegisterPropertyFloat(string $name, float $default): void
+    {
+    }
+
+    protected function ReadPropertyFloat(string $name): float
+    {
+        return 0.0;
+    }
+
     protected function ReadPropertyString(string $name): string
     {
         $value = $this->properties[$name] ?? '';

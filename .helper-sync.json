@@ -7,6 +7,9 @@
         "ConfigurationFormHelper": {
             "target": "libs/helper/ConfigurationFormHelper.php"
         },
+        "IPSViewStyleHelper": {
+            "target": "libs/helper/IPSViewStyleHelper.php"
+        },
         "PersistentJsonCacheHelper": {
             "target": "libs/helper/PersistentJsonCacheHelper.php"
         },
@@ -18,9 +21,6 @@
         },
         "VisualizationThemeHelper": {
             "target": "libs/helper/VisualizationThemeHelper.php"
-        },
-        "IPSViewColorPaletteHelper": {
-            "target": "libs/helper/IPSViewColorPaletteHelper.php"
         }
     }
 }

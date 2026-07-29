@@ -16,117 +16,72 @@
     --oha-warning-soft: var(--symc-warning-soft);
     --oha-danger: var(--symc-danger);
     --oha-danger-soft: var(--symc-danger-soft);
+    --oha-danger-contrast: #ffffff;
+    --oha-control-inactive: var(--symc-surface);
+    --oha-popup-background: var(--symc-surface-raised);
+    --oha-popup-border: var(--symc-border);
+    --oha-popup-shadow: none;
+    --oha-disabled-opacity: 0.48;
+    --oha-border-width: 1px;
+    --oha-line-width: 1px;
+    --oha-gradient-accent: linear-gradient(135deg, var(--oha-accent-soft) 0%, transparent 78%);
+    --oha-gradient-success: linear-gradient(135deg, var(--oha-success-soft) 0%, transparent 78%);
+    --oha-gradient-warning: linear-gradient(135deg, var(--oha-warning-soft) 0%, transparent 78%);
+    --oha-gradient-danger: linear-gradient(135deg, var(--oha-danger-soft) 0%, transparent 78%);
     --oha-shadow: none;
 }
 html.oha-ipsview {
-    color-scheme: light dark;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    font-size: var(--oha-font-scale, 100%);
+    font-family: var(--ipsview-font-family);
+    font-size: var(--oha-font-scale, var(--ipsview-font-size));
     line-height: 1.35;
-    --symc-radius-small: 8px;
-    --symc-radius-medium: 12px;
-    --symc-radius-large: 16px;
-    --oha-bg: rgba(248, 250, 252, 0.96);
-    --oha-surface: rgba(255, 255, 255, 0.94);
-    --oha-surface-strong: #ffffff;
-    --oha-surface-soft: rgba(241, 245, 249, 0.94);
-    --oha-border: rgba(15, 23, 42, 0.12);
-    --oha-text: #172033;
-    --oha-muted: #64748b;
-    --oha-faint: #94a3b8;
-    --oha-accent: #2563eb;
-    --oha-accent-soft: rgba(37, 99, 235, 0.11);
-    --oha-success: #16804a;
-    --oha-success-soft: rgba(22, 128, 74, 0.12);
-    --oha-success-border: rgba(22, 128, 74, 0.30);
-    --oha-warning: #b36b00;
-    --oha-warning-soft: rgba(179, 107, 0, 0.12);
-    --oha-danger: #c43131;
-    --oha-danger-soft: rgba(196, 49, 49, 0.12);
-    --oha-shadow: 0 12px 34px rgba(15, 23, 42, 0.07);
-}
-
-html.oha-ipsview.oha-theme-dark {
-    color-scheme: dark;
-    --oha-bg: rgba(10, 15, 28, 0.96);
-    --oha-surface: rgba(26, 36, 55, 0.94);
-    --oha-surface-strong: #1b2639;
-    --oha-surface-soft: rgba(31, 43, 64, 0.92);
-    --oha-border: rgba(226, 232, 240, 0.13);
-    --oha-text: #f1f5f9;
-    --oha-muted: #a7b4c6;
-    --oha-faint: #7f8da2;
-    --oha-accent: #78a4ff;
-    --oha-accent-soft: rgba(120, 164, 255, 0.14);
-    --oha-success: #63dc92;
-    --oha-success-soft: rgba(99, 220, 146, 0.13);
-    --oha-success-border: rgba(99, 220, 146, 0.28);
-    --oha-warning: #ffc15f;
-    --oha-warning-soft: rgba(255, 193, 95, 0.13);
-    --oha-danger: #ff7b7b;
-    --oha-danger-soft: rgba(255, 123, 123, 0.13);
-    --oha-shadow: 0 14px 36px rgba(0, 0, 0, 0.20);
-}
-
-html.oha-ipsview.oha-theme-custom {
-    color-scheme: light;
-    --oha-bg: transparent;
-    --oha-surface: rgba(244, 239, 225, 0.93);
-    --oha-surface-strong: rgba(250, 247, 238, 0.97);
-    --oha-surface-soft: rgba(236, 227, 205, 0.88);
-    --oha-border: rgba(40, 33, 23, 0.18);
-    --oha-text: #211c15;
-    --oha-muted: #5f5546;
-    --oha-faint: #786d5d;
-    --oha-panel-text: #211c15;
-    --oha-panel-muted: #5f5546;
-    --oha-panel-faint: #786d5d;
-    --oha-panel-border: rgba(40, 33, 23, 0.18);
-    --oha-page-label-bg: rgba(250, 247, 238, 0.97);
-    --oha-page-label-text: #211c15;
-    --oha-page-label-muted: #5f5546;
-    --oha-page-label-border: rgba(40, 33, 23, 0.16);
-    --oha-accent: #7d5c22;
-    --oha-accent-soft: rgba(125, 92, 34, 0.13);
-    --oha-success: #197044;
-    --oha-success-soft: rgba(25, 112, 68, 0.12);
-    --oha-success-border: rgba(25, 112, 68, 0.30);
-    --oha-warning: #8b5600;
-    --oha-warning-soft: rgba(139, 86, 0, 0.12);
-    --oha-danger: #b12e2e;
-    --oha-danger-soft: rgba(177, 46, 46, 0.12);
-    --oha-shadow: 0 10px 24px rgba(63, 48, 27, 0.13);
-    --oha-adaptive-backdrop: blur(14px) saturate(0.90);
-}
-
-@media (prefers-color-scheme: dark) {
-    html.oha-ipsview:not(.oha-theme-light):not(.oha-theme-dark):not(.oha-theme-custom) {
-        color-scheme: dark;
-        --oha-bg: rgba(10, 15, 28, 0.96);
-        --oha-surface: rgba(26, 36, 55, 0.94);
-        --oha-surface-strong: #1b2639;
-        --oha-surface-soft: rgba(31, 43, 64, 0.92);
-        --oha-border: rgba(226, 232, 240, 0.13);
-        --oha-text: #f1f5f9;
-        --oha-muted: #a7b4c6;
-        --oha-faint: #7f8da2;
-        --oha-accent: #78a4ff;
-        --oha-accent-soft: rgba(120, 164, 255, 0.14);
-        --oha-success: #63dc92;
-        --oha-success-soft: rgba(99, 220, 146, 0.13);
-        --oha-success-border: rgba(99, 220, 146, 0.28);
-        --oha-warning: #ffc15f;
-        --oha-warning-soft: rgba(255, 193, 95, 0.13);
-        --oha-danger: #ff7b7b;
-        --oha-danger-soft: rgba(255, 123, 123, 0.13);
-        --oha-shadow: 0 14px 36px rgba(0, 0, 0, 0.20);
-    }
-}
-
-html.oha-ipsview.oha-transparent,
-html.oha-ipsview.oha-transparent body,
-html.oha-ipsview.oha-transparent .oha-shell {
-    background: transparent;
+    --symc-radius-small: max(0px, calc(var(--ipsview-radius) - 2px));
+    --symc-radius-medium: var(--ipsview-radius);
+    --symc-radius-large: calc(var(--ipsview-radius) + 4px);
+    --oha-bg: var(--ipsview-background);
+    --oha-surface: var(--ipsview-control-background);
+    --oha-surface-strong: var(--ipsview-control-background-active);
+    --oha-surface-soft: var(--ipsview-control-background-soft);
+    --oha-control-inactive: var(--ipsview-control-background-inactive);
+    --oha-border: var(--ipsview-border);
+    --oha-text: var(--ipsview-text);
+    --oha-muted: var(--ipsview-text-secondary);
+    --oha-faint: var(--ipsview-text-faint);
+    --oha-panel-text: var(--ipsview-text);
+    --oha-panel-muted: var(--ipsview-text-secondary);
+    --oha-panel-faint: var(--ipsview-text-faint);
+    --oha-panel-border: var(--ipsview-border);
+    --oha-page-label-bg: var(--ipsview-label-background);
+    --oha-page-label-text: var(--ipsview-text-label);
+    --oha-page-label-muted: var(--ipsview-text-secondary);
+    --oha-page-label-border: var(--ipsview-border);
+    --oha-accent: var(--ipsview-accent);
+    --oha-accent-soft: var(--ipsview-accent-soft);
+    --oha-accent-contrast: var(--ipsview-accent-contrast);
+    --oha-success: var(--ipsview-positive);
+    --oha-success-soft: var(--ipsview-positive-soft);
+    --oha-success-border: var(--ipsview-success-border);
+    --oha-success-contrast: var(--ipsview-positive-contrast);
+    --oha-warning: var(--ipsview-warning);
+    --oha-warning-soft: var(--ipsview-warning-soft);
+    --oha-warning-contrast: var(--ipsview-warning-contrast);
+    --oha-danger: var(--ipsview-critical);
+    --oha-danger-soft: var(--ipsview-critical-soft);
+    --oha-danger-contrast: var(--ipsview-critical-contrast);
+    --oha-popup-background: var(--ipsview-popup-background);
+    --oha-popup-border: var(--ipsview-popup-border);
+    --oha-popup-shadow: var(--ipsview-popup-shadow);
+    --oha-disabled-opacity: var(--ipsview-disabled-opacity);
+    --oha-border-width: var(--ipsview-border-width);
+    --oha-line-width: var(--ipsview-line-width);
+    --oha-gradient-accent: var(--ipsview-gradient-accent);
+    --oha-gradient-success: var(--ipsview-gradient-positive);
+    --oha-gradient-warning: var(--ipsview-gradient-warning);
+    --oha-gradient-danger: var(--ipsview-gradient-critical);
+    --oha-shadow: var(--ipsview-shadow);
+    --oha-adaptive-backdrop: none;
+    --oha-rendered-surface: var(--ipsview-control-background);
+    --oha-rendered-surface-strong: var(--ipsview-control-background-active);
+    --oha-rendered-surface-soft: var(--ipsview-control-background-soft);
 }
 
 
@@ -219,7 +174,7 @@ button:focus-visible {
 .oha-icon-button:disabled,
 .oha-disarm-button:disabled {
     cursor: default;
-    opacity: 0.42;
+    opacity: var(--oha-disabled-opacity);
 }
 
 .oha-icon-button {
@@ -228,7 +183,7 @@ button:focus-visible {
     height: 36px;
     flex: 0 0 auto;
     place-items: center;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 10px;
     background: var(--oha-surface);
     color: var(--oha-muted);
@@ -256,6 +211,7 @@ button:focus-visible {
 .oha-hero {
     --oha-state-color: var(--oha-accent);
     --oha-state-soft: var(--oha-accent-soft);
+    --oha-state-gradient: var(--oha-gradient-accent);
     container-type: inline-size;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -264,33 +220,36 @@ button:focus-visible {
     min-height: 132px;
     padding: 22px;
     overflow: hidden;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: var(--symc-radius-large);
-    background:
-        linear-gradient(135deg, var(--oha-state-soft), transparent 44%),
-        var(--oha-surface);
+    background-color: var(--oha-surface);
+    background-image: var(--oha-state-gradient);
     box-shadow: var(--oha-shadow);
 }
 
 .oha-shell[data-state="disarmed"] .oha-hero {
     --oha-state-color: var(--oha-accent);
     --oha-state-soft: var(--oha-accent-soft);
+    --oha-state-gradient: var(--oha-gradient-accent);
 }
 
 .oha-shell[data-state="armed"] .oha-hero {
     --oha-state-color: var(--oha-success);
     --oha-state-soft: var(--oha-success-soft);
+    --oha-state-gradient: var(--oha-gradient-success);
 }
 
 .oha-shell[data-state="exit_delay"] .oha-hero,
 .oha-shell[data-state="entry_delay"] .oha-hero {
     --oha-state-color: var(--oha-warning);
     --oha-state-soft: var(--oha-warning-soft);
+    --oha-state-gradient: var(--oha-gradient-warning);
 }
 
 .oha-shell[data-state="alarm"] .oha-hero {
     --oha-state-color: var(--oha-danger);
     --oha-state-soft: var(--oha-danger-soft);
+    --oha-state-gradient: var(--oha-gradient-danger);
 }
 
 .oha-hero-icon {
@@ -349,7 +308,7 @@ button:focus-visible {
     align-items: center;
     min-height: 30px;
     padding: 5px 10px;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 999px;
     background: var(--oha-surface-soft);
     color: var(--oha-muted);
@@ -392,7 +351,7 @@ button:focus-visible {
     align-items: center;
     gap: 10px;
     padding: 12px 13px;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 13px;
     background: var(--oha-surface);
 }
@@ -452,7 +411,7 @@ button:focus-visible {
     min-width: 0;
     gap: 10px;
     padding: 11px 12px;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 12px;
     background: var(--oha-surface);
 }
@@ -504,7 +463,7 @@ button:focus-visible {
 .oha-secondary-button,
 .oha-row-action {
     min-height: 32px;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: var(--symc-radius-small);
     background: var(--oha-surface-strong);
     color: var(--oha-text);
@@ -538,7 +497,7 @@ button:focus-visible {
 .oha-secondary-button[data-enabled="false"],
 .oha-row-action[data-enabled="false"] {
     cursor: default;
-    opacity: 0.46;
+    opacity: var(--oha-disabled-opacity);
 }
 
 .oha-arm-section {
@@ -577,7 +536,7 @@ button:focus-visible {
     min-height: 86px;
     align-items: center;
     padding: 14px 15px;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 15px;
     background: var(--oha-surface);
     box-shadow: none;
@@ -631,14 +590,15 @@ button:focus-visible {
 
 .oha-mode-button[data-active="true"] {
     border-color: var(--oha-accent);
-    background: var(--oha-accent-soft);
-    box-shadow: inset 0 0 0 1px var(--oha-accent-soft);
+    background-color: var(--oha-surface-strong);
+    background-image: var(--oha-gradient-accent);
+    box-shadow: inset 0 0 0 var(--oha-border-width) var(--oha-accent-soft);
     opacity: 1;
 }
 
 .oha-mode-button[data-active="true"] .oha-mode-icon {
     background: var(--oha-accent);
-    color: #ffffff;
+    color: var(--oha-accent-contrast, #ffffff);
 }
 
 .oha-mode-icon {
@@ -745,7 +705,7 @@ button:focus-visible {
     justify-content: space-between;
     gap: 14px;
     padding: 12px 14px;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 14px;
     background: var(--oha-surface);
 }
@@ -803,7 +763,7 @@ button:focus-visible {
 .oha-operation-panel {
     min-width: 0;
     overflow: hidden;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: var(--symc-radius-medium);
     background: var(--oha-surface);
 }
@@ -815,7 +775,7 @@ button:focus-visible {
     justify-content: space-between;
     gap: 12px;
     padding: 10px 12px;
-    border-bottom: 1px solid var(--oha-border);
+    border-bottom: var(--oha-line-width) solid var(--oha-border);
 }
 
 .oha-operation-head h2 {
@@ -855,7 +815,7 @@ button:focus-visible {
 
 .oha-operation-row + .oha-operation-row,
 .oha-history-row + .oha-history-row {
-    border-top: 1px solid var(--oha-border);
+    border-top: var(--oha-line-width) solid var(--oha-border);
 }
 
 .oha-operation-icon {
@@ -934,7 +894,7 @@ button:focus-visible {
 
 .oha-disarm-button:hover:not(:disabled) {
     background: var(--oha-danger);
-    color: #ffffff;
+    color: var(--oha-danger-contrast, #ffffff);
 }
 
 
@@ -947,7 +907,7 @@ button:focus-visible {
     justify-content: center;
     gap: 9px;
     margin-top: 12px;
-    border: 1px solid rgba(196, 49, 49, 0.30);
+    border: var(--oha-border-width) solid color-mix(in srgb, var(--oha-danger) 30%, transparent);
     border-radius: 12px;
     background: var(--oha-danger-soft);
     color: var(--oha-danger);
@@ -962,7 +922,7 @@ button:focus-visible {
 .oha-inline-disarm-button:hover[data-enabled="true"],
 .oha-modal-disarm-button:hover[data-enabled="true"] {
     background: var(--oha-danger);
-    color: #ffffff;
+    color: var(--oha-danger-contrast, #ffffff);
 }
 
 .oha-inline-disarm-button:active[data-enabled="true"],
@@ -973,7 +933,7 @@ button:focus-visible {
 .oha-inline-disarm-button[data-enabled="false"],
 .oha-modal-disarm-button[data-enabled="false"] {
     cursor: default;
-    opacity: 0.48;
+    opacity: var(--oha-disabled-opacity);
 }
 
 
@@ -998,7 +958,7 @@ button:focus-visible {
     min-height: 27px;
     align-items: center;
     padding: 4px 9px;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 999px;
     background: var(--oha-surface-soft);
     color: var(--oha-muted);
@@ -1036,13 +996,13 @@ button:focus-visible {
 
 .oha-inline-codepad[data-enabled="false"] .oha-code-display,
 .oha-inline-codepad[data-enabled="false"] .oha-code-grid {
-    opacity: 0.62;
+    opacity: var(--oha-disabled-opacity);
 }
 
 .oha-inline-codepad[data-enabled="false"] .oha-code-key,
 .oha-code-key[data-enabled="false"] {
     cursor: default;
-    opacity: 0.58;
+    opacity: var(--oha-disabled-opacity);
 }
 
 
@@ -1089,7 +1049,7 @@ button:focus-visible {
         gap: 0;
         align-self: start;
         padding: 18px;
-        border: 1px solid var(--oha-border);
+        border: var(--oha-border-width) solid var(--oha-border);
         border-radius: 18px;
         background: var(--oha-surface);
         box-shadow: var(--oha-shadow);
@@ -1235,10 +1195,10 @@ button:focus-visible {
     padding: 18px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    border: 1px solid var(--oha-border);
-    border-radius: 20px;
-    background: var(--oha-surface-strong);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+    border: var(--oha-border-width) solid var(--oha-popup-border);
+    border-radius: var(--symc-radius-large);
+    background: var(--oha-popup-background);
+    box-shadow: var(--oha-popup-shadow);
 }
 
 .oha-codepad-head,
@@ -1287,7 +1247,7 @@ button:focus-visible {
     height: 36px;
     flex: 0 0 auto;
     place-items: center;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 10px;
     background: var(--oha-surface-soft);
     color: var(--oha-muted);
@@ -1307,7 +1267,7 @@ button:focus-visible {
     gap: 10px;
     margin: 18px 0 10px;
     padding: 12px;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 14px;
     background: var(--oha-surface-soft);
 }
@@ -1330,7 +1290,7 @@ button:focus-visible {
 .oha-code-error {
     margin: 0 0 10px;
     padding: 9px 10px;
-    border: 1px solid rgba(196, 49, 49, 0.28);
+    border: var(--oha-border-width) solid color-mix(in srgb, var(--oha-danger) 28%, transparent);
     border-radius: 10px;
     background: var(--oha-danger-soft);
     color: var(--oha-danger);
@@ -1348,7 +1308,7 @@ button:focus-visible {
 
 .oha-code-key {
     min-height: 54px;
-    border: 1px solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 13px;
     background: var(--oha-surface);
     color: var(--oha-text);
@@ -1361,7 +1321,7 @@ button:focus-visible {
 }
 
 .oha-code-key:hover[data-enabled="true"] {
-    border-color: rgba(37, 99, 235, 0.32);
+    border-color: color-mix(in srgb, var(--oha-accent) 32%, transparent);
     background: var(--oha-accent-soft);
 }
 
@@ -1371,7 +1331,7 @@ button:focus-visible {
 
 .oha-code-key[data-enabled="false"] {
     cursor: default;
-    opacity: 0.48;
+    opacity: var(--oha-disabled-opacity);
 }
 
 .oha-code-key-secondary {
@@ -1386,7 +1346,7 @@ button:focus-visible {
 .oha-code-key-confirm:hover:not(:disabled) {
     border-color: transparent;
     background: var(--oha-danger);
-    color: #ffffff;
+    color: var(--oha-danger-contrast, #ffffff);
 }
 
 @media (max-height: 760px) {
@@ -1786,23 +1746,13 @@ html.oha-ipsview .oha-secondary-button {
     font-size: 0.64rem;
 }
 
-html.oha-ipsview.oha-transparent .oha-hero,
-html.oha-ipsview.oha-transparent .oha-mode-button,
-html.oha-ipsview.oha-transparent .oha-status-card,
-html.oha-ipsview.oha-transparent .oha-context-card,
-html.oha-ipsview.oha-transparent .oha-operation-panel,
-html.oha-ipsview.oha-transparent .oha-inline-codepad {
-    background-color: color-mix(in srgb, var(--oha-surface-strong) 96%, transparent);
-}
-
-html.oha-ipsview.oha-theme-custom .oha-hero,
-html.oha-ipsview.oha-theme-custom .oha-mode-button,
-html.oha-ipsview.oha-theme-custom .oha-status-card,
-html.oha-ipsview.oha-theme-custom .oha-context-card,
-html.oha-ipsview.oha-theme-custom .oha-operation-panel,
-html.oha-ipsview.oha-theme-custom .oha-inline-codepad,
-html.oha-ipsview.oha-theme-custom .oha-control-bar,
-html.oha-ipsview.oha-theme-custom .oha-codepad {
+html.oha-ipsview .oha-hero,
+html.oha-ipsview .oha-mode-button,
+html.oha-ipsview .oha-status-card,
+html.oha-ipsview .oha-context-card,
+html.oha-ipsview .oha-operation-panel,
+html.oha-ipsview .oha-inline-codepad,
+html.oha-ipsview .oha-control-bar {
     --oha-text: var(--oha-panel-text);
     --oha-muted: var(--oha-panel-muted);
     --oha-faint: var(--oha-panel-faint);
@@ -1810,188 +1760,115 @@ html.oha-ipsview.oha-theme-custom .oha-codepad {
     border-color: var(--oha-border);
     background-color: var(--oha-surface);
     color: var(--oha-text);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.045),
-        var(--oha-shadow);
-    backdrop-filter: var(--oha-adaptive-backdrop);
-    -webkit-backdrop-filter: var(--oha-adaptive-backdrop);
+    box-shadow: var(--oha-shadow);
+    text-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
-html.oha-ipsview.oha-theme-custom .oha-hero {
-    background:
-        linear-gradient(135deg, var(--oha-state-soft), transparent 46%),
-        var(--oha-surface-strong);
-}
-
-html.oha-ipsview.oha-theme-custom .oha-hero,
-html.oha-ipsview.oha-theme-custom .oha-mode-button,
-html.oha-ipsview.oha-theme-custom .oha-status-card,
-html.oha-ipsview.oha-theme-custom .oha-context-card,
-html.oha-ipsview.oha-theme-custom .oha-operation-panel,
-html.oha-ipsview.oha-theme-custom .oha-inline-codepad,
-html.oha-ipsview.oha-theme-custom .oha-control-bar,
-html.oha-ipsview.oha-theme-custom .oha-codepad {
+html.oha-ipsview .oha-codepad {
+    border-color: var(--oha-popup-border);
+    background-color: var(--oha-popup-background);
+    color: var(--oha-text);
+    box-shadow: var(--oha-popup-shadow);
     text-shadow: none;
 }
 
-html.oha-ipsview.oha-theme-custom .oha-mode-button-copy strong,
-html.oha-ipsview.oha-theme-custom .oha-status-card strong,
-html.oha-ipsview.oha-theme-custom .oha-context-copy strong,
-html.oha-ipsview.oha-theme-custom .oha-operation-head h2,
-html.oha-ipsview.oha-theme-custom .oha-operation-copy strong,
-html.oha-ipsview.oha-theme-custom .oha-history-copy strong,
-html.oha-ipsview.oha-theme-custom .oha-inline-codepad-head h2,
-html.oha-ipsview.oha-theme-custom .oha-codepad-title-wrap h2 {
+html.oha-ipsview .oha-hero {
+    background-color: var(--oha-surface-strong);
+    background-image: var(--oha-state-gradient);
+}
+
+html.oha-ipsview .oha-mode-button[data-active="true"] {
+    background-color: var(--oha-surface-strong);
+    background-image: var(--oha-gradient-accent);
+}
+
+html.oha-ipsview .oha-mode-button[data-can-arm="false"]:not([data-active="true"]),
+html.oha-ipsview .oha-code-key[data-enabled="false"],
+html.oha-ipsview .oha-inline-disarm-button[data-enabled="false"],
+html.oha-ipsview .oha-modal-disarm-button[data-enabled="false"],
+html.oha-ipsview .oha-card-action[data-enabled="false"],
+html.oha-ipsview .oha-secondary-button[data-enabled="false"],
+html.oha-ipsview .oha-row-action[data-enabled="false"] {
+    background-color: var(--oha-control-inactive);
+    color: var(--ipsview-text-inactive);
+    opacity: var(--oha-disabled-opacity);
+}
+
+html.oha-ipsview .oha-mode-button-copy strong,
+html.oha-ipsview .oha-status-card strong,
+html.oha-ipsview .oha-context-copy strong,
+html.oha-ipsview .oha-operation-head h2,
+html.oha-ipsview .oha-operation-copy strong,
+html.oha-ipsview .oha-history-copy strong,
+html.oha-ipsview .oha-inline-codepad-head h2,
+html.oha-ipsview .oha-codepad-title-wrap h2 {
     color: var(--oha-panel-text);
 }
 
-html.oha-ipsview.oha-theme-custom .oha-blockers,
-html.oha-ipsview.oha-theme-custom .oha-status-card-label,
-html.oha-ipsview.oha-theme-custom .oha-context-copy span,
-html.oha-ipsview.oha-theme-custom .oha-operation-copy span,
-html.oha-ipsview.oha-theme-custom .oha-history-copy span,
-html.oha-ipsview.oha-theme-custom .oha-inline-codepad-hint,
-html.oha-ipsview.oha-theme-custom .oha-codepad-title-wrap p {
+html.oha-ipsview .oha-blockers,
+html.oha-ipsview .oha-status-card-label,
+html.oha-ipsview .oha-context-copy span,
+html.oha-ipsview .oha-operation-copy span,
+html.oha-ipsview .oha-history-copy span,
+html.oha-ipsview .oha-inline-codepad-hint,
+html.oha-ipsview .oha-codepad-title-wrap p {
     color: var(--oha-panel-muted);
-}
-
-html.oha-ipsview.oha-theme-custom .oha-blockers,
-html.oha-ipsview.oha-theme-custom .oha-status-card-label,
-html.oha-ipsview.oha-theme-custom .oha-context-copy span,
-html.oha-ipsview.oha-theme-custom .oha-operation-copy span,
-html.oha-ipsview.oha-theme-custom .oha-history-copy span,
-html.oha-ipsview.oha-theme-custom .oha-inline-codepad-hint,
-html.oha-ipsview.oha-theme-custom .oha-codepad-title-wrap p,
-html.oha-ipsview.oha-theme-custom .oha-section-hint,
-html.oha-ipsview.oha-theme-custom .oha-section-kicker {
     font-weight: 500;
 }
 
-html.oha-ipsview.oha-theme-custom .oha-mode-button[data-active="true"] {
-    background:
-        linear-gradient(135deg, var(--oha-accent-soft), transparent 76%),
-        var(--oha-surface-strong);
-}
-
-html.oha-ipsview.oha-theme-custom .oha-mode-button:hover[data-can-arm="true"] {
-    background-color: color-mix(in srgb, var(--oha-accent) 18%, var(--oha-surface-strong));
-}
-
-html.oha-ipsview.oha-theme-custom .oha-section-heading {
+html.oha-ipsview .oha-section-heading {
     --oha-text: var(--oha-page-label-text);
-    --oha-muted: color-mix(in srgb, var(--oha-page-label-text) 72%, var(--oha-page-label-bg));
-    --oha-faint: color-mix(in srgb, var(--oha-page-label-text) 56%, var(--oha-page-label-bg));
+    --oha-muted: var(--oha-page-label-muted);
+    --oha-faint: var(--oha-page-label-muted);
     padding: 5px 8px;
-    border: 1px solid var(--oha-page-label-border);
+    border: var(--oha-border-width) solid var(--oha-page-label-border);
     border-radius: var(--symc-radius-small);
     background: var(--oha-page-label-bg);
     color: var(--oha-page-label-text);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 24%, transparent);
-    backdrop-filter: var(--oha-adaptive-backdrop);
-    -webkit-backdrop-filter: var(--oha-adaptive-backdrop);
+    box-shadow: none;
+    text-shadow: none;
 }
 
-html.oha-ipsview.oha-theme-custom .oha-section-heading h2,
-html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-kicker,
-html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-hint {
+html.oha-ipsview .oha-section-heading h2,
+html.oha-ipsview .oha-section-heading .oha-section-kicker,
+html.oha-ipsview .oha-section-heading .oha-section-hint {
     color: inherit;
     text-shadow: none;
 }
 
-html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-kicker,
-html.oha-ipsview.oha-theme-custom .oha-section-heading .oha-section-hint {
+html.oha-ipsview .oha-section-heading .oha-section-kicker,
+html.oha-ipsview .oha-section-heading .oha-section-hint {
     color: var(--oha-page-label-muted);
     opacity: 1;
 }
 
-html.oha-ipsview.oha-theme-custom .oha-operation-head,
-html.oha-ipsview.oha-theme-custom .oha-operation-row,
-html.oha-ipsview.oha-theme-custom .oha-history-row {
-    border-color: color-mix(in srgb, var(--oha-text) 12%, transparent);
+html.oha-ipsview .oha-operation-head,
+html.oha-ipsview .oha-operation-row,
+html.oha-ipsview .oha-history-row {
+    border-color: var(--ipsview-line);
 }
 
-html.oha-ipsview.oha-theme-custom .oha-mode-pill,
-html.oha-ipsview.oha-theme-custom .oha-operation-count,
-html.oha-ipsview.oha-theme-custom .oha-code-display,
-html.oha-ipsview.oha-theme-custom .oha-code-key,
-html.oha-ipsview.oha-theme-custom .oha-icon-button {
-    background-color: var(--oha-surface-soft);
-    border-color: var(--oha-border);
-}
-
-html.oha-ipsview.oha-theme-custom:not(.oha-transparent),
-html.oha-ipsview.oha-theme-custom:not(.oha-transparent) body,
-html.oha-ipsview.oha-theme-custom:not(.oha-transparent) .oha-shell {
-    background: var(--oha-bg);
-}
-
-html.oha-ipsview.oha-theme-linked {
-    font-family: Roboto, "Segoe UI", Arial, sans-serif;
-    --symc-radius-small: 5px;
-    --symc-radius-medium: 7px;
-    --symc-radius-large: 10px;
-}
-
-html.oha-ipsview.oha-theme-linked .oha-hero,
-html.oha-ipsview.oha-theme-linked .oha-mode-button,
-html.oha-ipsview.oha-theme-linked .oha-status-card,
-html.oha-ipsview.oha-theme-linked .oha-context-card,
-html.oha-ipsview.oha-theme-linked .oha-operation-panel,
-html.oha-ipsview.oha-theme-linked .oha-inline-codepad,
-html.oha-ipsview.oha-theme-linked .oha-control-bar,
-html.oha-ipsview.oha-theme-linked .oha-codepad {
-    border-color: var(--oha-panel-border);
-    background: var(--oha-surface);
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-
-html.oha-ipsview.oha-theme-linked .oha-hero {
-    --oha-state-gradient: color-mix(in srgb, var(--oha-state-color) 32%, transparent);
-    background-color: var(--oha-surface-strong);
-    background-image: linear-gradient(90deg, var(--oha-state-gradient), transparent 42%);
-}
-
-html.oha-ipsview.oha-theme-linked .oha-mode-button[data-active="true"] {
-    --oha-active-mode-gradient: color-mix(in srgb, var(--oha-accent) 28%, transparent);
-    background-color: var(--oha-surface-strong);
-    background-image: linear-gradient(90deg, var(--oha-active-mode-gradient), transparent 58%);
-}
-
-html.oha-ipsview.oha-theme-linked .oha-section-heading {
-    border-color: var(--oha-page-label-border);
-    background: var(--oha-page-label-bg);
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-
-html.oha-ipsview.oha-theme-linked .oha-operation-head,
-html.oha-ipsview.oha-theme-linked .oha-operation-row,
-html.oha-ipsview.oha-theme-linked .oha-history-row {
-    border-color: color-mix(in srgb, var(--oha-panel-text) 13%, transparent);
-}
-
-html.oha-ipsview.oha-theme-linked .oha-mode-pill,
-html.oha-ipsview.oha-theme-linked .oha-operation-count,
-html.oha-ipsview.oha-theme-linked .oha-code-display,
-html.oha-ipsview.oha-theme-linked .oha-code-key,
-html.oha-ipsview.oha-theme-linked .oha-icon-button,
-html.oha-ipsview.oha-theme-linked .oha-row-action,
-html.oha-ipsview.oha-theme-linked .oha-card-action,
-html.oha-ipsview.oha-theme-linked .oha-secondary-button {
+html.oha-ipsview .oha-mode-pill,
+html.oha-ipsview .oha-operation-count,
+html.oha-ipsview .oha-code-display,
+html.oha-ipsview .oha-code-key,
+html.oha-ipsview .oha-icon-button,
+html.oha-ipsview .oha-row-action,
+html.oha-ipsview .oha-card-action,
+html.oha-ipsview .oha-secondary-button {
     border-color: var(--oha-panel-border);
     background-color: var(--oha-surface-soft);
     box-shadow: none;
 }
 
-html.oha-ipsview.oha-theme-linked .oha-mode-button:hover[data-can-arm="true"],
-html.oha-ipsview.oha-theme-linked .oha-code-key:hover[data-enabled="true"] {
+html.oha-ipsview .oha-mode-button:hover[data-can-arm="true"],
+html.oha-ipsview .oha-code-key:hover[data-enabled="true"] {
     background-color: color-mix(in srgb, var(--oha-accent) 22%, var(--oha-surface-strong));
 }
 
-html.oha-ipsview.oha-theme-linked .oha-shell {
+html.oha-ipsview .oha-shell {
     text-shadow: none;
 }
 

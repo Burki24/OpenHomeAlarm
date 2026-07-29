@@ -22,12 +22,20 @@ function assertIPSViewMigration(bool $condition, string $message): void
 $instance = new OpenHomeAlarm();
 $input = json_encode([
     'configuration' => [
-        'EnableIPSView'            => true,
-        'IPSViewPageColor'         => 'D8C59B',
-        'IPSViewSurfaceColor'      => '#9B795A',
-        'IPSViewTextColor'         => 'FFFFFF',
-        'IPSViewDangerColor'       => 'FF8174',
-        'UnrelatedConfiguration'   => 'keep-me'
+        'EnableIPSView'                  => true,
+        'IPSViewTheme'                   => 2,
+        'IPSViewTransparent'             => true,
+        'IPSViewFontScale'               => 115,
+        'IPSViewPageColor'               => 'D8C59B',
+        'IPSViewSurfaceColorValue'       => 0x9B795A,
+        'IPSViewSurfaceStrongColorValue' => 0xAD8A69,
+        'IPSViewTextColorValue'          => 0xFFFFFF,
+        'IPSViewMutedTextColorValue'     => 0xF1E6D5,
+        'IPSViewAccentColorValue'        => 0xE0BE63,
+        'IPSViewSuccessColorValue'       => 0x78D79C,
+        'IPSViewWarningColorValue'       => 0xFFD166,
+        'IPSViewDangerColor'             => 'FF8174',
+        'UnrelatedConfiguration'         => 'keep-me'
     ],
     'attributes' => [
         'UnrelatedAttribute' => 42
@@ -35,25 +43,58 @@ $input = json_encode([
 ], JSON_THROW_ON_ERROR);
 
 $migratedJSON = $instance->Migrate($input);
-assertIPSViewMigration($migratedJSON !== '', 'Legacy IPSView colors must trigger a persistence migration.');
+assertIPSViewMigration($migratedJSON !== '', 'Legacy IPSView settings must trigger a persistence migration.');
 
 $migrated = json_decode($migratedJSON, true, 512, JSON_THROW_ON_ERROR);
 $configuration = $migrated['configuration'] ?? [];
 
 assertIPSViewMigration(
-    ($configuration['IPSViewPageColorValue'] ?? null) === 0xD8C59B
-        && ($configuration['IPSViewSurfaceColorValue'] ?? null) === 0x9B795A
-        && ($configuration['IPSViewTextColorValue'] ?? null) === 0xFFFFFF
-        && ($configuration['IPSViewDangerColorValue'] ?? null) === 0xFF8174,
-    'Legacy hexadecimal strings must be converted to integer SelectColor values.'
+    ($configuration['IPSViewStyleSource'] ?? null) === OpenHomeAlarm::IPSVIEW_STYLE_SOURCE_DARK
+        && ($configuration['IPSViewStyleTransparentBackground'] ?? null) === true
+        && ($configuration['IPSViewStyleFontScale'] ?? null) === 115,
+    'Legacy theme, transparency and font scale must map to the universal style properties.'
 );
 assertIPSViewMigration(
-    !array_key_exists('IPSViewPageColor', $configuration)
-        && !array_key_exists('IPSViewSurfaceColor', $configuration)
-        && !array_key_exists('IPSViewTextColor', $configuration)
-        && !array_key_exists('IPSViewDangerColor', $configuration),
-    'Migrated legacy color properties must be removed from the persistence.'
+    ($configuration['IPSViewStyleViewBackgroundColor'] ?? null) === 0xD8C59B
+        && ($configuration['IPSViewStylePageBackgroundColor'] ?? null) === 0xD8C59B
+        && ($configuration['IPSViewStyleControlBackgroundColor'] ?? null) === 0x9B795A
+        && ($configuration['IPSViewStyleControlActiveBackgroundColor'] ?? null) === 0xAD8A69
+        && ($configuration['IPSViewStylePopupBackgroundColor'] ?? null) === 0xAD8A69,
+    'Legacy page and surface colors must map to the universal background roles.'
 );
+assertIPSViewMigration(
+    ($configuration['IPSViewStyleTextColor'] ?? null) === 0xFFFFFF
+        && ($configuration['IPSViewStyleTextActiveColor'] ?? null) === 0xFFFFFF
+        && ($configuration['IPSViewStyleTextInactiveColor'] ?? null) === 0xF1E6D5
+        && ($configuration['IPSViewStyleAccentColor'] ?? null) === 0xE0BE63
+        && ($configuration['IPSViewStyleInformationColor'] ?? null) === 0xE0BE63,
+    'Legacy text and accent colors must map to the universal text and semantic roles.'
+);
+assertIPSViewMigration(
+    ($configuration['IPSViewStylePositiveColor'] ?? null) === 0x78D79C
+        && ($configuration['IPSViewStyleWarningColor'] ?? null) === 0xFFD166
+        && ($configuration['IPSViewStyleCriticalColor'] ?? null) === 0xFF8174,
+    'Legacy status colors must map to positive, warning and critical roles.'
+);
+foreach ([
+    'IPSViewTheme',
+    'IPSViewTransparent',
+    'IPSViewFontScale',
+    'IPSViewPageColor',
+    'IPSViewSurfaceColorValue',
+    'IPSViewSurfaceStrongColorValue',
+    'IPSViewTextColorValue',
+    'IPSViewMutedTextColorValue',
+    'IPSViewAccentColorValue',
+    'IPSViewSuccessColorValue',
+    'IPSViewWarningColorValue',
+    'IPSViewDangerColor'
+] as $legacyProperty) {
+    assertIPSViewMigration(
+        !array_key_exists($legacyProperty, $configuration),
+        sprintf('Migrated legacy property %s must be removed.', $legacyProperty)
+    );
+}
 assertIPSViewMigration(
     ($configuration['UnrelatedConfiguration'] ?? null) === 'keep-me'
         && (($migrated['attributes']['UnrelatedAttribute'] ?? null) === 42),
@@ -64,4 +105,4 @@ assertIPSViewMigration(
     'Already migrated persistence must not be rewritten.'
 );
 
-fwrite(STDOUT, "OpenHomeAlarm IPSView color migration checks passed.\n");
+fwrite(STDOUT, "OpenHomeAlarm IPSView style migration checks passed.\n");

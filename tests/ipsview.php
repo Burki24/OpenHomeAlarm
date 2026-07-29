@@ -16,7 +16,7 @@ $html = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/index.h
 $css = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/style.css');
 $javascript = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/app.js');
 $readme = (string) file_get_contents($root . '/OpenHomeAlarm/README.md');
-$paletteHelper = (string) file_get_contents($root . '/libs/helper/IPSViewColorPaletteHelper.php');
+$styleHelper = (string) file_get_contents($root . '/libs/helper/IPSViewStyleHelper.php');
 
 assertIPSView(
     str_contains($module, "private const PROPERTY_ENABLE_IPSVIEW = 'EnableIPSView';")
@@ -36,7 +36,7 @@ assertIPSView(
 );
 assertIPSView(
     str_contains($module, '$this->RegisterHook($this->IPSViewHookAddress());')
-        && str_contains($module, 'return \'openhomealarm/\' . $this->InstanceID;'),
+        && str_contains($module, "return 'openhomealarm/' . \$this->InstanceID;"),
     'Every instance must register a unique IPSView action WebHook.'
 );
 assertIPSView(
@@ -82,48 +82,68 @@ assertIPSView(
     'IPSView must poll the backend faster while a countdown is active.'
 );
 assertIPSView(
-    str_contains($javascript, 'window.OHA_TRANSLATIONS?.[text]')
-        && str_contains($css, 'html.oha-ipsview.oha-theme-dark')
-        && str_contains($css, 'html.oha-ipsview.oha-theme-custom')
-        && str_contains($css, 'html.oha-ipsview.oha-transparent')
-        && str_contains($module, "default => 'oha-theme-custom'"),
-    'IPSView must provide standalone localization, fixed themes, custom colors and transparency.'
+    str_contains($module, "require_once __DIR__ . '/../libs/helper/IPSViewStyleHelper.php';")
+        && str_contains($module, 'use \Burki24\SymconModuleHelper\IPSViewStyleHelper;')
+        && str_contains($module, '$this->RegisterIPSViewStyleProperties();')
+        && str_contains($module, "\$this->IPSViewStyleFormItems('220px')")
+        && str_contains($module, "\$this->IPSViewStyleCSSVariables(':root')")
+        && str_contains($module, '$this->RegisterIPSViewStyleMediaMessages();')
+        && str_contains($module, '$this->IsIPSViewStyleMediaUpdate($SenderID, $Message)')
+        && !str_contains($module, 'IPSViewColorPaletteHelper'),
+    'OpenHomeAlarm must consume the universal IPSView style helper including media updates.'
 );
 assertIPSView(
-    str_contains($module, "require_once __DIR__ . '/../libs/helper/IPSViewColorPaletteHelper.php';")
-        && str_contains($module, 'use \Burki24\SymconModuleHelper\IPSViewColorPaletteHelper;')
-        && str_contains($module, '$this->RegisterIPSViewColorProperties([')
-        && str_contains($module, "\$this->IPSViewColorFormItems('250px')")
-        && str_contains($module, "\$this->IPSViewColorCSSVariables(\$transparent, ':root')")
-        && str_contains($paletteHelper, 'protected function IPSViewResolvedColorPalette(): array')
-        && str_contains($paletteHelper, 'private function IPSViewAdjustBackgroundsForContrast(')
-        && str_contains($paletteHelper, 'private function IPSViewEnsureForegroundContrast(')
-        && !str_contains($javascript, 'function ohaContrastRatio(first, second)')
-        && !str_contains($javascript, 'function ohaApplyCustomIPSViewTheme(root, palette)')
-        && !str_contains($module, 'private function IPSViewPalette(): array')
-        && str_contains($module, '--oha-page-label-muted: var(--ipsview-muted);')
-        && str_contains($css, 'html.oha-ipsview.oha-theme-linked')
-        && str_contains($css, 'font-family: Roboto, "Segoe UI", Arial, sans-serif;')
-        && str_contains($css, 'color: var(--oha-page-label-muted);')
-        && str_contains($css, '.oha-mode-button[data-can-arm="false"]')
-        && str_contains($css, 'opacity: 0.78;')
-        && str_contains($css, 'linear-gradient(135deg, var(--oha-state-soft), transparent 46%)')
-        && str_contains($css, '--oha-state-gradient: color-mix(in srgb, var(--oha-state-color) 32%, transparent);')
-        && str_contains($css, 'background-image: linear-gradient(90deg, var(--oha-state-gradient), transparent 42%);')
-        && str_contains($css, '--oha-active-mode-gradient: color-mix(in srgb, var(--oha-accent) 28%, transparent);')
-        && str_contains($css, 'background-image: linear-gradient(90deg, var(--oha-active-mode-gradient), transparent 58%);')
-        && !str_contains($css, 'linear-gradient(90deg, var(--oha-state-soft), transparent 32%)')
-        && !str_contains($css, 'linear-gradient(90deg, var(--oha-accent-soft), transparent 54%)')
-        && str_contains($css, 'box-shadow: none;'),
-    'The shared IPSView palette helper must preserve local inactive states and module-owned state gradients.'
+    str_contains($styleHelper, "'IPSView standard style'")
+        && str_contains($styleHelper, "'type'    => 'SelectMedia'")
+        && str_contains($styleHelper, "'Positive'                  => 'IPSViewStylePositiveColor'")
+        && str_contains($styleHelper, "'Critical'                  => 'IPSViewStyleCriticalColor'")
+        && str_contains($styleHelper, "'--ipsview-gradient-positive'")
+        && str_contains($styleHelper, "'--ipsview-disabled-opacity'")
+        && str_contains($styleHelper, 'protected function IPSViewStyleCSSVariables('),
+    'The shared helper must provide standard-style import and universal semantic tokens.'
 );
 assertIPSView(
-    str_contains($css, 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;')
-        && str_contains($css, 'html.oha-ipsview .oha-topbar-actions')
-        && str_contains($css, 'grid-template-areas:')
-        && str_contains($css, 'html.oha-ipsview .oha-operation-list')
-        && str_contains($css, 'overflow-y: auto;'),
-    'IPSView must use its own compact typography, remove the empty toolbar row and scroll only operation lists.'
+    str_contains($css, '--oha-bg: var(--ipsview-background);')
+        && str_contains($css, '--oha-surface: var(--ipsview-control-background);')
+        && str_contains($css, '--oha-text: var(--ipsview-text);')
+        && str_contains($css, '--oha-success: var(--ipsview-positive);')
+        && str_contains($css, '--oha-danger: var(--ipsview-critical);')
+        && str_contains($css, '--oha-disabled-opacity: var(--ipsview-disabled-opacity);')
+        && str_contains($css, '--oha-gradient-success: var(--ipsview-gradient-positive);')
+        && str_contains($css, '--oha-gradient-danger: var(--ipsview-gradient-critical);'),
+    'The module stylesheet must only assign universal IPSView roles to OpenHomeAlarm components.'
+);
+assertIPSView(
+    str_contains($css, '--oha-state-gradient: var(--oha-gradient-accent);')
+        && str_contains($css, '--oha-state-gradient: var(--oha-gradient-success);')
+        && str_contains($css, '--oha-state-gradient: var(--oha-gradient-warning);')
+        && str_contains($css, '--oha-state-gradient: var(--oha-gradient-danger);')
+        && str_contains($css, 'background-image: var(--oha-state-gradient);')
+        && str_contains($css, 'background-image: var(--oha-gradient-accent);')
+        && !str_contains($css, '--oha-state-gradient: color-mix(')
+        && !str_contains($css, '--oha-active-mode-gradient: color-mix('),
+    'Alarm states and active modes must use the gradients generated by the shared helper.'
+);
+assertIPSView(
+    str_contains($css, 'opacity: var(--oha-disabled-opacity);')
+        && str_contains($css, 'background-color: var(--oha-control-inactive);')
+        && str_contains($css, 'color: var(--ipsview-text-inactive);'),
+    'Unavailable IPSView controls must use the shared inactive style and opacity.'
+);
+assertIPSView(
+    !str_contains($css, 'html.oha-ipsview.oha-theme-dark')
+        && !str_contains($css, 'html.oha-ipsview.oha-theme-custom')
+        && !str_contains($css, 'html.oha-ipsview.oha-theme-linked')
+        && !str_contains($css, 'html.oha-ipsview.oha-transparent')
+        && str_contains($module, "\$ipsView ? 'oha-ipsview oha-style-shared' : ''"),
+    'Legacy module-owned IPSView theme classes must be removed.'
+);
+assertIPSView(
+    str_contains($css, 'font-family: var(--ipsview-font-family);')
+        && str_contains($module, 'private function IPSViewRootFontSize(): string')
+        && str_contains($module, '$style = $this->IPSViewResolvedStyle();')
+        && str_contains($module, "ReadPropertyInteger('IPSViewStyleFontScale')"),
+    'Typography must originate from the shared style and still resolve to a whole-pixel root size.'
 );
 assertIPSView(
     str_contains($css, 'grid-template-columns: minmax(0, 1fr) clamp(310px, 18rem, 350px);')
@@ -133,38 +153,28 @@ assertIPSView(
 );
 assertIPSView(
     str_contains($form, '"name": "EnableIPSView"')
-        && str_contains($form, '"name": "IPSViewTransparent"')
-        && str_contains($form, '"name": "IPSViewTheme"')
-        && str_contains($form, '"caption": "Custom colors"')
-        && str_contains($form, '"name": "IPSViewFontScale"')
-        && str_contains($form, '"caption": "Choose the IPSView palette directly. The colors are stored in the module configuration."')
-        && str_contains($module, "\$this->IPSViewColorFormItems('250px')")
-        && str_contains($paletteHelper, "'type'             => 'SelectColor'")
-        && str_contains($paletteHelper, "'Page'          => 'IPSViewPageColorValue'")
-        && str_contains($paletteHelper, "'Danger'        => 'IPSViewDangerColorValue'"),
-    'The configuration form must inject all manually selectable colors from the shared helper.'
+        && str_contains($form, '"caption": "Configure the shared IPSView style used by the standalone HTML page."')
+        && !str_contains($form, '"name": "IPSViewTheme"')
+        && !str_contains($form, '"name": "IPSViewTransparent"')
+        && !str_contains($form, '"name": "IPSViewFontScale"'),
+    'The static form must delegate all common style controls to the shared helper.'
 );
 assertIPSView(
-    str_contains($module, '$fontScalePercent = max(80, min(200, $this->ReadPropertyInteger(self::PROPERTY_IPSVIEW_FONT_SCALE)));')
-        && str_contains($module, 'round(16 * $fontScalePercent / 100)')
-        && str_contains($module, ". 'px'"),
-    'IPSView font scaling must resolve to whole-pixel root sizes for clearer browser rendering.'
+    str_contains($module, 'LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES')
+        && str_contains($module, 'LEGACY_IPSVIEW_STYLE_PROPERTIES')
+        && str_contains($module, "'IPSViewTransparent' => 'IPSViewStyleTransparentBackground'")
+        && str_contains($module, "'IPSViewFontScale'   => 'IPSViewStyleFontScale'")
+        && str_contains($module, "'IPSViewStyleSource'] = match")
+        && str_contains($module, 'self::IPSVIEW_STYLE_SOURCE_LIGHT')
+        && str_contains($module, 'self::IPSVIEW_STYLE_SOURCE_DARK'),
+    'Existing IPSView palette, theme, transparency and font settings must migrate to the shared style.'
 );
 assertIPSView(
-    str_contains($module, "'Page'          => 0xD8C59B")
-        && str_contains($module, "'Text'          => 0xFFFFFF")
-        && str_contains($paletteHelper, '$this->RegisterPropertyInteger(self::IPSVIEW_COLOR_PROPERTY_NAMES[$key], $value);')
-        && str_contains($paletteHelper, "return sprintf('#%06X', \$value);")
-        && str_contains($module, 'public function Migrate(string $JSONData): string')
-        && str_contains($module, 'LEGACY_IPSVIEW_COLOR_PROPERTIES')
-        && str_contains($module, "\$persistence['configuration'][\$integerProperty] = hexdec(\$matches[1]);"),
-    'SelectColor fields must use shared integer properties and retain the legacy string migration.'
-);
-assertIPSView(
-    str_contains($readme, 'IPSView')
-        && str_contains($readme, 'Browser des Clients')
-        && str_contains($readme, 'Benutzerdefinierte Farben'),
-    'The module documentation must explain IPSView setup.'
+    str_contains($readme, 'IPSViewStyleHelper')
+        && str_contains($readme, 'IPSView-Standardstil')
+        && str_contains($readme, 'Medienobjekt')
+        && str_contains($readme, 'Browser des Clients'),
+    'The module documentation must explain the universal IPSView style and media source.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm IPSView integration checks passed.\n");
