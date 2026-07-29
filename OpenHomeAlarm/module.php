@@ -2003,7 +2003,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         return sprintf('#%06X', $value);
     }
 
-
     private function RenderVisualizationHTML(bool $ipsView): string
     {
         $template = $this->VisualizationAsset('index.html');

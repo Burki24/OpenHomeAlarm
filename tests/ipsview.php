@@ -69,7 +69,7 @@ assertIPSView(
     str_contains($javascript, 'async function ohaIPSViewRequest(action, value)')
         && str_contains($javascript, "body.set('token', String(ohaIPSViewConfig.token));")
         && str_contains($javascript, "'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'")
-        && str_contains($javascript, "handleMessage(payload);"),
+        && str_contains($javascript, 'handleMessage(payload);'),
     'IPSView actions must use the authenticated WebHook and feed its state back into the common renderer.'
 );
 assertIPSView(
@@ -145,8 +145,8 @@ assertIPSView(
 );
 
 assertIPSView(
-    str_contains($module, "RegisterPropertyInteger(self::PROPERTY_IPSVIEW_PAGE_COLOR, 0xD8C59B)")
-        && str_contains($module, "RegisterPropertyInteger(self::PROPERTY_IPSVIEW_TEXT_COLOR, 0xFFFFFF)")
+    str_contains($module, 'RegisterPropertyInteger(self::PROPERTY_IPSVIEW_PAGE_COLOR, 0xD8C59B)')
+        && str_contains($module, 'RegisterPropertyInteger(self::PROPERTY_IPSVIEW_TEXT_COLOR, 0xFFFFFF)')
         && str_contains($module, "sprintf('#%06X', \$value)")
         && str_contains($module, 'public function Migrate(string $JSONData): string')
         && str_contains($module, 'LEGACY_IPSVIEW_COLOR_PROPERTIES')
