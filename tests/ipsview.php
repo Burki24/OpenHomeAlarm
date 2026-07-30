@@ -198,10 +198,10 @@ assertIPSView(
         && str_contains($css, 'html.oha-ipsview .oha-mode-button {')
         && str_contains($css, 'background-color: var(--oha-surface);')
         && str_contains($css, 'html.oha-ipsview .oha-hero {')
-        && !str_contains($css, "html.oha-ipsview .oha-hero {
-    background-color: var(--oha-surface-strong);")
-        && !str_contains($css, "html.oha-ipsview .oha-hero,
-html.oha-ipsview .oha-mode-button,"),
+        && !str_contains($css, 'html.oha-ipsview .oha-hero {
+    background-color: var(--oha-surface-strong);')
+        && !str_contains($css, 'html.oha-ipsview .oha-hero,
+html.oha-ipsview .oha-mode-button,'),
     'IPSView page panels must use the page background while interactive controls use control backgrounds.'
 );
 assertIPSView(
