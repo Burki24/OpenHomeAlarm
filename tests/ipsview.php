@@ -148,10 +148,12 @@ assertIPSView(
 );
 assertIPSView(
     str_contains($css, '--oha-bg: var(--ipsview-role-view-background);')
+        && str_contains($css, '--oha-page: var(--ipsview-role-page-background);')
         && str_contains($css, '--oha-surface: var(--ipsview-role-control-background);')
         && str_contains($css, '--oha-text: var(--ipsview-role-text-primary);')
         && str_contains($css, '--oha-text-active: var(--ipsview-role-text-active);')
         && str_contains($css, '--oha-text-inactive: var(--ipsview-role-text-inactive);')
+        && str_contains($css, '--oha-label: var(--ipsview-role-text-label);')
         && str_contains($css, '--oha-page-label-text: var(--ipsview-role-text-label);')
         && str_contains($css, '--oha-muted: var(--ipsview-role-text-secondary);')
         && str_contains($css, '--oha-faint: var(--ipsview-role-text-faint);')
@@ -181,12 +183,36 @@ assertIPSView(
     'Unavailable IPSView controls must use the shared inactive style and opacity.'
 );
 assertIPSView(
-    str_contains($css, '.oha-mode-button[data-active="true"] {')
+    str_contains($css, '.oha-mode-button[data-active="true"] .oha-mode-button-copy strong {')
+        && str_contains($css, '.oha-mode-button[data-can-arm="false"]:not([data-active="true"]) .oha-mode-button-copy strong,')
         && str_contains($css, 'color: var(--oha-text-active);')
+        && str_contains($css, 'color: var(--oha-text-inactive);')
         && str_contains($css, 'color: var(--oha-icon);')
         && !str_contains($css, 'color: var(--ipsview-text-inactive);')
         && !str_contains($css, 'border-color: var(--ipsview-line);'),
     'Active controls, inactive controls and neutral icons must use the local aliases of the canonical role contract.'
+);
+assertIPSView(
+    str_contains($css, 'html.oha-ipsview .oha-status-card,')
+        && str_contains($css, 'background-color: var(--oha-page);')
+        && str_contains($css, 'html.oha-ipsview .oha-mode-button {')
+        && str_contains($css, 'background-color: var(--oha-surface);')
+        && str_contains($css, 'html.oha-ipsview .oha-hero {')
+        && !str_contains($css, "html.oha-ipsview .oha-hero {
+    background-color: var(--oha-surface-strong);")
+        && !str_contains($css, "html.oha-ipsview .oha-hero,
+html.oha-ipsview .oha-mode-button,"),
+    'IPSView page panels must use the page background while interactive controls use control backgrounds.'
+);
+assertIPSView(
+    str_contains($css, '.oha-eyebrow,')
+        && str_contains($css, '.oha-section-kicker {')
+        && str_contains($css, '.oha-status-card-label {')
+        && str_contains($css, 'color: var(--oha-label);')
+        && str_contains($css, '.oha-status-card-icon {')
+        && str_contains($css, '.oha-code-key-secondary {')
+        && str_contains($css, '.oha-codepad-close {'),
+    'Eyebrows and field labels must use label text while neutral symbols use the icon role.'
 );
 assertIPSView(
     !str_contains($css, 'html.oha-ipsview.oha-theme-dark')

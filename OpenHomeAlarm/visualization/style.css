@@ -1,5 +1,6 @@
 :root {
     --oha-bg: var(--symc-background);
+    --oha-page: var(--symc-surface);
     --oha-surface: var(--symc-surface);
     --oha-surface-strong: var(--symc-surface-raised);
     --oha-surface-soft: var(--symc-surface);
@@ -7,6 +8,7 @@
     --oha-text: var(--symc-text);
     --oha-text-active: var(--symc-text);
     --oha-text-inactive: var(--symc-muted);
+    --oha-label: var(--symc-muted);
     --oha-muted: var(--symc-muted);
     --oha-faint: var(--symc-subtle);
     --oha-icon: var(--symc-muted);
@@ -42,6 +44,7 @@ html.oha-ipsview {
     --symc-radius-medium: var(--ipsview-role-radius);
     --symc-radius-large: calc(var(--ipsview-role-radius) + 4px);
     --oha-bg: var(--ipsview-role-view-background);
+    --oha-page: var(--ipsview-role-page-background);
     --oha-surface: var(--ipsview-role-control-background);
     --oha-surface-strong: var(--ipsview-role-control-active-background);
     --oha-surface-soft: var(--ipsview-role-control-soft-background);
@@ -50,6 +53,7 @@ html.oha-ipsview {
     --oha-text: var(--ipsview-role-text-primary);
     --oha-text-active: var(--ipsview-role-text-active);
     --oha-text-inactive: var(--ipsview-role-text-inactive);
+    --oha-label: var(--ipsview-role-text-label);
     --oha-muted: var(--ipsview-role-text-secondary);
     --oha-faint: var(--ipsview-role-text-faint);
     --oha-icon: var(--ipsview-role-icon);
@@ -60,7 +64,7 @@ html.oha-ipsview {
     --oha-panel-border: var(--ipsview-role-border);
     --oha-page-label-bg: var(--ipsview-role-label-background);
     --oha-page-label-text: var(--ipsview-role-text-label);
-    --oha-page-label-muted: var(--ipsview-role-text-secondary);
+    --oha-page-label-muted: var(--ipsview-role-text-label);
     --oha-page-label-border: var(--ipsview-role-border);
     --oha-accent: var(--ipsview-role-accent);
     --oha-accent-soft: var(--ipsview-role-accent-soft);
@@ -151,7 +155,7 @@ button:focus-visible {
     gap: 8px;
     min-width: 0;
     padding: 0 2px;
-    color: var(--oha-muted);
+    color: var(--oha-label);
     font-size: 0.76rem;
     font-weight: 700;
     letter-spacing: 0.035em;
@@ -198,7 +202,7 @@ button:focus-visible {
 }
 
 .oha-icon-button:hover:not(:disabled) {
-    color: var(--oha-text);
+    color: var(--oha-text-active);
     background: var(--oha-surface-strong);
 }
 
@@ -277,7 +281,7 @@ button:focus-visible {
 
 .oha-eyebrow,
 .oha-section-kicker {
-    color: var(--oha-muted);
+    color: var(--oha-label);
     font-size: 0.72rem;
     font-weight: 760;
     letter-spacing: 0.075em;
@@ -372,7 +376,7 @@ button:focus-visible {
     place-items: center;
     border-radius: 10px;
     background: var(--oha-surface-soft);
-    color: var(--oha-muted);
+    color: var(--oha-icon);
 }
 
 .oha-status-card > div {
@@ -383,7 +387,7 @@ button:focus-visible {
 
 .oha-status-card-label {
     overflow: hidden;
-    color: var(--oha-muted);
+    color: var(--oha-label);
     font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.035em;
@@ -605,6 +609,17 @@ button:focus-visible {
     opacity: 1;
 }
 
+.oha-mode-button[data-active="true"] .oha-mode-button-copy strong {
+    color: var(--oha-text-active);
+}
+
+.oha-mode-button[data-can-arm="false"]:not([data-active="true"]) .oha-mode-button-copy strong,
+.oha-mode-button[data-can-arm="false"]:not([data-active="true"]) .oha-mode-icon,
+.oha-mode-button[data-can-arm="false"]:not([data-active="true"]) .oha-mode-chevron,
+.oha-mode-button[data-can-arm="false"]:not([data-active="true"]) .oha-mode-action {
+    color: var(--oha-text-inactive);
+}
+
 .oha-mode-button[data-active="true"] .oha-mode-icon {
     background: var(--oha-accent);
     color: var(--oha-accent-contrast, #ffffff);
@@ -660,7 +675,7 @@ button:focus-visible {
 }
 
 .oha-mode-chevron {
-    color: var(--oha-faint);
+    color: var(--oha-icon);
     font-size: 0.8rem;
 }
 
@@ -1259,13 +1274,13 @@ button:focus-visible {
     border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 10px;
     background: var(--oha-surface-soft);
-    color: var(--oha-muted);
+    color: var(--oha-icon);
     cursor: pointer;
 }
 
 .oha-codepad-close:hover {
-    background: var(--oha-surface);
-    color: var(--oha-text);
+    background: var(--oha-surface-strong);
+    color: var(--oha-text-active);
 }
 
 .oha-code-display {
@@ -1344,7 +1359,7 @@ button:focus-visible {
 }
 
 .oha-code-key-secondary {
-    color: var(--oha-muted);
+    color: var(--oha-icon);
 }
 
 .oha-code-key-confirm {
@@ -1756,12 +1771,25 @@ html.oha-ipsview .oha-secondary-button {
 }
 
 html.oha-ipsview .oha-hero,
-html.oha-ipsview .oha-mode-button,
 html.oha-ipsview .oha-status-card,
 html.oha-ipsview .oha-context-card,
 html.oha-ipsview .oha-operation-panel,
 html.oha-ipsview .oha-inline-codepad,
 html.oha-ipsview .oha-control-bar {
+    --oha-text: var(--oha-panel-text);
+    --oha-muted: var(--oha-panel-muted);
+    --oha-faint: var(--oha-panel-faint);
+    --oha-border: var(--oha-panel-border);
+    border-color: var(--oha-border);
+    background-color: var(--oha-page);
+    color: var(--oha-text);
+    box-shadow: var(--oha-shadow);
+    text-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+html.oha-ipsview .oha-mode-button {
     --oha-text: var(--oha-panel-text);
     --oha-muted: var(--oha-panel-muted);
     --oha-faint: var(--oha-panel-faint);
@@ -1784,7 +1812,7 @@ html.oha-ipsview .oha-codepad {
 }
 
 html.oha-ipsview .oha-hero {
-    background-color: var(--oha-surface-strong);
+    background-color: var(--oha-page);
     background-image: var(--oha-state-gradient);
 }
 
@@ -1805,7 +1833,6 @@ html.oha-ipsview .oha-row-action[data-enabled="false"] {
     opacity: var(--oha-disabled-opacity);
 }
 
-html.oha-ipsview .oha-mode-button-copy strong,
 html.oha-ipsview .oha-status-card strong,
 html.oha-ipsview .oha-context-copy strong,
 html.oha-ipsview .oha-operation-head h2,
@@ -1816,8 +1843,13 @@ html.oha-ipsview .oha-codepad-title-wrap h2 {
     color: var(--oha-panel-text);
 }
 
+html.oha-ipsview .oha-eyebrow,
+html.oha-ipsview .oha-section-kicker,
+html.oha-ipsview .oha-status-card-label {
+    color: var(--oha-label);
+}
+
 html.oha-ipsview .oha-blockers,
-html.oha-ipsview .oha-status-card-label,
 html.oha-ipsview .oha-context-copy span,
 html.oha-ipsview .oha-operation-copy span,
 html.oha-ipsview .oha-history-copy span,
