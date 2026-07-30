@@ -161,8 +161,8 @@ assertVisualization(
     str_contains($css, '--oha-accent: var(--symc-accent);')
         && str_contains($css, '--oha-bg: var(--symc-background);')
         && str_contains($css, 'html.oha-ipsview {')
-        && str_contains($css, '--oha-accent: var(--ipsview-accent);')
-        && str_contains($css, '--oha-bg: var(--ipsview-background);'),
+        && str_contains($css, '--oha-accent: var(--ipsview-role-accent);')
+        && str_contains($css, '--oha-bg: var(--ipsview-role-view-background);'),
     'The native tile must consume shared Symcon tokens while IPSView consumes the universal style tokens.'
 );
 assertVisualization(str_contains($javascript, 'function ohaRenderSummary(state)'), 'Visualization must render the system overview from the control state.');

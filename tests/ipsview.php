@@ -147,15 +147,21 @@ assertIPSView(
     'The shared helper must provide standard-style import and universal semantic tokens.'
 );
 assertIPSView(
-    str_contains($css, '--oha-bg: var(--ipsview-background);')
-        && str_contains($css, '--oha-surface: var(--ipsview-control-background);')
-        && str_contains($css, '--oha-text: var(--ipsview-text);')
-        && str_contains($css, '--oha-success: var(--ipsview-positive);')
-        && str_contains($css, '--oha-danger: var(--ipsview-critical);')
-        && str_contains($css, '--oha-disabled-opacity: var(--ipsview-disabled-opacity);')
-        && str_contains($css, '--oha-gradient-success: var(--ipsview-gradient-positive);')
-        && str_contains($css, '--oha-gradient-danger: var(--ipsview-gradient-critical);'),
-    'The module stylesheet must only assign universal IPSView roles to OpenHomeAlarm components.'
+    str_contains($css, '--oha-bg: var(--ipsview-role-view-background);')
+        && str_contains($css, '--oha-surface: var(--ipsview-role-control-background);')
+        && str_contains($css, '--oha-text: var(--ipsview-role-text-primary);')
+        && str_contains($css, '--oha-text-active: var(--ipsview-role-text-active);')
+        && str_contains($css, '--oha-text-inactive: var(--ipsview-role-text-inactive);')
+        && str_contains($css, '--oha-page-label-text: var(--ipsview-role-text-label);')
+        && str_contains($css, '--oha-muted: var(--ipsview-role-text-secondary);')
+        && str_contains($css, '--oha-faint: var(--ipsview-role-text-faint);')
+        && str_contains($css, '--oha-icon: var(--ipsview-role-icon);')
+        && str_contains($css, '--oha-success: var(--ipsview-role-positive);')
+        && str_contains($css, '--oha-danger: var(--ipsview-role-critical);')
+        && str_contains($css, '--oha-disabled-opacity: var(--ipsview-role-disabled-opacity);')
+        && str_contains($css, '--oha-gradient-success: var(--ipsview-role-gradient-positive);')
+        && str_contains($css, '--oha-gradient-danger: var(--ipsview-role-gradient-critical);'),
+    'The module stylesheet must assign the canonical IPSView role contract to OpenHomeAlarm components.'
 );
 assertIPSView(
     str_contains($css, '--oha-state-gradient: var(--oha-gradient-accent);')
@@ -171,8 +177,16 @@ assertIPSView(
 assertIPSView(
     str_contains($css, 'opacity: var(--oha-disabled-opacity);')
         && str_contains($css, 'background-color: var(--oha-control-inactive);')
-        && str_contains($css, 'color: var(--ipsview-text-inactive);'),
+        && str_contains($css, 'color: var(--oha-text-inactive);'),
     'Unavailable IPSView controls must use the shared inactive style and opacity.'
+);
+assertIPSView(
+    str_contains($css, '.oha-mode-button[data-active="true"] {')
+        && str_contains($css, 'color: var(--oha-text-active);')
+        && str_contains($css, 'color: var(--oha-icon);')
+        && !str_contains($css, 'color: var(--ipsview-text-inactive);')
+        && !str_contains($css, 'border-color: var(--ipsview-line);'),
+    'Active controls, inactive controls and neutral icons must use the local aliases of the canonical role contract.'
 );
 assertIPSView(
     !str_contains($css, 'html.oha-ipsview.oha-theme-dark')
@@ -183,7 +197,7 @@ assertIPSView(
     'Legacy module-owned IPSView theme classes must be removed.'
 );
 assertIPSView(
-    str_contains($css, 'font-family: var(--ipsview-font-family);')
+    str_contains($css, 'font-family: var(--ipsview-role-font-family);')
         && str_contains($module, '$this->IPSViewStyleRootFontSize()')
         && str_contains($styleHelper, 'protected function IPSViewStyleRootFontSize(')
         && !str_contains($module, 'private function IPSViewRootFontSize(): string'),

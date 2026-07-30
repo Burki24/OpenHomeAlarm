@@ -5,8 +5,12 @@
     --oha-surface-soft: var(--symc-surface);
     --oha-border: var(--symc-border);
     --oha-text: var(--symc-text);
+    --oha-text-active: var(--symc-text);
+    --oha-text-inactive: var(--symc-muted);
     --oha-muted: var(--symc-muted);
     --oha-faint: var(--symc-subtle);
+    --oha-icon: var(--symc-muted);
+    --oha-line: var(--symc-border);
     --oha-accent: var(--symc-accent);
     --oha-accent-soft: var(--symc-accent-soft);
     --oha-success: var(--symc-success);
@@ -31,57 +35,61 @@
     --oha-shadow: none;
 }
 html.oha-ipsview {
-    font-family: var(--ipsview-font-family);
-    font-size: var(--oha-font-scale, var(--ipsview-font-size));
+    font-family: var(--ipsview-role-font-family);
+    font-size: var(--oha-font-scale, var(--ipsview-role-font-size));
     line-height: 1.35;
-    --symc-radius-small: max(0px, calc(var(--ipsview-radius) - 2px));
-    --symc-radius-medium: var(--ipsview-radius);
-    --symc-radius-large: calc(var(--ipsview-radius) + 4px);
-    --oha-bg: var(--ipsview-background);
-    --oha-surface: var(--ipsview-control-background);
-    --oha-surface-strong: var(--ipsview-control-background-active);
-    --oha-surface-soft: var(--ipsview-control-background-soft);
-    --oha-control-inactive: var(--ipsview-control-background-inactive);
-    --oha-border: var(--ipsview-border);
-    --oha-text: var(--ipsview-text);
-    --oha-muted: var(--ipsview-text-secondary);
-    --oha-faint: var(--ipsview-text-faint);
-    --oha-panel-text: var(--ipsview-text);
-    --oha-panel-muted: var(--ipsview-text-secondary);
-    --oha-panel-faint: var(--ipsview-text-faint);
-    --oha-panel-border: var(--ipsview-border);
-    --oha-page-label-bg: var(--ipsview-label-background);
-    --oha-page-label-text: var(--ipsview-text-label);
-    --oha-page-label-muted: var(--ipsview-text-secondary);
-    --oha-page-label-border: var(--ipsview-border);
-    --oha-accent: var(--ipsview-accent);
-    --oha-accent-soft: var(--ipsview-accent-soft);
-    --oha-accent-contrast: var(--ipsview-accent-contrast);
-    --oha-success: var(--ipsview-positive);
-    --oha-success-soft: var(--ipsview-positive-soft);
-    --oha-success-border: var(--ipsview-success-border);
-    --oha-success-contrast: var(--ipsview-positive-contrast);
-    --oha-warning: var(--ipsview-warning);
-    --oha-warning-soft: var(--ipsview-warning-soft);
-    --oha-warning-contrast: var(--ipsview-warning-contrast);
-    --oha-danger: var(--ipsview-critical);
-    --oha-danger-soft: var(--ipsview-critical-soft);
-    --oha-danger-contrast: var(--ipsview-critical-contrast);
-    --oha-popup-background: var(--ipsview-popup-background);
-    --oha-popup-border: var(--ipsview-popup-border);
-    --oha-popup-shadow: var(--ipsview-popup-shadow);
-    --oha-disabled-opacity: var(--ipsview-disabled-opacity);
-    --oha-border-width: var(--ipsview-border-width);
-    --oha-line-width: var(--ipsview-line-width);
-    --oha-gradient-accent: var(--ipsview-gradient-accent);
-    --oha-gradient-success: var(--ipsview-gradient-positive);
-    --oha-gradient-warning: var(--ipsview-gradient-warning);
-    --oha-gradient-danger: var(--ipsview-gradient-critical);
-    --oha-shadow: var(--ipsview-shadow);
+    --symc-radius-small: max(0px, calc(var(--ipsview-role-radius) - 2px));
+    --symc-radius-medium: var(--ipsview-role-radius);
+    --symc-radius-large: calc(var(--ipsview-role-radius) + 4px);
+    --oha-bg: var(--ipsview-role-view-background);
+    --oha-surface: var(--ipsview-role-control-background);
+    --oha-surface-strong: var(--ipsview-role-control-active-background);
+    --oha-surface-soft: var(--ipsview-role-control-soft-background);
+    --oha-control-inactive: var(--ipsview-role-control-inactive-background);
+    --oha-border: var(--ipsview-role-border);
+    --oha-text: var(--ipsview-role-text-primary);
+    --oha-text-active: var(--ipsview-role-text-active);
+    --oha-text-inactive: var(--ipsview-role-text-inactive);
+    --oha-muted: var(--ipsview-role-text-secondary);
+    --oha-faint: var(--ipsview-role-text-faint);
+    --oha-icon: var(--ipsview-role-icon);
+    --oha-line: var(--ipsview-role-line);
+    --oha-panel-text: var(--ipsview-role-text-primary);
+    --oha-panel-muted: var(--ipsview-role-text-secondary);
+    --oha-panel-faint: var(--ipsview-role-text-faint);
+    --oha-panel-border: var(--ipsview-role-border);
+    --oha-page-label-bg: var(--ipsview-role-label-background);
+    --oha-page-label-text: var(--ipsview-role-text-label);
+    --oha-page-label-muted: var(--ipsview-role-text-secondary);
+    --oha-page-label-border: var(--ipsview-role-border);
+    --oha-accent: var(--ipsview-role-accent);
+    --oha-accent-soft: var(--ipsview-role-accent-soft);
+    --oha-accent-contrast: var(--ipsview-role-accent-contrast);
+    --oha-success: var(--ipsview-role-positive);
+    --oha-success-soft: var(--ipsview-role-positive-soft);
+    --oha-success-border: var(--ipsview-role-positive-border);
+    --oha-success-contrast: var(--ipsview-role-positive-contrast);
+    --oha-warning: var(--ipsview-role-warning);
+    --oha-warning-soft: var(--ipsview-role-warning-soft);
+    --oha-warning-contrast: var(--ipsview-role-warning-contrast);
+    --oha-danger: var(--ipsview-role-critical);
+    --oha-danger-soft: var(--ipsview-role-critical-soft);
+    --oha-danger-contrast: var(--ipsview-role-critical-contrast);
+    --oha-popup-background: var(--ipsview-role-popup-background);
+    --oha-popup-border: var(--ipsview-role-popup-border);
+    --oha-popup-shadow: var(--ipsview-role-popup-shadow);
+    --oha-disabled-opacity: var(--ipsview-role-disabled-opacity);
+    --oha-border-width: var(--ipsview-role-border-width);
+    --oha-line-width: var(--ipsview-role-line-width);
+    --oha-gradient-accent: var(--ipsview-role-gradient-accent);
+    --oha-gradient-success: var(--ipsview-role-gradient-positive);
+    --oha-gradient-warning: var(--ipsview-role-gradient-warning);
+    --oha-gradient-danger: var(--ipsview-role-gradient-critical);
+    --oha-shadow: var(--ipsview-role-shadow);
     --oha-adaptive-backdrop: none;
-    --oha-rendered-surface: var(--ipsview-control-background);
-    --oha-rendered-surface-strong: var(--ipsview-control-background-active);
-    --oha-rendered-surface-soft: var(--ipsview-control-background-soft);
+    --oha-rendered-surface: var(--ipsview-role-control-background);
+    --oha-rendered-surface-strong: var(--ipsview-role-control-active-background);
+    --oha-rendered-surface-soft: var(--ipsview-role-control-soft-background);
 }
 
 
@@ -186,7 +194,7 @@ button:focus-visible {
     border: var(--oha-border-width) solid var(--oha-border);
     border-radius: 10px;
     background: var(--oha-surface);
-    color: var(--oha-muted);
+    color: var(--oha-icon);
 }
 
 .oha-icon-button:hover:not(:disabled) {
@@ -590,6 +598,7 @@ button:focus-visible {
 
 .oha-mode-button[data-active="true"] {
     border-color: var(--oha-accent);
+    color: var(--oha-text-active);
     background-color: var(--oha-surface-strong);
     background-image: var(--oha-gradient-accent);
     box-shadow: inset 0 0 0 var(--oha-border-width) var(--oha-accent-soft);
@@ -1792,7 +1801,7 @@ html.oha-ipsview .oha-card-action[data-enabled="false"],
 html.oha-ipsview .oha-secondary-button[data-enabled="false"],
 html.oha-ipsview .oha-row-action[data-enabled="false"] {
     background-color: var(--oha-control-inactive);
-    color: var(--ipsview-text-inactive);
+    color: var(--oha-text-inactive);
     opacity: var(--oha-disabled-opacity);
 }
 
@@ -1847,7 +1856,7 @@ html.oha-ipsview .oha-section-heading .oha-section-hint {
 html.oha-ipsview .oha-operation-head,
 html.oha-ipsview .oha-operation-row,
 html.oha-ipsview .oha-history-row {
-    border-color: var(--ipsview-line);
+    border-color: var(--oha-line);
 }
 
 html.oha-ipsview .oha-mode-pill,
