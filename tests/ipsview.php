@@ -16,19 +16,32 @@ $html = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/index.h
 $css = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/style.css');
 $javascript = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/app.js');
 $readme = (string) file_get_contents($root . '/OpenHomeAlarm/README.md');
+$locale = (string) file_get_contents($root . '/OpenHomeAlarm/locale.json');
 $styleHelper = (string) file_get_contents($root . '/libs/helper/IPSViewStyleHelper.php');
 $htmlPageHelper = (string) file_get_contents($root . '/libs/helper/IPSViewHTMLPageHelper.php');
 
 assertIPSView(
-    str_contains($module, "private const PROPERTY_ENABLE_IPSVIEW = 'EnableIPSView';")
-        && str_contains($module, "private const IDENT_IPSVIEW_ALARM = 'IPSViewAlarm';"),
-    'IPSView configuration and WebContent identifiers must be stable.'
+    str_contains($module, "private const IDENT_IPSVIEW_ALARM = 'IPSViewAlarm';")
+        && str_contains($module, '$this->RegisterIPSViewHTMLPageProperties();')
+        && str_contains($module, '$this->MaintainIPSViewHTMLVariable(')
+        && str_contains($module, '$this->UpdateIPSViewHTMLVariable(')
+        && !str_contains($module, "private const PROPERTY_ENABLE_IPSVIEW = 'EnableIPSView';"),
+    'IPSView configuration and the stable WebContent ident must use the central HTML page helper.'
 );
 assertIPSView(
-    str_contains($module, 'VARIABLE_PRESENTATION_WEB_CONTENT')
-        && str_contains($module, '$this->MaintainVariable(')
-        && str_contains($module, "'HTML_TYPE'    => 0"),
-    'IPSView must be exposed as a WebContent string variable.'
+    str_contains($htmlPageHelper, 'VARIABLE_PRESENTATION_WEB_CONTENT')
+        && str_contains($htmlPageHelper, "'HTML_TYPE'    => 0")
+        && str_contains($htmlPageHelper, 'protected function MaintainIPSViewHTMLVariable(')
+        && str_contains($htmlPageHelper, 'protected function UpdateIPSViewHTMLVariable(')
+        && str_contains($htmlPageHelper, 'protected function IsIPSViewHTMLPageEnabled(): bool'),
+    'The central helper must expose optional IPSView output as a WebContent string variable.'
+);
+assertIPSView(
+    str_contains($htmlPageHelper, 'When disabled, existing IPSView variables are retained')
+        && str_contains($htmlPageHelper, 'private function IPSViewHTMLDeleteVariablesPopup(')
+        && str_contains($htmlPageHelper, '$this->UnregisterVariable($ident);')
+        && !str_contains($module, 'MaintainVariable('),
+    'Disabling IPSView must retain the variable until the user confirms deletion through the helper.'
 );
 assertIPSView(
     str_contains($module, 'public function GetIPSViewHTML(): string')
@@ -116,7 +129,7 @@ assertIPSView(
     str_contains($module, "require_once __DIR__ . '/../libs/helper/IPSViewStyleHelper.php';")
         && str_contains($module, 'use \Burki24\SymconModuleHelper\IPSViewStyleHelper;')
         && str_contains($module, '$this->RegisterIPSViewStyleProperties();')
-        && str_contains($module, "\$this->IPSViewStyleFormItems('220px')")
+        && str_contains($module, "\$this->InsertIPSViewStyleFormItems(\$form['elements'], colorWidth: '220px')")
         && str_contains($module, "\$this->IPSViewStyleCSSVariables(':root')")
         && str_contains($module, '$this->RegisterIPSViewStyleMediaMessages();')
         && str_contains($module, '$this->IsIPSViewStyleMediaUpdate($SenderID, $Message)')
@@ -171,10 +184,10 @@ assertIPSView(
 );
 assertIPSView(
     str_contains($css, 'font-family: var(--ipsview-font-family);')
-        && str_contains($module, 'private function IPSViewRootFontSize(): string')
-        && str_contains($module, '$style = $this->IPSViewResolvedStyle();')
-        && str_contains($module, "ReadPropertyInteger('IPSViewStyleFontScale')"),
-    'Typography must originate from the shared style and still resolve to a whole-pixel root size.'
+        && str_contains($module, '$this->IPSViewStyleRootFontSize()')
+        && str_contains($styleHelper, 'protected function IPSViewStyleRootFontSize(')
+        && !str_contains($module, 'private function IPSViewRootFontSize(): string'),
+    'Typography and whole-pixel root sizing must originate from the shared style helper.'
 );
 assertIPSView(
     str_contains($css, 'grid-template-columns: minmax(0, 1fr) clamp(310px, 18rem, 350px);')
@@ -183,12 +196,14 @@ assertIPSView(
     'The IPSView codepad column must scale with the configured font size without horizontal overflow.'
 );
 assertIPSView(
-    str_contains($form, '"name": "EnableIPSView"')
+    str_contains($form, '"caption": "Configure optional IPSView HTML output."')
         && str_contains($form, '"caption": "Configure the shared IPSView style used by the standalone HTML page."')
+        && !str_contains($form, '"name": "EnableIPSView"')
         && !str_contains($form, '"name": "IPSViewTheme"')
         && !str_contains($form, '"name": "IPSViewTransparent"')
-        && !str_contains($form, '"name": "IPSViewFontScale"'),
-    'The static form must delegate all common style controls to the shared helper.'
+        && !str_contains($form, '"name": "IPSViewFontScale"')
+        && str_contains($module, '$this->InsertIPSViewHTMLPageFormItems('),
+    'The static form must delegate optional output and all common style controls to the central helpers.'
 );
 assertIPSView(
     str_contains($module, 'LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES')
@@ -201,11 +216,21 @@ assertIPSView(
     'Existing IPSView palette, theme, transparency and font settings must migrate to the shared style.'
 );
 assertIPSView(
-    str_contains($readme, 'IPSViewStyleHelper')
+    !str_contains($locale, '"Provide IPSView HTML page"')
+        && !str_contains($locale, '"Style source"')
+        && !str_contains($locale, '"Base font size"')
+        && str_contains($locale, '"IPSView alarm system"')
+        && str_contains($locale, '"Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box."'),
+    'Helper-owned captions must come from the central catalogs while module-specific texts remain local.'
+);
+assertIPSView(
+    str_contains($readme, 'IPSViewHTMLPageHelper')
+        && str_contains($readme, 'IPSViewStyleHelper')
         && str_contains($readme, 'IPSView-Standardstil')
         && str_contains($readme, 'Medienobjekt')
-        && str_contains($readme, 'Browser des Clients'),
-    'The module documentation must explain the universal IPSView style and media source.'
+        && str_contains($readme, 'Browser des Clients')
+        && str_contains($readme, 'ausdrücklicher Bestätigung'),
+    'The module documentation must explain central output management, deletion confirmation and the shared style.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm IPSView integration checks passed.\n");

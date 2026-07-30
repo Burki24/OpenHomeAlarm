@@ -131,7 +131,6 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_DISARM_MAX_ATTEMPTS = 'DisarmMaxAttempts';
     private const PROPERTY_DISARM_LOCKOUT_SECONDS = 'DisarmLockoutSeconds';
     private const PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS = 'SensorIntegrityIntervalSeconds';
-    private const PROPERTY_ENABLE_IPSVIEW = 'EnableIPSView';
 
     private const LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES = [
         'IPSViewPageColor'          => 'IPSViewPageColorValue',
@@ -292,7 +291,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::DEFAULT_DISARM_LOCKOUT_SECONDS
         );
         $this->RegisterPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS, 60);
-        $this->RegisterBooleanProperty(self::PROPERTY_ENABLE_IPSVIEW, false);
+        $this->RegisterIPSViewHTMLPageProperties();
         $this->RegisterIPSViewStyleProperties();
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
@@ -694,7 +693,11 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
         $this->RegisterMessage(0, IPS_KERNELSTARTED);
         $this->RegisterIPSViewStyleMediaMessages();
-        $this->MaintainIPSViewVariable();
+        $this->MaintainIPSViewHTMLVariable(
+            self::IDENT_IPSVIEW_ALARM,
+            $this->Translate('IPSView alarm system'),
+            90
+        );
         if (IPS_GetKernelRunlevel() !== KR_READY) {
             return;
         }
@@ -712,7 +715,13 @@ class OpenHomeAlarm extends IPSModuleStrict
         if (isset($form['elements']) && is_array($form['elements'])) {
             $this->PopulateConfigurationListValues($form['elements']);
             $this->InjectEnabledOptionalActionFields($form['elements']);
-            $this->InjectIPSViewStyleFormItems($form['elements']);
+            $this->InsertIPSViewHTMLPageFormItems(
+                $form['elements'],
+                description: $this->Translate(
+                    'Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box.'
+                )
+            );
+            $this->InsertIPSViewStyleFormItems($form['elements'], colorWidth: '220px');
         }
 
         return $this->EncodeConfigurationForm($form);
@@ -1632,7 +1641,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     protected function ProcessHookData(): void
     {
-        if (!$this->ReadBooleanProperty(self::PROPERTY_ENABLE_IPSVIEW)) {
+        if (!$this->IsIPSViewHTMLPageEnabled()) {
             $this->OutputIPSViewResponse(['Error' => 'IPSView is disabled.'], 404);
 
             return;
@@ -1969,73 +1978,16 @@ class OpenHomeAlarm extends IPSModuleStrict
         ));
     }
 
-    private function MaintainIPSViewVariable(): void
-    {
-        if (!method_exists($this, 'MaintainVariable')) {
-            return;
-        }
-
-        $this->MaintainVariable(
-            self::IDENT_IPSVIEW_ALARM,
-            $this->Translate('IPSView alarm system'),
-            VARIABLETYPE_STRING,
-            [
-                'PRESENTATION' => VARIABLE_PRESENTATION_WEB_CONTENT,
-                'HTML_TYPE'    => 0
-            ],
-            90,
-            $this->ReadBooleanProperty(self::PROPERTY_ENABLE_IPSVIEW)
-        );
-    }
-
     private function UpdateIPSViewHTML(): void
     {
-        if (
-            !$this->ReadBooleanProperty(self::PROPERTY_ENABLE_IPSVIEW)
-            || !method_exists($this, 'MaintainVariable')
-        ) {
+        if (!$this->IsIPSViewHTMLPageEnabled()) {
             return;
         }
 
-        try {
-            $this->SetValue(self::IDENT_IPSVIEW_ALARM, $this->GetIPSViewHTML());
-        } catch (Throwable $exception) {
-            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
-        }
-    }
-
-    /** @param array<int,array<string,mixed>> $elements */
-    private function InjectIPSViewStyleFormItems(array &$elements): void
-    {
-        foreach ($elements as &$element) {
-            if (
-                ($element['type'] ?? null) !== 'ExpansionPanel'
-                || ($element['caption'] ?? null) !== 'IPSView'
-                || !isset($element['items'])
-                || !is_array($element['items'])
-            ) {
-                continue;
-            }
-
-            foreach ($element['items'] as $index => $item) {
-                if (($item['caption'] ?? null) !== 'Configure the shared IPSView style used by the standalone HTML page.') {
-                    continue;
-                }
-
-                array_splice($element['items'], $index, 1, $this->IPSViewStyleFormItems('220px'));
-
-                return;
-            }
-        }
-    }
-
-    private function IPSViewRootFontSize(): string
-    {
-        $style = $this->IPSViewResolvedStyle();
-        $scale = max(60, min(200, $this->ReadPropertyInteger('IPSViewStyleFontScale'))) / 100;
-        $fontSize = max(8, min(64, (int) round((float) $style['FontSize'] * $scale)));
-
-        return $fontSize . 'px';
+        $this->UpdateIPSViewHTMLVariable(
+            self::IDENT_IPSVIEW_ALARM,
+            $this->GetIPSViewHTML()
+        );
     }
 
     private function RenderVisualizationHTML(bool $ipsView): string
@@ -2052,7 +2004,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         return $this->RenderVisualizationHTMLPage($ipsView, [
             'classes'           => $ipsView ? ['oha-ipsview', 'oha-style-shared'] : [],
-            'rootFontSize'      => $ipsView ? $this->IPSViewRootFontSize() : '100%',
+            'rootFontSize'      => $ipsView ? $this->IPSViewStyleRootFontSize() : '100%',
             'title'             => 'OpenHomeAlarm',
             'visualizationTheme'=> $this->VisualizationThemeCSS(),
             'ipsViewStyle'      => $this->IPSViewStyleCSSVariables(':root'),

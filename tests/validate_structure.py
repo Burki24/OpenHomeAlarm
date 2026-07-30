@@ -19,6 +19,11 @@ PROPERTY_CONSTANT_PATTERN = re.compile(
     r"private const PROPERTY_[A-Z0-9_]+\s*=\s*'([^']+)';"
 )
 
+FORM_MARKER_CAPTIONS = {
+    "Configure optional IPSView HTML output.",
+    "Configure the shared IPSView style used by the standalone HTML page.",
+}
+
 
 def fail(message: str) -> None:
     raise SystemExit(message)
@@ -179,7 +184,9 @@ def validate_module(module_json_path: Path, known_guids: set[str]) -> None:
         german = translations.get("de") if isinstance(translations, dict) else None
         if not isinstance(german, dict):
             fail(f"locale.json for {module_name} needs a German translation object.")
-        missing_captions = sorted(collect_form_captions(form) - set(german))
+        missing_captions = sorted(
+            collect_form_captions(form) - set(german) - FORM_MARKER_CAPTIONS
+        )
         if missing_captions:
             fail(
                 f"Missing German form translations: {', '.join(missing_captions)}"
