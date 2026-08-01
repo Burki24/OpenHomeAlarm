@@ -211,9 +211,73 @@ def validate_module(module_json_path: Path, known_guids: set[str]) -> None:
 
 
 def main() -> None:
-    for required_file in ("library.json", "LICENSE", "README.md", "SECURITY.md"):
+    required_files = (
+        "library.json",
+        "LICENSE",
+        "README.md",
+        "SECURITY.md",
+        ".gitmodules",
+        ".helper-sync.json",
+        ".github/workflows/tests.yml",
+        ".github/workflows/style.yml",
+        ".github/workflows/update-library-metadata.yml",
+        ".github/scripts/update_library_metadata.py",
+        "tests/run.php",
+        "tests/helper_integrity.py",
+        "tests/test_update_library_metadata.py",
+    )
+    for required_file in required_files:
         if not (ROOT / required_file).is_file():
             fail(f"Missing repository file: {required_file}")
+
+    if (ROOT / "libs/helper/IPSViewColorPaletteHelper.php").exists():
+        fail("The obsolete IPSViewColorPaletteHelper.php must be deleted.")
+    if (ROOT / "DELETE_FILES.txt").exists():
+        fail("DELETE_FILES.txt must be removed after its deletion instruction was applied.")
+
+    modules_config = (ROOT / ".gitmodules").read_text(encoding="utf-8")
+    for path, url in {
+        ".style": "https://github.com/symcon/StylePHP",
+        "tests/stubs": "https://github.com/symcon/SymconStubs",
+    }.items():
+        if f"path = {path}" not in modules_config:
+            fail(f".gitmodules is missing {path}.")
+        if f"url = {url}" not in modules_config:
+            fail(f".gitmodules uses the wrong URL for {path}.")
+
+    workflow_tests = (ROOT / ".github/workflows/tests.yml").read_text(
+        encoding="utf-8"
+    )
+    workflow_style = (ROOT / ".github/workflows/style.yml").read_text(
+        encoding="utf-8"
+    )
+    workflow_metadata = (
+        ROOT / ".github/workflows/update-library-metadata.yml"
+    ).read_text(encoding="utf-8")
+    if "jobs:\n  tests:" not in workflow_tests or "name: tests" not in workflow_tests:
+        fail("Tests workflow job and status check must be named tests.")
+    if "Burki24/Symcon_ModuleCI/php-tests@v1.0.0" not in workflow_tests:
+        fail("Tests workflow must use Symcon_ModuleCI php-tests v1.0.0.")
+    if "jobs:\n  style:" not in workflow_style or "name: style" not in workflow_style:
+        fail("Style workflow job and status check must be named style.")
+    if "Burki24/Symcon_ModuleCI/style@v1.0.0" not in workflow_style:
+        fail("Style workflow must use Symcon_ModuleCI style v1.0.0.")
+    for marker in (
+        "actions/create-github-app-token@v3",
+        "vars.HELPER_SYNC_APP_CLIENT_ID",
+        "secrets.HELPER_SYNC_APP_PRIVATE_KEY",
+        "Burki24/Symcon_ModuleCI/php-tests@v1.0.0",
+        ".github/scripts/update_library_metadata.py",
+        "CHORE: Update library metadata",
+    ):
+        if marker not in workflow_metadata:
+            fail(f"Metadata workflow is missing: {marker}")
+
+    helper_sync = load_json(ROOT / ".helper-sync.json")
+    if helper_sync.get("source_repository") != "Burki24/Symcon_ModuleHelper":
+        fail("Wrong helper source repository.")
+    if helper_sync.get("base_branch") != "dev":
+        fail("Helper updates must target dev.")
 
     library = load_json(ROOT / "library.json")
     known_guids: set[str] = set()

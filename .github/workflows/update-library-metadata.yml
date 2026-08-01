@@ -6,7 +6,7 @@ on:
       - dev
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: update-library-metadata-${{ github.ref }}
@@ -14,25 +14,35 @@ concurrency:
 
 jobs:
   update-library-metadata:
+    if: "${{ github.event.head_commit == null || !startsWith(github.event.head_commit.message, 'CHORE: Update library metadata') }}"
     runs-on: ubuntu-latest
 
     steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.HELPER_SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.HELPER_SYNC_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Check out repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
+          token: ${{ steps.app-token.outputs.token }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
+      - name: Get GitHub App user ID
+        id: app-user
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
 
-      - name: Validate Symcon module structure
-        run: python3 tests/validate_structure.py
-
-      - name: Test metadata updater
-        run: python3 tests/test_update_library_metadata.py
+      - name: Run shared module tests
+        uses: Burki24/Symcon_ModuleCI/php-tests@v1.0.0
 
       - name: Determine source commit metadata
         id: source
@@ -59,10 +69,10 @@ jobs:
             increment=1
           else
             increment=$(
-              git log --format=%s "${BEFORE_SHA}..${SOURCE_SHA}" \
-                | grep -vc '^CHORE: Update library metadata' \
-                || true
+              git log --format=%s "${BEFORE_SHA}..${SOURCE_SHA}" |
+                grep -vc '^CHORE: Update library metadata' || true
             )
+
             if (( increment < 1 )); then
               increment=1
             fi
@@ -89,6 +99,8 @@ jobs:
       - name: Commit and push metadata
         shell: bash
         env:
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          APP_USER_ID: ${{ steps.app-user.outputs.user-id }}
           SHORT_SHA: ${{ steps.source.outputs.short_sha }}
         run: |
           set -euo pipefail
@@ -98,8 +110,8 @@ jobs:
             exit 0
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
 
           version=$(
             python3 -c 'import json; print(json.load(open("library.json", encoding="utf-8"))["version"])'

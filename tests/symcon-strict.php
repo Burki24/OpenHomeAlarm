@@ -76,8 +76,10 @@ assertFoundation(
 
 $workflow = (string) file_get_contents($root . '/.github/workflows/tests.yml');
 assertFoundation(
-    str_contains($workflow, "php-version: '8.5'"),
-    'The test workflow must run on PHP 8.5 to match Symcon 9.0.'
+    str_contains($workflow, "jobs:\n  tests:")
+        && str_contains($workflow, 'name: tests')
+        && str_contains($workflow, 'Burki24/Symcon_ModuleCI/php-tests@v1.0.0'),
+    'The test workflow must use the shared tests status check from Symcon_ModuleCI v1.0.0.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm foundation checks passed.\n");

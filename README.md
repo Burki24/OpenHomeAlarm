@@ -18,3 +18,26 @@ Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als
 ## Sicherheit
 
 Hinweise zum Melden von Schwachstellen und zum Umgang mit dem Unscharfschaltcode stehen in [SECURITY.md](SECURITY.md).
+
+## Entwicklung
+
+Das Repository verwendet die zentralen Actions aus `Symcon_ModuleCI v1.0.0`.
+Die einheitlichen Status-Checks heißen:
+
+- `tests`
+- `style`
+
+Die offiziellen Symcon-Quellen werden als Git-Submodule eingebunden:
+
+- `.style` → `symcon/StylePHP`
+- `tests/stubs` → `symcon/SymconStubs`
+
+Der lokale Test-Einstiegspunkt lautet:
+
+```text
+php tests/run.php
+```
+
+## Lizenz
+
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).

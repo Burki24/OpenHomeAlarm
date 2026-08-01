@@ -1,5 +1,0 @@
-Nach dem Einspielen dieses Pakets bitte folgende nicht mehr verwendete Datei löschen:
-
-libs/helper/IPSViewColorPaletteHelper.php
-
-Sie wurde durch libs/helper/IPSViewStyleHelper.php ersetzt.
