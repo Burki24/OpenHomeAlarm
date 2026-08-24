@@ -130,6 +130,12 @@ class IPSModuleStrict
         $this->writtenValues = [];
     }
 
+    /** @return array<string,int|string> */
+    public function TestAttributes(): array
+    {
+        return $this->attributes;
+    }
+
     protected function SetVisualizationType(int $type): bool
     {
         return true;
@@ -365,6 +371,15 @@ $disarmAction = json_encode([
         'VALUE'       => false
     ]
 ], JSON_THROW_ON_ERROR);
+$countdownAction = json_encode([
+    'actionID'   => '{33333333-3333-3333-3333-333333333333}',
+    'parameters' => [
+        'TARGET'      => 5002,
+        'ENVIRONMENT' => 'Default',
+        'PARENT'      => 6001,
+        'VALUE'       => true
+    ]
+], JSON_THROW_ON_ERROR);
 
 $instance = new OpenHomeAlarm();
 $instance->Create();
@@ -442,6 +457,8 @@ $delayedInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $delayedInstance->TestSetPropertyInteger('EntryDelaySeconds', 10);
 $delayedInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $delayedInstance->TestSetPropertyString('AlarmAction', $alarmAction);
+$delayedInstance->TestSetPropertyInteger('CountdownActionEnabled', 1);
+$delayedInstance->TestSetPropertyString('CountdownAction', $countdownAction);
 $delayedInstance->TestSetPropertyString(
     'Sensors',
     json_encode([alarmActionSensor(4002, true)], JSON_THROW_ON_ERROR)
@@ -450,9 +467,46 @@ $delayedInstance->TestClearWrittenValues();
 assertAlarmAction($delayedInstance->ArmAway() === true, 'Delayed alarm action test must arm successfully.');
 $testValues[4002] = true;
 $delayedInstance->MessageSink(3, 4002, VM_UPDATE, [true, true, false]);
-assertAlarmAction(count($testActions) === 0, 'Entry-delay start must not run the alarm action early.');
+assertAlarmAction(
+    count($testActions) === 1
+    && $testActions[0]['actionID'] === '{33333333-3333-3333-3333-333333333333}',
+    'Entry-delay start must run the optional countdown action, but not the alarm action.'
+);
+$entryDeadline = (int) ($delayedInstance->TestAttributes()['EntryDelayDeadline'] ?? 0);
+$runCountdownStep = new ReflectionMethod(OpenHomeAlarm::class, 'RunCountdownActionStep');
+$runCountdownStep->invoke($delayedInstance, $entryDeadline, 10);
+assertAlarmAction(count($testActions) === 1, 'The same countdown step must not run twice.');
+$runCountdownStep->invoke($delayedInstance, $entryDeadline, 9);
+assertAlarmAction(
+    count($testActions) === 2
+    && $testActions[1]['actionID'] === '{33333333-3333-3333-3333-333333333333}',
+    'A new positive countdown value must run the configured action once.'
+);
 $delayedInstance->CompleteEntryDelay();
-assertAlarmAction(count($testActions) === 1, 'Entry-delay expiry must run the alarm action exactly once.');
+assertAlarmAction(
+    count($testActions) === 3
+    && $testActions[2]['actionID'] === '{11111111-1111-1111-1111-111111111111}',
+    'Entry-delay expiry must run the alarm action exactly once after the countdown actions.'
+);
+
+// A broken optional countdown action must never block the delay state machine.
+$testActions = [];
+$testValues[4001] = false;
+$brokenCountdownInstance = new OpenHomeAlarm();
+$brokenCountdownInstance->Create();
+$brokenCountdownInstance->TestSetPropertyInteger('ExitDelaySeconds', 5);
+$brokenCountdownInstance->TestSetPropertyInteger('CountdownActionEnabled', 1);
+$brokenCountdownInstance->TestSetPropertyString('CountdownAction', '{invalid json');
+$brokenCountdownInstance->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction(
+    $brokenCountdownInstance->ArmAway() === true
+    && ($brokenCountdownInstance->TestWrittenValues()['State'] ?? null) === 1,
+    'A broken countdown action must not block the normal exit-delay state.'
+);
+assertAlarmAction($testActions === [], 'An invalid countdown action must not call IPS_RunAction.');
 
 // Broken optional action configuration must never prevent the core alarm state transition.
 $testActions = [];
@@ -488,7 +542,8 @@ assertAlarmAction(
     && findAlarmActionFormField($form['elements'] ?? [], 'AlarmResetAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') === null
-    && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') === null,
+    && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') === null
+    && findAlarmActionFormField($form['elements'] ?? [], 'CountdownAction') === null,
     'Disabled optional SelectAction fields must be absent from static form.json so native validation cannot block unrelated changes.'
 );
 foreach (
@@ -497,7 +552,8 @@ foreach (
         'AlarmResetActionEnabled',
         'DisarmAfterAlarmActionEnabled',
         'FaultActionEnabled',
-        'FaultClearedActionEnabled'
+        'FaultClearedActionEnabled',
+        'CountdownActionEnabled'
     ] as $toggleName
 ) {
     $toggle = findAlarmActionFormField($form['elements'] ?? [], $toggleName);
@@ -529,6 +585,16 @@ assertAlarmAction(
     'Enabling one optional action must not inject other disabled SelectAction fields.'
 );
 
+$dynamicFormInstance->TestSetPropertyInteger('CountdownActionEnabled', 1);
+$dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+$dynamicCountdownAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'CountdownAction');
+assertAlarmAction(
+    is_array($dynamicCountdownAction)
+    && ($dynamicCountdownAction['type'] ?? null) === 'SelectAction'
+    && ($dynamicCountdownAction['targetID'] ?? null) === -2,
+    'GetConfigurationForm must inject the countdown SelectAction only after it is enabled.'
+);
+
 $locale = json_decode(
     (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/locale.json'),
     true,
@@ -536,7 +602,7 @@ $locale = json_decode(
     JSON_THROW_ON_ERROR
 );
 $translations = $locale['translations']['de'] ?? [];
-foreach (['Alarm actions', 'No action', 'Configure action', 'Alarm start', 'On alarm', 'On disarm after alarm'] as $translationKey) {
+foreach (['Alarm actions', 'No action', 'Configure action', 'Alarm start', 'On alarm', 'On disarm after alarm', 'Countdown output', 'On countdown step'] as $translationKey) {
     assertAlarmAction(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }
 

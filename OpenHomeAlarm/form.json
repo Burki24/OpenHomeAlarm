@@ -50,6 +50,25 @@
                 {
                     "type": "Label",
                     "caption": "A value of 0 disables the corresponding delay."
+                },
+                {
+                    "type": "Select",
+                    "name": "CountdownActionEnabled",
+                    "caption": "Countdown output",
+                    "options": [
+                        {
+                            "caption": "No action",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Configure action",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "The optional action runs once for every positive countdown value. Its target can read DelayRemaining, DelaySource, Mode and State from this instance."
                 }
             ]
         },

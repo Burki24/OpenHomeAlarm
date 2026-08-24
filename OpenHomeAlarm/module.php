@@ -121,6 +121,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_FAULT_INPUTS = 'FaultInputs';
     private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
+    private const PROPERTY_COUNTDOWN_ACTION_ENABLED = 'CountdownActionEnabled';
+    private const PROPERTY_COUNTDOWN_ACTION = 'CountdownAction';
     private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
     private const PROPERTY_ALARM_ACTION_ENABLED = 'AlarmActionEnabled';
     private const PROPERTY_ALARM_ACTION = 'AlarmAction';
@@ -190,6 +192,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     ];
 
     private const OPTIONAL_ACTION_FIELDS = [
+        self::PROPERTY_COUNTDOWN_ACTION          => self::PROPERTY_COUNTDOWN_ACTION_ENABLED,
         self::PROPERTY_ALARM_ACTION              => self::PROPERTY_ALARM_ACTION_ENABLED,
         self::PROPERTY_ALARM_RESET_ACTION        => self::PROPERTY_ALARM_RESET_ACTION_ENABLED,
         self::PROPERTY_DISARM_AFTER_ALARM_ACTION => self::PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED,
@@ -198,6 +201,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     ];
 
     private const OPTIONAL_ACTION_FORM_FIELDS = [
+        self::PROPERTY_COUNTDOWN_ACTION_ENABLED => [
+            'name'    => self::PROPERTY_COUNTDOWN_ACTION,
+            'caption' => 'On countdown step'
+        ],
         self::PROPERTY_ALARM_ACTION_ENABLED => [
             'name'    => self::PROPERTY_ALARM_ACTION,
             'caption' => 'On alarm'
@@ -222,6 +229,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
     private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
+    private const ATTRIBUTE_COUNTDOWN_ACTION_STEP = 'CountdownActionStep';
     private const ATTRIBUTE_ALARM_DURATION_DEADLINE = 'AlarmDurationDeadline';
     private const ATTRIBUTE_ALARM_OUTPUT_ACTIVE = 'AlarmOutputActive';
     private const ATTRIBUTE_PENDING_ALARM_SOURCE_ID = 'PendingAlarmSourceID';
@@ -279,6 +287,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyString(self::PROPERTY_FAULT_INPUTS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
+        $this->RegisterPropertyInteger(self::PROPERTY_COUNTDOWN_ACTION_ENABLED, 0);
+        $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_ACTION, '');
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ACTION, '');
@@ -307,6 +317,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
+        $this->RegisterAttributeString(self::ATTRIBUTE_COUNTDOWN_ACTION_STEP, '');
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
@@ -1335,6 +1346,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $restoration = AlarmTimerSchedule::restore($deadline, time());
         $this->SetDelayRemaining($restoration['RemainingSeconds']);
+        $this->RunCountdownActionStep($deadline, $restoration['RemainingSeconds']);
         $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $restoration['Expired'] ? 0 : 1000);
         $this->PublishVisualizationState();
     }
@@ -4453,6 +4465,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->WriteAttributeInteger($deadlineAttribute, $schedule['Deadline']);
         $this->SetTimerInterval($timerName, $schedule['IntervalMilliseconds']);
         $this->SetDelayRemaining($seconds);
+        $this->RunCountdownActionStep($schedule['Deadline'], $seconds);
         $this->SetTimerInterval(self::TIMER_DELAY_STATUS, 1000);
     }
 
@@ -4478,12 +4491,32 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function ClearDelayStatus(): void
     {
         $this->SetTimerInterval(self::TIMER_DELAY_STATUS, 0);
+        $this->WriteAttributeString(self::ATTRIBUTE_COUNTDOWN_ACTION_STEP, '');
         if ($this->GetValue(self::IDENT_DELAY_REMAINING) !== 0) {
             $this->SetDelayRemaining(0);
         }
         if ($this->GetValue(self::IDENT_DELAY_SOURCE) !== '') {
             $this->SetDelaySource('');
         }
+    }
+
+    private function RunCountdownActionStep(int $deadline, int $remainingSeconds): void
+    {
+        if (
+            $remainingSeconds <= 0
+            || $this->ReadPropertyInteger(self::PROPERTY_COUNTDOWN_ACTION_ENABLED) !== 1
+        ) {
+            return;
+        }
+
+        $step = sprintf('%d:%d:%d', $this->ReadAlarmState(), $deadline, $remainingSeconds);
+        if ($this->ReadAttributeString(self::ATTRIBUTE_COUNTDOWN_ACTION_STEP) === $step) {
+            return;
+        }
+
+        // Persist first so ApplyChanges or a restart cannot repeat the same announcement.
+        $this->WriteAttributeString(self::ATTRIBUTE_COUNTDOWN_ACTION_STEP, $step);
+        $this->RunConfiguredAction(self::PROPERTY_COUNTDOWN_ACTION);
     }
 
     /**
