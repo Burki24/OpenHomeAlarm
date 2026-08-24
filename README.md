@@ -44,6 +44,11 @@ Symcon-9.0-Installation vollständig durchgeführt und protokolliert werden.
 Der verbindliche Umfang und die Freigabekriterien stehen im
 [Release-Zielbild](docs/RELEASE_SCOPE.md).
 
+Installation und Aktualisierung sind in der
+[Installationsanleitung](docs/INSTALLATION.md) beschrieben. Änderungen stehen
+im [Changelog](CHANGELOG.md); das reproduzierbare Paket und die Freigabe werden
+nach dem [Release-Prozess](docs/RELEASE_PROCESS.md) erstellt.
+
 ## Lizenz
 
 Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).

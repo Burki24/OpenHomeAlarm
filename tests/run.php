@@ -54,6 +54,7 @@ $commands = [
     ['Check Symcon runtime compatibility', 'php tests/symcon-runtime.php'],
     ['Check visualization JavaScript syntax', 'node --check OpenHomeAlarm/visualization/app.js'],
     ['Test library metadata updater', 'python3 tests/test_update_library_metadata.py'],
+    ['Test reproducible release artifact', 'python3 tests/test_build_release_artifact.py'],
 ];
 
 foreach ($commands as [$label, $command]) {
