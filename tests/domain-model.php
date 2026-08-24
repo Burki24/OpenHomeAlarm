@@ -6,12 +6,14 @@ use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
+use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
+require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
 
 function assertDomainSame(mixed $expected, mixed $actual, string $message): void
@@ -66,6 +68,27 @@ assertDomainSame('away', AlarmStateMachine::modeName(2), 'Mode names must remain
 assertDomainSame('entry_delay', AlarmStateMachine::stateName(3), 'State names must remain stable.');
 assertDomainSame('unknown', AlarmStateMachine::modeName(99), 'Unknown mode names must remain explicit.');
 assertDomainSame('unknown', AlarmStateMachine::stateName(99), 'Unknown state names must remain explicit.');
+
+assertDomainSame(
+    ['Deadline' => 1060, 'IntervalMilliseconds' => 60000],
+    AlarmTimerSchedule::start(1000, 60),
+    'A timer start must persist its absolute deadline and interval.'
+);
+assertDomainSame(
+    ['Expired' => false, 'RemainingSeconds' => 30, 'IntervalMilliseconds' => 30000],
+    AlarmTimerSchedule::restore(1060, 1030),
+    'A future deadline must restore only its remaining interval.'
+);
+assertDomainSame(
+    ['Expired' => true, 'RemainingSeconds' => 0, 'IntervalMilliseconds' => 0],
+    AlarmTimerSchedule::restore(1060, 1060),
+    'A deadline must expire exactly when it is reached.'
+);
+assertDomainSame(
+    ['Expired' => true, 'RemainingSeconds' => 0, 'IntervalMilliseconds' => 0],
+    AlarmTimerSchedule::restore(0, 1000),
+    'A missing persisted deadline must be treated as expired.'
+);
 
 $codeStatus = AlarmCodeProtection::status(true, 0, 0, 3, 1000);
 assertDomainSame(3, $codeStatus['RemainingAttempts'], 'A new code-protection state must expose every attempt.');

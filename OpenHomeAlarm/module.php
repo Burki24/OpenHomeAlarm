@@ -6,12 +6,14 @@ use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
+use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
+require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
 require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';
@@ -1321,9 +1323,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $remainingSeconds = max(0, $deadline - time());
-        $this->SetDelayRemaining($remainingSeconds);
-        $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $remainingSeconds > 0 ? 1000 : 0);
+        $restoration = AlarmTimerSchedule::restore($deadline, time());
+        $this->SetDelayRemaining($restoration['RemainingSeconds']);
+        $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $restoration['Expired'] ? 0 : 1000);
         $this->PublishVisualizationState();
     }
 
@@ -4377,8 +4379,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, time() + $seconds);
-        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $seconds * 1000);
+        $schedule = AlarmTimerSchedule::start(time(), $seconds);
+        $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, $schedule['Deadline']);
+        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $schedule['IntervalMilliseconds']);
     }
 
     private function StopAlarmDurationTimer(): void
@@ -4422,14 +4425,14 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $remainingSeconds = $deadline - time();
-        if ($remainingSeconds <= 0) {
+        $restoration = AlarmTimerSchedule::restore($deadline, time());
+        if ($restoration['Expired']) {
             $this->CompleteAlarmDuration();
 
             return;
         }
 
-        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $remainingSeconds * 1000);
+        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $restoration['IntervalMilliseconds']);
     }
 
     private function ReadAlarmMode(): int
@@ -4459,8 +4462,9 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function StartDelayTimer(string $timerName, string $deadlineAttribute, int $seconds): void
     {
-        $this->WriteAttributeInteger($deadlineAttribute, time() + $seconds);
-        $this->SetTimerInterval($timerName, $seconds * 1000);
+        $schedule = AlarmTimerSchedule::start(time(), $seconds);
+        $this->WriteAttributeInteger($deadlineAttribute, $schedule['Deadline']);
+        $this->SetTimerInterval($timerName, $schedule['IntervalMilliseconds']);
         $this->SetDelayRemaining($seconds);
         $this->SetTimerInterval(self::TIMER_DELAY_STATUS, 1000);
     }
@@ -4557,14 +4561,14 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $remainingSeconds = $deadline - time();
-        if ($remainingSeconds <= 0) {
+        $restoration = AlarmTimerSchedule::restore($deadline, time());
+        if ($restoration['Expired']) {
             $expiredCallback();
 
             return;
         }
 
-        $this->SetTimerInterval($timerName, $remainingSeconds * 1000);
+        $this->SetTimerInterval($timerName, $restoration['IntervalMilliseconds']);
     }
 
     private function SetAlarmMode(int $mode): void
