@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parents[2]
 TOP_LEVEL_FILES = (
     'CHANGELOG.md',
     'LICENSE',
-    'LICENSE_HISTORY.md',
     'README.md',
     'SECURITY.md',
     'library.json',

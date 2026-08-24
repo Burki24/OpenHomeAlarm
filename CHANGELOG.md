@@ -42,7 +42,5 @@ beispielsweise `v1.109.0`.
 
 ### License
 
-- Neue Fassungen stehen ab dem Lizenzwechsel-Commit unter der PolyForm
-  Noncommercial License 1.0.0 mit dem Required Notice `Copyright 2026 Burkhard
-  Kneiseler. OpenHomeAlarm.` Zuvor unter MIT veröffentlichte Fassungen bleiben
-  unter MIT verfügbar.
+- OpenHomeAlarm steht unter der PolyForm Noncommercial License 1.0.0 mit dem
+  Required Notice `Copyright 2026 Burkhard Kneiseler. OpenHomeAlarm.`

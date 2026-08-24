@@ -55,7 +55,3 @@ Neue Fassungen dieses Projekts stehen unter der
 [PolyForm Noncommercial License 1.0.0](LICENSE) mit dem Required Notice
 `Copyright 2026 Burkhard Kneiseler. OpenHomeAlarm.` Kommerzielle Nutzung ist
 damit nicht gestattet, sofern keine gesonderte Erlaubnis erteilt wurde.
-
-Bereits zuvor unter der MIT-Lizenz veröffentlichte Codefassungen behalten ihre
-MIT-Lizenz. Einzelheiten zum Zeitpunkt der Umstellung stehen in der
-[Lizenzhistorie](LICENSE_HISTORY.md).
