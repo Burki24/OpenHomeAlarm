@@ -55,6 +55,36 @@ final class AlarmStateMachine
         return in_array($state, self::states(), true);
     }
 
+    public static function isArmingMode(int $mode): bool
+    {
+        return in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true);
+    }
+
+    public static function canArm(int $state, int $targetMode): bool
+    {
+        return $state === self::STATE_DISARMED && self::isArmingMode($targetMode);
+    }
+
+    public static function canCompleteExitDelay(int $state, int $mode): bool
+    {
+        return $state === self::STATE_EXIT_DELAY && self::isArmingMode($mode);
+    }
+
+    public static function monitorsArmedSensors(int $state): bool
+    {
+        return in_array($state, [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true);
+    }
+
+    public static function canStartEntryDelay(int $state): bool
+    {
+        return $state === self::STATE_ARMED;
+    }
+
+    public static function canEnterAlarm(int $state): bool
+    {
+        return self::isValidState($state) && $state !== self::STATE_ALARM;
+    }
+
     public static function armingModeFromName(string $mode): ?int
     {
         return match (strtolower(trim($mode))) {

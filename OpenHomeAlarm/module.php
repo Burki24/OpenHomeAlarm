@@ -1239,15 +1239,16 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
 
-        if ($this->ReadAlarmState() !== self::STATE_EXIT_DELAY) {
+        $state = $this->ReadAlarmState();
+        $mode = $this->ReadAlarmMode();
+        if ($state !== self::STATE_EXIT_DELAY) {
             $this->ClearDelayStatus();
             $this->PublishVisualizationState();
 
             return;
         }
 
-        $mode = $this->ReadAlarmMode();
-        if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
+        if (!AlarmStateMachine::canCompleteExitDelay($state, $mode)) {
             $this->Disarm();
 
             return;
@@ -3596,10 +3597,10 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ArmMode(int $mode): bool
     {
-        if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
+        if (!AlarmStateMachine::isArmingMode($mode)) {
             throw new InvalidArgumentException('Unsupported arming target mode.');
         }
-        if ($this->ReadAlarmState() !== self::STATE_DISARMED) {
+        if (!AlarmStateMachine::canArm($this->ReadAlarmState(), $mode)) {
             return false;
         }
 
@@ -4064,12 +4065,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function HandleSensorUpdateWhileArmed(int $variableID, array $sensors): void
     {
         $state = $this->ReadAlarmState();
-        if (!in_array($state, [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)) {
+        if (!AlarmStateMachine::monitorsArmedSensors($state)) {
             return;
         }
 
         $mode = $this->ReadAlarmMode();
-        if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
+        if (!AlarmStateMachine::isArmingMode($mode)) {
             return;
         }
 
@@ -4099,7 +4100,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $entryDelaySensor ??= $sensor;
         }
 
-        if ($entryDelaySensor === null || $state === self::STATE_ENTRY_DELAY) {
+        if ($entryDelaySensor === null || !AlarmStateMachine::canStartEntryDelay($state)) {
             return;
         }
 
@@ -4144,7 +4145,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         int $fallbackVariableID = 0,
         string $explicitSourceName = ''
     ): void {
-        if ($this->ReadAlarmState() === self::STATE_ALARM) {
+        if (!AlarmStateMachine::canEnterAlarm($this->ReadAlarmState())) {
             return;
         }
 
