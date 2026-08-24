@@ -8,6 +8,10 @@ Visualisierungen und der nativen Aktionen.
 Der verbindliche Funktionsumfang, die Kompatibilitätsgrenzen und die
 Release-Gates stehen im [Release-Zielbild](RELEASE_SCOPE.md).
 
+Das jüngste praktische Prüfergebnis ist im
+[Abnahmeergebnis vom 24.08.2026](acceptance-results/2026-08-24-symcon-9.1.md)
+dokumentiert.
+
 ## Freigabestatus
 
 | Bereich | Status | Freigabebedingung |
@@ -15,10 +19,10 @@ Release-Gates stehen im [Release-Zielbild](RELEASE_SCOPE.md).
 | Automatisierte Tests | Bestanden | `php tests/run.php` endet ohne Fehler |
 | PHP-Syntax | Bestanden | Alle PHP-Dateien bestehen `php -l` |
 | JSON-Format | Bestanden | `php .style/json-check.php` endet ohne Fehler |
-| Symcon-9.0-Laufzeit | Offen | Alle Pflichtfälle dieser Matrix sind auf Symcon 9.0 bestanden |
-| HTML-SDK-Kachel | Offen | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
-| IPSView | Offen | WebContent, WebHook und Token-Prüfung sind bestanden |
-| Update/Migration | Offen | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
+| Symcon-9.0-Laufzeit | Teilweise bestanden (46/49) | Alle Pflichtfälle dieser Matrix sind auf einer kompatiblen Symcon-Version bestanden |
+| HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
+| IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
+| Update/Migration | Blockiert | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
 | Release Candidate | Blockiert | Erst möglich, wenn kein offener Pflichtfall und kein kritischer Befund verbleibt |
 
 `Bestanden` bezeichnet hier den zuletzt lokal geprüften Repository-Stand. Vor
