@@ -6,6 +6,68 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Alarm partitions",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Configure independently addressable alarm areas. Exactly one enabled partition must be the default."
+                },
+                {
+                    "type": "List",
+                    "name": "Partitions",
+                    "caption": "Partitions",
+                    "rowCount": 4,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "80px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Partition ID",
+                            "name": "ID",
+                            "width": "180px",
+                            "add": "area",
+                            "edit": {
+                                "type": "ValidationTextBox",
+                                "validate": "^[a-z][a-z0-9_-]{0,31}$"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Default partition",
+                            "name": "Default",
+                            "width": "130px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Partition IDs are stable technical identifiers and cannot contain spaces."
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "IPSView",
             "expanded": false,
             "items": [

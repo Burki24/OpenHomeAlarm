@@ -353,7 +353,24 @@ $testValues[2001] = true;
 $testValues[2002] = false;
 
 $state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-assertControlApi(($state['ApiVersion'] ?? null) === 1, 'The control API must expose schema version 1.');
+assertControlApi(($state['ApiVersion'] ?? null) === 2, 'The partition-aware control API must expose schema version 2.');
+assertControlApi(($state['DefaultPartition'] ?? null) === 'main', 'The control API must identify the default partition.');
+assertControlApi(
+    ($state['Partitions']['main']['ID'] ?? null) === 'main'
+    && ($state['Partitions']['main']['Name'] ?? null) === 'Main area'
+    && ($state['Partitions']['main']['Default'] ?? null) === true,
+    'The default partition must expose its stable identity in the control state.'
+);
+assertControlApi(
+    ($state['Partitions']['main']['State']['Name'] ?? null) === 'disarmed',
+    'Slice 1 must publish the existing runtime as the default partition state.'
+);
+$partitionMetadata = json_decode($instance->GetPartitions(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionMetadata[0]['ID'] ?? null) === 'main'
+    && ($partitionMetadata[0]['Default'] ?? null) === true,
+    'The public partition metadata API must expose the configured default partition.'
+);
 assertControlApi(
     ($state['Mode']['Name'] ?? null) === 'none' && ($state['State']['Name'] ?? null) === 'disarmed',
     'The initial control state must expose stable machine-readable mode and state names.'

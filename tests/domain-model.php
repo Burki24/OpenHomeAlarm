@@ -222,8 +222,8 @@ assertDomainSame(
     'Alarm capabilities must be derived independently from visualization transports.'
 );
 assertDomainSame(
-    ['ApiVersion' => 1, 'Interaction' => ['Type' => 'test']],
-    AlarmControlStateAdapter::withInteraction(['ApiVersion' => 1], ['Type' => 'test']),
+    ['ApiVersion' => 2, 'Interaction' => ['Type' => 'test']],
+    AlarmControlStateAdapter::withInteraction(['ApiVersion' => 2], ['Type' => 'test']),
     'Visualization interactions must be added without rebuilding control state.'
 );
 assertDomainSame(

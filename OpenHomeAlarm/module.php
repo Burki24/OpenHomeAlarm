@@ -10,6 +10,7 @@ use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
+use Burki24\OpenHomeAlarm\AlarmPartitionRegistry;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
 use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
@@ -24,6 +25,7 @@ require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
+require_once __DIR__ . '/../libs/AlarmPartitionRegistry.php';
 require_once __DIR__ . '/../libs/AlarmSensorMonitor.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
 require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
@@ -47,7 +49,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     use \Burki24\SymconModuleHelper\VisualizationAssetHelper;
     use \Burki24\SymconModuleHelper\VisualizationThemeHelper;
 
-    private const CONTROL_API_VERSION = 1;
+    private const CONTROL_API_VERSION = 2;
+    private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area","Default":true}]';
 
     private const MODE_NONE = AlarmStateMachine::MODE_NONE;
     private const MODE_HOME = AlarmStateMachine::MODE_HOME;
@@ -118,6 +121,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     ];
 
     private const PROPERTY_SENSORS = 'Sensors';
+    private const PROPERTY_PARTITIONS = 'Partitions';
     private const PROPERTY_FAULT_INPUTS = 'FaultInputs';
     private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
@@ -284,6 +288,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SetVisualizationType(1);
 
         $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
+        $this->RegisterPropertyString(self::PROPERTY_PARTITIONS, self::DEFAULT_PARTITIONS_JSON);
         $this->RegisterPropertyString(self::PROPERTY_FAULT_INPUTS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
@@ -799,6 +804,8 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetControlState(): string
     {
+        $partitions = $this->ReadConfiguredPartitions();
+        $defaultPartition = AlarmPartitionRegistry::defaultPartition($partitions);
         $sensors = $this->ReadConfiguredSensors();
         $faultInputs = $this->ReadConfiguredFaultInputs();
         $sensorReadiness = $this->EvaluateReadinessStatus($sensors);
@@ -811,8 +818,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $codeProtection = $this->ReadDisarmCodeProtectionStatus();
         $identity = AlarmControlStateAdapter::identity($mode, $state);
 
-        $payload = [
-            'ApiVersion'   => self::CONTROL_API_VERSION,
+        $partitionState = [
             'Mode'         => $identity['Mode'],
             'State'        => $identity['State'],
             'Capabilities' => AlarmControlStateAdapter::capabilities(
@@ -858,8 +864,29 @@ class OpenHomeAlarm extends IPSModuleStrict
             'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors),
             'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, 6)
         ];
+        $payload = array_merge([
+            'ApiVersion'       => self::CONTROL_API_VERSION,
+            'DefaultPartition' => $defaultPartition['ID'],
+            'Partitions'       => [$defaultPartition['ID'] => array_merge(
+                [
+                    'ID'      => $defaultPartition['ID'],
+                    'Name'    => $defaultPartition['Name'],
+                    'Default' => true
+                ],
+                $partitionState
+            )]
+        ], $partitionState);
 
         return AlarmControlStateAdapter::encode($payload);
+    }
+
+    /** Returns configured partition metadata without exposing runtime internals. */
+    public function GetPartitions(): string
+    {
+        return json_encode(
+            $this->ReadConfiguredPartitions(),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
     }
 
     /**
@@ -1774,6 +1801,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         return AlarmArmingSchedule::schedules(
             $this->ReadPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES)
         );
+    }
+
+    /** @return list<array{Enabled:bool,ID:string,Name:string,Default:bool}> */
+    private function ReadConfiguredPartitions(): array
+    {
+        return AlarmPartitionRegistry::partitions($this->ReadPropertyString(self::PROPERTY_PARTITIONS));
     }
 
     private function IsDisarmCodeProtectionEnabled(): bool

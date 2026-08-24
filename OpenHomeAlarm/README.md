@@ -45,6 +45,10 @@ Unter **Instanz hinzufügen** kann das Modul **OpenHomeAlarm** gefunden und ange
 
 Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Dort lässt sich außerdem eine optionale **Countdown-Ausgabe** als native Symcon-Aktion konfigurieren. Im Abschnitt **Code-Schutz** kann optional ein vier- bis achtstelliger **Unscharfschaltcode** hinterlegt werden. **Automatische Scharfschaltung** verwaltet wöchentliche Schaltpläne mit Wochentagen, Uhrzeit und Zielmodus. Im Abschnitt **Alarmaktionen** werden die **Alarmdauer** sowie optional die Aktionen **Bei Alarm**, **Bei Rücksetzung des Alarmausgangs** und **Beim Unscharfschalten nach Alarm** konfiguriert. Jede dieser Aktionen ist standardmäßig deaktiviert und wird erst nach Auswahl **Aktion konfigurieren** und einmaligem Übernehmen eingeblendet und ausgeführt. Im Abschnitt **Systemüberwachung** wird außerdem das Intervall der **Sensor-Integritätsprüfung** festgelegt; zusätzlich können dort 24/7-Eingänge für Manipulation und technische Störungen samt explizit aktivierbaren Aktionen bei Auftreten und Behebung hinterlegt werden. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Dort kann ein Sensor zusätzlich als **Ausgangsweg** markiert werden. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
 
+#### Alarmbereiche
+
+Eine Instanz verwaltet mehrere Alarmbereiche über stabile technische IDs und frei wählbare Namen. Genau ein aktiver Bereich ist als Standardbereich markiert. Die Control API 2 veröffentlicht die Bereichsmetadaten unter `Partitions` und nennt die Standard-ID in `DefaultPartition`; `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Metadaten separat. In diesem ersten Partitions-Slice wird die vorhandene Laufzeit eindeutig dem Standardbereich zugeordnet. Sensorzuordnung und vollständig unabhängige Laufzeitzustände folgen in den nächsten Slices.
+
 ### 5. Statusvariablen und Darstellungen
 
 OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
@@ -194,7 +198,7 @@ Da IPSView keine HTML-SDK-`requestAction()`-Brücke bereitstellt, kommuniziert d
 
 Statusquelle bleibt unverändert die öffentliche Bedien-API: `OHA_GetControlState($InstanzID)` liefert einen versionierten JSON-Snapshot mit Modus, Zustand, verfügbaren Bedienmöglichkeiten, Code-Sperrstatus, Scharfschaltbereitschaft, strukturierten Blockierern samt Variablen-ID, temporären Überbrückungen, Verzögerungsstatus, Alarmgedächtnis und Systemstörungen. Die Visualisierung bildet keine Alarmregeln nach.
 
-Die im Snapshot enthaltene `ApiVersion` beginnt mit `1`. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
+Die partitionsfähige Struktur verwendet `ApiVersion` 2. `DefaultPartition` enthält die technische ID des Standardbereichs; `Partitions` ist nach diesen IDs indiziert. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
 
 ### 14. PHP-Befehlsreferenz
 
@@ -203,6 +207,7 @@ Folgende öffentliche Modulbefehle stehen zur Verfügung:
 | PHP-Befehl | Rückgabe | Bedeutung |
 | --- | --- | --- |
 | `OHA_GetControlState($InstanzID)` | `string` | Liefert den versionierten, strukturierten Bedienzustand als JSON; vorgesehen als einzige Statusquelle der eigenen Visualisierung |
+| `OHA_GetPartitions($InstanzID)` | `string` | Liefert die konfigurierten Partitionsmetadaten als JSON |
 | `OHA_Arm($InstanzID, $Modus)` | `bool` | Schaltet über die stabile Bedien-API mit `home`, `away` oder `night` scharf; andere Werte werden sicher abgelehnt |
 | `OHA_ArmHome($InstanzID)` | `bool` | Kompatibilitäts-/Komfortbefehl für **Zuhause**; verwendet intern dieselbe Bedien-API |
 | `OHA_ArmAway($InstanzID)` | `bool` | Kompatibilitäts-/Komfortbefehl für **Abwesend**; verwendet intern dieselbe Bedien-API |
