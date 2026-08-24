@@ -11,7 +11,14 @@ from pathlib import Path, PurePosixPath
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TOP_LEVEL_FILES = ('CHANGELOG.md', 'LICENSE', 'README.md', 'SECURITY.md', 'library.json')
+TOP_LEVEL_FILES = (
+    'CHANGELOG.md',
+    'LICENSE',
+    'LICENSE_HISTORY.md',
+    'README.md',
+    'SECURITY.md',
+    'library.json',
+)
 SOURCE_DIRECTORIES = ('docs', 'libs', 'OpenHomeAlarm')
 
 

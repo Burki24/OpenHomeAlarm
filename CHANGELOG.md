@@ -5,7 +5,7 @@ festgehalten. Die Library-Version folgt dem Format `Hauptversion.Nebenstand`
 aus `library.json`; der dazugehörige Git-Tag ergänzt für SemVer eine Patchstelle,
 beispielsweise `v1.109.0`.
 
-## Unreleased – geplanter erster produktiver Release
+## 1.109 – 2026-08-24
 
 ### Added
 
@@ -39,3 +39,10 @@ beispielsweise `v1.109.0`.
 - OpenHomeAlarm ist eine Automationslösung und keine zertifizierte Einbruch-,
   Brand- oder Gefahrenmeldeanlage. Die verbindlichen Einsatzgrenzen stehen in
   [SECURITY.md](SECURITY.md).
+
+### License
+
+- Neue Fassungen stehen ab dem Lizenzwechsel-Commit unter der PolyForm
+  Noncommercial License 1.0.0 mit dem Required Notice `Copyright 2026 Burkhard
+  Kneiseler. OpenHomeAlarm.` Zuvor unter MIT veröffentlichte Fassungen bleiben
+  unter MIT verfügbar.
