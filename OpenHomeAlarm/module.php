@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
+use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
@@ -11,9 +12,11 @@ use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
 use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
+use Burki24\OpenHomeAlarm\AlarmVisualizationAdapter;
 
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
+require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
@@ -21,6 +24,7 @@ require_once __DIR__ . '/../libs/AlarmSensorMonitor.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
 require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
+require_once __DIR__ . '/../libs/AlarmVisualizationAdapter.php';
 require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewStyleHelper.php';
@@ -775,24 +779,19 @@ class OpenHomeAlarm extends IPSModuleStrict
         $alarmMemory = $this->GetValue(self::IDENT_ALARM_MEMORY) === true;
         $alarmOutputActive = $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true;
         $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+        $identity = AlarmControlStateAdapter::identity($mode, $state);
 
         $payload = [
             'ApiVersion' => self::CONTROL_API_VERSION,
-            'Mode'       => [
-                'Value' => $mode,
-                'Name'  => $this->ControlModeName($mode)
-            ],
-            'State'      => [
-                'Value' => $state,
-                'Name'  => $this->ControlStateName($state)
-            ],
-            'Capabilities' => [
-                'CodeRequired'        => trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== '',
-                'CanDisarm'           => !$isDisarmed || $mode !== self::MODE_NONE,
-                'CanManageBypasses'   => $isDisarmed,
-                'CanResetAlarmOutput' => $state === self::STATE_ALARM && $alarmOutputActive,
-                'CanClearAlarmMemory' => $alarmMemory && $state !== self::STATE_ALARM
-            ],
+            'Mode'       => $identity['Mode'],
+            'State'      => $identity['State'],
+            'Capabilities' => AlarmControlStateAdapter::capabilities(
+                $mode,
+                $state,
+                trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== '',
+                $alarmMemory,
+                $alarmOutputActive
+            ),
             'Modes' => [
                 'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs),
                 'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $readiness['away'], $isDisarmed, $sensors, $faultInputs),
@@ -830,10 +829,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, 6)
         ];
 
-        return json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        return AlarmControlStateAdapter::encode($payload);
     }
 
     /**
@@ -2010,21 +2006,18 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function ControlStatePayload(?array $interaction = null): array
     {
         $state = json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-        if ($interaction !== null) {
-            $state['Interaction'] = $interaction;
-        }
 
-        return $state;
+        return AlarmControlStateAdapter::withInteraction($state, $interaction);
     }
 
     /** @return array<string,mixed>|null */
     private function ExecuteVisualizationAction(string $Ident, mixed $Value): ?array
     {
-        switch ($Ident) {
+        $command = AlarmVisualizationAdapter::command($Ident, $Value);
+        $Value = $command['Value'];
+
+        switch ($command['Action']) {
             case 'Arm':
-                if (!is_string($Value)) {
-                    throw new InvalidArgumentException('Arm action requires a mode string.');
-                }
                 $this->Arm($Value);
 
                 return null;
@@ -2035,9 +2028,6 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return null;
 
             case 'DisarmWithCode':
-                if (!is_string($Value)) {
-                    throw new InvalidArgumentException('DisarmWithCode action requires a code string.');
-                }
                 if ($this->DisarmWithCode($Value)) {
                     return null;
                 }
@@ -2055,12 +2045,12 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return null;
 
             case 'BypassSensor':
-                $this->BypassSensor($this->VisualizationVariableID($Value));
+                $this->BypassSensor($Value);
 
                 return null;
 
             case 'RemoveSensorBypass':
-                $this->RemoveSensorBypass($this->VisualizationVariableID($Value));
+                $this->RemoveSensorBypass($Value);
 
                 return null;
 
@@ -2114,46 +2104,12 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return;
             }
 
-            $state = json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-            $state['Interaction'] = $interaction;
-            $this->UpdateVisualizationValue(json_encode(
-                $state,
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            $this->UpdateVisualizationValue(AlarmControlStateAdapter::encode(
+                $this->ControlStatePayload($interaction)
             ));
         } catch (Throwable $exception) {
             $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
         }
-    }
-
-    private function ControlModeName(int $mode): string
-    {
-        return AlarmStateMachine::modeName($mode);
-    }
-
-    private function ControlStateName(int $state): string
-    {
-        return AlarmStateMachine::stateName($state);
-    }
-
-    /**
-     * Normalizes a variable ID received from the HTML-SDK action channel.
-     *
-     * @param mixed $value Value delivered by requestAction().
-     *
-     * @return int Positive Symcon variable ID.
-     */
-    private function VisualizationVariableID(mixed $value): int
-    {
-        $variableID = filter_var(
-            $value,
-            FILTER_VALIDATE_INT,
-            ['options' => ['min_range' => 1]]
-        );
-        if ($variableID === false) {
-            throw new InvalidArgumentException('Visualization action requires a positive variable ID.');
-        }
-
-        return $variableID;
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
+use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
@@ -11,9 +12,11 @@ use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
 use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
+use Burki24\OpenHomeAlarm\AlarmVisualizationAdapter;
 
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
+require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
@@ -21,6 +24,7 @@ require_once __DIR__ . '/../libs/AlarmSensorMonitor.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
 require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
+require_once __DIR__ . '/../libs/AlarmVisualizationAdapter.php';
 
 function assertDomainSame(mixed $expected, mixed $actual, string $message): void
 {
@@ -184,6 +188,55 @@ assertDomainSame(
     ),
     'A runner exception must be contained.'
 );
+
+assertDomainSame(
+    ['Mode' => ['Value' => 2, 'Name' => 'away'], 'State' => ['Value' => 3, 'Name' => 'entry_delay']],
+    AlarmControlStateAdapter::identity(2, 3),
+    'The control adapter must expose stable machine-readable mode and state names.'
+);
+assertDomainSame(
+    [
+        'CodeRequired' => true,
+        'CanDisarm' => true,
+        'CanManageBypasses' => false,
+        'CanResetAlarmOutput' => true,
+        'CanClearAlarmMemory' => false
+    ],
+    AlarmControlStateAdapter::capabilities(2, 4, true, true, true),
+    'Alarm capabilities must be derived independently from visualization transports.'
+);
+assertDomainSame(
+    ['ApiVersion' => 1, 'Interaction' => ['Type' => 'test']],
+    AlarmControlStateAdapter::withInteraction(['ApiVersion' => 1], ['Type' => 'test']),
+    'Visualization interactions must be added without rebuilding control state.'
+);
+assertDomainSame(
+    '{"Name":"Tür"}',
+    AlarmControlStateAdapter::encode(['Name' => 'Tür']),
+    'Control JSON must remain Unicode- and slash-safe.'
+);
+assertDomainSame(
+    ['Action' => 'Arm', 'Value' => 'away'],
+    AlarmVisualizationAdapter::command('Arm', 'away'),
+    'Visualization arming commands must retain their mode.'
+);
+assertDomainSame(
+    ['Action' => 'BypassSensor', 'Value' => 42],
+    AlarmVisualizationAdapter::command('BypassSensor', '42'),
+    'Visualization variable IDs must be normalized to positive integers.'
+);
+try {
+    AlarmVisualizationAdapter::command('Arm', 2);
+    throw new RuntimeException('A non-string visualization mode must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Arm action requires a mode string.', $exception->getMessage(), 'The established action diagnostic must remain stable.');
+}
+try {
+    AlarmVisualizationAdapter::command('Unknown', null);
+    throw new RuntimeException('An unknown visualization command must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Unknown visualization action.', $exception->getMessage(), 'Unknown actions must retain their diagnostic.');
+}
 
 $codeStatus = AlarmCodeProtection::status(true, 0, 0, 3, 1000);
 assertDomainSame(3, $codeStatus['RemainingAttempts'], 'A new code-protection state must expose every attempt.');
