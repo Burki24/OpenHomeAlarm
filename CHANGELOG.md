@@ -5,6 +5,26 @@ festgehalten. Die Library-Version folgt dem Format `Hauptversion.Nebenstand`
 aus `library.json`; der dazugehörige Git-Tag ergänzt für SemVer eine Patchstelle,
 beispielsweise `v1.109.0`.
 
+## 1.122 – 2026-08-24
+
+### Changed
+
+- Der Alarmkern wurde in klar getrennte, unabhängig testbare Komponenten für
+  Zustandsübergänge, wiederanlaufsichere Timer, Sensorüberwachung,
+  Störungsauswertung und Aktionsausführung aufgeteilt.
+- Bedien-API und Visualisierungskommandos werden nun über eigene Adapter
+  aufbereitet und validiert, während die öffentliche `OHA_*`-API vollständig
+  kompatibel bleibt.
+- Der zentrale `IPSViewStyleHelper` wurde auf Version 1.4.2 aktualisiert.
+
+### Verified
+
+- Alle extrahierten Komponenten, die vollständige Repository-Testsuite sowie
+  PHP-, JSON- und Release-Reproduzierbarkeitsprüfungen sind bestanden.
+- Auf dem Symcon-Testsystem wurden `ApplyChanges()`, Control API, IPSView sowie
+  ein vollständiger Scharf-/Unscharf-Zyklus erfolgreich geprüft.
+- Alle 33 öffentlichen Modulmethoden des vorherigen Releases bleiben erhalten.
+
 ## 1.109 – 2026-08-24
 
 ### Added

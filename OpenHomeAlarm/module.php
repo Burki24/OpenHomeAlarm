@@ -2,15 +2,29 @@
 
 declare(strict_types=1);
 
+use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
+use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
+use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
+use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
+use Burki24\OpenHomeAlarm\AlarmStateMachine;
+use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
+use Burki24\OpenHomeAlarm\AlarmVisualizationAdapter;
 
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
+require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
+require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
+require_once __DIR__ . '/../libs/AlarmSensorMonitor.php';
+require_once __DIR__ . '/../libs/AlarmStateMachine.php';
+require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
+require_once __DIR__ . '/../libs/AlarmVisualizationAdapter.php';
 require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewStyleHelper.php';
@@ -31,16 +45,16 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private const CONTROL_API_VERSION = 1;
 
-    private const MODE_NONE = 0;
-    private const MODE_HOME = 1;
-    private const MODE_AWAY = 2;
-    private const MODE_NIGHT = 3;
+    private const MODE_NONE = AlarmStateMachine::MODE_NONE;
+    private const MODE_HOME = AlarmStateMachine::MODE_HOME;
+    private const MODE_AWAY = AlarmStateMachine::MODE_AWAY;
+    private const MODE_NIGHT = AlarmStateMachine::MODE_NIGHT;
 
-    private const STATE_DISARMED = 0;
-    private const STATE_EXIT_DELAY = 1;
-    private const STATE_ARMED = 2;
-    private const STATE_ENTRY_DELAY = 3;
-    private const STATE_ALARM = 4;
+    private const STATE_DISARMED = AlarmStateMachine::STATE_DISARMED;
+    private const STATE_EXIT_DELAY = AlarmStateMachine::STATE_EXIT_DELAY;
+    private const STATE_ARMED = AlarmStateMachine::STATE_ARMED;
+    private const STATE_ENTRY_DELAY = AlarmStateMachine::STATE_ENTRY_DELAY;
+    private const STATE_ALARM = AlarmStateMachine::STATE_ALARM;
 
     private const SENSOR_TYPE_OPENING = 0;
     private const SENSOR_TYPE_MOTION = 1;
@@ -78,21 +92,6 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const DEFAULT_DISARM_LOCKOUT_SECONDS = 60;
     private const MAX_DISARM_ATTEMPTS = 20;
     private const MAX_DISARM_LOCKOUT_SECONDS = 3600;
-
-    private const VALID_MODES = [
-        self::MODE_NONE,
-        self::MODE_HOME,
-        self::MODE_AWAY,
-        self::MODE_NIGHT
-    ];
-
-    private const VALID_STATES = [
-        self::STATE_DISARMED,
-        self::STATE_EXIT_DELAY,
-        self::STATE_ARMED,
-        self::STATE_ENTRY_DELAY,
-        self::STATE_ALARM
-    ];
 
     private const VALID_SENSOR_TYPES = [
         self::SENSOR_TYPE_OPENING,
@@ -780,24 +779,19 @@ class OpenHomeAlarm extends IPSModuleStrict
         $alarmMemory = $this->GetValue(self::IDENT_ALARM_MEMORY) === true;
         $alarmOutputActive = $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true;
         $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+        $identity = AlarmControlStateAdapter::identity($mode, $state);
 
         $payload = [
-            'ApiVersion' => self::CONTROL_API_VERSION,
-            'Mode'       => [
-                'Value' => $mode,
-                'Name'  => $this->ControlModeName($mode)
-            ],
-            'State'      => [
-                'Value' => $state,
-                'Name'  => $this->ControlStateName($state)
-            ],
-            'Capabilities' => [
-                'CodeRequired'        => trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== '',
-                'CanDisarm'           => !$isDisarmed || $mode !== self::MODE_NONE,
-                'CanManageBypasses'   => $isDisarmed,
-                'CanResetAlarmOutput' => $state === self::STATE_ALARM && $alarmOutputActive,
-                'CanClearAlarmMemory' => $alarmMemory && $state !== self::STATE_ALARM
-            ],
+            'ApiVersion'   => self::CONTROL_API_VERSION,
+            'Mode'         => $identity['Mode'],
+            'State'        => $identity['State'],
+            'Capabilities' => AlarmControlStateAdapter::capabilities(
+                $mode,
+                $state,
+                trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== '',
+                $alarmMemory,
+                $alarmOutputActive
+            ),
             'Modes' => [
                 'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs),
                 'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $readiness['away'], $isDisarmed, $sensors, $faultInputs),
@@ -835,10 +829,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, 6)
         ];
 
-        return json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        return AlarmControlStateAdapter::encode($payload);
     }
 
     /**
@@ -849,12 +840,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function Arm(string $mode): bool
     {
-        $modeValue = match (strtolower(trim($mode))) {
-            'home'  => self::MODE_HOME,
-            'away'  => self::MODE_AWAY,
-            'night' => self::MODE_NIGHT,
-            default => null
-        };
+        $modeValue = AlarmStateMachine::armingModeFromName($mode);
 
         if ($modeValue === null) {
             $this->PublishVisualizationState();
@@ -1257,15 +1243,16 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
 
-        if ($this->ReadAlarmState() !== self::STATE_EXIT_DELAY) {
+        $state = $this->ReadAlarmState();
+        $mode = $this->ReadAlarmMode();
+        if ($state !== self::STATE_EXIT_DELAY) {
             $this->ClearDelayStatus();
             $this->PublishVisualizationState();
 
             return;
         }
 
-        $mode = $this->ReadAlarmMode();
-        if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
+        if (!AlarmStateMachine::canCompleteExitDelay($state, $mode)) {
             $this->Disarm();
 
             return;
@@ -1338,9 +1325,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $remainingSeconds = max(0, $deadline - time());
-        $this->SetDelayRemaining($remainingSeconds);
-        $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $remainingSeconds > 0 ? 1000 : 0);
+        $restoration = AlarmTimerSchedule::restore($deadline, time());
+        $this->SetDelayRemaining($restoration['RemainingSeconds']);
+        $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $restoration['Expired'] ? 0 : 1000);
         $this->PublishVisualizationState();
     }
 
@@ -2019,21 +2006,18 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function ControlStatePayload(?array $interaction = null): array
     {
         $state = json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-        if ($interaction !== null) {
-            $state['Interaction'] = $interaction;
-        }
 
-        return $state;
+        return AlarmControlStateAdapter::withInteraction($state, $interaction);
     }
 
     /** @return array<string,mixed>|null */
     private function ExecuteVisualizationAction(string $Ident, mixed $Value): ?array
     {
-        switch ($Ident) {
+        $command = AlarmVisualizationAdapter::command($Ident, $Value);
+        $Value = $command['Value'];
+
+        switch ($command['Action']) {
             case 'Arm':
-                if (!is_string($Value)) {
-                    throw new InvalidArgumentException('Arm action requires a mode string.');
-                }
                 $this->Arm($Value);
 
                 return null;
@@ -2044,9 +2028,6 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return null;
 
             case 'DisarmWithCode':
-                if (!is_string($Value)) {
-                    throw new InvalidArgumentException('DisarmWithCode action requires a code string.');
-                }
                 if ($this->DisarmWithCode($Value)) {
                     return null;
                 }
@@ -2064,12 +2045,12 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return null;
 
             case 'BypassSensor':
-                $this->BypassSensor($this->VisualizationVariableID($Value));
+                $this->BypassSensor($Value);
 
                 return null;
 
             case 'RemoveSensorBypass':
-                $this->RemoveSensorBypass($this->VisualizationVariableID($Value));
+                $this->RemoveSensorBypass($Value);
 
                 return null;
 
@@ -2123,59 +2104,12 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return;
             }
 
-            $state = json_decode($this->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-            $state['Interaction'] = $interaction;
-            $this->UpdateVisualizationValue(json_encode(
-                $state,
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            $this->UpdateVisualizationValue(AlarmControlStateAdapter::encode(
+                $this->ControlStatePayload($interaction)
             ));
         } catch (Throwable $exception) {
             $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
         }
-    }
-
-    private function ControlModeName(int $mode): string
-    {
-        return match ($mode) {
-            self::MODE_NONE  => 'none',
-            self::MODE_HOME  => 'home',
-            self::MODE_AWAY  => 'away',
-            self::MODE_NIGHT => 'night',
-            default          => 'unknown'
-        };
-    }
-
-    private function ControlStateName(int $state): string
-    {
-        return match ($state) {
-            self::STATE_DISARMED    => 'disarmed',
-            self::STATE_EXIT_DELAY  => 'exit_delay',
-            self::STATE_ARMED       => 'armed',
-            self::STATE_ENTRY_DELAY => 'entry_delay',
-            self::STATE_ALARM       => 'alarm',
-            default                 => 'unknown'
-        };
-    }
-
-    /**
-     * Normalizes a variable ID received from the HTML-SDK action channel.
-     *
-     * @param mixed $value Value delivered by requestAction().
-     *
-     * @return int Positive Symcon variable ID.
-     */
-    private function VisualizationVariableID(mixed $value): int
-    {
-        $variableID = filter_var(
-            $value,
-            FILTER_VALIDATE_INT,
-            ['options' => ['min_range' => 1]]
-        );
-        if ($variableID === false) {
-            throw new InvalidArgumentException('Visualization action requires a positive variable ID.');
-        }
-
-        return $variableID;
     }
 
     /**
@@ -2916,17 +2850,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function IsMonitoredSensorVariable(int $variableID, array $sensors): bool
     {
-        foreach ($sensors as $sensor) {
-            if (
-                $sensor['Enabled']
-                && $this->IsSensorMonitored($sensor)
-                && $sensor['VariableID'] === $variableID
-            ) {
-                return true;
-            }
-        }
-
-        return false;
+        return AlarmSensorMonitor::containsVariable($variableID, $sensors);
     }
 
     /**
@@ -2942,13 +2866,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function IsMonitoredFaultVariable(int $variableID, array $faultInputs): bool
     {
-        foreach ($faultInputs as $faultInput) {
-            if ($faultInput['Enabled'] && $faultInput['VariableID'] === $variableID) {
-                return true;
-            }
-        }
-
-        return false;
+        return AlarmFaultMonitor::containsVariable($variableID, $faultInputs);
     }
 
     /**
@@ -3135,35 +3053,20 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function EvaluateSensorAvailability(array $sensors): void
     {
         $previousUnavailableIDs = $this->ReadUnavailableSensorVariableIDs();
-        $currentUnavailableIDs = [];
-
-        foreach ($sensors as $sensor) {
-            if (
-                !$sensor['Enabled']
-                || !$this->IsSensorMonitored($sensor)
-                || $sensor['VariableID'] <= 0
-            ) {
-                continue;
-            }
-
-            if ($this->GetSensorTriggerState($sensor) === null) {
-                $currentUnavailableIDs[] = $sensor['VariableID'];
-            }
-        }
-
-        $currentUnavailableIDs = array_values(array_unique($currentUnavailableIDs));
-        sort($currentUnavailableIDs, SORT_NUMERIC);
+        $transitions = AlarmSensorMonitor::availabilityTransitions(
+            $sensors,
+            $previousUnavailableIDs,
+            fn (array $sensor): ?bool => $this->GetSensorTriggerState($sensor)
+        );
+        $currentUnavailableIDs = $transitions['UnavailableIDs'];
         if ($currentUnavailableIDs === [] && $previousUnavailableIDs === []) {
             return;
         }
 
-        $newUnavailableIDs = array_values(array_diff($currentUnavailableIDs, $previousUnavailableIDs));
-        $restoredIDs = array_values(array_diff($previousUnavailableIDs, $currentUnavailableIDs));
-
         $this->WriteUnavailableSensorVariableIDs($currentUnavailableIDs);
         $this->UpdateSystemFaultStatus($this->ReadConfiguredFaultInputs(), $sensors);
 
-        foreach ($newUnavailableIDs as $variableID) {
+        foreach ($transitions['NewUnavailableIDs'] as $variableID) {
             $sourceName = $this->FormatUnavailableSensorName($variableID, $sensors);
             $this->SetLastFaultSource($sourceName);
             $this->SetLastFaultTime(date('d.m.Y H:i:s'));
@@ -3171,7 +3074,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->RunConfiguredAction(self::PROPERTY_FAULT_ACTION);
         }
 
-        foreach ($restoredIDs as $variableID) {
+        foreach ($transitions['RestoredIDs'] as $variableID) {
             $this->AppendEvent(
                 self::EVENT_FAULT_CLEARED,
                 $this->FormatUnavailableSensorName($variableID, $sensors)
@@ -3239,34 +3142,16 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $currentActiveIDs = [];
-        $newlyActiveInputs = [];
+        $transitions = AlarmFaultMonitor::transitions(
+            $faultInputs,
+            $previousActiveIDs,
+            fn (array $faultInput): ?bool => $this->GetFaultTriggerState($faultInput)
+        );
 
-        foreach ($faultInputs as $faultInput) {
-            if (!$faultInput['Enabled'] || $faultInput['VariableID'] <= 0) {
-                continue;
-            }
-
-            $triggerState = $this->GetFaultTriggerState($faultInput);
-            if ($triggerState === false) {
-                continue;
-            }
-
-            $variableID = $faultInput['VariableID'];
-            $currentActiveIDs[] = $variableID;
-            if (!in_array($variableID, $previousActiveIDs, true)) {
-                $newlyActiveInputs[] = [$faultInput, $triggerState];
-            }
-        }
-
-        $currentActiveIDs = array_values(array_unique($currentActiveIDs));
-        sort($currentActiveIDs, SORT_NUMERIC);
-        $clearedIDs = array_values(array_diff($previousActiveIDs, $currentActiveIDs));
-
-        $this->WriteActiveFaultVariableIDs($currentActiveIDs);
+        $this->WriteActiveFaultVariableIDs($transitions['ActiveIDs']);
         $this->UpdateSystemFaultStatus($faultInputs, $this->ReadConfiguredSensors());
 
-        foreach ($newlyActiveInputs as [$faultInput, $triggerState]) {
+        foreach ($transitions['NewlyActiveInputs'] as [$faultInput, $triggerState]) {
             $sourceName = $this->ResolveFaultDisplayName($faultInput);
             $this->SetLastFaultSource($sourceName);
             $this->SetLastFaultTime(date('d.m.Y H:i:s'));
@@ -3278,7 +3163,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
 
-        foreach ($clearedIDs as $variableID) {
+        foreach ($transitions['ClearedIDs'] as $variableID) {
             $sourceName = $this->ResolveFaultNameByVariableID($variableID, $faultInputs);
             $this->AppendEvent(self::EVENT_FAULT_CLEARED, $sourceName);
             $this->RunConfiguredAction(self::PROPERTY_FAULT_CLEARED_ACTION);
@@ -3627,10 +3512,10 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ArmMode(int $mode): bool
     {
-        if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
+        if (!AlarmStateMachine::isArmingMode($mode)) {
             throw new InvalidArgumentException('Unsupported arming target mode.');
         }
-        if ($this->ReadAlarmState() !== self::STATE_DISARMED) {
+        if (!AlarmStateMachine::canArm($this->ReadAlarmState(), $mode)) {
             return false;
         }
 
@@ -3749,7 +3634,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function IsSensorMonitored(array $sensor): bool
     {
-        return $sensor['AlwaysActive'] || $this->IsSensorUsedForArming($sensor);
+        return AlarmSensorMonitor::isMonitored($sensor);
     }
 
     /**
@@ -4095,12 +3980,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function HandleSensorUpdateWhileArmed(int $variableID, array $sensors): void
     {
         $state = $this->ReadAlarmState();
-        if (!in_array($state, [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)) {
+        if (!AlarmStateMachine::monitorsArmedSensors($state)) {
             return;
         }
 
         $mode = $this->ReadAlarmMode();
-        if (!in_array($mode, [self::MODE_HOME, self::MODE_AWAY, self::MODE_NIGHT], true)) {
+        if (!AlarmStateMachine::isArmingMode($mode)) {
             return;
         }
 
@@ -4130,7 +4015,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $entryDelaySensor ??= $sensor;
         }
 
-        if ($entryDelaySensor === null || $state === self::STATE_ENTRY_DELAY) {
+        if ($entryDelaySensor === null || !AlarmStateMachine::canStartEntryDelay($state)) {
             return;
         }
 
@@ -4175,7 +4060,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         int $fallbackVariableID = 0,
         string $explicitSourceName = ''
     ): void {
-        if ($this->ReadAlarmState() === self::STATE_ALARM) {
+        if (!AlarmStateMachine::canEnterAlarm($this->ReadAlarmState())) {
             return;
         }
 
@@ -4268,8 +4153,8 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         return AlarmEventHistory::normalize(
             $decodedHistory,
-            self::VALID_MODES,
-            self::VALID_STATES,
+            AlarmStateMachine::modes(),
+            AlarmStateMachine::states(),
             self::EVENT_HISTORY_LIMIT
         );
     }
@@ -4348,54 +4233,16 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function RunConfiguredAction(string $propertyName): bool
     {
         $enabledProperty = self::OPTIONAL_ACTION_FIELDS[$propertyName] ?? null;
-        if ($enabledProperty !== null && $this->ReadPropertyInteger($enabledProperty) !== 1) {
-            return true;
+        $result = AlarmActionExecutor::execute(
+            $enabledProperty === null || $this->ReadPropertyInteger($enabledProperty) === 1,
+            $this->ReadPropertyString($propertyName),
+            static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
+        );
+        if ($result['Error'] !== null) {
+            $this->SendDebug(__FUNCTION__, $result['Error'], 0);
         }
 
-        $encodedAction = trim($this->ReadPropertyString($propertyName));
-        if ($encodedAction === '' || $encodedAction === '{}' || $encodedAction === 'false' || $encodedAction === 'null') {
-            return true;
-        }
-
-        try {
-            $action = json_decode($encodedAction, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            $this->SendDebug(__FUNCTION__, 'Invalid configured action: ' . $exception->getMessage(), 0);
-
-            return false;
-        }
-
-        if ($action === false || $action === null) {
-            return true;
-        }
-
-        if (!is_array($action)) {
-            $this->SendDebug(__FUNCTION__, 'Configured action must decode to an object.', 0);
-
-            return false;
-        }
-
-        $actionID = $action['actionID'] ?? null;
-        $parameters = $action['parameters'] ?? null;
-        if (!is_string($actionID) || $actionID === '' || !is_array($parameters)) {
-            $this->SendDebug(__FUNCTION__, 'Configured action is missing actionID or parameters.', 0);
-
-            return false;
-        }
-
-        try {
-            $executed = IPS_RunAction($actionID, $parameters);
-        } catch (Throwable $exception) {
-            $this->SendDebug(__FUNCTION__, 'Configured action failed: ' . $exception->getMessage(), 0);
-
-            return false;
-        }
-
-        if (!$executed) {
-            $this->SendDebug(__FUNCTION__, 'Configured action could not be started.', 0);
-        }
-
-        return $executed;
+        return $result['Succeeded'];
     }
 
     private function StartAlarmDurationTimer(): void
@@ -4407,8 +4254,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, time() + $seconds);
-        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $seconds * 1000);
+        $schedule = AlarmTimerSchedule::start(time(), $seconds);
+        $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, $schedule['Deadline']);
+        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $schedule['IntervalMilliseconds']);
     }
 
     private function StopAlarmDurationTimer(): void
@@ -4452,20 +4300,20 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $remainingSeconds = $deadline - time();
-        if ($remainingSeconds <= 0) {
+        $restoration = AlarmTimerSchedule::restore($deadline, time());
+        if ($restoration['Expired']) {
             $this->CompleteAlarmDuration();
 
             return;
         }
 
-        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $remainingSeconds * 1000);
+        $this->SetTimerInterval(self::TIMER_ALARM_DURATION, $restoration['IntervalMilliseconds']);
     }
 
     private function ReadAlarmMode(): int
     {
         $mode = $this->GetValue(self::IDENT_MODE);
-        if (!is_int($mode) || !in_array($mode, self::VALID_MODES, true)) {
+        if (!is_int($mode) || !AlarmStateMachine::isValidMode($mode)) {
             throw new UnexpectedValueException('Invalid alarm mode value.');
         }
 
@@ -4475,7 +4323,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function ReadAlarmState(): int
     {
         $state = $this->GetValue(self::IDENT_STATE);
-        if (!is_int($state) || !in_array($state, self::VALID_STATES, true)) {
+        if (!is_int($state) || !AlarmStateMachine::isValidState($state)) {
             throw new UnexpectedValueException('Invalid alarm state value.');
         }
 
@@ -4489,8 +4337,9 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function StartDelayTimer(string $timerName, string $deadlineAttribute, int $seconds): void
     {
-        $this->WriteAttributeInteger($deadlineAttribute, time() + $seconds);
-        $this->SetTimerInterval($timerName, $seconds * 1000);
+        $schedule = AlarmTimerSchedule::start(time(), $seconds);
+        $this->WriteAttributeInteger($deadlineAttribute, $schedule['Deadline']);
+        $this->SetTimerInterval($timerName, $schedule['IntervalMilliseconds']);
         $this->SetDelayRemaining($seconds);
         $this->SetTimerInterval(self::TIMER_DELAY_STATUS, 1000);
     }
@@ -4587,19 +4436,19 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $remainingSeconds = $deadline - time();
-        if ($remainingSeconds <= 0) {
+        $restoration = AlarmTimerSchedule::restore($deadline, time());
+        if ($restoration['Expired']) {
             $expiredCallback();
 
             return;
         }
 
-        $this->SetTimerInterval($timerName, $remainingSeconds * 1000);
+        $this->SetTimerInterval($timerName, $restoration['IntervalMilliseconds']);
     }
 
     private function SetAlarmMode(int $mode): void
     {
-        if (!in_array($mode, self::VALID_MODES, true)) {
+        if (!AlarmStateMachine::isValidMode($mode)) {
             throw new InvalidArgumentException('Unsupported alarm mode.');
         }
 
@@ -4608,7 +4457,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function SetAlarmState(int $state): void
     {
-        if (!in_array($state, self::VALID_STATES, true)) {
+        if (!AlarmStateMachine::isValidState($state)) {
             throw new InvalidArgumentException('Unsupported alarm state.');
         }
 
