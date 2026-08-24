@@ -35,6 +35,7 @@ def main() -> None:
 
         required = {
             prefix + 'library.json',
+            prefix + 'LICENSE',
             prefix + 'OpenHomeAlarm/module.php',
             prefix + 'OpenHomeAlarm/module.json',
             prefix + 'libs/AlarmCodeProtection.php',
