@@ -516,6 +516,15 @@
                             }
                         },
                         {
+                            "caption": "Alarm partition",
+                            "name": "PartitionID",
+                            "width": "150px",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
                             "caption": "Variable",
                             "name": "VariableID",
                             "width": "auto",
@@ -630,6 +639,15 @@
                     "caption": "Name",
                     "name": "Name",
                     "width": "220px",
+                    "add": "",
+                    "edit": {
+                        "type": "ValidationTextBox"
+                    }
+                },
+                {
+                    "caption": "Alarm partition",
+                    "name": "PartitionID",
+                    "width": "150px",
                     "add": "",
                     "edit": {
                         "type": "ValidationTextBox"

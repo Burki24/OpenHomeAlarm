@@ -27,6 +27,7 @@
             "Not ready": "Nicht bereit",
             "Configure the Symcon variables that can act as alarm sensors or triggers.": "Konfigurieren Sie die Symcon-Variablen, die als Alarmsensoren oder Auslöser dienen können.",
             "Alarm partitions": "Alarmbereiche",
+            "Alarm partition": "Alarmbereich",
             "Configure independently addressable alarm areas. Exactly one enabled partition must be the default.": "Konfigurieren Sie unabhängig adressierbare Alarmbereiche. Genau ein aktiver Bereich muss der Standardbereich sein.",
             "Partitions": "Bereiche",
             "Partition ID": "Bereichs-ID",

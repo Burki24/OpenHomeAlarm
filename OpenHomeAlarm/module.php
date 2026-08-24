@@ -1392,6 +1392,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $variableID = $this->ReadSensorEditInteger($sensor, 'VariableID', 0);
         $triggerValue = $this->ReadSensorEditString($sensor, 'TriggerValue', '1');
+        $partitions = $this->ReadConfiguredPartitions();
+        $partitionID = AlarmPartitionRegistry::assignedPartitionID(
+            $this->ReadSensorEditString($sensor, 'PartitionID', ''),
+            $partitions,
+            'Sensor partition'
+        );
         $hasVariable = $this->IsExistingVariable($variableID);
         $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
         $hasTriggerOptions = $triggerOptions !== [];
@@ -1409,6 +1415,13 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'type'    => 'ValidationTextBox',
                 'name'    => 'Name',
                 'caption' => $this->Translate('Name')
+            ],
+            [
+                'type'    => 'Select',
+                'name'    => 'PartitionID',
+                'caption' => $this->Translate('Alarm partition'),
+                'options' => $this->CreatePartitionOptions($partitions),
+                'value'   => $partitionID
             ],
             [
                 'type'     => 'SelectVariable',
@@ -1552,6 +1565,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $variableID = $this->ReadSensorEditInteger($faultInput, 'VariableID', 0);
         $triggerValue = $this->ReadSensorEditString($faultInput, 'TriggerValue', '1');
+        $partitions = $this->ReadConfiguredPartitions();
+        $partitionID = AlarmPartitionRegistry::assignedPartitionID(
+            $this->ReadSensorEditString($faultInput, 'PartitionID', ''),
+            $partitions,
+            'Fault input partition'
+        );
         $hasVariable = $this->IsExistingVariable($variableID);
         $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
         $hasTriggerOptions = $triggerOptions !== [];
@@ -1569,6 +1588,13 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'type'    => 'ValidationTextBox',
                 'name'    => 'Name',
                 'caption' => $this->Translate('Name')
+            ],
+            [
+                'type'    => 'Select',
+                'name'    => 'PartitionID',
+                'caption' => $this->Translate('Alarm partition'),
+                'options' => $this->CreatePartitionOptions($partitions),
+                'value'   => $partitionID
             ],
             [
                 'type'     => 'SelectVariable',
@@ -2545,6 +2571,27 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * @param list<array{Enabled:bool,ID:string,Name:string,Default:bool}> $partitions
+     *
+     * @return list<array{caption:string,value:string}>
+     */
+    private function CreatePartitionOptions(array $partitions): array
+    {
+        $options = [];
+        foreach ($partitions as $partition) {
+            if (!$partition['Enabled']) {
+                continue;
+            }
+            $options[] = [
+                'caption' => $partition['Name'],
+                'value'   => $partition['ID']
+            ];
+        }
+
+        return $options;
+    }
+
+    /**
      * Reads an integer from a List edit row. Symcon exposes the row as an IPSList
      * object with array-style access instead of a native PHP array.
      */
@@ -2898,11 +2945,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ReadConfiguredFaultInputs(): array
     {
-        return AlarmConfigurationNormalizer::faultInputs(
+        $faultInputs = AlarmConfigurationNormalizer::faultInputs(
             $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS),
             self::VALID_FAULT_TYPES,
             self::FAULT_TYPE_TAMPER
         );
+        $partitions = $this->ReadConfiguredPartitions();
+        foreach ($faultInputs as &$faultInput) {
+            $faultInput['PartitionID'] = AlarmPartitionRegistry::assignedPartitionID(
+                $faultInput['PartitionID'],
+                $partitions,
+                'Fault input partition'
+            );
+        }
+        unset($faultInput);
+
+        return $faultInputs;
     }
 
     /**
@@ -2922,11 +2980,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function ReadConfiguredSensors(): array
     {
-        return AlarmConfigurationNormalizer::sensors(
+        $sensors = AlarmConfigurationNormalizer::sensors(
             $this->ReadPropertyString(self::PROPERTY_SENSORS),
             self::VALID_SENSOR_TYPES,
             self::SENSOR_TYPE_OPENING
         );
+        $partitions = $this->ReadConfiguredPartitions();
+        foreach ($sensors as &$sensor) {
+            $sensor['PartitionID'] = AlarmPartitionRegistry::assignedPartitionID(
+                $sensor['PartitionID'],
+                $partitions,
+                'Sensor partition'
+            );
+        }
+        unset($sensor);
+
+        return $sensors;
     }
 
     /**

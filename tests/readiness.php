@@ -108,6 +108,10 @@ class IPSModuleStrict
 
     protected function ReadPropertyString(string $name): string
     {
+        if ($name === 'Partitions') {
+            return '[{"Enabled":true,"ID":"main","Name":"Main area","Default":true}]';
+        }
+
         return '[]';
     }
 

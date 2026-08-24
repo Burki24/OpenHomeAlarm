@@ -307,6 +307,22 @@ try {
     );
 }
 
+$invalidAssignmentInstance = new OpenHomeAlarm();
+$invalidAssignmentInstance->Create();
+$invalidAssignmentInstance->TestSetPropertyString(
+    'Sensors',
+    '[{"Enabled":true,"PartitionID":"unknown","VariableID":0,"SensorType":0}]'
+);
+try {
+    $invalidAssignmentInstance->ApplyChanges();
+    throw new RuntimeException('ApplyChanges must reject unknown sensor partitions.');
+} catch (UnexpectedValueException $exception) {
+    assertControlApi(
+        $exception->getMessage() === 'Sensor partition references an unknown partition.',
+        'ApplyChanges must report an invalid sensor partition assignment.'
+    );
+}
+
 /** @return array<string,mixed> */
 function controlSensor(
     int $variableID,

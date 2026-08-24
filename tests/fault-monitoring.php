@@ -510,17 +510,29 @@ foreach ($systemPanel['items'] ?? [] as $item) {
 }
 assertFaultMonitoring(is_array($faultList), 'System monitoring must contain the FaultInputs list.');
 assertFaultMonitoring(
+    in_array('PartitionID', array_column($faultList['columns'] ?? [], 'name'), true),
+    'Fault input configuration must expose its alarm partition.'
+);
+assertFaultMonitoring(
     isset($faultList['values']) && is_array($faultList['values']) && count($faultList['values']) === 3,
     'Nested fault lists must receive their non-persistent trigger editor values.'
 );
 $editForm = $instance->GetFaultInputEditForm(faultInput(9002, 'Funkverbindung', 2, 'FAULT', true, false));
 $selection = null;
+$partitionSelection = null;
 foreach ($editForm as $field) {
     if (($field['name'] ?? null) === 'TriggerValueSelection') {
         $selection = $field;
-        break;
+    }
+    if (($field['name'] ?? null) === 'PartitionID') {
+        $partitionSelection = $field;
     }
 }
+assertFaultMonitoring(
+    ($partitionSelection['type'] ?? null) === 'Select'
+    && ($partitionSelection['value'] ?? null) === 'main',
+    'Fault input editor must resolve empty assignments to the default partition.'
+);
 assertFaultMonitoring(($selection['value'] ?? null) === 'FAULT', 'The stored fault value must be restored when editing.');
 assertFaultMonitoring(
     array_column($selection['options'] ?? [], 'caption') === ['Online', 'Offline'],

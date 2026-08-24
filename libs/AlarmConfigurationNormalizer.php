@@ -17,6 +17,7 @@ final class AlarmConfigurationNormalizer
      *
      * @return list<array{
      *     Enabled: bool,
+     *     PartitionID: string,
      *     Name: string,
      *     VariableID: int,
      *     SensorType: int,
@@ -62,6 +63,7 @@ final class AlarmConfigurationNormalizer
 
             $normalizedSensors[] = [
                 'Enabled'      => self::booleanField($sensor, 'Enabled', true, 'Sensor'),
+                'PartitionID'  => strtolower(trim(self::stringField($sensor, 'PartitionID', '', 'Sensor'))),
                 'Name'         => trim(self::stringField($sensor, 'Name', '', 'Sensor')),
                 'VariableID'   => $variableID,
                 'SensorType'   => $sensorType,
@@ -83,6 +85,7 @@ final class AlarmConfigurationNormalizer
      *
      * @return list<array{
      *     Enabled: bool,
+     *     PartitionID: string,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
@@ -129,6 +132,7 @@ final class AlarmConfigurationNormalizer
 
             $normalized = [
                 'Enabled'      => self::booleanField($faultInput, 'Enabled', true, 'Fault input'),
+                'PartitionID'  => strtolower(trim(self::stringField($faultInput, 'PartitionID', '', 'Fault input'))),
                 'Name'         => trim(self::stringField($faultInput, 'Name', '', 'Fault input')),
                 'VariableID'   => $variableID,
                 'FaultType'    => $faultType,

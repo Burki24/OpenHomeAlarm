@@ -25,6 +25,21 @@ assertPartition(
     AlarmPartitionRegistry::defaultPartition($partitions)['ID'] === 'house',
     'The configured default partition must be resolved.'
 );
+assertPartition(
+    AlarmPartitionRegistry::assignedPartitionID('', $partitions, 'Sensor partition') === 'house',
+    'An empty assignment must resolve to the default partition.'
+);
+assertPartition(
+    AlarmPartitionRegistry::assignedPartitionID(' GARAGE ', $partitions, 'Sensor partition') === 'garage',
+    'Assignments must resolve enabled partition IDs case-insensitively.'
+);
+foreach (['shed', 'unknown'] as $invalidAssignment) {
+    try {
+        AlarmPartitionRegistry::assignedPartitionID($invalidAssignment, $partitions, 'Sensor partition');
+        throw new RuntimeException('Invalid partition assignments must be rejected.');
+    } catch (UnexpectedValueException) {
+    }
+}
 
 foreach ([
     '[]',

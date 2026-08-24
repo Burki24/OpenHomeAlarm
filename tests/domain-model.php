@@ -290,6 +290,7 @@ assertDomainSame(
     [
         [
             'Enabled'      => true,
+            'PartitionID'  => '',
             'Name'         => 'Front door',
             'VariableID'   => 1001,
             'SensorType'   => 1,
@@ -333,6 +334,7 @@ $faultInputs = AlarmConfigurationNormalizer::faultInputs(
     0
 );
 assertDomainSame('Tamper', $faultInputs[0]['Name'], 'Fault input names must be trimmed.');
+assertDomainSame('', $faultInputs[0]['PartitionID'], 'Empty fault partition assignments must remain available for default resolution.');
 assertDomainSame(false, $faultInputs[0]['TriggerAlarm'], 'Fault input defaults must be retained.');
 assertDomainThrows(
     static fn (): array => AlarmConfigurationNormalizer::faultInputs(

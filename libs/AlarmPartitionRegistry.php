@@ -87,4 +87,33 @@ final class AlarmPartitionRegistry
 
         throw new UnexpectedValueException('Default partition is missing.');
     }
+
+    /**
+     * Resolves an optional assignment to an enabled partition.
+     *
+     * @param list<array{Enabled:bool,ID:string,Name:string,Default:bool}> $partitions
+     */
+    public static function assignedPartitionID(
+        string $partitionID,
+        array $partitions,
+        string $context
+    ): string {
+        $partitionID = strtolower(trim($partitionID));
+        if ($partitionID === '') {
+            return self::defaultPartition($partitions)['ID'];
+        }
+
+        foreach ($partitions as $partition) {
+            if ($partition['ID'] !== $partitionID) {
+                continue;
+            }
+            if (!$partition['Enabled']) {
+                throw new UnexpectedValueException(sprintf('%s must reference an enabled partition.', $context));
+            }
+
+            return $partitionID;
+        }
+
+        throw new UnexpectedValueException(sprintf('%s references an unknown partition.', $context));
+    }
 }

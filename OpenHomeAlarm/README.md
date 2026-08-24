@@ -86,6 +86,7 @@ Jeder konfigurierte Eintrag enthält folgende Daten:
 | Feld | Bedeutung |
 | --- | --- |
 | `Enabled` | Eintrag grundsätzlich aktiviert/deaktiviert |
+| `PartitionID` | Technische ID des Alarmbereichs; leer wird dem Standardbereich zugeordnet |
 | `Name` | Frei wählbare Bezeichnung |
 | `VariableID` | ID der verwendeten Symcon-Variable |
 | `SensorType` | Öffnungskontakt, Bewegungsmelder, Glasbruch-, Rauch- oder Wassermelder, Panikauslöser oder sonstiger Auslöser |
@@ -119,6 +120,8 @@ Beim Unscharfschalten werden laufende Ein- und Ausgangsverzögerungen immer been
 ### 7. Systemüberwachung
 
 Zusätzlich zu den eigentlichen Alarmsensoren können im Abschnitt **Systemüberwachung** unabhängige 24/7-Eingänge für **Manipulation**, **Batterie/Stromversorgung**, **Kommunikation**, **Gerätestörung** oder eine sonstige Störung angelegt werden. Jeder Eintrag verweist wie ein normaler Sensor auf eine Symcon-Variable; der Störwert wird aus deren Variablendarstellung übernommen oder bei Bedarf als Rohwert eingegeben.
+
+Jeder Sensor und jeder Störungseingang ist über `PartitionID` genau einem aktiven Alarmbereich zugeordnet. Leere Zuordnungen werden auf den Standardbereich aufgelöst. Unbekannte oder deaktivierte Zielbereiche werden bereits bei `ApplyChanges()` abgewiesen, damit keine Eingänge unbemerkt außerhalb eines aktiven Bereichs liegen.
 
 Für jeden Störungseingang kann separat festgelegt werden, ob eine aktive Störung die **Scharfschaltung blockiert** und ob sie den normalen Alarmzustand **sofort und 24/7 auslöst**. Dadurch kann beispielsweise ein Sabotagekontakt unmittelbar alarmieren, während eine schwache Batterie lediglich als Systemstörung angezeigt wird. Eine blockierende Störung setzt `ReadyHome`, `ReadyAway`, `ReadyNight` und `ReadyToArm` auf **Nicht bereit** und erscheint zusätzlich in `BlockingFaults`.
 

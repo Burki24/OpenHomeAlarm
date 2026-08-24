@@ -407,6 +407,7 @@ assertSensorModel(
 $configuredSensors = [
     [
         'Enabled'      => true,
+        'PartitionID'  => 'main',
         'Name'         => 'Haustür',
         'VariableID'   => 12345,
         'SensorType'   => 0,
@@ -420,6 +421,7 @@ $configuredSensors = [
     ],
     [
         'Enabled'      => true,
+        'PartitionID'  => 'main',
         'Name'         => 'Flur Bewegung',
         'VariableID'   => 23456,
         'SensorType'   => 1,
@@ -455,6 +457,7 @@ $minimalSensors = $readConfiguredSensors->invoke($minimalInstance);
 assertSensorModel(
     $minimalSensors === [[
         'Enabled'      => true,
+        'PartitionID'  => 'main',
         'Name'         => '',
         'VariableID'   => 34567,
         'SensorType'   => 0,
@@ -521,6 +524,7 @@ foreach ($list['columns'] ?? [] as $column) {
 foreach ([
     'Enabled',
     'Name',
+    'PartitionID',
     'VariableID',
     'SensorType',
     'TriggerValue',
@@ -546,6 +550,7 @@ assertSensorModel(
     'Sensor type values must remain stable.'
 );
 assertSensorModel(($columns['Enabled']['add'] ?? null) === true, 'New sensors must be enabled by default.');
+assertSensorModel(($columns['PartitionID']['add'] ?? null) === '', 'New sensors must resolve the default partition dynamically.');
 assertSensorModel(($columns['TriggerValue']['add'] ?? null) === '1', 'New sensors must use trigger value 1 by default.');
 assertSensorModel(($columns['ArmHome']['add'] ?? null) === false, 'New sensors must not be active in Home by default.');
 assertSensorModel(($columns['ArmAway']['add'] ?? null) === true, 'New sensors must be active in Away by default.');
@@ -646,6 +651,12 @@ foreach ($editForm as $field) {
 assertSensorModel(
     ($editFields['VariableID']['type'] ?? null) === 'SelectVariable',
     'Sensor editor must use SelectVariable for VariableID.'
+);
+assertSensorModel(
+    ($editFields['PartitionID']['type'] ?? null) === 'Select'
+    && ($editFields['PartitionID']['value'] ?? null) === 'main'
+    && array_column($editFields['PartitionID']['options'] ?? [], 'value') === ['main'],
+    'Sensor editor must select an enabled partition and default empty assignments to main.'
 );
 assertSensorModel(
     ($editFields['AlwaysActive']['type'] ?? null) === 'CheckBox',
