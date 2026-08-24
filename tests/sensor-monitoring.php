@@ -25,6 +25,9 @@ $testValues = [
     1005 => true
 ];
 
+/** @var list<int> */
+$testVariableMetadataReads = [];
+
 function IPS_VariableExists(int $variableID): bool
 {
     global $testVariables;
@@ -35,7 +38,9 @@ function IPS_VariableExists(int $variableID): bool
 /** @return array<string,mixed> */
 function IPS_GetVariable(int $variableID): array
 {
-    global $testVariables;
+    global $testVariables, $testVariableMetadataReads;
+
+    $testVariableMetadataReads[] = $variableID;
 
     if (!array_key_exists($variableID, $testVariables)) {
         throw new RuntimeException('Unknown test variable.');
@@ -526,6 +531,7 @@ assertSensorMonitoring(
 );
 
 unset($testVariables[1001], $testValues[1001]);
+$testVariableMetadataReads = [];
 $integrity->TestClearWrittenValues();
 $integrity->MessageSink(10, 1001, OM_UNREGISTER, []);
 $integrityWritten = $integrity->TestWrittenValues();
@@ -545,6 +551,10 @@ assertSensorMonitoring(
     && ($controlState['Faults']['Items'][0]['Reason'] ?? null) === 'unavailable'
     && ($controlState['Faults']['Items'][0]['Name'] ?? null) === 'Test 1001',
     'The public control state must expose unavailable sensors to the Tile.'
+);
+assertSensorMonitoring(
+    !in_array(1001, $testVariableMetadataReads, true),
+    'Unavailable sensors must be rejected through IPS_VariableExists before reading their metadata.'
 );
 $historyAfterLoss = json_decode($integrity->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
 assertSensorMonitoring(

@@ -2678,6 +2678,10 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function GetSymconVariable(int $variableID): ?array
     {
+        if (!$this->IsExistingVariable($variableID)) {
+            return null;
+        }
+
         try {
             $variable = IPS_GetVariable($variableID);
         } catch (\Throwable) {
