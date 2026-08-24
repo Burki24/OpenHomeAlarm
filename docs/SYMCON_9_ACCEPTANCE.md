@@ -5,6 +5,9 @@ realen Symcon-9.0-Installation. Die automatisierten Repository-Tests bleiben
 Voraussetzung, ersetzen aber nicht die Prüfung der Symcon-Laufzeit, der
 Visualisierungen und der nativen Aktionen.
 
+Der verbindliche Funktionsumfang, die Kompatibilitätsgrenzen und die
+Release-Gates stehen im [Release-Zielbild](RELEASE_SCOPE.md).
+
 ## Freigabestatus
 
 | Bereich | Status | Freigabebedingung |
@@ -181,7 +184,7 @@ Ein Commit darf als Release Candidate markiert werden, wenn:
 1. alle automatisierten Checks und beide CI-Checks für exakt diesen Commit bestanden sind,
 2. alle Pflichtfälle A-01 bis G-08 auf mindestens einer repräsentativen Symcon-9.0-Installation bestanden sind,
 3. Desktop- und Mobilbedienung der HTML-SDK-Kachel geprüft wurden,
-4. die IPSView-Fälle bestanden sind oder IPSView ausdrücklich nicht Bestandteil des Releases ist,
+4. alle IPSView-Fälle bestanden sind,
 5. Update und Wiederherstellung praktisch geprüft wurden,
 6. keine kritischen oder hohen Befunde offen sind,
 7. Commit, Library-Version, Symcon-Build und Nachweise im Protokoll eingetragen sind.
