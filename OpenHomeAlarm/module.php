@@ -5,11 +5,13 @@ declare(strict_types=1);
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
+use Burki24\OpenHomeAlarm\AlarmStateMachine;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmStateMachine.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
 require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';
@@ -31,16 +33,16 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private const CONTROL_API_VERSION = 1;
 
-    private const MODE_NONE = 0;
-    private const MODE_HOME = 1;
-    private const MODE_AWAY = 2;
-    private const MODE_NIGHT = 3;
+    private const MODE_NONE = AlarmStateMachine::MODE_NONE;
+    private const MODE_HOME = AlarmStateMachine::MODE_HOME;
+    private const MODE_AWAY = AlarmStateMachine::MODE_AWAY;
+    private const MODE_NIGHT = AlarmStateMachine::MODE_NIGHT;
 
-    private const STATE_DISARMED = 0;
-    private const STATE_EXIT_DELAY = 1;
-    private const STATE_ARMED = 2;
-    private const STATE_ENTRY_DELAY = 3;
-    private const STATE_ALARM = 4;
+    private const STATE_DISARMED = AlarmStateMachine::STATE_DISARMED;
+    private const STATE_EXIT_DELAY = AlarmStateMachine::STATE_EXIT_DELAY;
+    private const STATE_ARMED = AlarmStateMachine::STATE_ARMED;
+    private const STATE_ENTRY_DELAY = AlarmStateMachine::STATE_ENTRY_DELAY;
+    private const STATE_ALARM = AlarmStateMachine::STATE_ALARM;
 
     private const SENSOR_TYPE_OPENING = 0;
     private const SENSOR_TYPE_MOTION = 1;
@@ -78,21 +80,6 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const DEFAULT_DISARM_LOCKOUT_SECONDS = 60;
     private const MAX_DISARM_ATTEMPTS = 20;
     private const MAX_DISARM_LOCKOUT_SECONDS = 3600;
-
-    private const VALID_MODES = [
-        self::MODE_NONE,
-        self::MODE_HOME,
-        self::MODE_AWAY,
-        self::MODE_NIGHT
-    ];
-
-    private const VALID_STATES = [
-        self::STATE_DISARMED,
-        self::STATE_EXIT_DELAY,
-        self::STATE_ARMED,
-        self::STATE_ENTRY_DELAY,
-        self::STATE_ALARM
-    ];
 
     private const VALID_SENSOR_TYPES = [
         self::SENSOR_TYPE_OPENING,
@@ -849,12 +836,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function Arm(string $mode): bool
     {
-        $modeValue = match (strtolower(trim($mode))) {
-            'home'  => self::MODE_HOME,
-            'away'  => self::MODE_AWAY,
-            'night' => self::MODE_NIGHT,
-            default => null
-        };
+        $modeValue = AlarmStateMachine::armingModeFromName($mode);
 
         if ($modeValue === null) {
             $this->PublishVisualizationState();
@@ -2136,25 +2118,12 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function ControlModeName(int $mode): string
     {
-        return match ($mode) {
-            self::MODE_NONE  => 'none',
-            self::MODE_HOME  => 'home',
-            self::MODE_AWAY  => 'away',
-            self::MODE_NIGHT => 'night',
-            default          => 'unknown'
-        };
+        return AlarmStateMachine::modeName($mode);
     }
 
     private function ControlStateName(int $state): string
     {
-        return match ($state) {
-            self::STATE_DISARMED    => 'disarmed',
-            self::STATE_EXIT_DELAY  => 'exit_delay',
-            self::STATE_ARMED       => 'armed',
-            self::STATE_ENTRY_DELAY => 'entry_delay',
-            self::STATE_ALARM       => 'alarm',
-            default                 => 'unknown'
-        };
+        return AlarmStateMachine::stateName($state);
     }
 
     /**
@@ -4268,8 +4237,8 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         return AlarmEventHistory::normalize(
             $decodedHistory,
-            self::VALID_MODES,
-            self::VALID_STATES,
+            AlarmStateMachine::modes(),
+            AlarmStateMachine::states(),
             self::EVENT_HISTORY_LIMIT
         );
     }
@@ -4465,7 +4434,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function ReadAlarmMode(): int
     {
         $mode = $this->GetValue(self::IDENT_MODE);
-        if (!is_int($mode) || !in_array($mode, self::VALID_MODES, true)) {
+        if (!is_int($mode) || !AlarmStateMachine::isValidMode($mode)) {
             throw new UnexpectedValueException('Invalid alarm mode value.');
         }
 
@@ -4475,7 +4444,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function ReadAlarmState(): int
     {
         $state = $this->GetValue(self::IDENT_STATE);
-        if (!is_int($state) || !in_array($state, self::VALID_STATES, true)) {
+        if (!is_int($state) || !AlarmStateMachine::isValidState($state)) {
             throw new UnexpectedValueException('Invalid alarm state value.');
         }
 
@@ -4599,7 +4568,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function SetAlarmMode(int $mode): void
     {
-        if (!in_array($mode, self::VALID_MODES, true)) {
+        if (!AlarmStateMachine::isValidMode($mode)) {
             throw new InvalidArgumentException('Unsupported alarm mode.');
         }
 
@@ -4608,7 +4577,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function SetAlarmState(int $state): void
     {
-        if (!in_array($state, self::VALID_STATES, true)) {
+        if (!AlarmStateMachine::isValidState($state)) {
             throw new InvalidArgumentException('Unsupported alarm state.');
         }
 

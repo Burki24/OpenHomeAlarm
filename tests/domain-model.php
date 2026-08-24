@@ -5,11 +5,13 @@ declare(strict_types=1);
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
+use Burki24\OpenHomeAlarm\AlarmStateMachine;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmStateMachine.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
 
 function assertDomainSame(mixed $expected, mixed $actual, string $message): void
@@ -36,6 +38,19 @@ function assertDomainThrows(callable $operation, string $expectedMessage): void
 
     throw new RuntimeException(sprintf('Expected validation exception: %s', $expectedMessage));
 }
+
+assertDomainSame([0, 1, 2, 3], AlarmStateMachine::modes(), 'Alarm modes must retain their public values.');
+assertDomainSame([0, 1, 2, 3, 4], AlarmStateMachine::states(), 'Alarm states must retain their public values.');
+assertDomainSame(true, AlarmStateMachine::isValidMode(3), 'Night mode must be valid.');
+assertDomainSame(false, AlarmStateMachine::isValidMode(99), 'Unknown modes must be invalid.');
+assertDomainSame(true, AlarmStateMachine::isValidState(4), 'Alarm state must be valid.');
+assertDomainSame(false, AlarmStateMachine::isValidState(99), 'Unknown states must be invalid.');
+assertDomainSame(1, AlarmStateMachine::armingModeFromName(' Home '), 'Control mode parsing must remain stable.');
+assertDomainSame(null, AlarmStateMachine::armingModeFromName('none'), 'The public arming API must reject none.');
+assertDomainSame('away', AlarmStateMachine::modeName(2), 'Mode names must remain stable.');
+assertDomainSame('entry_delay', AlarmStateMachine::stateName(3), 'State names must remain stable.');
+assertDomainSame('unknown', AlarmStateMachine::modeName(99), 'Unknown mode names must remain explicit.');
+assertDomainSame('unknown', AlarmStateMachine::stateName(99), 'Unknown state names must remain explicit.');
 
 $codeStatus = AlarmCodeProtection::status(true, 0, 0, 3, 1000);
 assertDomainSame(3, $codeStatus['RemainingAttempts'], 'A new code-protection state must expose every attempt.');

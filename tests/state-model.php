@@ -439,15 +439,14 @@ foreach ([
 
 $moduleSource = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/module.php');
 assertStateModel(!str_contains($moduleSource, 'EnableAction('), 'A1 status variables must remain read-only.');
-assertStateModel(str_contains($moduleSource, 'MODE_NONE = 0'), 'MODE_NONE is missing.');
-assertStateModel(str_contains($moduleSource, 'MODE_HOME = 1'), 'MODE_HOME is missing.');
-assertStateModel(str_contains($moduleSource, 'MODE_AWAY = 2'), 'MODE_AWAY is missing.');
-assertStateModel(str_contains($moduleSource, 'MODE_NIGHT = 3'), 'MODE_NIGHT is missing.');
-assertStateModel(str_contains($moduleSource, 'STATE_DISARMED = 0'), 'STATE_DISARMED is missing.');
-assertStateModel(str_contains($moduleSource, 'STATE_EXIT_DELAY = 1'), 'STATE_EXIT_DELAY is missing.');
-assertStateModel(str_contains($moduleSource, 'STATE_ARMED = 2'), 'STATE_ARMED is missing.');
-assertStateModel(str_contains($moduleSource, 'STATE_ENTRY_DELAY = 3'), 'STATE_ENTRY_DELAY is missing.');
-assertStateModel(str_contains($moduleSource, 'STATE_ALARM = 4'), 'STATE_ALARM is missing.');
+assertStateModel(
+    str_contains($moduleSource, 'MODE_NONE = AlarmStateMachine::MODE_NONE'),
+    'The module must use the centralized mode definitions.'
+);
+assertStateModel(
+    str_contains($moduleSource, 'STATE_DISARMED = AlarmStateMachine::STATE_DISARMED'),
+    'The module must use the centralized state definitions.'
+);
 
 $setMode = new ReflectionMethod(OpenHomeAlarm::class, 'SetAlarmMode');
 $setState = new ReflectionMethod(OpenHomeAlarm::class, 'SetAlarmState');
