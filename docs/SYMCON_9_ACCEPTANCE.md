@@ -19,11 +19,11 @@ dokumentiert.
 | Automatisierte Tests | Bestanden | `php tests/run.php` endet ohne Fehler |
 | PHP-Syntax | Bestanden | Alle PHP-Dateien bestehen `php -l` |
 | JSON-Format | Bestanden | `php .style/json-check.php` endet ohne Fehler |
-| Symcon-9.0-Laufzeit | Teilweise bestanden (46/49) | Alle Pflichtfälle dieser Matrix sind auf einer kompatiblen Symcon-Version bestanden |
+| Symcon-9.0-Laufzeit | Bestanden (49/49) | Alle Pflichtfälle dieser Matrix sind auf einer kompatiblen Symcon-Version bestanden |
 | HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
 | IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
-| Update/Migration | Blockiert | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
-| Release Candidate | Blockiert | Erst möglich, wenn kein offener Pflichtfall und kein kritischer Befund verbleibt |
+| Update/Migration | Bestanden | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
+| Release Candidate | Ausstehend | Abnahme bestanden; Commit und zentrale CI für den exakten Kandidaten stehen noch aus |
 
 `Bestanden` bezeichnet hier den zuletzt lokal geprüften Repository-Stand. Vor
 jedem Release Candidate müssen die automatisierten Prüfungen erneut ausgeführt
@@ -155,7 +155,7 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | G-04 | Symcon im scharfen Zustand neu starten und Sensor während des Neustarts auslösen | Anliegende Auslösung wird nach dem Start erkannt | Offen | |
 | G-05 | Symcon mit aktivem 24/7-Sensor neu starten | Anliegende Auslösung wird unmittelbar nach Initialisierung erkannt | Offen | |
 | G-06 | Symcon während einer Code-Sperrzeit neu starten | Fehlversuche und verbleibende Sperrzeit bleiben erhalten | Offen | |
-| G-07 | Bestehende Instanz vom letzten freigegebenen Stand aktualisieren | Konfiguration, Modus, Zustand, Bypässe, Historie und Darstellungen bleiben kompatibel | Offen | |
+| G-07 | Bestehende Instanz von der definierten Update-Baseline aktualisieren; ab dem zweiten Release den letzten freigegebenen Stand verwenden | Konfiguration, Modus, Zustand, Bypässe, Historie und Darstellungen bleiben kompatibel | Offen | |
 | G-08 | Vorherige Sicherung in separater Testinstanz wiederherstellen | Instanz ist wieder bedienbar und enthält den erwarteten gesicherten Zustand | Offen | |
 
 ## Automatisierte Vorprüfung
