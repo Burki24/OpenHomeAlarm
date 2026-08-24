@@ -6,6 +6,7 @@ use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
+use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
@@ -17,6 +18,7 @@ use Burki24\OpenHomeAlarm\AlarmVisualizationAdapter;
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
+require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
@@ -197,6 +199,16 @@ assertDomainSame(
     ['Mode' => ['Value' => 2, 'Name' => 'away'], 'State' => ['Value' => 3, 'Name' => 'entry_delay']],
     AlarmControlStateAdapter::identity(2, 3),
     'The control adapter must expose stable machine-readable mode and state names.'
+);
+
+$disarmUsers = AlarmDisarmUserRegistry::users('[{"Enabled":true,"Name":" Alice ","Code":"1234"},{"Enabled":false,"Name":"Bob","Code":"5678"}]');
+assertDomainSame('Alice', $disarmUsers[0]['Name'], 'Disarm user names must be normalized.');
+assertDomainSame(true, AlarmDisarmUserRegistry::hasEnabledCode($disarmUsers), 'An enabled user code must enable code protection.');
+assertDomainSame('Alice', AlarmDisarmUserRegistry::matchingUser('1234', $disarmUsers), 'A user code must resolve to its name.');
+assertDomainSame(null, AlarmDisarmUserRegistry::matchingUser('5678', $disarmUsers), 'Disabled user codes must be rejected.');
+assertDomainThrows(
+    static fn (): array => AlarmDisarmUserRegistry::users('[{"Code":"1234"},{"Code":"1234"}]'),
+    'Enabled disarm user codes must be unique.'
 );
 assertDomainSame(
     [

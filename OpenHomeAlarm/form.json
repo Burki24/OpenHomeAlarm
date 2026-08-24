@@ -70,6 +70,40 @@
                     "width": "250px"
                 },
                 {
+                    "type": "List",
+                    "name": "DisarmUsers",
+                    "caption": "Disarm users",
+                    "rowCount": 4,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": { "type": "CheckBox" }
+                        },
+                        {
+                            "caption": "User name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Code (4-8 digits)",
+                            "name": "Code",
+                            "width": "180px",
+                            "add": "",
+                            "edit": {
+                                "type": "PasswordTextBox",
+                                "validate": "^(?:[0-9]{4,8})?$"
+                            }
+                        }
+                    ]
+                },
+                {
                     "type": "RowLayout",
                     "items": [
                         {

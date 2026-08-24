@@ -6,6 +6,7 @@ use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
+use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
@@ -17,6 +18,7 @@ use Burki24\OpenHomeAlarm\AlarmVisualizationAdapter;
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
+require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
@@ -127,6 +129,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_FAULT_CLEARED_ACTION_ENABLED = 'FaultClearedActionEnabled';
     private const PROPERTY_FAULT_CLEARED_ACTION = 'FaultClearedAction';
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
+    private const PROPERTY_DISARM_USERS = 'DisarmUsers';
     private const PROPERTY_DISARM_MAX_ATTEMPTS = 'DisarmMaxAttempts';
     private const PROPERTY_DISARM_LOCKOUT_SECONDS = 'DisarmLockoutSeconds';
     private const PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS = 'SensorIntegrityIntervalSeconds';
@@ -281,6 +284,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
+        $this->RegisterPropertyString(self::PROPERTY_DISARM_USERS, '[]');
         $this->RegisterPropertyInteger(
             self::PROPERTY_DISARM_MAX_ATTEMPTS,
             self::DEFAULT_DISARM_MAX_ATTEMPTS
@@ -788,7 +792,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             'Capabilities' => AlarmControlStateAdapter::capabilities(
                 $mode,
                 $state,
-                trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== '',
+                $this->IsDisarmCodeProtectionEnabled(),
                 $alarmMemory,
                 $alarmOutputActive
             ),
@@ -971,36 +975,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function Disarm(): bool
     {
-        $previousState = $this->ReadAlarmState();
-        $previousMode = $this->ReadAlarmMode();
-        $wasAlarm = $previousState === self::STATE_ALARM;
-        $hadActiveState = $previousState !== self::STATE_DISARMED || $previousMode !== self::MODE_NONE;
-
-        $this->CancelDelayTimers();
-        if ($wasAlarm) {
-            $this->ResetAlarmOutput();
-        } else {
-            $this->StopAlarmDurationTimer();
-            $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
-            if ($this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true) {
-                $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, false);
-            }
-        }
-        $this->SetAlarmState(self::STATE_DISARMED);
-        $this->SetAlarmMode(self::MODE_NONE);
-        $this->ClearSensorBypassesInternal();
-        $this->ResetDisarmCodeProtection();
-
-        if ($wasAlarm) {
-            $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
-        }
-        if ($hadActiveState) {
-            $this->AppendEvent(self::EVENT_DISARMED);
-        }
-
-        $this->PublishVisualizationState();
-
-        return true;
+        return $this->DisarmInternal('');
     }
 
     /**
@@ -1013,11 +988,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function DisarmWithCode(string $code): bool
     {
         $configuredCode = trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE));
-        if ($configuredCode === '') {
+        $users = $this->ReadConfiguredDisarmUsers();
+        if ($configuredCode === '' && !AlarmDisarmUserRegistry::hasEnabledCode($users)) {
             return $this->Disarm();
         }
 
-        if (preg_match('/^[0-9]{4,8}$/', $configuredCode) !== 1) {
+        if ($configuredCode !== '' && preg_match('/^[0-9]{4,8}$/', $configuredCode) !== 1) {
             $this->SendDebug(__FUNCTION__, 'Configured disarm code is invalid.', 0);
 
             return false;
@@ -1030,7 +1006,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        if (!hash_equals($configuredCode, trim($code))) {
+        $userName = AlarmDisarmUserRegistry::matchingUser($code, $users);
+        $legacyCodeMatches = $configuredCode !== '' && hash_equals($configuredCode, trim($code));
+        if ($userName === null && !$legacyCodeMatches) {
             $this->SendDebug(__FUNCTION__, 'Disarm code rejected.', 0);
             $this->AppendEvent(self::EVENT_DISARM_CODE_REJECTED);
             $codeProtection = $this->RegisterRejectedDisarmCode($codeProtection);
@@ -1041,7 +1019,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        return $this->Disarm();
+        return $this->DisarmInternal($userName ?? '');
     }
 
     /**
@@ -1682,6 +1660,40 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
+    private function DisarmInternal(string $userName): bool
+    {
+        $previousState = $this->ReadAlarmState();
+        $previousMode = $this->ReadAlarmMode();
+        $wasAlarm = $previousState === self::STATE_ALARM;
+        $hadActiveState = $previousState !== self::STATE_DISARMED || $previousMode !== self::MODE_NONE;
+
+        $this->CancelDelayTimers();
+        if ($wasAlarm) {
+            $this->ResetAlarmOutput();
+        } else {
+            $this->StopAlarmDurationTimer();
+            $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
+            if ($this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true) {
+                $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, false);
+            }
+        }
+        $this->SetAlarmState(self::STATE_DISARMED);
+        $this->SetAlarmMode(self::MODE_NONE);
+        $this->ClearSensorBypassesInternal();
+        $this->ResetDisarmCodeProtection();
+
+        if ($wasAlarm) {
+            $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
+        }
+        if ($hadActiveState) {
+            $this->AppendEvent(self::EVENT_DISARMED, $userName);
+        }
+
+        $this->PublishVisualizationState();
+
+        return true;
+    }
+
     /**
      * @return array{
      *     Enabled: bool,
@@ -1697,7 +1709,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $now = time();
         $status = AlarmCodeProtection::status(
-            trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== '',
+            $this->IsDisarmCodeProtectionEnabled(),
             $this->ReadAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS),
             $this->ReadAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL),
             $this->ReadDisarmMaximumAttempts(),
@@ -1706,6 +1718,18 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->PersistDisarmCodeProtectionStatus($status);
 
         return $status;
+    }
+
+    /** @return list<array{Enabled:bool,Name:string,Code:string}> */
+    private function ReadConfiguredDisarmUsers(): array
+    {
+        return AlarmDisarmUserRegistry::users($this->ReadPropertyString(self::PROPERTY_DISARM_USERS));
+    }
+
+    private function IsDisarmCodeProtectionEnabled(): bool
+    {
+        return trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== ''
+            || AlarmDisarmUserRegistry::hasEnabledCode($this->ReadConfiguredDisarmUsers());
     }
 
     /**
