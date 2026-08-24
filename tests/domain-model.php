@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
+use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
@@ -14,6 +15,7 @@ use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
 require_once __DIR__ . '/../libs/AlarmSensorMonitor.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
@@ -127,6 +129,61 @@ assertDomainSame([100, 200], $faultTransitions['ActiveIDs'], 'Active and unreada
 assertDomainSame(200, $faultTransitions['NewlyActiveInputs'][0][0]['VariableID'], 'A newly unreadable fault must be detected.');
 assertDomainSame(null, $faultTransitions['NewlyActiveInputs'][0][1], 'An unreadable fault must remain distinguishable from a confirmed trigger.');
 assertDomainSame([400], $faultTransitions['ClearedIDs'], 'Removed or healthy prior faults must be reported as cleared.');
+
+$executedActions = [];
+$actionRunner = static function (string $actionID, array $parameters) use (&$executedActions): bool {
+    $executedActions[] = ['actionID' => $actionID, 'parameters' => $parameters];
+
+    return true;
+};
+assertDomainSame(
+    ['Succeeded' => true, 'Error' => null],
+    AlarmActionExecutor::execute(false, '{invalid json', $actionRunner),
+    'A disabled optional action must not be parsed or executed.'
+);
+assertDomainSame(
+    ['Succeeded' => true, 'Error' => null],
+    AlarmActionExecutor::execute(true, 'false', $actionRunner),
+    'An unconfigured native SelectAction value must be successful without execution.'
+);
+$configuredAction = json_encode(
+    ['actionID' => '{ACTION}', 'parameters' => ['VALUE' => true]],
+    JSON_THROW_ON_ERROR
+);
+assertDomainSame(
+    ['Succeeded' => true, 'Error' => null],
+    AlarmActionExecutor::execute(true, $configuredAction, $actionRunner),
+    'A valid action must execute successfully.'
+);
+assertDomainSame(
+    [['actionID' => '{ACTION}', 'parameters' => ['VALUE' => true]]],
+    $executedActions,
+    'Action ID and parameters must reach the runner unchanged.'
+);
+$invalidAction = AlarmActionExecutor::execute(true, '{invalid json', $actionRunner);
+assertDomainSame(false, $invalidAction['Succeeded'], 'Invalid action JSON must fail safely.');
+assertDomainSame(true, str_starts_with($invalidAction['Error'] ?? '', 'Invalid configured action:'), 'Invalid JSON must expose the established diagnostic.');
+assertDomainSame(
+    ['Succeeded' => false, 'Error' => 'Configured action is missing actionID or parameters.'],
+    AlarmActionExecutor::execute(true, '{"actionID":"{ACTION}"}', $actionRunner),
+    'Incomplete action payloads must be rejected.'
+);
+assertDomainSame(
+    ['Succeeded' => false, 'Error' => 'Configured action could not be started.'],
+    AlarmActionExecutor::execute(true, $configuredAction, static fn (): bool => false),
+    'A runner rejection must be reported.'
+);
+assertDomainSame(
+    ['Succeeded' => false, 'Error' => 'Configured action failed: runner failed'],
+    AlarmActionExecutor::execute(
+        true,
+        $configuredAction,
+        static function (): bool {
+            throw new RuntimeException('runner failed');
+        }
+    ),
+    'A runner exception must be contained.'
+);
 
 $codeStatus = AlarmCodeProtection::status(true, 0, 0, 3, 1000);
 assertDomainSame(3, $codeStatus['RemainingAttempts'], 'A new code-protection state must expose every attempt.');

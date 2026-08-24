@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
+use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
@@ -14,6 +15,7 @@ use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
 require_once __DIR__ . '/../libs/AlarmSensorMonitor.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
@@ -4275,54 +4277,16 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function RunConfiguredAction(string $propertyName): bool
     {
         $enabledProperty = self::OPTIONAL_ACTION_FIELDS[$propertyName] ?? null;
-        if ($enabledProperty !== null && $this->ReadPropertyInteger($enabledProperty) !== 1) {
-            return true;
+        $result = AlarmActionExecutor::execute(
+            $enabledProperty === null || $this->ReadPropertyInteger($enabledProperty) === 1,
+            $this->ReadPropertyString($propertyName),
+            static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
+        );
+        if ($result['Error'] !== null) {
+            $this->SendDebug(__FUNCTION__, $result['Error'], 0);
         }
 
-        $encodedAction = trim($this->ReadPropertyString($propertyName));
-        if ($encodedAction === '' || $encodedAction === '{}' || $encodedAction === 'false' || $encodedAction === 'null') {
-            return true;
-        }
-
-        try {
-            $action = json_decode($encodedAction, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            $this->SendDebug(__FUNCTION__, 'Invalid configured action: ' . $exception->getMessage(), 0);
-
-            return false;
-        }
-
-        if ($action === false || $action === null) {
-            return true;
-        }
-
-        if (!is_array($action)) {
-            $this->SendDebug(__FUNCTION__, 'Configured action must decode to an object.', 0);
-
-            return false;
-        }
-
-        $actionID = $action['actionID'] ?? null;
-        $parameters = $action['parameters'] ?? null;
-        if (!is_string($actionID) || $actionID === '' || !is_array($parameters)) {
-            $this->SendDebug(__FUNCTION__, 'Configured action is missing actionID or parameters.', 0);
-
-            return false;
-        }
-
-        try {
-            $executed = IPS_RunAction($actionID, $parameters);
-        } catch (Throwable $exception) {
-            $this->SendDebug(__FUNCTION__, 'Configured action failed: ' . $exception->getMessage(), 0);
-
-            return false;
-        }
-
-        if (!$executed) {
-            $this->SendDebug(__FUNCTION__, 'Configured action could not be started.', 0);
-        }
-
-        return $executed;
+        return $result['Succeeded'];
     }
 
     private function StartAlarmDurationTimer(): void
