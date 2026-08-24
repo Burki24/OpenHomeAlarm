@@ -40,6 +40,7 @@ $commands = [
     ['Check alarm actions', 'php tests/alarm-actions.php'],
     ['Check alarm duration and reset handling', 'php tests/alarm-duration.php'],
     ['Check disarm code protection', 'php tests/disarm-code.php'],
+    ['Check automatic arming schedules', 'php tests/arming-schedule.php'],
     ['Check alarm memory', 'php tests/alarm-memory.php'],
     ['Check 24/7 sensors', 'php tests/always-active.php'],
     ['Check temporary sensor bypasses', 'php tests/bypass.php'],

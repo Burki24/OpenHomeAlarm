@@ -65,6 +65,8 @@ function ohaReasonCaption(reason) {
 function ohaEventCaption(eventName) {
     const captions = {
         arm_rejected: 'Arming rejected',
+        automatic_arming_succeeded: 'Automatic arming succeeded',
+        automatic_arming_rejected: 'Automatic arming rejected',
         arm_cancelled: 'Arming cancelled',
         exit_delay_started: 'Exit delay started',
         armed: 'System armed',

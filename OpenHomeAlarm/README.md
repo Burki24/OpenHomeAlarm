@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status und konfigurierbarem Ausgangsweg, konfigurierbare Alarmaktionen mit Alarmdauer und Rücksetzung des Alarmausgangs, eine 24/7-Systemüberwachung für Manipulation und technische Störungen, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll, eine stabile öffentliche Bedien-API, die professionelle HTML-SDK-Visualisierung sowie eine vollständig bedienbare IPSView-WebContent-Seite sind implementiert. Beide Oberflächen unterstützen Scharf-/Unscharfschalten, Code-Eingabe, Sensorüberbrückungen, Rücksetzung des Alarmausgangs, Quittierung des Alarmgedächtnisses und die Anzeige der letzten Sicherheitsereignisse.
+> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status und konfigurierbarem Ausgangsweg, wöchentliche automatische Scharfschaltung, konfigurierbare Alarmaktionen mit Alarmdauer und Rücksetzung des Alarmausgangs, eine 24/7-Systemüberwachung für Manipulation und technische Störungen, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll, eine stabile öffentliche Bedien-API, die professionelle HTML-SDK-Visualisierung sowie eine vollständig bedienbare IPSView-WebContent-Seite sind implementiert. Beide Oberflächen unterstützen Scharf-/Unscharfschalten, Code-Eingabe, Sensorüberbrückungen, Rücksetzung des Alarmausgangs, Quittierung des Alarmgedächtnisses und die Anzeige der letzten Sicherheitsereignisse.
 
 > **Sicherheitshinweis:** OpenHomeAlarm ist keine zertifizierte Einbruch-, Brand- oder Gefahrenmeldeanlage. Die Verfügbarkeit hängt von Symcon, Hostsystem, Netzwerk, Sensoren und konfigurierten Aktionen ab. Für normativ oder versicherungsrechtlich geforderte Schutzaufgaben ist geeignete zertifizierte Sicherheitstechnik erforderlich. Weitere Hinweise enthält die [Sicherheitsrichtlinie](../SECURITY.md).
 
@@ -16,11 +16,12 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 6. [Sensoren und Auslöser](#6-sensoren-und-auslöser)
 7. [Systemüberwachung](#7-systemüberwachung)
 8. [Code-Schutz](#8-code-schutz)
-9. [Alarmaktionen](#9-alarmaktionen)
-10. [Alarmgedächtnis](#10-alarmgedächtnis)
-11. [Ereignisprotokoll](#11-ereignisprotokoll)
-12. [Visualisierung](#12-visualisierung)
-13. [PHP-Befehlsreferenz](#13-php-befehlsreferenz)
+9. [Automatische Scharfschaltung](#9-automatische-scharfschaltung)
+10. [Alarmaktionen](#10-alarmaktionen)
+11. [Alarmgedächtnis](#11-alarmgedächtnis)
+12. [Ereignisprotokoll](#12-ereignisprotokoll)
+13. [Visualisierung](#13-visualisierung)
+14. [PHP-Befehlsreferenz](#14-php-befehlsreferenz)
 
 ### 1. Funktionsumfang
 
@@ -42,7 +43,7 @@ Die Library kann über die Modulverwaltung von Symcon aus dem GitHub-Repository 
 
 Unter **Instanz hinzufügen** kann das Modul **OpenHomeAlarm** gefunden und angelegt werden.
 
-Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Im Abschnitt **Code-Schutz** kann optional ein vier- bis achtstelliger **Unscharfschaltcode** hinterlegt werden. Im Abschnitt **Alarmaktionen** werden die **Alarmdauer** sowie optional die Aktionen **Bei Alarm**, **Bei Rücksetzung des Alarmausgangs** und **Beim Unscharfschalten nach Alarm** konfiguriert. Jede dieser Aktionen ist standardmäßig deaktiviert und wird erst nach Auswahl **Aktion konfigurieren** und einmaligem Übernehmen eingeblendet und ausgeführt. Im Abschnitt **Systemüberwachung** wird außerdem das Intervall der **Sensor-Integritätsprüfung** festgelegt; zusätzlich können dort 24/7-Eingänge für Manipulation und technische Störungen samt explizit aktivierbaren Aktionen bei Auftreten und Behebung hinterlegt werden. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Dort kann ein Sensor zusätzlich als **Ausgangsweg** markiert werden. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
+Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Im Abschnitt **Code-Schutz** kann optional ein vier- bis achtstelliger **Unscharfschaltcode** hinterlegt werden. **Automatische Scharfschaltung** verwaltet wöchentliche Schaltpläne mit Wochentagen, Uhrzeit und Zielmodus. Im Abschnitt **Alarmaktionen** werden die **Alarmdauer** sowie optional die Aktionen **Bei Alarm**, **Bei Rücksetzung des Alarmausgangs** und **Beim Unscharfschalten nach Alarm** konfiguriert. Jede dieser Aktionen ist standardmäßig deaktiviert und wird erst nach Auswahl **Aktion konfigurieren** und einmaligem Übernehmen eingeblendet und ausgeführt. Im Abschnitt **Systemüberwachung** wird außerdem das Intervall der **Sensor-Integritätsprüfung** festgelegt; zusätzlich können dort 24/7-Eingänge für Manipulation und technische Störungen samt explizit aktivierbaren Aktionen bei Auftreten und Behebung hinterlegt werden. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Dort kann ein Sensor zusätzlich als **Ausgangsweg** markiert werden. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
 
 ### 5. Statusvariablen und Darstellungen
 
@@ -135,7 +136,15 @@ Der Code wird als lokale Symcon-Instanzeigenschaft gespeichert. Das Passwortfeld
 
 Der bestehende Befehl `OHA_Disarm($InstanzID)` bleibt als vertrauenswürdige direkte API für Automationen erhalten und umgeht bewusst Code-Prüfung und Benutzersperre. Der öffentliche Bedienzustand enthält unter `CodeProtection` ausschließlich Sperrstatus, verbleibende Versuche und Sperrdauer; weder der konfigurierte noch der eingegebene Code werden ausgegeben.
 
-### 9. Alarmaktionen
+### 9. Automatische Scharfschaltung
+
+Im Abschnitt **Automatische Scharfschaltung** können beliebig viele wöchentliche Zeitpläne aktiviert werden. Jeder Eintrag besitzt einen Namen, die gewünschten Wochentage, eine lokale Uhrzeit im Format `HH:MM` und den Zielmodus **Zuhause**, **Abwesend** oder **Nacht**. Die lokale Zeit und Zeitzone der Symcon-Installation sind maßgeblich.
+
+Ein fälliger Zeitplan verwendet exakt dieselbe Scharfschaltlogik wie `OHA_Arm()`. Ausgelöste oder nicht verfügbare Sensoren und blockierende Störungen verhindern die automatische Scharfschaltung deshalb unverändert. Sensorüberbrückungen werden nicht automatisch angelegt. Ist die Anlage bereits nicht mehr unscharf, wird weder der Modus gewechselt noch unscharf geschaltet.
+
+Jeder Zeitplan wird innerhalb derselben Minute höchstens einmal ausgeführt. Der Ausführungsmarker wird persistent gespeichert, sodass wiederholte Timeraufrufe, `ApplyChanges()` oder ein Symcon-Neustart keine zweite Ausführung in derselben Minute verursachen. War Symcon während der vollständigen Zielminute nicht betriebsbereit, wird der verpasste Zeitplan aus Sicherheitsgründen nicht nachträglich ausgeführt. Erfolg und Ablehnung werden als `automatic_arming_succeeded` beziehungsweise `automatic_arming_rejected` mit dem Zeitplannamen im Ereignisprotokoll gespeichert.
+
+### 10. Alarmaktionen
 
 OpenHomeAlarm verwendet für externe Reaktionen die nativen Symcon-Aktionen. Optionale Aktionen sind standardmäßig deaktiviert, damit eine vollständig gültige Konfiguration auch ohne Aktionsauswahl möglich bleibt. Nach Auswahl **Aktion konfigurieren** und einmaligem Übernehmen wird der jeweilige native Aktionsdialog eingeblendet. Solange die Option auf **Keine Aktion** steht, ist das `SelectAction`-Element nicht Bestandteil des Konfigurationsformulars und kann daher andere Änderungen nicht blockieren. Im Feld **Bei Alarm** kann anschließend ein beliebiges Ziel samt passender Aktion gewählt werden. Die Aktion wird genau einmal ausgeführt, wenn das System erstmals in den Zustand **Alarm** wechselt. Gleichzeitig wird `AlarmOutputActive` auf aktiv gesetzt.
 
@@ -149,13 +158,13 @@ Die Alarmdauer ist wiederanlaufsicher: Ein laufender Timer wird über einen pers
 
 Da die Zielauswahl Bestandteil der Symcon-Aktion ist, können sowohl einzelne Gerätevariablen als auch Skripte, Ablaufpläne und andere von Symcon angebotene Aktionsziele verwendet werden. Nicht konfigurierte Alarmaktionen haben keine Wirkung auf die Kernlogik. Auch eine fehlerhafte optionale Aktion verhindert nicht den Wechsel des Alarmzustands oder das Unscharfschalten.
 
-### 10. Alarmgedächtnis
+### 11. Alarmgedächtnis
 
 Beim tatsächlichen Eintritt in den Zustand **Alarm** speichert OpenHomeAlarm den auslösenden Sensor und den Alarmzeitpunkt. Bei einem Sensor mit Eingangsverzögerung wird dabei der Sensor gemerkt, der den Countdown gestartet hat; auch wenn dieser Sensor vor Ablauf der Verzögerung wieder in den Ruhezustand zurückkehrt, bleibt er die Alarmquelle. Ein Sensor ohne eingetragenen Namen wird ersatzweise über seine Variablen-ID bezeichnet.
 
 Das Alarmgedächtnis bleibt beim Unscharfschalten erhalten. Dadurch ist nach der Rückkehr weiterhin nachvollziehbar, welcher Sensor den letzten Alarm ausgelöst hat. `OHA_ClearAlarmMemory($InstanzID)` quittiert das Alarmgedächtnis und leert Quelle und Zeitpunkt. Während eines noch aktiven Alarms wird die Quittierung abgelehnt.
 
-### 11. Ereignisprotokoll
+### 12. Ereignisprotokoll
 
 OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle.
 
@@ -165,7 +174,7 @@ Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, Start der Ei
 
 `OHA_GetEventHistory($InstanzID)` liefert das Protokoll als JSON. Mit `OHA_ClearEventHistory($InstanzID)` kann es gezielt geleert werden. Das Ereignisprotokoll ist ein Bedien- und Diagnoseprotokoll und kein manipulationssicheres Audit-Log.
 
-### 12. Visualisierung
+### 13. Visualisierung
 
 OpenHomeAlarm besitzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Das Dashboard ist zustandsorientiert aufgebaut: **Unscharf**, **Scharf**, **Ein-/Ausgangsverzögerung** und **Alarm** werden als zentraler Hauptzustand dargestellt. Countdown, Alarmgedächtnis, aktive Systemstörungen und temporär überbrückte Sensoren erscheinen nur dann als zusätzliche Hinweise, wenn sie tatsächlich relevant sind. Dadurch bleibt die Normalansicht kompakt und die jeweils wichtigste Information steht im Vordergrund. Farben, Oberflächen, Abstände und Fokusdarstellung stammen aus dem gemeinsamen `VisualizationThemeHelper`; die Kachel folgt damit wie OpenCalendar den nativen Symcon-Farben einschließlich Light-/Dark-Umschaltung.
 
@@ -187,7 +196,7 @@ Statusquelle bleibt unverändert die öffentliche Bedien-API: `OHA_GetControlSta
 
 Die im Snapshot enthaltene `ApiVersion` beginnt mit `1`. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
 
-### 13. PHP-Befehlsreferenz
+### 14. PHP-Befehlsreferenz
 
 Folgende öffentliche Modulbefehle stehen zur Verfügung:
 

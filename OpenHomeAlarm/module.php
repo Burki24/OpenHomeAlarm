@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Burki24\OpenHomeAlarm\AlarmActionExecutor;
+use Burki24\OpenHomeAlarm\AlarmArmingSchedule;
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
@@ -16,6 +17,7 @@ use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 use Burki24\OpenHomeAlarm\AlarmVisualizationAdapter;
 
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
+require_once __DIR__ . '/../libs/AlarmArmingSchedule.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
 require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
@@ -88,6 +90,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_ALARM_MEMORY_CLEARED = 'alarm_memory_cleared';
     private const EVENT_FAULT_ACTIVATED = 'fault_activated';
     private const EVENT_FAULT_CLEARED = 'fault_cleared';
+    private const EVENT_AUTOMATIC_ARMING_SUCCEEDED = 'automatic_arming_succeeded';
+    private const EVENT_AUTOMATIC_ARMING_REJECTED = 'automatic_arming_rejected';
 
     private const EVENT_HISTORY_LIMIT = 100;
     private const DEFAULT_DISARM_MAX_ATTEMPTS = 5;
@@ -133,6 +137,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_DISARM_MAX_ATTEMPTS = 'DisarmMaxAttempts';
     private const PROPERTY_DISARM_LOCKOUT_SECONDS = 'DisarmLockoutSeconds';
     private const PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS = 'SensorIntegrityIntervalSeconds';
+    private const PROPERTY_AUTOMATIC_ARMING_SCHEDULES = 'AutomaticArmingSchedules';
 
     private const LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES = [
         'IPSViewPageColor'          => 'IPSViewPageColorValue',
@@ -226,6 +231,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_EVENT_HISTORY = 'EventHistory';
     private const ATTRIBUTE_DISARM_FAILED_ATTEMPTS = 'DisarmFailedAttempts';
     private const ATTRIBUTE_DISARM_LOCKOUT_UNTIL = 'DisarmLockoutUntil';
+    private const ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS = 'AutomaticArmingExecutions';
     private const ATTRIBUTE_IPSVIEW_TOKEN_1 = 'IPSViewToken1';
     private const ATTRIBUTE_IPSVIEW_TOKEN_2 = 'IPSViewToken2';
     private const ATTRIBUTE_IPSVIEW_TOKEN_3 = 'IPSViewToken3';
@@ -236,6 +242,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const TIMER_DELAY_STATUS = 'DelayStatus';
     private const TIMER_ALARM_DURATION = 'AlarmDuration';
     private const TIMER_SENSOR_INTEGRITY = 'SensorIntegrity';
+    private const TIMER_AUTOMATIC_ARMING = 'AutomaticArming';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
     private const IDENT_DELAY_REMAINING = 'DelayRemaining';
@@ -294,6 +301,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::DEFAULT_DISARM_LOCKOUT_SECONDS
         );
         $this->RegisterPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS, 60);
+        $this->RegisterPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES, '[]');
         $this->RegisterIPSViewHTMLPageProperties();
         $this->RegisterIPSViewStyleProperties();
 
@@ -308,6 +316,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL, 0);
+        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_1, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_2, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_3, 0);
@@ -342,6 +351,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::TIMER_SENSOR_INTEGRITY,
             0,
             'OHA_CheckSensorIntegrity($_IPS[\'TARGET\']);'
+        );
+        $this->RegisterTimer(
+            self::TIMER_AUTOMATIC_ARMING,
+            0,
+            'OHA_CheckAutomaticArming($_IPS[\'TARGET\']);'
         );
 
         $modeCreated = $this->RegisterVariableInteger(
@@ -694,6 +708,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         parent::ApplyChanges();
 
         $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
+        $this->SetTimerInterval(self::TIMER_AUTOMATIC_ARMING, 0);
         $this->RegisterMessage(0, IPS_KERNELSTARTED);
         $this->RegisterIPSViewStyleMediaMessages();
         $this->MaintainIPSViewHTMLVariable(
@@ -944,6 +959,21 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->EvaluateFaultInputs($faultInputs);
         $this->UpdateReadinessFromSensors($sensors);
         $this->PublishVisualizationState();
+    }
+
+    /**
+     * Executes weekly automatic-arming schedules due in the current local minute.
+     *
+     * A persistent execution key makes the operation at-most-once across repeated
+     * timer calls, ApplyChanges() and Symcon restarts within the same minute.
+     */
+    public function CheckAutomaticArming(): void
+    {
+        if (IPS_GetKernelRunlevel() !== KR_READY) {
+            return;
+        }
+
+        $this->ExecuteAutomaticArmingAt(time());
     }
 
     /**
@@ -1726,6 +1756,14 @@ class OpenHomeAlarm extends IPSModuleStrict
         return AlarmDisarmUserRegistry::users($this->ReadPropertyString(self::PROPERTY_DISARM_USERS));
     }
 
+    /** @return list<array<string, bool|string>> */
+    private function ReadConfiguredAutomaticArmingSchedules(): array
+    {
+        return AlarmArmingSchedule::schedules(
+            $this->ReadPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES)
+        );
+    }
+
     private function IsDisarmCodeProtectionEnabled(): bool
     {
         return trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== ''
@@ -1832,6 +1870,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::TIMER_SENSOR_INTEGRITY,
             $this->ReadSensorIntegrityIntervalSeconds() * 1000
         );
+        $automaticArmingSchedules = $this->ReadConfiguredAutomaticArmingSchedules();
+        $this->SetTimerInterval(
+            self::TIMER_AUTOMATIC_ARMING,
+            $automaticArmingSchedules === [] ? 0 : 15000
+        );
         $this->NormalizeSensorBypasses($sensors);
         $this->SynchronizeSensorMessages($sensors, $faultInputs);
         $this->EvaluateSensorAvailability($sensors);
@@ -1843,6 +1886,51 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RestoreAlarmDurationTimer();
         $this->PublishVisualizationState();
         $this->UpdateIPSViewHTML();
+    }
+
+    private function ExecuteAutomaticArmingAt(int $timestamp): void
+    {
+        $schedules = $this->ReadConfiguredAutomaticArmingSchedules();
+        $localMinute = date('Y-m-d H:i', $timestamp);
+        $dueSchedules = AlarmArmingSchedule::due(
+            $schedules,
+            (int) date('N', $timestamp),
+            date('H:i', $timestamp)
+        );
+
+        try {
+            $processedKeys = $this->ReadPersistentJsonCache(self::ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS);
+        } catch (UnexpectedValueException) {
+            $processedKeys = [];
+        }
+        $processedKeys = array_values(array_filter($processedKeys, 'is_string'));
+        $currentKeys = [];
+
+        foreach ($dueSchedules as $schedule) {
+            $executionKey = AlarmArmingSchedule::executionKey($schedule, $localMinute);
+            $currentKeys[] = $executionKey;
+            if (in_array($executionKey, $processedKeys, true)) {
+                continue;
+            }
+
+            // Persist before arming so a restart cannot repeat an already-started attempt.
+            $this->WritePersistentJsonCache(
+                self::ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS,
+                array_values(array_unique(array_merge($processedKeys, $currentKeys)))
+            );
+            $succeeded = $this->Arm((string) $schedule['Mode']);
+            $this->AppendEvent(
+                $succeeded
+                    ? self::EVENT_AUTOMATIC_ARMING_SUCCEEDED
+                    : self::EVENT_AUTOMATIC_ARMING_REJECTED,
+                (string) $schedule['Name']
+            );
+        }
+
+        $this->WritePersistentJsonCache(
+            self::ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS,
+            array_values(array_unique($currentKeys))
+        );
     }
 
     /**

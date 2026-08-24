@@ -140,6 +140,145 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Automatic arming",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Configure weekly schedules that arm the system through the normal readiness checks."
+                },
+                {
+                    "type": "List",
+                    "name": "AutomaticArmingSchedules",
+                    "caption": "Arming schedules",
+                    "rowCount": 5,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Mon",
+                            "name": "Monday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Tue",
+                            "name": "Tuesday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Wed",
+                            "name": "Wednesday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Thu",
+                            "name": "Thursday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Fri",
+                            "name": "Friday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Sat",
+                            "name": "Saturday",
+                            "width": "55px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Sun",
+                            "name": "Sunday",
+                            "width": "55px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Time",
+                            "name": "Time",
+                            "width": "90px",
+                            "add": "08:00",
+                            "edit": {
+                                "type": "ValidationTextBox",
+                                "validate": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                            }
+                        },
+                        {
+                            "caption": "Arming mode",
+                            "name": "Mode",
+                            "width": "140px",
+                            "add": "away",
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "Home",
+                                        "value": "home"
+                                    },
+                                    {
+                                        "caption": "Away",
+                                        "value": "away"
+                                    },
+                                    {
+                                        "caption": "Night",
+                                        "value": "night"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Automatic arming never bypasses sensors or blocking faults and never disarms or changes an already active mode."
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "Alarm actions",
             "expanded": true,
             "items": [

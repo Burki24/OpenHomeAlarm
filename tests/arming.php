@@ -444,4 +444,42 @@ try {
 } catch (InvalidArgumentException) {
 }
 
+// A due weekly schedule uses the normal arming path and executes only once per local minute.
+$scheduleTimestamp = mktime(8, 15, 0, 8, 24, 2026);
+$automaticSchedule = [[
+    'Enabled' => true, 'Name' => 'Workday away',
+    'Monday'  => true, 'Tuesday' => false, 'Wednesday' => false, 'Thursday' => false,
+    'Friday'  => false, 'Saturday' => false, 'Sunday' => false,
+    'Time'    => '08:15', 'Mode' => 'away'
+]];
+$instance->TestSetPropertyString('Sensors', '[]');
+$instance->TestSetPropertyString(
+    'AutomaticArmingSchedules',
+    json_encode($automaticSchedule, JSON_THROW_ON_ERROR)
+);
+$instance->TestClearWrittenValues();
+$executeAutomaticArming = new ReflectionMethod(OpenHomeAlarm::class, 'ExecuteAutomaticArmingAt');
+$executeAutomaticArming->invoke($instance, $scheduleTimestamp);
+assertArming(
+    ($instance->TestWrittenValues()['Mode'] ?? null) === 2
+    && ($instance->TestWrittenValues()['State'] ?? null) === 2,
+    'A due automatic schedule must arm through the normal Away arming path.'
+);
+$automaticEvents = json_decode($instance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertArming(
+    count(array_filter(
+        $automaticEvents,
+        static fn (array $event): bool => $event['Event'] === 'automatic_arming_succeeded'
+            && $event['Source'] === 'Workday away'
+    )) === 1,
+    'A successful automatic arming attempt must identify its schedule in event history.'
+);
+assertArming($instance->Disarm() === true, 'The test setup must disarm after automatic arming.');
+$instance->TestClearWrittenValues();
+$executeAutomaticArming->invoke($instance, $scheduleTimestamp);
+assertArming(
+    $instance->TestWrittenValues() === [],
+    'A schedule must not execute twice in the same local minute.'
+);
+
 fwrite(STDOUT, "OpenHomeAlarm arming checks passed.\n");
