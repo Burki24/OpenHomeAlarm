@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
+use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
+use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
 use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
@@ -12,6 +14,8 @@ use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
+require_once __DIR__ . '/../libs/AlarmSensorMonitor.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
 require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
@@ -89,6 +93,40 @@ assertDomainSame(
     AlarmTimerSchedule::restore(0, 1000),
     'A missing persisted deadline must be treated as expired.'
 );
+
+$monitorSensors = [
+    ['Enabled' => true, 'VariableID' => 10, 'AlwaysActive' => false, 'ArmHome' => true, 'ArmAway' => false, 'ArmNight' => false],
+    ['Enabled' => true, 'VariableID' => 20, 'AlwaysActive' => true, 'ArmHome' => false, 'ArmAway' => false, 'ArmNight' => false],
+    ['Enabled' => false, 'VariableID' => 30, 'AlwaysActive' => false, 'ArmHome' => true, 'ArmAway' => false, 'ArmNight' => false]
+];
+assertDomainSame(true, AlarmSensorMonitor::containsVariable(10, $monitorSensors), 'An enabled assigned sensor must be monitored.');
+assertDomainSame(true, AlarmSensorMonitor::containsVariable(20, $monitorSensors), 'An enabled 24/7 sensor must be monitored.');
+assertDomainSame(false, AlarmSensorMonitor::containsVariable(30, $monitorSensors), 'A disabled sensor must not be monitored.');
+$sensorTransitions = AlarmSensorMonitor::availabilityTransitions(
+    $monitorSensors,
+    [20, 40],
+    static fn (array $sensor): ?bool => $sensor['VariableID'] === 10 ? null : false
+);
+assertDomainSame([10], $sensorTransitions['UnavailableIDs'], 'Only unreadable monitored sensors must be unavailable.');
+assertDomainSame([10], $sensorTransitions['NewUnavailableIDs'], 'New sensor loss must be detected once.');
+assertDomainSame([20, 40], $sensorTransitions['RestoredIDs'], 'Recovered or removed sensors must be reported as restored.');
+
+$monitorFaults = [
+    ['Enabled' => true, 'VariableID' => 100, 'TriggerAlarm' => true],
+    ['Enabled' => true, 'VariableID' => 200, 'TriggerAlarm' => false],
+    ['Enabled' => false, 'VariableID' => 300, 'TriggerAlarm' => true]
+];
+assertDomainSame(true, AlarmFaultMonitor::containsVariable(100, $monitorFaults), 'An enabled fault input must be monitored.');
+assertDomainSame(false, AlarmFaultMonitor::containsVariable(300, $monitorFaults), 'A disabled fault input must not be monitored.');
+$faultTransitions = AlarmFaultMonitor::transitions(
+    $monitorFaults,
+    [100, 400],
+    static fn (array $fault): ?bool => match ($fault['VariableID']) { 100 => true, 200 => null, default => false }
+);
+assertDomainSame([100, 200], $faultTransitions['ActiveIDs'], 'Active and unreadable fault inputs must remain fail-safe active.');
+assertDomainSame(200, $faultTransitions['NewlyActiveInputs'][0][0]['VariableID'], 'A newly unreadable fault must be detected.');
+assertDomainSame(null, $faultTransitions['NewlyActiveInputs'][0][1], 'An unreadable fault must remain distinguishable from a confirmed trigger.');
+assertDomainSame([400], $faultTransitions['ClearedIDs'], 'Removed or healthy prior faults must be reported as cleared.');
 
 $codeStatus = AlarmCodeProtection::status(true, 0, 0, 3, 1000);
 assertDomainSame(3, $codeStatus['RemainingAttempts'], 'A new code-protection state must expose every attempt.');

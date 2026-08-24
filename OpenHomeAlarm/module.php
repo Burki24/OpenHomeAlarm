@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
+use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
+use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
 use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
@@ -12,6 +14,8 @@ use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
+require_once __DIR__ . '/../libs/AlarmSensorMonitor.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
 require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
@@ -2888,17 +2892,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function IsMonitoredSensorVariable(int $variableID, array $sensors): bool
     {
-        foreach ($sensors as $sensor) {
-            if (
-                $sensor['Enabled']
-                && $this->IsSensorMonitored($sensor)
-                && $sensor['VariableID'] === $variableID
-            ) {
-                return true;
-            }
-        }
-
-        return false;
+        return AlarmSensorMonitor::containsVariable($variableID, $sensors);
     }
 
     /**
@@ -2914,13 +2908,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function IsMonitoredFaultVariable(int $variableID, array $faultInputs): bool
     {
-        foreach ($faultInputs as $faultInput) {
-            if ($faultInput['Enabled'] && $faultInput['VariableID'] === $variableID) {
-                return true;
-            }
-        }
-
-        return false;
+        return AlarmFaultMonitor::containsVariable($variableID, $faultInputs);
     }
 
     /**
@@ -3107,35 +3095,20 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function EvaluateSensorAvailability(array $sensors): void
     {
         $previousUnavailableIDs = $this->ReadUnavailableSensorVariableIDs();
-        $currentUnavailableIDs = [];
-
-        foreach ($sensors as $sensor) {
-            if (
-                !$sensor['Enabled']
-                || !$this->IsSensorMonitored($sensor)
-                || $sensor['VariableID'] <= 0
-            ) {
-                continue;
-            }
-
-            if ($this->GetSensorTriggerState($sensor) === null) {
-                $currentUnavailableIDs[] = $sensor['VariableID'];
-            }
-        }
-
-        $currentUnavailableIDs = array_values(array_unique($currentUnavailableIDs));
-        sort($currentUnavailableIDs, SORT_NUMERIC);
+        $transitions = AlarmSensorMonitor::availabilityTransitions(
+            $sensors,
+            $previousUnavailableIDs,
+            fn (array $sensor): ?bool => $this->GetSensorTriggerState($sensor)
+        );
+        $currentUnavailableIDs = $transitions['UnavailableIDs'];
         if ($currentUnavailableIDs === [] && $previousUnavailableIDs === []) {
             return;
         }
 
-        $newUnavailableIDs = array_values(array_diff($currentUnavailableIDs, $previousUnavailableIDs));
-        $restoredIDs = array_values(array_diff($previousUnavailableIDs, $currentUnavailableIDs));
-
         $this->WriteUnavailableSensorVariableIDs($currentUnavailableIDs);
         $this->UpdateSystemFaultStatus($this->ReadConfiguredFaultInputs(), $sensors);
 
-        foreach ($newUnavailableIDs as $variableID) {
+        foreach ($transitions['NewUnavailableIDs'] as $variableID) {
             $sourceName = $this->FormatUnavailableSensorName($variableID, $sensors);
             $this->SetLastFaultSource($sourceName);
             $this->SetLastFaultTime(date('d.m.Y H:i:s'));
@@ -3143,7 +3116,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->RunConfiguredAction(self::PROPERTY_FAULT_ACTION);
         }
 
-        foreach ($restoredIDs as $variableID) {
+        foreach ($transitions['RestoredIDs'] as $variableID) {
             $this->AppendEvent(
                 self::EVENT_FAULT_CLEARED,
                 $this->FormatUnavailableSensorName($variableID, $sensors)
@@ -3211,34 +3184,16 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $currentActiveIDs = [];
-        $newlyActiveInputs = [];
+        $transitions = AlarmFaultMonitor::transitions(
+            $faultInputs,
+            $previousActiveIDs,
+            fn (array $faultInput): ?bool => $this->GetFaultTriggerState($faultInput)
+        );
 
-        foreach ($faultInputs as $faultInput) {
-            if (!$faultInput['Enabled'] || $faultInput['VariableID'] <= 0) {
-                continue;
-            }
-
-            $triggerState = $this->GetFaultTriggerState($faultInput);
-            if ($triggerState === false) {
-                continue;
-            }
-
-            $variableID = $faultInput['VariableID'];
-            $currentActiveIDs[] = $variableID;
-            if (!in_array($variableID, $previousActiveIDs, true)) {
-                $newlyActiveInputs[] = [$faultInput, $triggerState];
-            }
-        }
-
-        $currentActiveIDs = array_values(array_unique($currentActiveIDs));
-        sort($currentActiveIDs, SORT_NUMERIC);
-        $clearedIDs = array_values(array_diff($previousActiveIDs, $currentActiveIDs));
-
-        $this->WriteActiveFaultVariableIDs($currentActiveIDs);
+        $this->WriteActiveFaultVariableIDs($transitions['ActiveIDs']);
         $this->UpdateSystemFaultStatus($faultInputs, $this->ReadConfiguredSensors());
 
-        foreach ($newlyActiveInputs as [$faultInput, $triggerState]) {
+        foreach ($transitions['NewlyActiveInputs'] as [$faultInput, $triggerState]) {
             $sourceName = $this->ResolveFaultDisplayName($faultInput);
             $this->SetLastFaultSource($sourceName);
             $this->SetLastFaultTime(date('d.m.Y H:i:s'));
@@ -3250,7 +3205,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
 
-        foreach ($clearedIDs as $variableID) {
+        foreach ($transitions['ClearedIDs'] as $variableID) {
             $sourceName = $this->ResolveFaultNameByVariableID($variableID, $faultInputs);
             $this->AppendEvent(self::EVENT_FAULT_CLEARED, $sourceName);
             $this->RunConfiguredAction(self::PROPERTY_FAULT_CLEARED_ACTION);
@@ -3721,7 +3676,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function IsSensorMonitored(array $sensor): bool
     {
-        return $sensor['AlwaysActive'] || $this->IsSensorUsedForArming($sensor);
+        return AlarmSensorMonitor::isMonitored($sensor);
     }
 
     /**
