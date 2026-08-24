@@ -82,14 +82,18 @@
                             "name": "Enabled",
                             "width": "70px",
                             "add": true,
-                            "edit": { "type": "CheckBox" }
+                            "edit": {
+                                "type": "CheckBox"
+                            }
                         },
                         {
                             "caption": "User name",
                             "name": "Name",
                             "width": "auto",
                             "add": "",
-                            "edit": { "type": "ValidationTextBox" }
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
                         },
                         {
                             "caption": "Code (4-8 digits)",
