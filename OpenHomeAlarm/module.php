@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
-use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
@@ -782,9 +782,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         $identity = AlarmControlStateAdapter::identity($mode, $state);
 
         $payload = [
-            'ApiVersion' => self::CONTROL_API_VERSION,
-            'Mode'       => $identity['Mode'],
-            'State'      => $identity['State'],
+            'ApiVersion'   => self::CONTROL_API_VERSION,
+            'Mode'         => $identity['Mode'],
+            'State'        => $identity['State'],
             'Capabilities' => AlarmControlStateAdapter::capabilities(
                 $mode,
                 $state,

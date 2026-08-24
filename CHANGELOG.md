@@ -5,7 +5,7 @@ festgehalten. Die Library-Version folgt dem Format `Hauptversion.Nebenstand`
 aus `library.json`; der dazugehörige Git-Tag ergänzt für SemVer eine Patchstelle,
 beispielsweise `v1.109.0`.
 
-## 1.121 – 2026-08-24
+## 1.122 – 2026-08-24
 
 ### Changed
 

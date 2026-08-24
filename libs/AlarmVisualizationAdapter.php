@@ -17,11 +17,11 @@ final class AlarmVisualizationAdapter
     public static function command(string $action, mixed $value): array
     {
         $normalizedValue = match ($action) {
-            'Arm' => self::stringValue($value, 'Arm action requires a mode string.'),
-            'DisarmWithCode' => self::stringValue($value, 'DisarmWithCode action requires a code string.'),
-            'BypassSensor', 'RemoveSensorBypass' => self::variableID($value),
+            'Arm'                                                                                           => self::stringValue($value, 'Arm action requires a mode string.'),
+            'DisarmWithCode'                                                                                => self::stringValue($value, 'DisarmWithCode action requires a code string.'),
+            'BypassSensor', 'RemoveSensorBypass'                                                            => self::variableID($value),
             'Disarm', 'RefreshVisualization', 'ClearSensorBypasses', 'ClearAlarmMemory', 'ResetAlarmOutput' => null,
-            default => throw new InvalidArgumentException('Unknown visualization action.')
+            default                                                                                         => throw new InvalidArgumentException('Unknown visualization action.')
         };
 
         return ['Action' => $action, 'Value' => $normalizedValue];

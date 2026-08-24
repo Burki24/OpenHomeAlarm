@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
-use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
@@ -127,7 +127,9 @@ assertDomainSame(false, AlarmFaultMonitor::containsVariable(300, $monitorFaults)
 $faultTransitions = AlarmFaultMonitor::transitions(
     $monitorFaults,
     [100, 400],
-    static fn (array $fault): ?bool => match ($fault['VariableID']) { 100 => true, 200 => null, default => false }
+    static fn (array $fault): ?bool => match ($fault['VariableID']) {
+        100 => true, 200 => null, default => false
+    }
 );
 assertDomainSame([100, 200], $faultTransitions['ActiveIDs'], 'Active and unreadable fault inputs must remain fail-safe active.');
 assertDomainSame(200, $faultTransitions['NewlyActiveInputs'][0][0]['VariableID'], 'A newly unreadable fault must be detected.');
@@ -135,7 +137,8 @@ assertDomainSame(null, $faultTransitions['NewlyActiveInputs'][0][1], 'An unreada
 assertDomainSame([400], $faultTransitions['ClearedIDs'], 'Removed or healthy prior faults must be reported as cleared.');
 
 $executedActions = [];
-$actionRunner = static function (string $actionID, array $parameters) use (&$executedActions): bool {
+$actionRunner = static function (string $actionID, array $parameters) use (&$executedActions): bool
+{
     $executedActions[] = ['actionID' => $actionID, 'parameters' => $parameters];
 
     return true;
@@ -182,7 +185,8 @@ assertDomainSame(
     AlarmActionExecutor::execute(
         true,
         $configuredAction,
-        static function (): bool {
+        static function (): bool
+        {
             throw new RuntimeException('runner failed');
         }
     ),
@@ -196,9 +200,9 @@ assertDomainSame(
 );
 assertDomainSame(
     [
-        'CodeRequired' => true,
-        'CanDisarm' => true,
-        'CanManageBypasses' => false,
+        'CodeRequired'        => true,
+        'CanDisarm'           => true,
+        'CanManageBypasses'   => false,
         'CanResetAlarmOutput' => true,
         'CanClearAlarmMemory' => false
     ],
