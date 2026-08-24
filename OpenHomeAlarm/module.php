@@ -1909,6 +1909,8 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function InitializeRuntime(): void
     {
+        // Fail ApplyChanges immediately for ambiguous or otherwise invalid partition configuration.
+        $this->ReadConfiguredPartitions();
         $sensors = $this->ReadConfiguredSensors();
         $faultInputs = $this->ReadConfiguredFaultInputs();
         $this->SetTimerInterval(

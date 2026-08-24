@@ -291,6 +291,22 @@ function assertControlApi(bool $condition, string $message): void
 
 require_once dirname(__DIR__) . '/OpenHomeAlarm/module.php';
 
+$invalidPartitionInstance = new OpenHomeAlarm();
+$invalidPartitionInstance->Create();
+$invalidPartitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"house","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":true}]'
+);
+try {
+    $invalidPartitionInstance->ApplyChanges();
+    throw new RuntimeException('ApplyChanges must reject ambiguous default partitions.');
+} catch (UnexpectedValueException $exception) {
+    assertControlApi(
+        $exception->getMessage() === 'Exactly one enabled partition must be the default.',
+        'ApplyChanges must report the partition validation failure.'
+    );
+}
+
 /** @return array<string,mixed> */
 function controlSensor(
     int $variableID,
