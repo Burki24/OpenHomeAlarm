@@ -525,5 +525,48 @@ assertControlApi(
         && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
     'Disarming one partition must leave the other partition armed.'
 );
+$testValues[2002] = true;
+$partitionInstance->MessageSink(2, 2002, VM_UPDATE, [true, true, false]);
+$testValues[2001] = false;
+assertControlApi($partitionInstance->ArmPartition('house', 'home'), 'A partition must arm while another partition is alarming.');
+$testValues[2001] = true;
+$partitionInstance->MessageSink(3, 2001, VM_UPDATE, [true, true, false]);
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['house']['Alarm']['OutputActive'] ?? null) === true
+        && ($partitionState['Partitions']['garage']['Alarm']['OutputActive'] ?? null) === true
+        && ($partitionState['Alarm']['OutputActive'] ?? null) === true,
+    'Two partition alarms must contribute to the aggregated alarm output.'
+);
+$partitionEvents = json_decode($partitionInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionEvents[0]['Event'] ?? null) === 'alarm'
+        && ($partitionEvents[0]['PartitionID'] ?? null) === 'house'
+        && ($partitionEvents[0]['Mode'] ?? null) === 1
+        && ($partitionEvents[0]['State'] ?? null) === 4,
+    'Partition alarm events must retain their partition, mode and alarm state.'
+);
+assertControlApi(
+    $partitionInstance->ResetAlarmOutputPartition('house'),
+    'One partition alarm output must be resettable independently.'
+);
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['house']['Alarm']['OutputActive'] ?? null) === false
+        && ($partitionState['Partitions']['garage']['Alarm']['OutputActive'] ?? null) === true
+        && ($partitionState['Alarm']['OutputActive'] ?? null) === true,
+    'Resetting one partition must retain another partition and the aggregated output.'
+);
+assertControlApi($partitionInstance->DisarmPartition('house'), 'The first alarm partition must disarm independently.');
+assertControlApi($partitionInstance->ResetAlarmOutputPartition('garage'), 'The remaining alarm output must be resettable.');
+assertControlApi($partitionInstance->DisarmPartition('garage'), 'The second alarm partition must disarm independently.');
+assertControlApi($partitionInstance->ClearAlarmMemoryPartition('house'), 'The first partition memory must be acknowledgeable.');
+assertControlApi($partitionInstance->ClearAlarmMemoryPartition('garage'), 'The second partition memory must be acknowledgeable.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Alarm']['OutputActive'] ?? null) === false
+        && ($partitionState['Alarm']['MemoryActive'] ?? null) === false,
+    'The aggregate alarm summary must clear after every local output and memory was cleared.'
+);
 
 fwrite(STDOUT, "OpenHomeAlarm control API checks passed.\n");

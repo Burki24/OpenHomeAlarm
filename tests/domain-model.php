@@ -377,14 +377,17 @@ $history = AlarmEventHistory::normalize(
     [0, 1, 2, 3, 4],
     10
 );
-assertDomainSame([$validEntry], $history, 'Invalid event history entries must be discarded.');
+$normalizedValidEntry = $validEntry;
+$normalizedValidEntry['PartitionID'] = '';
+assertDomainSame([$normalizedValidEntry], $history, 'Invalid event history entries must be discarded and legacy entries retained.');
 
 $newEntry = [
-    'Time'   => 102,
-    'Event'  => 'disarmed',
-    'Mode'   => 0,
-    'State'  => 0,
-    'Source' => ''
+    'Time'        => 102,
+    'Event'       => 'disarmed',
+    'Mode'        => 0,
+    'State'       => 0,
+    'Source'      => '',
+    'PartitionID' => 'main'
 ];
 assertDomainSame(
     [$newEntry],
