@@ -42,6 +42,7 @@ $commands = [
     ['Check disarm code protection', 'php tests/disarm-code.php'],
     ['Check automatic arming schedules', 'php tests/arming-schedule.php'],
     ['Check alarm partition registry', 'php tests/partitions.php'],
+    ['Check independent alarm partition runtime', 'php tests/partition-runtime.php'],
     ['Check alarm memory', 'php tests/alarm-memory.php'],
     ['Check 24/7 sensors', 'php tests/always-active.php'],
     ['Check temporary sensor bypasses', 'php tests/bypass.php'],

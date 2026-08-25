@@ -11,6 +11,7 @@ use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmPartitionRegistry;
+use Burki24\OpenHomeAlarm\AlarmPartitionRuntime;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
 use Burki24\OpenHomeAlarm\AlarmStateMachine;
 use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
@@ -26,6 +27,7 @@ require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
 require_once __DIR__ . '/../libs/AlarmPartitionRegistry.php';
+require_once __DIR__ . '/../libs/AlarmPartitionRuntime.php';
 require_once __DIR__ . '/../libs/AlarmSensorMonitor.php';
 require_once __DIR__ . '/../libs/AlarmStateMachine.php';
 require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
@@ -244,6 +246,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_DISARM_FAILED_ATTEMPTS = 'DisarmFailedAttempts';
     private const ATTRIBUTE_DISARM_LOCKOUT_UNTIL = 'DisarmLockoutUntil';
     private const ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS = 'AutomaticArmingExecutions';
+    private const ATTRIBUTE_PARTITION_RUNTIME = 'PartitionRuntime';
     private const ATTRIBUTE_IPSVIEW_TOKEN_1 = 'IPSViewToken1';
     private const ATTRIBUTE_IPSVIEW_TOKEN_2 = 'IPSViewToken2';
     private const ATTRIBUTE_IPSVIEW_TOKEN_3 = 'IPSViewToken3';
@@ -255,6 +258,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const TIMER_ALARM_DURATION = 'AlarmDuration';
     private const TIMER_SENSOR_INTEGRITY = 'SensorIntegrity';
     private const TIMER_AUTOMATIC_ARMING = 'AutomaticArming';
+    private const TIMER_PARTITION_RUNTIME = 'PartitionRuntime';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
     private const IDENT_DELAY_REMAINING = 'DelayRemaining';
@@ -333,6 +337,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL, 0);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS);
+        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_1, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_2, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_3, 0);
@@ -372,6 +377,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::TIMER_AUTOMATIC_ARMING,
             0,
             'OHA_CheckAutomaticArming($_IPS[\'TARGET\']);'
+        );
+        $this->RegisterTimer(
+            self::TIMER_PARTITION_RUNTIME,
+            0,
+            'OHA_UpdatePartitionRuntime($_IPS[\'TARGET\']);'
         );
 
         $modeCreated = $this->RegisterVariableInteger(
@@ -806,8 +816,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $partitions = $this->ReadConfiguredPartitions();
         $defaultPartition = AlarmPartitionRegistry::defaultPartition($partitions);
-        $sensors = $this->ReadConfiguredSensors();
-        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $allSensors = $this->ReadConfiguredSensors();
+        $allFaultInputs = $this->ReadConfiguredFaultInputs();
+        $sensors = $this->SensorsForPartition($allSensors, $defaultPartition['ID']);
+        $faultInputs = $this->FaultInputsForPartition($allFaultInputs, $defaultPartition['ID']);
         $sensorReadiness = $this->EvaluateReadinessStatus($sensors);
         $readiness = $this->ApplyFaultBlockingToReadiness($sensorReadiness['readiness'], $faultInputs);
         $state = $this->ReadAlarmState();
@@ -864,17 +876,56 @@ class OpenHomeAlarm extends IPSModuleStrict
             'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors),
             'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, 6)
         ];
+        $partitionPayload = [];
+        $partitionRuntime = $this->ReadPartitionRuntime();
+        foreach ($partitions as $partition) {
+            if (!$partition['Enabled']) {
+                continue;
+            }
+            $runtime = $partitionRuntime[$partition['ID']];
+            $partitionIdentity = AlarmControlStateAdapter::identity($runtime['Mode'], $runtime['State']);
+            $partitionSensors = $this->SensorsForPartition($allSensors, $partition['ID']);
+            $partitionFaults = $this->FaultInputsForPartition($allFaultInputs, $partition['ID']);
+            $partitionReadiness = $this->ApplyFaultBlockingToReadiness(
+                $this->EvaluateReadinessStatus($partitionSensors)['readiness'],
+                $partitionFaults
+            );
+            $partitionIsDisarmed = $runtime['State'] === self::STATE_DISARMED;
+            $current = $partitionState;
+            $current['Mode'] = $partitionIdentity['Mode'];
+            $current['State'] = $partitionIdentity['State'];
+            $current['Capabilities'] = AlarmControlStateAdapter::capabilities(
+                $runtime['Mode'],
+                $runtime['State'],
+                $this->IsDisarmCodeProtectionEnabled(),
+                $alarmMemory,
+                $alarmOutputActive
+            );
+            $current['Modes'] = [
+                'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $partitionReadiness['home'], $partitionIsDisarmed, $partitionSensors, $partitionFaults),
+                'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $partitionReadiness['away'], $partitionIsDisarmed, $partitionSensors, $partitionFaults),
+                'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $partitionReadiness['night'], $partitionIsDisarmed, $partitionSensors, $partitionFaults)
+            ];
+            $current['Delay'] = [
+                'Remaining' => max(0, $runtime['Deadline'] - time()),
+                'Source'    => $runtime['DelaySource']
+            ];
+            $current['Faults']['Items'] = array_merge(
+                $this->BuildControlFaultDetails($partitionFaults, false),
+                $this->BuildControlUnavailableSensorDetails($partitionSensors)
+            );
+            $current['Faults']['Blocking'] = $this->BuildControlFaultDetails($partitionFaults, true);
+            $current['BypassedSensors'] = $this->BuildControlBypassedSensorDetails($partitionSensors);
+            $partitionPayload[$partition['ID']] = array_merge([
+                'ID'      => $partition['ID'],
+                'Name'    => $partition['Name'],
+                'Default' => $partition['Default']
+            ], $current);
+        }
         $payload = array_merge([
             'ApiVersion'       => self::CONTROL_API_VERSION,
             'DefaultPartition' => $defaultPartition['ID'],
-            'Partitions'       => [$defaultPartition['ID'] => array_merge(
-                [
-                    'ID'      => $defaultPartition['ID'],
-                    'Name'    => $defaultPartition['Name'],
-                    'Default' => true
-                ],
-                $partitionState
-            )]
+            'Partitions'       => $partitionPayload
         ], $partitionState);
 
         return AlarmControlStateAdapter::encode($payload);
@@ -887,6 +938,92 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->ReadConfiguredPartitions(),
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         );
+    }
+
+    /** Arms one enabled alarm partition without changing any other partition. */
+    public function ArmPartition(string $partitionID, string $mode): bool
+    {
+        try {
+            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+        if ($partitionID === $this->DefaultPartitionID()) {
+            return $this->Arm($mode);
+        }
+        $modeValue = AlarmStateMachine::armingModeFromName($mode);
+        if ($modeValue === null) {
+            return false;
+        }
+        $states = $this->ReadPartitionRuntime();
+        if (!AlarmStateMachine::canArm($states[$partitionID]['State'], $modeValue)) {
+            return false;
+        }
+        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
+        $faults = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $partitionID);
+        $readiness = $this->ApplyFaultBlockingToReadiness(
+            $this->EvaluateReadinessStatus($sensors)['readiness'],
+            $faults
+        );
+        if (!$this->IsModeReady($modeValue, $readiness)) {
+            return false;
+        }
+        $states[$partitionID] = AlarmPartitionRuntime::arm(
+            $states[$partitionID],
+            $modeValue,
+            time(),
+            $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS)
+        );
+        $this->WritePartitionRuntime($states);
+        $this->SchedulePartitionRuntimeTimer($states);
+        $this->PublishVisualizationState();
+        return true;
+    }
+
+    /** Disarms one enabled alarm partition without changing any other partition. */
+    public function DisarmPartition(string $partitionID): bool
+    {
+        try {
+            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+        if ($partitionID === $this->DefaultPartitionID()) {
+            return $this->Disarm();
+        }
+        $states = $this->ReadPartitionRuntime();
+        $states[$partitionID] = AlarmPartitionRuntime::disarm($states[$partitionID]);
+        $this->WritePartitionRuntime($states);
+        $this->SchedulePartitionRuntimeTimer($states);
+        $this->PublishVisualizationState();
+        return true;
+    }
+
+    /** Advances all persisted partition deadlines; called by the shared timer. */
+    public function UpdatePartitionRuntime(): void
+    {
+        $states = $this->ReadPartitionRuntime();
+        $now = time();
+        foreach ($states as $partitionID => $state) {
+            if ($partitionID !== $this->DefaultPartitionID()) {
+                if ($state['State'] === self::STATE_EXIT_DELAY && $state['Deadline'] > 0 && $state['Deadline'] <= $now) {
+                    $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
+                    $faults = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $partitionID);
+                    $readiness = $this->ApplyFaultBlockingToReadiness(
+                        $this->EvaluateReadinessStatus($sensors, true)['readiness'],
+                        $faults
+                    );
+                    if (!$this->IsModeReady($state['Mode'], $readiness)) {
+                        $states[$partitionID] = AlarmPartitionRuntime::disarm($state);
+                        continue;
+                    }
+                }
+                $states[$partitionID] = AlarmPartitionRuntime::advance($state, $now);
+            }
+        }
+        $this->WritePartitionRuntime($states);
+        $this->SchedulePartitionRuntimeTimer($states);
+        $this->PublishVisualizationState();
     }
 
     /**
@@ -948,7 +1085,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             if ($isSensorVariable || $isFaultVariable) {
                 $this->EvaluateSensorAvailability($sensors);
                 $this->EvaluateFaultInputs($faultInputs);
-                $this->UpdateReadinessFromSensors($sensors);
+                $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
                 $this->PublishVisualizationState();
             }
             $this->SynchronizeSensorMessages($sensors, $faultInputs);
@@ -961,19 +1098,25 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($isSensorVariable) {
             $this->EvaluateSensorAvailability($sensors);
         }
-        $this->UpdateReadinessFromSensors($sensors);
+        $this->UpdateReadinessFromSensors(
+            $this->SensorsForPartition($sensors, $this->DefaultPartitionID())
+        );
+        if ($isSensorVariable) {
+            $this->HandleNonDefaultPartitionSensorUpdate($SenderID, $sensors);
+        }
         if ($this->ReadAlarmState() === self::STATE_ALARM || !$isSensorVariable) {
             $this->PublishVisualizationState();
 
             return;
         }
-        if ($this->HandleAlwaysActiveSensorUpdate($SenderID, $sensors)) {
+        $defaultSensors = $this->SensorsForPartition($sensors, $this->DefaultPartitionID());
+        if ($this->HandleAlwaysActiveSensorUpdate($SenderID, $defaultSensors)) {
             $this->PublishVisualizationState();
 
             return;
         }
 
-        $this->HandleSensorUpdateWhileArmed($SenderID, $sensors);
+        $this->HandleSensorUpdateWhileArmed($SenderID, $defaultSensors);
         $this->PublishVisualizationState();
     }
 
@@ -995,7 +1138,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SynchronizeSensorMessages($sensors, $faultInputs);
         $this->EvaluateSensorAvailability($sensors);
         $this->EvaluateFaultInputs($faultInputs);
-        $this->UpdateReadinessFromSensors($sensors);
+        $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
         $this->PublishVisualizationState();
     }
 
@@ -1125,7 +1268,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $bypassedIDs[] = $variableID;
         $this->WriteBypassedSensorIDs($bypassedIDs);
         $this->UpdateBypassedSensorStatus($sensors);
-        $this->UpdateReadinessFromSensors($sensors);
+        $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
         $this->AppendEvent(
             self::EVENT_SENSOR_BYPASSED,
             $this->ResolveSensorNameByVariableID($variableID, $sensors)
@@ -1158,7 +1301,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $sensors = $this->ReadConfiguredSensors();
         $this->UpdateBypassedSensorStatus($sensors);
-        $this->UpdateReadinessFromSensors($sensors);
+        $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
         $this->AppendEvent(
             self::EVENT_SENSOR_BYPASS_REMOVED,
             $this->ResolveSensorNameByVariableID($variableID, $sensors)
@@ -1304,9 +1447,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $sensors = $this->ReadConfiguredSensors();
+        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $this->DefaultPartitionID());
         $this->UpdateReadinessFromSensors($sensors);
-        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $faultInputs = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $this->DefaultPartitionID());
         $strictReadiness = $this->ApplyFaultBlockingToReadiness(
             $this->EvaluateReadinessStatus($sensors, true)['readiness'],
             $faultInputs
@@ -1835,6 +1978,72 @@ class OpenHomeAlarm extends IPSModuleStrict
         return AlarmPartitionRegistry::partitions($this->ReadPropertyString(self::PROPERTY_PARTITIONS));
     }
 
+    private function DefaultPartitionID(): string
+    {
+        return AlarmPartitionRegistry::defaultPartition($this->ReadConfiguredPartitions())['ID'];
+    }
+
+    private function ResolveEnabledPartitionID(string $partitionID): string
+    {
+        return AlarmPartitionRegistry::assignedPartitionID(
+            $partitionID,
+            $this->ReadConfiguredPartitions(),
+            'Alarm partition'
+        );
+    }
+
+    /** @return array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> */
+    private function ReadPartitionRuntime(): array
+    {
+        $states = AlarmPartitionRuntime::synchronize(
+            $this->ReadConfiguredPartitions(),
+            $this->ReadPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME)
+        );
+        $defaultID = $this->DefaultPartitionID();
+        $states[$defaultID] = [
+            'Mode'     => $this->ReadAlarmMode(),
+            'State'    => $this->ReadAlarmState(),
+            'Deadline' => match ($this->ReadAlarmState()) {
+                self::STATE_EXIT_DELAY  => $this->ReadAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE),
+                self::STATE_ENTRY_DELAY => $this->ReadAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE),
+                default                 => 0
+            },
+            'DelaySource'     => (string) $this->GetValue(self::IDENT_DELAY_SOURCE),
+            'PendingSourceID' => $this->ReadAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID)
+        ];
+        return $states;
+    }
+
+    /** @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states */
+    private function WritePartitionRuntime(array $states): void
+    {
+        unset($states[$this->DefaultPartitionID()]);
+        $this->WritePersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME, $states);
+    }
+
+    /** @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states */
+    private function SchedulePartitionRuntimeTimer(array $states): void
+    {
+        $active = false;
+        foreach ($states as $partitionID => $state) {
+            if ($partitionID !== $this->DefaultPartitionID() && $state['Deadline'] > 0) {
+                $active = true;
+                break;
+            }
+        }
+        $this->SetTimerInterval(self::TIMER_PARTITION_RUNTIME, $active ? 1000 : 0);
+    }
+
+    private function SensorsForPartition(array $sensors, string $partitionID): array
+    {
+        return array_values(array_filter($sensors, static fn (array $sensor): bool => $sensor['PartitionID'] === $partitionID));
+    }
+
+    private function FaultInputsForPartition(array $faultInputs, string $partitionID): array
+    {
+        return array_values(array_filter($faultInputs, static fn (array $fault): bool => $fault['PartitionID'] === $partitionID));
+    }
+
     private function IsDisarmCodeProtectionEnabled(): bool
     {
         return trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE)) !== ''
@@ -1952,10 +2161,19 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SynchronizeSensorMessages($sensors, $faultInputs);
         $this->EvaluateSensorAvailability($sensors);
         $this->EvaluateFaultInputs($faultInputs);
-        $this->UpdateReadinessFromSensors($sensors);
-        $this->EvaluateAlwaysActiveSensors($sensors);
+        $defaultSensors = $this->SensorsForPartition($sensors, $this->DefaultPartitionID());
+        $this->UpdateReadinessFromSensors($defaultSensors);
+        $this->EvaluateAlwaysActiveSensors($defaultSensors);
         $this->RestoreDelayTimers();
-        $this->EvaluateArmedSensorsAfterApplyChanges($sensors);
+        $partitionRuntime = $this->ReadPartitionRuntime();
+        $this->WritePartitionRuntime($partitionRuntime);
+        $this->SchedulePartitionRuntimeTimer($partitionRuntime);
+        $this->EvaluateArmedSensorsAfterApplyChanges($defaultSensors);
+        foreach ($sensors as $sensor) {
+            if ($sensor['VariableID'] > 0 && $sensor['PartitionID'] !== $this->DefaultPartitionID()) {
+                $this->HandleNonDefaultPartitionSensorUpdate($sensor['VariableID'], $sensors);
+            }
+        }
         $this->RestoreAlarmDurationTimer();
         $this->PublishVisualizationState();
         $this->UpdateIPSViewHTML();
@@ -3491,7 +3709,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function UpdateReadinessFromSensors(array $sensors): array
     {
         $status = $this->EvaluateReadinessStatus($sensors);
-        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $faultInputs = $this->FaultInputsForPartition(
+            $this->ReadConfiguredFaultInputs(),
+            $this->DefaultPartitionID()
+        );
         $readiness = $this->ApplyFaultBlockingToReadiness($status['readiness'], $faultInputs);
 
         $this->SetReadyToArm($readiness['global']);
@@ -3747,8 +3968,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        $sensors = $this->ReadConfiguredSensors();
-        $faultInputs = $this->ReadConfiguredFaultInputs();
+        $defaultPartitionID = $this->DefaultPartitionID();
+        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $defaultPartitionID);
+        $faultInputs = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $defaultPartitionID);
         $readiness = $this->UpdateReadinessFromSensors($sensors);
 
         if (!$this->IsModeReady($mode, $readiness)) {
@@ -4185,6 +4407,51 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return false;
+    }
+
+    /** Routes a sensor update to the independently persisted non-default partition state. */
+    private function HandleNonDefaultPartitionSensorUpdate(int $variableID, array $sensors): void
+    {
+        $defaultID = $this->DefaultPartitionID();
+        $states = $this->ReadPartitionRuntime();
+        $changed = false;
+        foreach ($sensors as $sensor) {
+            $partitionID = $sensor['PartitionID'];
+            if ($partitionID === $defaultID || $sensor['VariableID'] !== $variableID || !$sensor['Enabled']) {
+                continue;
+            }
+            $state = $states[$partitionID];
+            if ($state['State'] === self::STATE_ALARM || $this->GetSensorTriggerState($sensor) !== true) {
+                continue;
+            }
+            if ($sensor['AlwaysActive']) {
+                $states[$partitionID] = AlarmPartitionRuntime::alarm($state);
+                $changed = true;
+                continue;
+            }
+            if (!AlarmStateMachine::monitorsArmedSensors($state['State'])
+                || !AlarmStateMachine::isArmingMode($state['Mode'])
+                || $this->IsSensorBypassed($sensor)
+                || !$this->IsSensorRelevantForMode($sensor, $state['Mode'])) {
+                continue;
+            }
+            if (!$sensor['EntryDelay']) {
+                $states[$partitionID] = AlarmPartitionRuntime::alarm($state);
+            } else {
+                $states[$partitionID] = AlarmPartitionRuntime::startEntryDelay(
+                    $state,
+                    time(),
+                    $this->ReadDelaySeconds(self::PROPERTY_ENTRY_DELAY_SECONDS),
+                    $this->ResolveSensorDisplayName($sensor),
+                    $sensor['VariableID']
+                );
+            }
+            $changed = true;
+        }
+        if ($changed) {
+            $this->WritePartitionRuntime($states);
+            $this->SchedulePartitionRuntimeTimer($states);
+        }
     }
 
     /**

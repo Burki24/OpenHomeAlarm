@@ -494,4 +494,36 @@ assertControlApi(
     'The control state must expose active blocking faults separately for status views.'
 );
 
+$partitionInstance = new OpenHomeAlarm();
+$partitionInstance->Create();
+$partitionInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$partitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"house","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
+);
+$partitionSensors = [
+    array_merge(controlSensor(2001, 'true', true, true), ['PartitionID' => 'house']),
+    array_merge(controlSensor(2002, 'true', true, false, true), ['PartitionID' => 'garage'])
+];
+$testValues[2001] = false;
+$testValues[2002] = false;
+$partitionInstance->TestSetPropertyString('Sensors', json_encode($partitionSensors, JSON_THROW_ON_ERROR));
+$partitionInstance->ApplyChanges();
+assertControlApi(!$partitionInstance->ArmPartition('unknown', 'away'), 'Unknown partitions must be rejected safely.');
+assertControlApi($partitionInstance->ArmPartition('house', 'home'), 'The default partition must arm through the partition API.');
+assertControlApi($partitionInstance->ArmPartition('garage', 'away'), 'A second partition must arm independently.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['house']['State']['Name'] ?? null) === 'armed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'Both partitions must expose their independent armed states.'
+);
+assertControlApi($partitionInstance->DisarmPartition('house'), 'The default partition must disarm through the partition API.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['house']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'Disarming one partition must leave the other partition armed.'
+);
+
 fwrite(STDOUT, "OpenHomeAlarm control API checks passed.\n");

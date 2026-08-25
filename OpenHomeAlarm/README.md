@@ -47,7 +47,7 @@ Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Ein
 
 #### Alarmbereiche
 
-Eine Instanz verwaltet mehrere Alarmbereiche über stabile technische IDs und frei wählbare Namen. Genau ein aktiver Bereich ist als Standardbereich markiert. Die Control API 2 veröffentlicht die Bereichsmetadaten unter `Partitions` und nennt die Standard-ID in `DefaultPartition`; `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Metadaten separat. In diesem ersten Partitions-Slice wird die vorhandene Laufzeit eindeutig dem Standardbereich zugeordnet. Sensorzuordnung und vollständig unabhängige Laufzeitzustände folgen in den nächsten Slices.
+Eine Instanz verwaltet mehrere Alarmbereiche über stabile technische IDs und frei wählbare Namen. Genau ein aktiver Bereich ist als Standardbereich markiert. Die Control API 2 veröffentlicht alle aktiven Bereiche mit ihrem jeweils eigenen Modus, Zustand sowie Ein- oder Ausgangs-Countdown unter `Partitions` und nennt die Standard-ID in `DefaultPartition`; `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Metadaten separat. Die bisherigen Statusvariablen und Befehle bleiben kompatibel und beziehen sich auf den Standardbereich. Weitere Bereiche werden mit `OHA_ArmPartition()` und `OHA_DisarmPartition()` unabhängig bedient; ihre Laufzeit und Fristen werden neustartsicher gespeichert.
 
 ### 5. Statusvariablen und Darstellungen
 
@@ -211,6 +211,8 @@ Folgende öffentliche Modulbefehle stehen zur Verfügung:
 | --- | --- | --- |
 | `OHA_GetControlState($InstanzID)` | `string` | Liefert den versionierten, strukturierten Bedienzustand als JSON; vorgesehen als einzige Statusquelle der eigenen Visualisierung |
 | `OHA_GetPartitions($InstanzID)` | `string` | Liefert die konfigurierten Partitionsmetadaten als JSON |
+| `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen aktiven Alarmbereich unabhängig mit `home`, `away` oder `night` scharf |
+| `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet genau einen aktiven Alarmbereich unscharf; beim Standardbereich entspricht dies `OHA_Disarm()` |
 | `OHA_Arm($InstanzID, $Modus)` | `bool` | Schaltet über die stabile Bedien-API mit `home`, `away` oder `night` scharf; andere Werte werden sicher abgelehnt |
 | `OHA_ArmHome($InstanzID)` | `bool` | Kompatibilitäts-/Komfortbefehl für **Zuhause**; verwendet intern dieselbe Bedien-API |
 | `OHA_ArmAway($InstanzID)` | `bool` | Kompatibilitäts-/Komfortbefehl für **Abwesend**; verwendet intern dieselbe Bedien-API |

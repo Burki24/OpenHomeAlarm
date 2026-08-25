@@ -114,7 +114,6 @@ Nicht Bestandteil sind:
 - Zertifizierung oder Konformität nach EN 50131 oder anderen Alarmanlagen-Normen,
 - garantierte Verfügbarkeit bei Ausfall von Symcon, Host, Stromversorgung, Netzwerk oder Geräten,
 - direkte Hardware-, Funkprotokoll- oder Herstellerintegration,
-- mehrere unabhängige Alarmbereiche oder Partitionen innerhalb einer Instanz,
 - Benutzer-, Rollen- oder Mehrcodeverwaltung,
 - zeitgesteuerte oder geofencing-basierte automatische Scharfschaltung,
 - Leitstellenaufschaltung oder garantierte Alarmübertragung,
@@ -172,4 +171,3 @@ Produktfunktionen werden nur aufgenommen, wenn Zielumfang und Abnahmematrix vor
 der Implementierung ausdrücklich angepasst werden. Jede Änderung nach
 bestandener Praxisabnahme erfordert mindestens die Wiederholung der betroffenen
 Fälle und aller automatisierten Checks.
-
