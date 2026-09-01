@@ -50,6 +50,7 @@ $commands = [
     ['Check temporary sensor bypasses', 'php tests/bypass.php'],
     ['Check restart-safe armed sensor recovery', 'php tests/restart-recovery.php'],
     ['Check persistent security event history', 'php tests/event-history.php'],
+    ['Check event history export', 'php tests/event-history-export.php'],
     ['Check tamper and fault monitoring', 'php tests/fault-monitoring.php'],
     ['Check stable public control API', 'php tests/control-api.php'],
     ['Check HTML-SDK visualization foundation', 'php tests/visualization.php'],

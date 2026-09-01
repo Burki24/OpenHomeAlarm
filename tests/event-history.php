@@ -373,6 +373,21 @@ $history = json_decode($encodedHistory, true, 512, JSON_THROW_ON_ERROR);
 assertEventHistory(($history[0]['Event'] ?? null) === 'disarm_code_rejected', 'Rejected code attempts must be auditable.');
 assertEventHistory(!str_contains($encodedHistory, '9999'), 'The submitted disarm code must never be stored in the event history.');
 assertEventHistory(!str_contains($encodedHistory, '1234'), 'The configured disarm code must never be stored in the event history.');
+$alarmExport = json_decode(
+    $instance->ExportEventHistory('json', 0, 0, 'alarm'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertEventHistory(
+    count($alarmExport) === 1
+    && ($alarmExport[0]['Event'] ?? null) === 'alarm'
+    && ($alarmExport[0]['Source'] ?? null) === 'Haustür',
+    'The public JSON export must filter the persistent history without changing its fields.'
+);
+$csvExport = $instance->ExportEventHistory('csv', 0, 0, '');
+assertEventHistory(str_starts_with($csvExport, "Time,Event,Mode,State,Source,PartitionID\r\n"), 'The public CSV export must expose its stable header.');
+assertEventHistory(!str_contains($csvExport, '9999') && !str_contains($csvExport, '1234'), 'Exports must retain the event history code-redaction boundary.');
 
 $testValues[5001] = false;
 assertEventHistory($instance->BypassSensor(5001) === true, 'A configured arming sensor must remain bypassable while disarmed.');

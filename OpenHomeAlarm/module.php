@@ -10,6 +10,7 @@ use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
 use Burki24\OpenHomeAlarm\AlarmEscalationPlan;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
+use Burki24\OpenHomeAlarm\AlarmEventHistoryExporter;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmPartitionAlarmRegistry;
 use Burki24\OpenHomeAlarm\AlarmPartitionRegistry;
@@ -26,6 +27,7 @@ require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
 require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmEventHistoryExporter.php';
 require_once __DIR__ . '/../libs/AlarmEscalationPlan.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
@@ -1430,6 +1432,25 @@ class OpenHomeAlarm extends IPSModuleStrict
         return json_encode(
             $this->ReadEventHistory(),
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+    }
+
+    /**
+     * Exports a filtered, read-only snapshot of the bounded security-event history.
+     * Zero timestamps and an empty event type disable the corresponding filter.
+     */
+    public function ExportEventHistory(
+        string $format = 'json',
+        int $fromTimestamp = 0,
+        int $toTimestamp = 0,
+        string $eventType = ''
+    ): string {
+        return AlarmEventHistoryExporter::export(
+            $this->ReadEventHistory(),
+            $format,
+            $fromTimestamp,
+            $toTimestamp,
+            $eventType
         );
     }
 
