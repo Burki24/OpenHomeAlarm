@@ -63,7 +63,7 @@
             "Alarm actions": "Alarmaktionen",
             "Configure optional Symcon actions that run when an alarm starts and when an active alarm is disarmed.": "Konfigurieren Sie optionale Symcon-Aktionen, die beim Start eines Alarms und beim Unscharfschalten eines aktiven Alarms ausgeführt werden.",
             "On alarm": "Bei Alarm",
-            "Configure additional notification actions as escalation steps. Execution starts with the alarm and will be added in the next implementation slice.": "Konfigurieren Sie zusätzliche Benachrichtigungsaktionen als Eskalationsstufen. Die Ausführung beginnt mit dem Alarm und wird im nächsten Implementierungs-Slice ergänzt.",
+            "Each enabled escalation step runs once after its configured delay, measured from the start of the global alarm output.": "Jede aktive Eskalationsstufe wird einmal nach ihrer konfigurierten Verzögerung ausgeführt, gemessen ab dem Start des globalen Alarmausgangs.",
             "Alarm escalation steps": "Alarm-Eskalationsstufen",
             "Delay (seconds)": "Verzögerung (Sekunden)",
             "Action": "Aktion",

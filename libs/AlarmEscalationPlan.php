@@ -67,6 +67,90 @@ final class AlarmEscalationPlan
         return $normalized;
     }
 
+    /** @return array{StartedAt:int,ExecutedStepKeys:list<string>} */
+    public static function start(int $timestamp): array
+    {
+        return ['StartedAt' => max(1, $timestamp), 'ExecutedStepKeys' => []];
+    }
+
+    /**
+     * @param array<array-key,mixed> $stored
+     *
+     * @return array{StartedAt:int,ExecutedStepKeys:list<string>}|null
+     */
+    public static function runtime(array $stored): ?array
+    {
+        if ($stored === []) {
+            return null;
+        }
+        $startedAt = $stored['StartedAt'] ?? null;
+        $executedStepKeys = $stored['ExecutedStepKeys'] ?? null;
+        if (!is_int($startedAt) || $startedAt <= 0 || !is_array($executedStepKeys)) {
+            throw new UnexpectedValueException('Invalid alarm escalation runtime state.');
+        }
+
+        $normalizedKeys = [];
+        foreach ($executedStepKeys as $key) {
+            if (!is_string($key) || $key === '') {
+                throw new UnexpectedValueException('Invalid executed alarm escalation step key.');
+            }
+            if (!in_array($key, $normalizedKeys, true)) {
+                $normalizedKeys[] = $key;
+            }
+        }
+
+        return ['StartedAt' => $startedAt, 'ExecutedStepKeys' => $normalizedKeys];
+    }
+
+    /** @param array{Enabled:bool,Name:string,DelaySeconds:int,Action:string} $step */
+    public static function stepKey(array $step, int $index): string
+    {
+        return hash('sha256', json_encode([$index, $step], JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @param list<array{Enabled:bool,Name:string,DelaySeconds:int,Action:string}> $steps
+     * @param array{StartedAt:int,ExecutedStepKeys:list<string>}                 $runtime
+     *
+     * @return list<array{Key:string,Step:array{Enabled:bool,Name:string,DelaySeconds:int,Action:string}}>
+     */
+    public static function dueSteps(array $steps, array $runtime, int $timestamp): array
+    {
+        $due = [];
+        foreach ($steps as $index => $step) {
+            if (!$step['Enabled'] || $runtime['StartedAt'] + $step['DelaySeconds'] > $timestamp) {
+                continue;
+            }
+            $key = self::stepKey($step, $index);
+            if (in_array($key, $runtime['ExecutedStepKeys'], true)) {
+                continue;
+            }
+            $due[] = ['Key' => $key, 'Step' => $step];
+        }
+
+        return $due;
+    }
+
+    /**
+     * @param list<array{Enabled:bool,Name:string,DelaySeconds:int,Action:string}> $steps
+     * @param array{StartedAt:int,ExecutedStepKeys:list<string>}                 $runtime
+     */
+    public static function nextDeadline(array $steps, array $runtime): int
+    {
+        $deadline = 0;
+        foreach ($steps as $index => $step) {
+            if (!$step['Enabled'] || in_array(self::stepKey($step, $index), $runtime['ExecutedStepKeys'], true)) {
+                continue;
+            }
+            $stepDeadline = $runtime['StartedAt'] + $step['DelaySeconds'];
+            if ($deadline === 0 || $stepDeadline < $deadline) {
+                $deadline = $stepDeadline;
+            }
+        }
+
+        return $deadline;
+    }
+
     private static function normalizeAction(mixed $action): string
     {
         if ($action === '' || $action === false || $action === null) {

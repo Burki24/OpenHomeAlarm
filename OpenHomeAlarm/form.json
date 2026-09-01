@@ -400,7 +400,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Configure additional notification actions as escalation steps. Execution starts with the alarm and will be added in the next implementation slice."
+                    "caption": "Each enabled escalation step runs once after its configured delay, measured from the start of the global alarm output."
                 },
                 {
                     "type": "List",

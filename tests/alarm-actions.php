@@ -136,6 +136,17 @@ class IPSModuleStrict
         return $this->attributes;
     }
 
+    /** @return array<string,array{interval:int,script:string}> */
+    public function TestTimers(): array
+    {
+        return $this->timers;
+    }
+
+    public function TestSetAttributeString(string $name, string $value): void
+    {
+        $this->attributes[$name] = $value;
+    }
+
     protected function SetVisualizationType(int $type): bool
     {
         return true;
@@ -530,6 +541,107 @@ assertAlarmAction(
     'Broken optional action configuration must not prevent the Alarm state.'
 );
 assertAlarmAction($testActions === [], 'Invalid action configuration must not call IPS_RunAction.');
+
+// Escalation steps execute once relative to the global alarm start and stop with the alarm output.
+$testActions = [];
+$testValues[4001] = false;
+$immediateEscalationAction = json_encode([
+    'actionID'   => '{44444444-4444-4444-4444-444444444444}',
+    'parameters' => ['VALUE' => 'immediate']
+], JSON_THROW_ON_ERROR);
+$delayedEscalationAction = json_encode([
+    'actionID'   => '{55555555-5555-5555-5555-555555555555}',
+    'parameters' => ['VALUE' => 'delayed']
+], JSON_THROW_ON_ERROR);
+$escalationInstance = new OpenHomeAlarm();
+$escalationInstance->Create();
+$escalationInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$escalationInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$escalationInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Immediate', 'DelaySeconds' => 0, 'Action' => $immediateEscalationAction],
+    ['Enabled' => true, 'Name' => 'Delayed', 'DelaySeconds' => 60, 'Action' => $delayedEscalationAction]
+], JSON_THROW_ON_ERROR));
+$escalationInstance->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($escalationInstance->ArmAway(), 'Escalation test must arm successfully.');
+$testValues[4001] = true;
+$escalationInstance->MessageSink(30, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    count($testActions) === 1
+    && $testActions[0]['actionID'] === '{44444444-4444-4444-4444-444444444444}',
+    'A zero-delay escalation step must execute once when the alarm starts.'
+);
+assertAlarmAction(
+    ($escalationInstance->TestTimers()['AlarmEscalation']['interval'] ?? 0) > 0,
+    'A pending delayed escalation step must schedule the shared timer.'
+);
+$escalationInstance->ProcessAlarmEscalation();
+assertAlarmAction(count($testActions) === 1, 'A processed escalation step must not execute twice.');
+$escalationRuntime = json_decode(
+    (string) ($escalationInstance->TestAttributes()['AlarmEscalationRuntime'] ?? '[]'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$escalationRuntime['StartedAt'] = time() - 120;
+$escalationInstance->TestSetAttributeString(
+    'AlarmEscalationRuntime',
+    json_encode($escalationRuntime, JSON_THROW_ON_ERROR)
+);
+$escalationInstance->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($testActions) === 2
+    && $testActions[1]['actionID'] === '{55555555-5555-5555-5555-555555555555}',
+    'An elapsed delayed escalation step must execute through the public timer callback.'
+);
+$escalationInstance->ProcessAlarmEscalation();
+assertAlarmAction(count($testActions) === 2, 'A delayed escalation step must remain exactly-once after execution.');
+assertAlarmAction($escalationInstance->ResetAlarmOutput(), 'The active alarm output must remain resettable.');
+assertAlarmAction(
+    ($escalationInstance->TestTimers()['AlarmEscalation']['interval'] ?? -1) === 0
+    && ($escalationInstance->TestAttributes()['AlarmEscalationRuntime'] ?? '') === '[]',
+    'Ending the last alarm output must cancel and clear its escalation cycle.'
+);
+
+// ApplyChanges and a service restart use the persisted absolute start without repeating completed steps.
+$testActions = [];
+$testValues[4001] = false;
+$restoredEscalation = new OpenHomeAlarm();
+$restoredEscalation->Create();
+$restoredEscalation->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$restoredEscalation->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$restoredEscalation->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Restored', 'DelaySeconds' => 60, 'Action' => $delayedEscalationAction]
+], JSON_THROW_ON_ERROR));
+$restoredEscalation->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($restoredEscalation->ArmAway(), 'Restart escalation test must arm successfully.');
+$testValues[4001] = true;
+$restoredEscalation->MessageSink(31, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction($testActions === [], 'A future escalation step must not execute at alarm start.');
+$restoredRuntime = json_decode(
+    (string) ($restoredEscalation->TestAttributes()['AlarmEscalationRuntime'] ?? '[]'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$restoredRuntime['StartedAt'] = time() - 120;
+$restoredEscalation->TestSetAttributeString(
+    'AlarmEscalationRuntime',
+    json_encode($restoredRuntime, JSON_THROW_ON_ERROR)
+);
+$restoredEscalation->ApplyChanges();
+assertAlarmAction(
+    count($testActions) === 1
+    && $testActions[0]['actionID'] === '{55555555-5555-5555-5555-555555555555}',
+    'ApplyChanges must execute an overdue persisted escalation step once.'
+);
+$restoredEscalation->ApplyChanges();
+assertAlarmAction(count($testActions) === 1, 'Repeated recovery must not repeat an executed escalation step.');
 
 $form = json_decode(
     (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'),

@@ -29,6 +29,48 @@ assertEscalationPlan($steps[1]['Name'] === 'Step 2', 'Unnamed steps need a stabl
 assertEscalationPlan($steps[1]['Action'] === '', 'Disabled steps may remain unconfigured.');
 assertEscalationPlan(AlarmEscalationPlan::steps('') === [], 'An empty configuration must disable escalation.');
 
+$runtime = AlarmEscalationPlan::start(1000);
+$firstKey = AlarmEscalationPlan::stepKey($steps[0], 0);
+assertEscalationPlan(
+    $runtime === ['StartedAt' => 1000, 'ExecutedStepKeys' => []],
+    'A new escalation cycle must persist its absolute start and an empty execution set.'
+);
+assertEscalationPlan(
+    array_column(AlarmEscalationPlan::dueSteps($steps, $runtime, 1000), 'Key') === [$firstKey],
+    'Enabled zero-delay steps must become due immediately.'
+);
+$runtime['ExecutedStepKeys'][] = $firstKey;
+assertEscalationPlan(
+    AlarmEscalationPlan::dueSteps($steps, $runtime, 2000) === [],
+    'Executed and disabled steps must never become due again.'
+);
+
+$scheduledSteps = AlarmEscalationPlan::steps(json_encode([
+    ['Enabled' => true, 'Name' => 'First', 'DelaySeconds' => 10, 'Action' => $action],
+    ['Enabled' => true, 'Name' => 'Second', 'DelaySeconds' => 30, 'Action' => $action]
+], JSON_THROW_ON_ERROR));
+$scheduledRuntime = AlarmEscalationPlan::start(1000);
+assertEscalationPlan(
+    AlarmEscalationPlan::nextDeadline($scheduledSteps, $scheduledRuntime) === 1010,
+    'The earliest unexecuted escalation deadline must drive the shared timer.'
+);
+$scheduledRuntime['ExecutedStepKeys'][] = AlarmEscalationPlan::stepKey($scheduledSteps[0], 0);
+assertEscalationPlan(
+    AlarmEscalationPlan::nextDeadline($scheduledSteps, $scheduledRuntime) === 1030,
+    'The next pending step must take over after an earlier step executed.'
+);
+$scheduledRuntime['ExecutedStepKeys'][] = AlarmEscalationPlan::stepKey($scheduledSteps[1], 1);
+assertEscalationPlan(
+    AlarmEscalationPlan::nextDeadline($scheduledSteps, $scheduledRuntime) === 0,
+    'A completed escalation plan must no longer schedule a timer.'
+);
+assertEscalationPlan(
+    AlarmEscalationPlan::runtime(['StartedAt' => 1000, 'ExecutedStepKeys' => [$firstKey, $firstKey]])
+        === ['StartedAt' => 1000, 'ExecutedStepKeys' => [$firstKey]],
+    'Persisted execution keys must be normalized without duplicates.'
+);
+assertEscalationPlan(AlarmEscalationPlan::runtime([]) === null, 'Missing runtime state must not create a historical escalation cycle.');
+
 foreach ([
     '{}',
     '[{"Enabled":true,"DelaySeconds":-1,"Action":false}]',

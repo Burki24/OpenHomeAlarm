@@ -251,6 +251,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_DISARM_FAILED_ATTEMPTS = 'DisarmFailedAttempts';
     private const ATTRIBUTE_DISARM_LOCKOUT_UNTIL = 'DisarmLockoutUntil';
     private const ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS = 'AutomaticArmingExecutions';
+    private const ATTRIBUTE_ALARM_ESCALATION_RUNTIME = 'AlarmEscalationRuntime';
     private const ATTRIBUTE_PARTITION_RUNTIME = 'PartitionRuntime';
     private const ATTRIBUTE_PARTITION_ALARMS = 'PartitionAlarms';
     private const ATTRIBUTE_IPSVIEW_TOKEN_1 = 'IPSViewToken1';
@@ -264,6 +265,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const TIMER_ALARM_DURATION = 'AlarmDuration';
     private const TIMER_SENSOR_INTEGRITY = 'SensorIntegrity';
     private const TIMER_AUTOMATIC_ARMING = 'AutomaticArming';
+    private const TIMER_ALARM_ESCALATION = 'AlarmEscalation';
     private const TIMER_PARTITION_RUNTIME = 'PartitionRuntime';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
@@ -344,6 +346,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL, 0);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS);
+        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_1, 0);
@@ -385,6 +388,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::TIMER_AUTOMATIC_ARMING,
             0,
             'OHA_CheckAutomaticArming($_IPS[\'TARGET\']);'
+        );
+        $this->RegisterTimer(
+            self::TIMER_ALARM_ESCALATION,
+            0,
+            'OHA_ProcessAlarmEscalation($_IPS[\'TARGET\']);'
         );
         $this->RegisterTimer(
             self::TIMER_PARTITION_RUNTIME,
@@ -743,6 +751,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
         $this->SetTimerInterval(self::TIMER_AUTOMATIC_ARMING, 0);
+        $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
         $this->RegisterMessage(0, IPS_KERNELSTARTED);
         $this->RegisterIPSViewStyleMediaMessages();
         $this->MaintainIPSViewHTMLVariable(
@@ -1507,9 +1516,55 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SchedulePartitionAlarmOutputTimer($states);
         $after = AlarmPartitionAlarmRegistry::aggregate($states);
         if ($before['OutputActive'] && !$after['OutputActive']) {
+            $this->StopAlarmEscalation();
             $this->RunConfiguredAction(self::PROPERTY_ALARM_RESET_ACTION);
         }
         $this->PublishVisualizationState();
+    }
+
+    /** Executes every due notification step of the current global alarm cycle. */
+    public function ProcessAlarmEscalation(): void
+    {
+        $states = $this->ReadPartitionAlarmStates();
+        if (!AlarmPartitionAlarmRegistry::aggregate($states)['OutputActive']) {
+            $this->StopAlarmEscalation();
+
+            return;
+        }
+
+        $runtime = AlarmEscalationPlan::runtime(
+            $this->ReadPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME)
+        );
+        if ($runtime === null) {
+            $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
+
+            return;
+        }
+
+        $steps = $this->ReadConfiguredAlarmEscalationSteps();
+        foreach (AlarmEscalationPlan::dueSteps($steps, $runtime, time()) as $due) {
+            // Persist first so action errors, ApplyChanges or a restart cannot repeat this step.
+            $runtime['ExecutedStepKeys'][] = $due['Key'];
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
+            $result = AlarmActionExecutor::execute(
+                true,
+                $due['Step']['Action'],
+                static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
+            );
+            if ($result['Error'] !== null) {
+                $this->SendDebug(
+                    __FUNCTION__,
+                    sprintf('Escalation step "%s": %s', $due['Step']['Name'], $result['Error']),
+                    0
+                );
+            }
+        }
+
+        $deadline = AlarmEscalationPlan::nextDeadline($steps, $runtime);
+        $this->SetTimerInterval(
+            self::TIMER_ALARM_ESCALATION,
+            $deadline > 0 ? max(1, $deadline - time()) * 1000 : 0
+        );
     }
 
     /**
@@ -2210,6 +2265,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SchedulePartitionAlarmOutputTimer($states);
         if (!$before['OutputActive']) {
             $this->RunConfiguredAction(self::PROPERTY_ALARM_ACTION);
+            $this->StartAlarmEscalation();
         }
     }
 
@@ -2224,6 +2280,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SynchronizePartitionAlarmSummary($states);
         $this->SchedulePartitionAlarmOutputTimer($states);
         $after = AlarmPartitionAlarmRegistry::aggregate($states);
+        if (!$after['OutputActive']) {
+            $this->StopAlarmEscalation();
+        }
         $runtime = $this->ReadPartitionRuntime();
         $this->AppendEvent(
             self::EVENT_ALARM_OUTPUT_RESET,
@@ -2394,6 +2453,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
         $this->RestoreAlarmDurationTimer();
+        $this->RestoreAlarmEscalation();
         $this->PublishVisualizationState();
         $this->UpdateIPSViewHTML();
     }
@@ -4988,6 +5048,38 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $result['Succeeded'];
+    }
+
+    private function StartAlarmEscalation(): void
+    {
+        if ($this->ReadConfiguredAlarmEscalationSteps() === []) {
+            $this->StopAlarmEscalation();
+
+            return;
+        }
+
+        $this->WritePersistentJsonCache(
+            self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME,
+            AlarmEscalationPlan::start(time())
+        );
+        $this->ProcessAlarmEscalation();
+    }
+
+    private function RestoreAlarmEscalation(): void
+    {
+        if (!AlarmPartitionAlarmRegistry::aggregate($this->ReadPartitionAlarmStates())['OutputActive']) {
+            $this->StopAlarmEscalation();
+
+            return;
+        }
+
+        $this->ProcessAlarmEscalation();
+    }
+
+    private function StopAlarmEscalation(): void
+    {
+        $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
+        $this->ClearPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
     }
 
     /**
