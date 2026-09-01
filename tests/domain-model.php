@@ -241,6 +241,11 @@ assertDomainSame(
     AlarmVisualizationAdapter::command('BypassSensor', '42'),
     'Visualization variable IDs must be normalized to positive integers.'
 );
+assertDomainSame(
+    ['Action' => 'ExportEventHistory', 'Value' => 'csv'],
+    AlarmVisualizationAdapter::command('ExportEventHistory', ' CSV '),
+    'Visualization history exports must normalize their selected format.'
+);
 try {
     AlarmVisualizationAdapter::command('Arm', 2);
     throw new RuntimeException('A non-string visualization mode must be rejected.');
@@ -252,6 +257,12 @@ try {
     throw new RuntimeException('An unknown visualization command must be rejected.');
 } catch (InvalidArgumentException $exception) {
     assertDomainSame('Unknown visualization action.', $exception->getMessage(), 'Unknown actions must retain their diagnostic.');
+}
+try {
+    AlarmVisualizationAdapter::command('ExportEventHistory', 'xml');
+    throw new RuntimeException('An unsupported visualization export format must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Event history export format must be json or csv.', $exception->getMessage(), 'Export actions must retain the public API diagnostic.');
 }
 
 $codeStatus = AlarmCodeProtection::status(true, 0, 0, 3, 1000);

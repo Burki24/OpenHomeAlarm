@@ -217,6 +217,8 @@
             "Sensor management": "Sensorverwaltung",
             "System log": "Systemprotokoll",
             "Recent activity": "Letzte Ereignisse",
+            "Export event history as JSON": "Ereignishistorie als JSON exportieren",
+            "Export event history as CSV": "Ereignishistorie als CSV exportieren",
             "Silence alarm": "Alarmton stoppen",
             "Arming rejected": "Scharfschaltung abgelehnt",
             "Arming cancelled": "Scharfschaltung abgebrochen",

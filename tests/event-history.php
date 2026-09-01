@@ -87,6 +87,8 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $currentValues = [];
 
+    private mixed $visualizationValue = null;
+
     public function Create(): void
     {
     }
@@ -125,6 +127,11 @@ class IPSModuleStrict
         $this->writtenValues = [];
     }
 
+    public function TestVisualizationValue(): mixed
+    {
+        return $this->visualizationValue;
+    }
+
     protected function SetVisualizationType(int $type): bool
     {
         return true;
@@ -132,6 +139,8 @@ class IPSModuleStrict
 
     protected function UpdateVisualizationValue(mixed $data): bool
     {
+        $this->visualizationValue = $data;
+
         return true;
     }
 
@@ -388,6 +397,23 @@ assertEventHistory(
 $csvExport = $instance->ExportEventHistory('csv', 0, 0, '');
 assertEventHistory(str_starts_with($csvExport, "Time,Event,Mode,State,Source,PartitionID\r\n"), 'The public CSV export must expose its stable header.');
 assertEventHistory(!str_contains($csvExport, '9999') && !str_contains($csvExport, '1234'), 'Exports must retain the event history code-redaction boundary.');
+$instance->RequestAction('ExportEventHistory', 'json');
+$visualizationExport = json_decode(
+    (string) $instance->TestVisualizationValue(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertEventHistory(
+    ($visualizationExport['Interaction']['Type'] ?? null) === 'event_history_export'
+    && ($visualizationExport['Interaction']['Format'] ?? null) === 'json'
+    && json_decode($visualizationExport['Interaction']['Content'] ?? '', true, 512, JSON_THROW_ON_ERROR) === $history,
+    'The visualization action must return the complete export as a transient interaction.'
+);
+assertEventHistory(
+    preg_match('/^openhomealarm-events-[0-9]{8}-[0-9]{6}\.json$/', $visualizationExport['Interaction']['Filename'] ?? '') === 1,
+    'Visualization exports need a deterministic, filesystem-safe download name.'
+);
 
 $testValues[5001] = false;
 assertEventHistory($instance->BypassSensor(5001) === true, 'A configured arming sensor must remain bypassable while disarmed.');

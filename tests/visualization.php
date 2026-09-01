@@ -152,10 +152,22 @@ assertVisualization(str_contains($html, 'id="statusGrid"'), 'Visualization must 
 assertVisualization(str_contains($html, 'id="sensorManagementPanel"'), 'Visualization must provide contextual sensor management.');
 assertVisualization(str_contains($html, 'id="eventHistoryPanel"'), 'Visualization must provide recent security events.');
 assertVisualization(
+    str_contains($html, 'data-operation="ExportEventHistory" data-format="json"')
+        && str_contains($html, 'data-operation="ExportEventHistory" data-format="csv"'),
+    'The event history panel must offer direct JSON and CSV downloads.'
+);
+assertVisualization(
     str_contains($javascript, 'function ohaRenderSensorManagement(state)')
         && str_contains($javascript, 'function ohaRenderEventHistory(state)')
         && str_contains($module, "'RecentEvents'"),
     'Sensor operations and recent security events must be rendered from the backend control state.'
+);
+assertVisualization(
+    str_contains($module, "case 'ExportEventHistory':")
+        && str_contains($javascript, 'function ohaDownloadEventHistory(interaction)')
+        && str_contains($javascript, 'new Blob([content], { type: mimeType })')
+        && str_contains($javascript, "ohaRequestAction(action, control.dataset.format ?? '')"),
+    'History downloads must flow through the visualization action bridge into a browser Blob without server-side files.'
 );
 assertVisualization(
     str_contains($css, '--oha-accent: var(--symc-accent);')
@@ -203,6 +215,8 @@ foreach ([
     'Sensor management',
     'System log',
     'Recent activity',
+    'Export event history as JSON',
+    'Export event history as CSV',
     'Silence alarm',
     'Alarm triggered',
     'Reset alarm output',

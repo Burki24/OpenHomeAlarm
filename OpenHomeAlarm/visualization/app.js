@@ -638,6 +638,8 @@ function ohaRenderStaticText() {
     document.getElementById('inlineCodepadClear').setAttribute('aria-label', ohaTranslate('Clear code entry'));
     document.getElementById('inlineCodepadConfirm').setAttribute('aria-label', ohaTranslate('Deactivate'));
     document.getElementById('inlineCodepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
+    document.getElementById('exportHistoryJson').setAttribute('aria-label', ohaTranslate('Export event history as JSON'));
+    document.getElementById('exportHistoryCsv').setAttribute('aria-label', ohaTranslate('Export event history as CSV'));
 }
 
 function ohaRender() {
@@ -957,7 +959,16 @@ function ohaSubmitCode() {
 }
 
 function ohaHandleInteraction(interaction) {
-    if (!interaction || interaction.Type !== 'disarm_code') {
+    if (!interaction) {
+        return;
+    }
+
+    if (interaction.Type === 'event_history_export') {
+        ohaDownloadEventHistory(interaction);
+        return;
+    }
+
+    if (interaction.Type !== 'disarm_code') {
         return;
     }
 
@@ -975,6 +986,39 @@ function ohaHandleInteraction(interaction) {
         ohaSetCodeError('');
     }
     ohaUpdateCodepad();
+}
+
+function ohaDownloadEventHistory(interaction) {
+    const format = interaction?.Format === 'csv' ? 'csv' : 'json';
+    const fallbackFilename = `openhomealarm-events.${format}`;
+    const filename = typeof interaction?.Filename === 'string'
+        && /^[a-z0-9._-]+$/i.test(interaction.Filename)
+        ? interaction.Filename
+        : fallbackFilename;
+    let content = typeof interaction?.Content === 'string' ? interaction.Content : '';
+    let mimeType = 'application/json;charset=utf-8';
+
+    if (format === 'csv') {
+        content = `\uFEFF${content}`;
+        mimeType = 'text/csv;charset=utf-8';
+    } else {
+        try {
+            content = JSON.stringify(JSON.parse(content), null, 2);
+        } catch (_error) {
+            return;
+        }
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.hidden = true;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function ohaFindInteractiveControl(event) {
@@ -1041,6 +1085,10 @@ function ohaHandleInteractiveClick(event) {
             return;
         }
         const action = control.dataset.operation ?? '';
+        if (action === 'ExportEventHistory') {
+            ohaRequestAction(action, control.dataset.format ?? '');
+            return;
+        }
         const variableID = Number(control.dataset.variableId) || 0;
         ohaRequestAction(action, variableID > 0 ? variableID : true);
         return;

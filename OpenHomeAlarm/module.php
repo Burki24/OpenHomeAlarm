@@ -2747,6 +2747,14 @@ class OpenHomeAlarm extends IPSModuleStrict
             case 'RefreshVisualization':
                 return null;
 
+            case 'ExportEventHistory':
+                return [
+                    'Type'     => 'event_history_export',
+                    'Format'   => $Value,
+                    'Filename' => sprintf('openhomealarm-events-%s.%s', date('Ymd-His'), $Value),
+                    'Content'  => $this->ExportEventHistory($Value)
+                ];
+
             case 'BypassSensor':
                 $this->BypassSensor($Value);
 

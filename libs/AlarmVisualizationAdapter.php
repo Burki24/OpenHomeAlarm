@@ -19,6 +19,7 @@ final class AlarmVisualizationAdapter
         $normalizedValue = match ($action) {
             'Arm'                                                                                           => self::stringValue($value, 'Arm action requires a mode string.'),
             'DisarmWithCode'                                                                                => self::stringValue($value, 'DisarmWithCode action requires a code string.'),
+            'ExportEventHistory'                                                                            => self::exportFormat($value),
             'BypassSensor', 'RemoveSensorBypass'                                                            => self::variableID($value),
             'Disarm', 'RefreshVisualization', 'ClearSensorBypasses', 'ClearAlarmMemory', 'ResetAlarmOutput' => null,
             default                                                                                         => throw new InvalidArgumentException('Unknown visualization action.')
@@ -48,5 +49,15 @@ final class AlarmVisualizationAdapter
         }
 
         return $variableID;
+    }
+
+    private static function exportFormat(mixed $value): string
+    {
+        $format = strtolower(trim(self::stringValue($value, 'Event history export format must be json or csv.')));
+        if (!in_array($format, ['json', 'csv'], true)) {
+            throw new InvalidArgumentException('Event history export format must be json or csv.');
+        }
+
+        return $format;
     }
 }

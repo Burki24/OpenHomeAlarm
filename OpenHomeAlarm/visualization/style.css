@@ -819,6 +819,13 @@ button:focus-visible {
     font-weight: 800;
 }
 
+.oha-history-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+}
+
 .oha-operation-list,
 .oha-history-list {
     display: grid;
