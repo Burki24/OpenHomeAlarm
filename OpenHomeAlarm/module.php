@@ -8,6 +8,7 @@ use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
+use Burki24\OpenHomeAlarm\AlarmEscalationPlan;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmPartitionAlarmRegistry;
@@ -25,6 +26,7 @@ require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
 require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
+require_once __DIR__ . '/../libs/AlarmEscalationPlan.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
 require_once __DIR__ . '/../libs/AlarmPartitionRegistry.php';
@@ -134,6 +136,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
     private const PROPERTY_ALARM_ACTION_ENABLED = 'AlarmActionEnabled';
     private const PROPERTY_ALARM_ACTION = 'AlarmAction';
+    private const PROPERTY_ALARM_ESCALATION_STEPS = 'AlarmEscalationSteps';
     private const PROPERTY_ALARM_RESET_ACTION_ENABLED = 'AlarmResetActionEnabled';
     private const PROPERTY_ALARM_RESET_ACTION = 'AlarmResetAction';
     private const PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED = 'DisarmAfterAlarmActionEnabled';
@@ -304,6 +307,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ACTION, '');
+        $this->RegisterPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_RESET_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_RESET_ACTION, '');
         $this->RegisterPropertyInteger(self::PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED, 0);
@@ -2054,6 +2058,14 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
     }
 
+    /** @return list<array{Enabled:bool,Name:string,DelaySeconds:int,Action:string}> */
+    private function ReadConfiguredAlarmEscalationSteps(): array
+    {
+        return AlarmEscalationPlan::steps(
+            $this->ReadPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS)
+        );
+    }
+
     /** @return list<array{Enabled:bool,ID:string,Name:string,Default:bool}> */
     private function ReadConfiguredPartitions(): array
     {
@@ -2356,6 +2368,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->ReadSensorIntegrityIntervalSeconds() * 1000
         );
         $automaticArmingSchedules = $this->ReadConfiguredAutomaticArmingSchedules();
+        $this->ReadConfiguredAlarmEscalationSteps();
         $this->SetTimerInterval(
             self::TIMER_AUTOMATIC_ARMING,
             $automaticArmingSchedules === [] ? 0 : 15000

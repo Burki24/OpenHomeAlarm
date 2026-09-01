@@ -38,6 +38,7 @@ $commands = [
     ['Check entry and exit delays with countdown status', 'php tests/delays.php'],
     ['Check exit-route arming behavior', 'php tests/exit-route.php'],
     ['Check alarm actions', 'php tests/alarm-actions.php'],
+    ['Check alarm escalation plan', 'php tests/alarm-escalation-plan.php'],
     ['Check alarm duration and reset handling', 'php tests/alarm-duration.php'],
     ['Check disarm code protection', 'php tests/disarm-code.php'],
     ['Check automatic arming schedules', 'php tests/arming-schedule.php'],
