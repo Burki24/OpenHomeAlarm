@@ -49,8 +49,7 @@ final class AlarmPartitionAlarmRegistry
         int $timestamp,
         int $durationSeconds = 0,
         ?int $outputStartedAt = null
-    ): array
-    {
+    ): array {
         $state = self::normalize($state);
         $state['OutputActive'] = true;
         $state['OutputDeadline'] = $durationSeconds > 0
