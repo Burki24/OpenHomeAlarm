@@ -99,6 +99,14 @@ assertVisualization(
 );
 assertVisualization(str_contains($javascript, 'function handleMessage(data)'), 'HTML-SDK handleMessage must be implemented.');
 assertVisualization(
+    substr_count($javascript, 'Number(') >= 2
+        && str_contains($javascript, 'Number(ohaState.ApiVersion) !== 2')
+        && str_contains($javascript, 'Number(state.ApiVersion) === 2')
+        && !str_contains($javascript, 'ApiVersion) === 1')
+        && !str_contains($javascript, 'ApiVersion) !== 1'),
+    'Native and IPSView rendering must accept the partition-aware control API version 2.'
+);
+assertVisualization(
     !str_contains($javascript, '.innerHTML ='),
     'Visualization state must be rendered without assigning HTML strings.'
 );

@@ -643,7 +643,7 @@ function ohaRenderStaticText() {
 }
 
 function ohaRender() {
-    if (!ohaState || Number(ohaState.ApiVersion) !== 1) {
+    if (!ohaState || Number(ohaState.ApiVersion) !== 2) {
         return;
     }
 
@@ -1117,7 +1117,7 @@ function ohaIsControlStatePayload(state) {
     return Boolean(
         state
         && typeof state === 'object'
-        && Number(state.ApiVersion) === 1
+        && Number(state.ApiVersion) === 2
         && typeof state.State?.Name === 'string'
         && typeof state.Mode?.Name === 'string'
         && state.Capabilities
