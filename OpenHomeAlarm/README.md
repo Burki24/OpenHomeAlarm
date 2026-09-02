@@ -212,6 +212,7 @@ Folgende öffentliche Modulbefehle stehen zur Verfügung:
 | `OHA_GetControlState($InstanzID)` | `string` | Liefert den versionierten, strukturierten Bedienzustand als JSON; vorgesehen als einzige Statusquelle der eigenen Visualisierung |
 | `OHA_GetPartitions($InstanzID)` | `string` | Liefert die konfigurierten Partitionsmetadaten als JSON |
 | `OHA_GetDiagnostics($InstanzID)` | `string` | Liefert einen rein lesenden Diagnose-Snapshot aller konfigurierten Sensoren und Störungseingänge als JSON |
+| `OHA_ExportDiagnostics($InstanzID, $Format)` | `string` | Exportiert den aktuellen Diagnose-Snapshot als `json` oder `csv` |
 | `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen aktiven Alarmbereich unabhängig mit `home`, `away` oder `night` scharf |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet genau einen aktiven Alarmbereich unscharf; beim Standardbereich entspricht dies `OHA_Disarm()` |
 | `OHA_Arm($InstanzID, $Modus)` | `bool` | Schaltet über die stabile Bedien-API mit `home`, `away` oder `night` scharf; andere Werte werden sicher abgelehnt |

@@ -246,6 +246,11 @@ assertDomainSame(
     AlarmVisualizationAdapter::command('ExportEventHistory', ' CSV '),
     'Visualization history exports must normalize their selected format.'
 );
+assertDomainSame(
+    ['Action' => 'ExportDiagnostics', 'Value' => 'json'],
+    AlarmVisualizationAdapter::command('ExportDiagnostics', ' JSON '),
+    'Visualization diagnostics exports must normalize their selected format.'
+);
 try {
     AlarmVisualizationAdapter::command('Arm', 2);
     throw new RuntimeException('A non-string visualization mode must be rejected.');

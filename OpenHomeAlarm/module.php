@@ -8,6 +8,7 @@ use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmDiagnostics;
+use Burki24\OpenHomeAlarm\AlarmDiagnosticsExporter;
 use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
 use Burki24\OpenHomeAlarm\AlarmEscalationPlan;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
@@ -27,6 +28,7 @@ require_once __DIR__ . '/../libs/AlarmArmingSchedule.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
 require_once __DIR__ . '/../libs/AlarmDiagnostics.php';
+require_once __DIR__ . '/../libs/AlarmDiagnosticsExporter.php';
 require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmEventHistoryExporter.php';
@@ -976,6 +978,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function GetDiagnostics(): string
     {
         return AlarmDiagnostics::encode($this->BuildDiagnosticsPayload());
+    }
+
+    /** Exports the current read-only diagnostics snapshot as JSON or CSV. */
+    public function ExportDiagnostics(string $format = 'json'): string
+    {
+        return AlarmDiagnosticsExporter::export($this->BuildDiagnosticsPayload(), $format);
     }
 
     /** Arms one enabled alarm partition without changing any other partition. */
@@ -2762,6 +2770,14 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'Format'   => $Value,
                     'Filename' => sprintf('openhomealarm-events-%s.%s', date('Ymd-His'), $Value),
                     'Content'  => $this->ExportEventHistory($Value)
+                ];
+
+            case 'ExportDiagnostics':
+                return [
+                    'Type'     => 'diagnostics_export',
+                    'Format'   => $Value,
+                    'Filename' => sprintf('openhomealarm-diagnostics-%s.%s', date('Ymd-His'), $Value),
+                    'Content'  => $this->ExportDiagnostics($Value)
                 ];
 
             case 'BypassSensor':

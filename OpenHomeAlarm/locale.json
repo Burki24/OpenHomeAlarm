@@ -224,6 +224,8 @@
             "Disabled": "Deaktiviert",
             "Export event history as JSON": "Ereignishistorie als JSON exportieren",
             "Export event history as CSV": "Ereignishistorie als CSV exportieren",
+            "Export diagnostics as JSON": "Diagnose als JSON exportieren",
+            "Export diagnostics as CSV": "Diagnose als CSV exportieren",
             "Silence alarm": "Alarmton stoppen",
             "Arming rejected": "Scharfschaltung abgelehnt",
             "Arming cancelled": "Scharfschaltung abgebrochen",

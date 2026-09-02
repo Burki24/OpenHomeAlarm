@@ -166,6 +166,14 @@ assertVisualization(
     'The event history panel must offer direct JSON and CSV downloads.'
 );
 assertVisualization(
+    str_contains($html, 'data-operation="ExportDiagnostics" data-format="json"')
+        && str_contains($html, 'data-operation="ExportDiagnostics" data-format="csv"')
+        && str_contains($module, "case 'ExportDiagnostics':")
+        && str_contains($javascript, 'function ohaDownloadDiagnostics(interaction)')
+        && str_contains($javascript, "action === 'ExportEventHistory' || action === 'ExportDiagnostics'"),
+    'The diagnostics panel must download JSON and CSV through the shared visualization action bridge.'
+);
+assertVisualization(
     str_contains($javascript, 'function ohaRenderSensorManagement(state)')
         && str_contains($javascript, 'function ohaRenderEventHistory(state)')
         && str_contains($javascript, 'function ohaRenderDiagnostics(state)')
@@ -237,6 +245,8 @@ foreach ([
     'Missing',
     'Unreadable',
     'Disabled',
+    'Export diagnostics as JSON',
+    'Export diagnostics as CSV',
     'Export event history as JSON',
     'Export event history as CSV',
     'Silence alarm',

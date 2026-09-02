@@ -703,6 +703,8 @@ function ohaRenderStaticText() {
     document.getElementById('inlineCodepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('exportHistoryJson').setAttribute('aria-label', ohaTranslate('Export event history as JSON'));
     document.getElementById('exportHistoryCsv').setAttribute('aria-label', ohaTranslate('Export event history as CSV'));
+    document.getElementById('exportDiagnosticsJson').setAttribute('aria-label', ohaTranslate('Export diagnostics as JSON'));
+    document.getElementById('exportDiagnosticsCsv').setAttribute('aria-label', ohaTranslate('Export diagnostics as CSV'));
 }
 
 function ohaRender() {
@@ -1031,6 +1033,10 @@ function ohaHandleInteraction(interaction) {
         ohaDownloadEventHistory(interaction);
         return;
     }
+    if (interaction.Type === 'diagnostics_export') {
+        ohaDownloadDiagnostics(interaction);
+        return;
+    }
 
     if (interaction.Type !== 'disarm_code') {
         return;
@@ -1053,8 +1059,16 @@ function ohaHandleInteraction(interaction) {
 }
 
 function ohaDownloadEventHistory(interaction) {
+    ohaDownloadData(interaction, 'openhomealarm-events');
+}
+
+function ohaDownloadDiagnostics(interaction) {
+    ohaDownloadData(interaction, 'openhomealarm-diagnostics');
+}
+
+function ohaDownloadData(interaction, fallbackBase) {
     const format = interaction?.Format === 'csv' ? 'csv' : 'json';
-    const fallbackFilename = `openhomealarm-events.${format}`;
+    const fallbackFilename = `${fallbackBase}.${format}`;
     const filename = typeof interaction?.Filename === 'string'
         && /^[a-z0-9._-]+$/i.test(interaction.Filename)
         ? interaction.Filename
@@ -1149,7 +1163,7 @@ function ohaHandleInteractiveClick(event) {
             return;
         }
         const action = control.dataset.operation ?? '';
-        if (action === 'ExportEventHistory') {
+        if (action === 'ExportEventHistory' || action === 'ExportDiagnostics') {
             ohaRequestAction(action, control.dataset.format ?? '');
             return;
         }

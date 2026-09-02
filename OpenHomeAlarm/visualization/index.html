@@ -189,7 +189,11 @@
                         <div class="oha-section-kicker" id="diagnosticsKicker"></div>
                         <h2 id="diagnosticsTitle"></h2>
                     </div>
-                    <span class="oha-operation-count" id="diagnosticsCount"></span>
+                    <div class="oha-history-actions">
+                        <span class="oha-operation-count" id="diagnosticsCount"></span>
+                        <button class="oha-row-action" id="exportDiagnosticsJson" data-operation="ExportDiagnostics" data-format="json" data-enabled="true" type="button">JSON</button>
+                        <button class="oha-row-action" id="exportDiagnosticsCsv" data-operation="ExportDiagnostics" data-format="csv" data-enabled="true" type="button">CSV</button>
+                    </div>
                 </header>
                 <div class="oha-diagnostics-list" id="diagnosticsList"></div>
             </article>
