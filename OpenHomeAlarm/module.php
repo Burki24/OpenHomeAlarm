@@ -983,7 +983,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $sensor['PartitionID'],
                 $sensor['Enabled'],
                 $sensor['Enabled'] && $this->IsSensorMonitored($sensor),
-                fn(): ?bool => $this->GetSensorTriggerState($sensor)
+                fn (): ?bool => $this->GetSensorTriggerState($sensor)
             );
         }
         foreach ($this->ReadConfiguredFaultInputs() as $faultInput) {
@@ -994,7 +994,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $faultInput['PartitionID'],
                 $faultInput['Enabled'],
                 $faultInput['Enabled'],
-                fn(): ?bool => $this->GetFaultTriggerState($faultInput)
+                fn (): ?bool => $this->GetFaultTriggerState($faultInput)
             );
         }
 
