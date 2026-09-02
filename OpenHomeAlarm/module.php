@@ -6,6 +6,7 @@ use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmArmingSchedule;
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
+use Burki24\OpenHomeAlarm\AlarmConfigurationBackup;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmDiagnostics;
 use Burki24\OpenHomeAlarm\AlarmDiagnosticsExporter;
@@ -26,6 +27,7 @@ use Burki24\OpenHomeAlarm\AlarmVisualizationAdapter;
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmArmingSchedule.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
+require_once __DIR__ . '/../libs/AlarmConfigurationBackup.php';
 require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
 require_once __DIR__ . '/../libs/AlarmDiagnostics.php';
 require_once __DIR__ . '/../libs/AlarmDiagnosticsExporter.php';
@@ -984,6 +986,22 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function ExportDiagnostics(string $format = 'json'): string
     {
         return AlarmDiagnosticsExporter::export($this->BuildDiagnosticsPayload(), $format);
+    }
+
+    /** Exports every registered module property in a versioned, confidential JSON backup. */
+    public function ExportConfigurationBackup(): string
+    {
+        $configuration = json_decode(
+            IPS_GetConfiguration($this->InstanceID),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+        if (!is_array($configuration)) {
+            throw new UnexpectedValueException('Module configuration must be a JSON object.');
+        }
+
+        return AlarmConfigurationBackup::encode(AlarmConfigurationBackup::create($configuration, time()));
     }
 
     /** Arms one enabled alarm partition without changing any other partition. */
