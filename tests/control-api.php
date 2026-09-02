@@ -495,6 +495,11 @@ assertControlApi(
 );
 $diagnostics = json_decode($instance->GetDiagnostics(), true, 512, JSON_THROW_ON_ERROR);
 assertControlApi(
+    ($state['Diagnostics']['ApiVersion'] ?? null) === 1
+        && ($state['Diagnostics']['Items'][0]['Name'] ?? null) === 'Front door',
+    'The shared control state must carry the same diagnostics contract for native and IPSView rendering.'
+);
+assertControlApi(
     ($diagnostics['ApiVersion'] ?? null) === 1
         && ($diagnostics['GeneratedAt'] ?? 0) > 0,
     'The public diagnostics API must expose a versioned and timestamped snapshot.'

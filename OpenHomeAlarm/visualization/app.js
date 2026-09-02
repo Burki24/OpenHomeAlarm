@@ -101,6 +101,18 @@ function ohaFormatEventTime(timestamp) {
     }).format(new Date(numericTimestamp * 1000));
 }
 
+function ohaDiagnosticStatusCaption(status) {
+    const captions = {
+        ready: 'Ready',
+        triggered: 'Triggered',
+        missing: 'Missing',
+        unreadable: 'Unreadable',
+        disabled: 'Disabled'
+    };
+
+    return ohaTranslate(captions[status] ?? status);
+}
+
 function ohaStateIcon(name) {
     const icons = {
         disarmed: 'fa-shield',
@@ -531,6 +543,57 @@ function ohaRenderEventHistory(state) {
     }
 }
 
+function ohaRenderDiagnostics(state) {
+    const panel = document.getElementById('diagnosticsPanel');
+    const list = document.getElementById('diagnosticsList');
+    const diagnostics = state.Diagnostics && typeof state.Diagnostics === 'object'
+        ? state.Diagnostics
+        : null;
+    const items = Array.isArray(diagnostics?.Items) ? diagnostics.Items : [];
+
+    panel.hidden = items.length === 0;
+    list.replaceChildren();
+    if (panel.hidden) {
+        return;
+    }
+
+    document.getElementById('diagnosticsKicker').textContent = ohaTranslate('System diagnostics');
+    document.getElementById('diagnosticsTitle').textContent = ohaTranslate('Inputs and communication');
+    document.getElementById('diagnosticsCount').textContent = String(diagnostics.Summary?.Problems ?? 0);
+    document.getElementById('diagnosticsCount').dataset.problems = Number(diagnostics.Summary?.Problems) > 0
+        ? 'true'
+        : 'false';
+
+    for (const item of items) {
+        const row = document.createElement('div');
+        row.className = 'oha-diagnostic-row';
+        row.dataset.status = item.Status;
+        row.dataset.kind = item.Kind;
+
+        const icon = document.createElement('span');
+        icon.className = 'oha-operation-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        const iconElement = document.createElement('i');
+        iconElement.className = `fa-light ${item.Kind === 'fault' ? 'fa-triangle-exclamation' : 'fa-wave-pulse'}`;
+        icon.appendChild(iconElement);
+
+        const copy = document.createElement('div');
+        copy.className = 'oha-operation-copy';
+        const title = document.createElement('strong');
+        title.textContent = item.Name;
+        const timestamp = Number(item.LastChanged) > 0 ? item.LastChanged : item.LastUpdated;
+        const detail = document.createElement('span');
+        detail.textContent = [
+            ohaDiagnosticStatusCaption(item.Status),
+            item.PartitionID,
+            ohaFormatEventTime(timestamp)
+        ].filter(Boolean).join(' · ');
+        copy.append(title, detail);
+        row.append(icon, copy);
+        list.appendChild(row);
+    }
+}
+
 function ohaUpdateOperationsLayout() {
     const grid = document.getElementById('operationsGrid');
     const visiblePanels = Array.from(grid.querySelectorAll('.oha-operation-panel'))
@@ -655,6 +718,7 @@ function ohaRender() {
     ohaRenderBypasses(ohaState);
     ohaRenderSensorManagement(ohaState);
     ohaRenderEventHistory(ohaState);
+    ohaRenderDiagnostics(ohaState);
     ohaUpdateOperationsLayout();
     ohaRenderArming(ohaState);
     ohaRenderInlineCodepad(ohaState);

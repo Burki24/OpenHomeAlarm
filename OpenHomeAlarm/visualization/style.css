@@ -784,6 +784,12 @@ button:focus-visible {
     grid-template-columns: minmax(0, 1fr);
 }
 
+@media (min-width: 1251px) {
+    .oha-operations-grid[data-visible-panels="3"] {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
 .oha-operation-panel {
     min-width: 0;
     overflow: hidden;
@@ -819,6 +825,11 @@ button:focus-visible {
     font-weight: 800;
 }
 
+.oha-operation-count[data-problems="true"] {
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+}
+
 .oha-history-actions {
     display: flex;
     flex: 0 0 auto;
@@ -827,12 +838,14 @@ button:focus-visible {
 }
 
 .oha-operation-list,
-.oha-history-list {
+.oha-history-list,
+.oha-diagnostics-list {
     display: grid;
 }
 
 .oha-operation-row,
-.oha-history-row {
+.oha-history-row,
+.oha-diagnostic-row {
     display: grid;
     min-width: 0;
     align-items: center;
@@ -844,8 +857,13 @@ button:focus-visible {
     grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
+.oha-diagnostic-row {
+    grid-template-columns: auto minmax(0, 1fr);
+}
+
 .oha-operation-row + .oha-operation-row,
-.oha-history-row + .oha-history-row {
+.oha-history-row + .oha-history-row,
+.oha-diagnostic-row + .oha-diagnostic-row {
     border-top: var(--oha-line-width) solid var(--oha-border);
 }
 
@@ -867,6 +885,27 @@ button:focus-visible {
 .oha-operation-row[data-tone="bypass"] .oha-operation-icon {
     background: var(--oha-accent-soft);
     color: var(--oha-accent);
+}
+
+.oha-diagnostic-row[data-status="ready"] .oha-operation-icon {
+    background: var(--oha-success-soft);
+    color: var(--oha-success);
+}
+
+.oha-diagnostic-row[data-status="missing"] .oha-operation-icon,
+.oha-diagnostic-row[data-status="unreadable"] .oha-operation-icon,
+.oha-diagnostic-row[data-kind="fault"][data-status="triggered"] .oha-operation-icon {
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+}
+
+.oha-diagnostic-row[data-status="disabled"] {
+    opacity: var(--oha-disabled-opacity);
+}
+
+.oha-diagnostic-row[data-status="disabled"] .oha-operation-icon {
+    background: var(--oha-surface-strong);
+    color: var(--oha-muted);
 }
 
 .oha-operation-copy,
@@ -1738,7 +1777,8 @@ html.oha-ipsview .oha-operation-count {
 }
 
 html.oha-ipsview .oha-operation-list,
-html.oha-ipsview .oha-history-list {
+html.oha-ipsview .oha-history-list,
+html.oha-ipsview .oha-diagnostics-list {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -1747,7 +1787,8 @@ html.oha-ipsview .oha-history-list {
 }
 
 html.oha-ipsview .oha-operation-row,
-html.oha-ipsview .oha-history-row {
+html.oha-ipsview .oha-history-row,
+html.oha-ipsview .oha-diagnostic-row {
     gap: 8px;
     padding: 7px 10px;
 }

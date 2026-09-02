@@ -956,7 +956,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         $payload = array_merge([
             'ApiVersion'       => self::CONTROL_API_VERSION,
             'DefaultPartition' => $defaultPartition['ID'],
-            'Partitions'       => $partitionPayload
+            'Partitions'       => $partitionPayload,
+            'Diagnostics'      => $this->BuildDiagnosticsPayload($allSensors, $allFaultInputs)
         ], $partitionState);
 
         return AlarmControlStateAdapter::encode($payload);
@@ -974,31 +975,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     /** Returns a stable read-only snapshot of all configured input diagnostics. */
     public function GetDiagnostics(): string
     {
-        $items = [];
-        foreach ($this->ReadConfiguredSensors() as $sensor) {
-            $items[] = $this->BuildDiagnosticItem(
-                'sensor',
-                $this->ResolveSensorDisplayName($sensor),
-                $sensor['VariableID'],
-                $sensor['PartitionID'],
-                $sensor['Enabled'],
-                $sensor['Enabled'] && $this->IsSensorMonitored($sensor),
-                fn (): ?bool => $this->GetSensorTriggerState($sensor)
-            );
-        }
-        foreach ($this->ReadConfiguredFaultInputs() as $faultInput) {
-            $items[] = $this->BuildDiagnosticItem(
-                'fault',
-                $this->ResolveFaultDisplayName($faultInput),
-                $faultInput['VariableID'],
-                $faultInput['PartitionID'],
-                $faultInput['Enabled'],
-                $faultInput['Enabled'],
-                fn (): ?bool => $this->GetFaultTriggerState($faultInput)
-            );
-        }
-
-        return AlarmDiagnostics::encode(AlarmDiagnostics::build($items, time()));
+        return AlarmDiagnostics::encode($this->BuildDiagnosticsPayload());
     }
 
     /** Arms one enabled alarm partition without changing any other partition. */
@@ -3170,6 +3147,41 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function IsExistingVariable(int $variableID): bool
     {
         return $variableID > 0 && IPS_VariableExists($variableID);
+    }
+
+    /**
+     * @param list<array<string,mixed>>|null $sensors
+     * @param list<array<string,mixed>>|null $faultInputs
+     *
+     * @return array<string,mixed>
+     */
+    private function BuildDiagnosticsPayload(?array $sensors = null, ?array $faultInputs = null): array
+    {
+        $items = [];
+        foreach ($sensors ?? $this->ReadConfiguredSensors() as $sensor) {
+            $items[] = $this->BuildDiagnosticItem(
+                'sensor',
+                $this->ResolveSensorDisplayName($sensor),
+                $sensor['VariableID'],
+                $sensor['PartitionID'],
+                $sensor['Enabled'],
+                $sensor['Enabled'] && $this->IsSensorMonitored($sensor),
+                fn (): ?bool => $this->GetSensorTriggerState($sensor)
+            );
+        }
+        foreach ($faultInputs ?? $this->ReadConfiguredFaultInputs() as $faultInput) {
+            $items[] = $this->BuildDiagnosticItem(
+                'fault',
+                $this->ResolveFaultDisplayName($faultInput),
+                $faultInput['VariableID'],
+                $faultInput['PartitionID'],
+                $faultInput['Enabled'],
+                $faultInput['Enabled'],
+                fn (): ?bool => $this->GetFaultTriggerState($faultInput)
+            );
+        }
+
+        return AlarmDiagnostics::build($items, time());
     }
 
     /**

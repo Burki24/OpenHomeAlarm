@@ -159,6 +159,7 @@ assertVisualization(
 assertVisualization(str_contains($html, 'id="statusGrid"'), 'Visualization must provide a compact always-visible system overview.');
 assertVisualization(str_contains($html, 'id="sensorManagementPanel"'), 'Visualization must provide contextual sensor management.');
 assertVisualization(str_contains($html, 'id="eventHistoryPanel"'), 'Visualization must provide recent security events.');
+assertVisualization(str_contains($html, 'id="diagnosticsPanel"'), 'Visualization must provide shared input diagnostics.');
 assertVisualization(
     str_contains($html, 'data-operation="ExportEventHistory" data-format="json"')
         && str_contains($html, 'data-operation="ExportEventHistory" data-format="csv"'),
@@ -167,8 +168,16 @@ assertVisualization(
 assertVisualization(
     str_contains($javascript, 'function ohaRenderSensorManagement(state)')
         && str_contains($javascript, 'function ohaRenderEventHistory(state)')
+        && str_contains($javascript, 'function ohaRenderDiagnostics(state)')
         && str_contains($module, "'RecentEvents'"),
     'Sensor operations and recent security events must be rendered from the backend control state.'
+);
+assertVisualization(
+    str_contains($module, "'Diagnostics'      => \$this->BuildDiagnosticsPayload(\$allSensors, \$allFaultInputs)")
+        && str_contains($javascript, 'const items = Array.isArray(diagnostics?.Items) ? diagnostics.Items : [];')
+        && str_contains($javascript, 'ohaRenderDiagnostics(ohaState);')
+        && str_contains($css, '.oha-diagnostic-row[data-status="missing"]'),
+    'Native and IPSView dashboards must render the shared diagnostics payload and highlight unavailable inputs.'
 );
 assertVisualization(
     str_contains($module, "case 'ExportEventHistory':")
@@ -223,6 +232,11 @@ foreach ([
     'Sensor management',
     'System log',
     'Recent activity',
+    'System diagnostics',
+    'Inputs and communication',
+    'Missing',
+    'Unreadable',
+    'Disabled',
     'Export event history as JSON',
     'Export event history as CSV',
     'Silence alarm',
