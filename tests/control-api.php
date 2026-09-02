@@ -9,8 +9,8 @@ const VM_UPDATE = 10603;
 
 /** @var array<int,array<string,mixed>> */
 $testVariables = [
-    2001 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    2002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    2001 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '', 'VariableChanged' => 100, 'VariableUpdated' => 110],
+    2002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '', 'VariableChanged' => 120, 'VariableUpdated' => 130],
     2003 => ['VariableType' => 3, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     2004 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
@@ -492,6 +492,35 @@ assertControlApi(
 assertControlApi(
     ($state['Faults']['Blocking'][0]['Name'] ?? null) === 'Control cabinet tamper',
     'The control state must expose active blocking faults separately for status views.'
+);
+$diagnostics = json_decode($instance->GetDiagnostics(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($diagnostics['ApiVersion'] ?? null) === 1
+        && ($diagnostics['GeneratedAt'] ?? 0) > 0,
+    'The public diagnostics API must expose a versioned and timestamped snapshot.'
+);
+assertControlApi(
+    ($diagnostics['Summary']['Total'] ?? null) === 3
+        && ($diagnostics['Summary']['Ready'] ?? null) === 1
+        && ($diagnostics['Summary']['Triggered'] ?? null) === 2
+        && ($diagnostics['Summary']['Problems'] ?? null) === 1
+        && ($diagnostics['Summary']['Healthy'] ?? null) === false,
+    'The diagnostics API must summarize configured sensors and fault inputs.'
+);
+assertControlApi(
+    ($diagnostics['Items'][0] ?? null) === [
+        'Kind'         => 'sensor',
+        'Name'         => 'Front door',
+        'VariableID'   => 2001,
+        'PartitionID'  => 'main',
+        'Enabled'      => true,
+        'Monitored'    => true,
+        'Status'       => 'triggered',
+        'Active'       => true,
+        'LastChanged'  => 100,
+        'LastUpdated'  => 110
+    ],
+    'Diagnostics must expose stable sensor identity, state and Symcon timestamps without raw values.'
 );
 
 $partitionInstance = new OpenHomeAlarm();

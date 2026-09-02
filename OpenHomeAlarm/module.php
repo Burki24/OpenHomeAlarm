@@ -7,6 +7,7 @@ use Burki24\OpenHomeAlarm\AlarmArmingSchedule;
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
+use Burki24\OpenHomeAlarm\AlarmDiagnostics;
 use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
 use Burki24\OpenHomeAlarm\AlarmEscalationPlan;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
@@ -25,6 +26,7 @@ require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmArmingSchedule.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
+require_once __DIR__ . '/../libs/AlarmDiagnostics.php';
 require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmEventHistoryExporter.php';
@@ -967,6 +969,36 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->ReadConfiguredPartitions(),
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         );
+    }
+
+    /** Returns a stable read-only snapshot of all configured input diagnostics. */
+    public function GetDiagnostics(): string
+    {
+        $items = [];
+        foreach ($this->ReadConfiguredSensors() as $sensor) {
+            $items[] = $this->BuildDiagnosticItem(
+                'sensor',
+                $this->ResolveSensorDisplayName($sensor),
+                $sensor['VariableID'],
+                $sensor['PartitionID'],
+                $sensor['Enabled'],
+                $sensor['Enabled'] && $this->IsSensorMonitored($sensor),
+                fn(): ?bool => $this->GetSensorTriggerState($sensor)
+            );
+        }
+        foreach ($this->ReadConfiguredFaultInputs() as $faultInput) {
+            $items[] = $this->BuildDiagnosticItem(
+                'fault',
+                $this->ResolveFaultDisplayName($faultInput),
+                $faultInput['VariableID'],
+                $faultInput['PartitionID'],
+                $faultInput['Enabled'],
+                $faultInput['Enabled'],
+                fn(): ?bool => $this->GetFaultTriggerState($faultInput)
+            );
+        }
+
+        return AlarmDiagnostics::encode(AlarmDiagnostics::build($items, time()));
     }
 
     /** Arms one enabled alarm partition without changing any other partition. */
@@ -3138,6 +3170,47 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function IsExistingVariable(int $variableID): bool
     {
         return $variableID > 0 && IPS_VariableExists($variableID);
+    }
+
+    /**
+     * @param Closure(): ?bool $readActive
+     *
+     * @return array<string,mixed>
+     */
+    private function BuildDiagnosticItem(
+        string $kind,
+        string $name,
+        int $variableID,
+        string $partitionID,
+        bool $enabled,
+        bool $monitored,
+        Closure $readActive
+    ): array {
+        $variable = null;
+        $active = null;
+        $status = 'disabled';
+        if ($monitored) {
+            if (!$this->IsExistingVariable($variableID)) {
+                $status = 'missing';
+            } else {
+                $variable = $this->GetSymconVariable($variableID);
+                $active = $variable === null ? null : $readActive();
+                $status = $active === null ? 'unreadable' : ($active ? 'triggered' : 'ready');
+            }
+        }
+
+        return [
+            'Kind'         => $kind,
+            'Name'         => $name,
+            'VariableID'   => $variableID,
+            'PartitionID'  => $partitionID,
+            'Enabled'      => $enabled,
+            'Monitored'    => $monitored,
+            'Status'       => $status,
+            'Active'       => $active,
+            'LastChanged'  => max(0, (int) ($variable['VariableChanged'] ?? 0)),
+            'LastUpdated'  => max(0, (int) ($variable['VariableUpdated'] ?? 0))
+        ];
     }
 
     /**

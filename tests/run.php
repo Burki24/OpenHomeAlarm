@@ -53,6 +53,7 @@ $commands = [
     ['Check event history export', 'php tests/event-history-export.php'],
     ['Check tamper and fault monitoring', 'php tests/fault-monitoring.php'],
     ['Check stable public control API', 'php tests/control-api.php'],
+    ['Check stable diagnostics model', 'php tests/diagnostics.php'],
     ['Check HTML-SDK visualization foundation', 'php tests/visualization.php'],
     ['Check visualization disarm codepad', 'php tests/codepad.php'],
     ['Check IPSView WebContent integration', 'php tests/ipsview.php'],
