@@ -5,6 +5,45 @@ festgehalten. Die Library-Version folgt dem Format `Hauptversion.Nebenstand`
 aus `library.json`; der dazugehörige Git-Tag ergänzt für SemVer eine Patchstelle,
 beispielsweise `v1.109.0`.
 
+## Unreleased
+
+### Added
+
+- Unabhängig bedienbare Alarmbereiche mit bereichsbezogenen Zuständen,
+  Alarmgedächtnissen und Ausgängen.
+- Benutzerbezogene Unscharfschaltcodes mit gemeinsamer, wiederanlaufsicherer
+  Fehlversuchs- und Sperrzeitbehandlung.
+- Wöchentliche automatische Scharfschaltung über die regulären
+  Bereitschaftsprüfungen.
+- Optionale Countdown-Aktion für Ein- und Ausgangsverzögerungen sowie
+  zeitgesteuerte Alarm-Eskalationsstufen.
+- JSON- und CSV-Export für Ereignishistorie und Systemdiagnose.
+- Gemeinsame Diagnoseansicht für HTML-SDK-Kachel und IPSView mit Sensor-,
+  Störungs- und Aktualitätsinformationen.
+- Versionierter Export und validierte Wiederherstellung der vollständigen
+  Modulkonfiguration.
+
+### Changed
+
+- Kachel und IPSView stellen Alarmbereiche, Diagnose und Exportfunktionen über
+  denselben Bedienzustand bereit.
+- Der zentrale `IPSViewStyleHelper` wurde bis Version 1.6.4 aktualisiert.
+
+### Security
+
+- Konfigurationssicherungen sind ausdrücklich als vertraulich gekennzeichnet,
+  weil sie Unscharfschaltcodes und IPSView-Zugriffstoken enthalten können.
+- Wiederherstellungen sind nur bei vollständig unscharfer Anlage zulässig und
+  weisen fremde, unbekannte oder typwidrige Sicherungsdaten ab.
+
+### Verified
+
+- Die automatisierten Tests und die praktische Einzelprüfung der neuen
+  Funktionen wurden während der Entwicklung bestanden.
+- Export, Wiederherstellung, Ablehnung einer fremden Modul-ID und unveränderte
+  Rückkehr zur Ausgangskonfiguration wurden auf der Symcon-Testinstanz geprüft.
+- Die vollständige Release-Abnahme des exakten Kandidaten-Commits steht noch aus.
+
 ## 1.122 – 2026-08-24
 
 ### Changed

@@ -1,7 +1,7 @@
 # Release-Zielbild
 
 Dieses Dokument legt den verbindlichen Umfang und die Freigabekriterien für
-den ersten produktiven Release von OpenHomeAlarm fest. Die endgültige
+produktive Releases von OpenHomeAlarm fest. Die endgültige
 Versionsnummer und der Git-Tag werden erst im Release-Engineering vergeben.
 
 ## Produktziel
@@ -36,6 +36,14 @@ Der Release umfasst verbindlich:
 14. die responsive native Symcon-HTML-SDK-Kachel,
 15. die vollständig bedienbare IPSView-WebContent-Seite einschließlich token-geschütztem WebHook,
 16. deutsche und englische Modultexte.
+17. unabhängig adressierbare Alarmbereiche mit eigenen Laufzeit- und Alarmzuständen,
+18. mehrere benannte Benutzer mit eigenen Unscharfschaltcodes,
+19. wöchentliche Zeitpläne zur automatischen Scharfschaltung,
+20. eine optionale Aktion für die Countdown-Ausgabe,
+21. zeitgesteuerte Alarm-Eskalationsstufen,
+22. JSON- und CSV-Export der Ereignishistorie,
+23. Sensor- und Störungsdiagnose in API, Kachel und IPSView einschließlich Export,
+24. versionierte Konfigurationssicherungen und deren validierte Wiederherstellung.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -114,8 +122,8 @@ Nicht Bestandteil sind:
 - Zertifizierung oder Konformität nach EN 50131 oder anderen Alarmanlagen-Normen,
 - garantierte Verfügbarkeit bei Ausfall von Symcon, Host, Stromversorgung, Netzwerk oder Geräten,
 - direkte Hardware-, Funkprotokoll- oder Herstellerintegration,
-- Benutzer-, Rollen- oder Mehrcodeverwaltung,
-- zeitgesteuerte oder geofencing-basierte automatische Scharfschaltung,
+- Rollen- oder Rechteverwaltung außerhalb der konfigurierten Unscharfschaltbenutzer,
+- geofencing-basierte automatische Scharfschaltung,
 - Leitstellenaufschaltung oder garantierte Alarmübertragung,
 - manipulationssicheres oder revisionssicheres Audit-Logging,
 - Cloud-Dienst, Fernzugriff oder eigener Benachrichtigungsdienst,
@@ -137,6 +145,8 @@ keine zugesicherte Eignung für Personen- oder Sachschutz.
 Der Betreiber ist verantwortlich für:
 
 - Schutz der Symcon-Administration, Sicherungen und JSON-RPC-Zugänge,
+- vertrauliche Aufbewahrung exportierter Modulkonfigurationen, da diese Codes
+  und Zugriffstoken enthalten können,
 - verschlüsselte Verbindung bei Zugriff außerhalb eines vertrauenswürdigen Netzes,
 - zuverlässige Strom-, Netzwerk- und Geräteversorgung,
 - regelmäßige Funktionsprüfungen aller Sensoren, Aktoren und Alarmwege,

@@ -19,7 +19,8 @@ dokumentiert.
 | Automatisierte Tests | Bestanden | `php tests/run.php` endet ohne Fehler |
 | PHP-Syntax | Bestanden | Alle PHP-Dateien bestehen `php -l` |
 | JSON-Format | Bestanden | `php .style/json-check.php` endet ohne Fehler |
-| Symcon-9.0-Laufzeit | Bestanden (49/49) | Alle Pflichtfälle dieser Matrix sind auf einer kompatiblen Symcon-Version bestanden |
+| Historische Basisabnahme | Bestanden (49/49) | Der freigegebene Basisumfang wurde am 24.08.2026 auf Symcon 9.1 bestanden |
+| Erweiterte Symcon-9.x-Laufzeit | Ausstehend | Alle Pflichtfälle dieser Matrix einschließlich Abschnitt H sind für den Release Candidate bestanden |
 | HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
 | IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
 | Update/Migration | Bestanden | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
@@ -158,6 +159,27 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | G-07 | Bestehende Instanz von der definierten Update-Baseline aktualisieren; ab dem zweiten Release den letzten freigegebenen Stand verwenden | Konfiguration, Modus, Zustand, Bypässe, Historie und Darstellungen bleiben kompatibel | Offen | |
 | G-08 | Vorherige Sicherung in separater Testinstanz wiederherstellen | Instanz ist wieder bedienbar und enthält den erwarteten gesicherten Zustand | Offen | |
 
+### H. Erweiterungen des aktuellen Release-Kandidaten
+
+| ID | Prüfschritt | Soll-Ergebnis | Status | Nachweis |
+| --- | --- | --- | --- | --- |
+| H-01 | Zwei Alarmbereiche mit jeweils eigenen Sensoren konfigurieren und getrennt scharf-/unscharfschalten | Zustände, Bereitschaft, Alarm und Bedienung bleiben auf den gewählten Bereich begrenzt | Offen | |
+| H-02 | Einen Alarm in einem Bereich auslösen und Ausgang sowie Gedächtnis bereichsbezogen zurücksetzen | Andere Bereiche und deren Alarmdaten bleiben unverändert | Offen | |
+| H-03 | Mehrere Unscharfschaltbenutzer konfigurieren und jeden gültigen Code verwenden | Jeder aktive Benutzer kann unscharfschalten; Codes werden nirgends ausgegeben | Offen | |
+| H-04 | Ungültige Benutzercodes bis zur Sperre eingeben und Symcon neu starten | Gemeinsame Fehlversuche und Rest-Sperrzeit bleiben erhalten; korrekte Codes wirken erst danach | Offen | |
+| H-05 | Fälligen Wochenzeitplan mit bereiten Sensoren ausführen | Der konfigurierte Bereich wird genau einmal im vorgesehenen Modus scharfgeschaltet | Offen | |
+| H-06 | Fälligen Zeitplan bei blockierter Bereitschaft oder bereits aktiver Anlage ausführen | Keine unsichere Scharfschaltung und kein unerwünschter Moduswechsel finden statt | Offen | |
+| H-07 | Ein- und Ausgangsverzögerung mit aktivierter Countdown-Aktion durchlaufen | Die Aktion erhält jeden positiven Restwert einmal und kann Quelle, Modus und Zustand lesen | Offen | |
+| H-08 | Mehrere Alarm-Eskalationsstufen mit kurzen Abständen auslösen | Jede aktive Stufe läuft einmal in der vorgesehenen Reihenfolge; deaktivierte Stufen bleiben aus | Offen | |
+| H-09 | Symcon zwischen zwei Eskalationsstufen neu starten | Bereits fällige Schritte werden nicht doppelt ausgeführt und verbleibende Schritte laufen korrekt weiter | Offen | |
+| H-10 | Ereignishistorie als JSON und CSV exportieren | Inhalt und Reihenfolge stimmen mit der Ansicht überein; Codes und andere Geheimnisse fehlen | Offen | |
+| H-11 | Diagnose mit bereiten, ausgelösten, fehlenden, unlesbaren und deaktivierten Eingängen prüfen | API, Kachel und IPSView zeigen konsistente Zustände, Bereiche, Zeitpunkte und Problemanzahl | Offen | |
+| H-12 | Diagnose als JSON und CSV exportieren | Beide Exporte enthalten die sichtbaren Diagnosedaten vollständig und maschinenlesbar | Offen | |
+| H-13 | Konfigurationssicherung exportieren und vertrauliche Kennzeichnung prüfen | Format, Version, Modul-ID und Kennzeichnung sind vorhanden; Laufzeitzustand und Historie fehlen | Offen | |
+| H-14 | Eine geänderte Konfiguration im vollständig unscharfen Zustand aus der Sicherung wiederherstellen | Alle gesicherten Eigenschaften und Datentypen werden exakt wiederhergestellt | Offen | |
+| H-15 | Wiederherstellung bei scharfem Bereich sowie mit fremder Modul-ID, unbekannter Eigenschaft und falschem Datentyp versuchen | Jeder Versuch wird ohne Konfigurationsänderung verständlich abgewiesen | Offen | |
+| H-16 | Eine Sicherung ohne eine erst in einer neueren Modulversion eingeführte Eigenschaft einspielen | Die fehlende Eigenschaft behält ihren aktuellen Standard- beziehungsweise Konfigurationswert | Offen | |
+
 ## Automatisierte Vorprüfung
 
 Vor Beginn und nach jeder Korrektur ausführen:
@@ -186,7 +208,7 @@ mit Begründung in einen Folgerelease verschoben werden.
 Ein Commit darf als Release Candidate markiert werden, wenn:
 
 1. alle automatisierten Checks und beide CI-Checks für exakt diesen Commit bestanden sind,
-2. alle Pflichtfälle A-01 bis G-08 auf mindestens einer repräsentativen Symcon-9.0-Installation bestanden sind,
+2. alle Pflichtfälle A-01 bis H-16 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden sind,
 3. Desktop- und Mobilbedienung der HTML-SDK-Kachel geprüft wurden,
 4. alle IPSView-Fälle bestanden sind,
 5. Update und Wiederherstellung praktisch geprüft wurden,
