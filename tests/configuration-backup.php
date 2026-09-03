@@ -18,17 +18,19 @@ $configuration = [
     'DisarmCode'   => '2468',
     'ExitDelay'    => 30,
     'EnableView'   => true,
-    'FontScale'    => 1.25
+    'FontScale'    => 1.25,
+    'BorderRadius' => 8.0
 ];
 $backup = AlarmConfigurationBackup::create($configuration, 1000);
 assertConfigurationBackup($backup['Format'] === AlarmConfigurationBackup::FORMAT, 'Backup format must be stable.');
 assertConfigurationBackup($backup['Version'] === 1, 'Backup version must start at 1.');
 assertConfigurationBackup($backup['ModuleID'] === AlarmConfigurationBackup::MODULE_ID, 'Backup must identify OpenHomeAlarm.');
 assertConfigurationBackup($backup['ContainsSecrets'] === true, 'Backup must explicitly warn that codes can be included.');
-assertConfigurationBackup(array_keys($backup['Configuration']) === ['DisarmCode', 'EnableView', 'ExitDelay', 'FontScale', 'Sensors'], 'Backup properties must be sorted deterministically.');
+assertConfigurationBackup(array_keys($backup['Configuration']) === ['BorderRadius', 'DisarmCode', 'EnableView', 'ExitDelay', 'FontScale', 'Sensors'], 'Backup properties must be sorted deterministically.');
 
 $encoded = AlarmConfigurationBackup::encode($backup);
 assertConfigurationBackup(str_contains($encoded, "\n"), 'Backup JSON must be human-readable.');
+assertConfigurationBackup(str_contains($encoded, '"BorderRadius": 8.0'), 'Whole-number floats must retain their JSON type.');
 assertConfigurationBackup(AlarmConfigurationBackup::decode($encoded) === $backup, 'Encoded backups must validate and round-trip.');
 $current = $configuration + ['NewProperty' => 'default'];
 assertConfigurationBackup(

@@ -1022,7 +1022,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $configuration = AlarmConfigurationBackup::configurationForRestore($backup, $current);
         $configurationJSON = json_encode(
             $configuration,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
 
         try {
