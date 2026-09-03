@@ -1004,6 +1004,39 @@ class OpenHomeAlarm extends IPSModuleStrict
         return AlarmConfigurationBackup::encode(AlarmConfigurationBackup::create($configuration, time()));
     }
 
+    /** Restores a validated configuration backup while every alarm partition is disarmed. */
+    public function RestoreConfigurationBackup(string $json): bool
+    {
+        foreach ($this->ReadPartitionRuntime() as $runtime) {
+            if ($runtime['State'] !== self::STATE_DISARMED || $runtime['Mode'] !== self::MODE_NONE) {
+                throw new RuntimeException('Configuration restore requires every alarm partition to be disarmed.');
+            }
+        }
+
+        $backup = AlarmConfigurationBackup::decode($json);
+        $currentJSON = IPS_GetConfiguration($this->InstanceID);
+        $current = json_decode($currentJSON, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($current)) {
+            throw new UnexpectedValueException('Module configuration must be a JSON object.');
+        }
+        $configuration = AlarmConfigurationBackup::configurationForRestore($backup, $current);
+        $configurationJSON = json_encode(
+            $configuration,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        try {
+            IPS_SetConfiguration($this->InstanceID, $configurationJSON);
+            IPS_ApplyChanges($this->InstanceID);
+        } catch (Throwable $exception) {
+            IPS_SetConfiguration($this->InstanceID, $currentJSON);
+            IPS_ApplyChanges($this->InstanceID);
+            throw new RuntimeException('Configuration restore failed and was rolled back.', 0, $exception);
+        }
+
+        return true;
+    }
+
     /** Arms one enabled alarm partition without changing any other partition. */
     public function ArmPartition(string $partitionID, string $mode): bool
     {

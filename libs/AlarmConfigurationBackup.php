@@ -68,6 +68,33 @@ final class AlarmConfigurationBackup
         return $backup;
     }
 
+    /**
+     * @param array<string,mixed> $backup
+     * @param array<string,bool|int|float|string> $current
+     *
+     * @return array<string,bool|int|float|string>
+     */
+    public static function configurationForRestore(array $backup, array $current): array
+    {
+        self::validateConfiguration($current);
+        $configuration = $backup['Configuration'] ?? null;
+        if (!is_array($configuration)) {
+            throw new InvalidArgumentException('Configuration backup does not contain a configuration object.');
+        }
+        self::validateConfiguration($configuration);
+
+        foreach ($configuration as $name => $value) {
+            if (!array_key_exists($name, $current)) {
+                throw new InvalidArgumentException('Configuration backup contains an unknown property: ' . $name . '.');
+            }
+            if (get_debug_type($value) !== get_debug_type($current[$name])) {
+                throw new InvalidArgumentException('Configuration backup property type does not match: ' . $name . '.');
+            }
+        }
+
+        return array_replace($current, $configuration);
+    }
+
     /** @param array<mixed,mixed> $configuration */
     private static function validateConfiguration(array $configuration): void
     {

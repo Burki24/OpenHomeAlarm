@@ -214,6 +214,7 @@ Folgende öffentliche Modulbefehle stehen zur Verfügung:
 | `OHA_GetDiagnostics($InstanzID)` | `string` | Liefert einen rein lesenden Diagnose-Snapshot aller konfigurierten Sensoren und Störungseingänge als JSON |
 | `OHA_ExportDiagnostics($InstanzID, $Format)` | `string` | Exportiert den aktuellen Diagnose-Snapshot als `json` oder `csv` |
 | `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert sämtliche Moduleinstellungen als versioniertes JSON; das Ergebnis kann Unscharfschalt- und Benutzercodes enthalten und muss vertraulich gespeichert werden |
+| `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
 | `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen aktiven Alarmbereich unabhängig mit `home`, `away` oder `night` scharf |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet genau einen aktiven Alarmbereich unscharf; beim Standardbereich entspricht dies `OHA_Disarm()` |
 | `OHA_Arm($InstanzID, $Modus)` | `bool` | Schaltet über die stabile Bedien-API mit `home`, `away` oder `night` scharf; andere Werte werden sicher abgelehnt |

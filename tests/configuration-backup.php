@@ -30,6 +30,35 @@ assertConfigurationBackup(array_keys($backup['Configuration']) === ['DisarmCode'
 $encoded = AlarmConfigurationBackup::encode($backup);
 assertConfigurationBackup(str_contains($encoded, "\n"), 'Backup JSON must be human-readable.');
 assertConfigurationBackup(AlarmConfigurationBackup::decode($encoded) === $backup, 'Encoded backups must validate and round-trip.');
+$current = $configuration + ['NewProperty' => 'default'];
+assertConfigurationBackup(
+    AlarmConfigurationBackup::configurationForRestore($backup, $current) === $current,
+    'Restore preparation must retain properties introduced after the backup was created.'
+);
+
+$unknownBackup = $backup;
+$unknownBackup['Configuration']['Unknown'] = true;
+try {
+    AlarmConfigurationBackup::configurationForRestore($unknownBackup, $current);
+    throw new RuntimeException('Unknown backup properties must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertConfigurationBackup(
+        $exception->getMessage() === 'Configuration backup contains an unknown property: Unknown.',
+        'Unknown properties must produce a stable restore diagnostic.'
+    );
+}
+
+$wrongTypeBackup = $backup;
+$wrongTypeBackup['Configuration']['ExitDelay'] = '30';
+try {
+    AlarmConfigurationBackup::configurationForRestore($wrongTypeBackup, $current);
+    throw new RuntimeException('Backup property type mismatches must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertConfigurationBackup(
+        $exception->getMessage() === 'Configuration backup property type does not match: ExitDelay.',
+        'Type mismatches must produce a stable restore diagnostic.'
+    );
+}
 
 foreach ([
     ['invalid', 'Configuration backup must be valid JSON.'],
@@ -50,6 +79,12 @@ $moduleSource = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/mo
 assertConfigurationBackup(
     str_contains($moduleSource, 'public function ExportConfigurationBackup(): string'),
     'Configuration backup export must be available through a generated public OHA_ wrapper.'
+);
+assertConfigurationBackup(
+    str_contains($moduleSource, 'public function RestoreConfigurationBackup(string $json): bool')
+        && str_contains($moduleSource, 'IPS_SetConfiguration($this->InstanceID, $configurationJSON);')
+        && str_contains($moduleSource, 'IPS_ApplyChanges($this->InstanceID);'),
+    'Configuration restore must be available publicly and apply through the native Symcon configuration boundary.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm configuration backup checks passed.\n");
