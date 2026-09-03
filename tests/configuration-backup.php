@@ -15,10 +15,10 @@ function assertConfigurationBackup(bool $condition, string $message): void
 
 $configuration = [
     'Sensors'      => '[{"Name":"Tür"}]',
-    'DisarmCode'  => '2468',
-    'ExitDelay'   => 30,
-    'EnableView'  => true,
-    'FontScale'   => 1.25
+    'DisarmCode'   => '2468',
+    'ExitDelay'    => 30,
+    'EnableView'   => true,
+    'FontScale'    => 1.25
 ];
 $backup = AlarmConfigurationBackup::create($configuration, 1000);
 assertConfigurationBackup($backup['Format'] === AlarmConfigurationBackup::FORMAT, 'Backup format must be stable.');
