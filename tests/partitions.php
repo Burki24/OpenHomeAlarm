@@ -88,5 +88,14 @@ assertPartition(
     str_contains($moduleSource, 'public function GetPartitions(): string'),
     'The public partition metadata method is missing.'
 );
+assertPartition(
+    str_contains($moduleSource, 'private function GuardSecurityConfigurationChanges(): void')
+        && str_contains($moduleSource, 'private function LockSecurityConfigurationFields(array &$elements): void'),
+    'Active alarm partitions must protect security configuration in the form and during ApplyChanges().'
+);
+assertPartition(
+    str_contains($moduleSource, '[self::PROPERTY_PARTITIONS, self::PROPERTY_SENSORS, self::PROPERTY_FAULT_INPUTS]'),
+    'The armed-state configuration lock must cover partitions, sensors and fault inputs.'
+);
 
 fwrite(STDOUT, "OpenHomeAlarm partition registry checks passed.\n");

@@ -33,6 +33,8 @@
             "Partition ID": "Bereichs-ID",
             "Default partition": "Standardbereich",
             "Partition IDs are stable technical identifiers and cannot contain spaces.": "Bereichs-IDs sind stabile technische Bezeichner und dürfen keine Leerzeichen enthalten.",
+            "Security configuration is locked while an alarm partition is active. Disarm all partitions before changing partitions, sensors or fault inputs.": "Die Sicherheitskonfiguration ist gesperrt, solange ein Alarmbereich aktiv ist. Schalten Sie alle Bereiche unscharf, bevor Sie Bereiche, Sensoren oder Störungseingänge ändern.",
+            "Partitions, sensors and fault inputs can only be changed while all alarm partitions are disarmed.": "Bereiche, Sensoren und Störungseingänge können nur geändert werden, wenn alle Alarmbereiche unscharf sind.",
             "Sensors and triggers": "Sensoren und Auslöser",
             "Enabled": "Aktiv",
             "Name": "Name",

@@ -268,6 +268,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_ALARM_ESCALATION_RUNTIME = 'AlarmEscalationRuntime';
     private const ATTRIBUTE_PARTITION_RUNTIME = 'PartitionRuntime';
     private const ATTRIBUTE_PARTITION_ALARMS = 'PartitionAlarms';
+    private const ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION = 'AppliedSecurityConfiguration';
     private const ATTRIBUTE_IPSVIEW_TOKEN_1 = 'IPSViewToken1';
     private const ATTRIBUTE_IPSVIEW_TOKEN_2 = 'IPSViewToken2';
     private const ATTRIBUTE_IPSVIEW_TOKEN_3 = 'IPSViewToken3';
@@ -363,6 +364,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
+        $this->RegisterAttributeString(self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION, '');
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_1, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_2, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_3, 0);
@@ -763,6 +765,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         parent::ApplyChanges();
 
+        $this->GuardSecurityConfigurationChanges();
+
         $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
         $this->SetTimerInterval(self::TIMER_AUTOMATIC_ARMING, 0);
         $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
@@ -778,6 +782,10 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->InitializeRuntime();
+        $this->WriteAttributeString(
+            self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
+            $this->CurrentSecurityConfiguration()
+        );
     }
 
     /**
@@ -790,6 +798,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         if (isset($form['elements']) && is_array($form['elements'])) {
             $this->PopulateConfigurationListValues($form['elements']);
             $this->InjectEnabledOptionalActionFields($form['elements']);
+            if ($this->IsSecurityConfigurationLocked()) {
+                $this->LockSecurityConfigurationFields($form['elements']);
+                array_unshift($form['elements'], [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate(
+                        'Security configuration is locked while an alarm partition is active. Disarm all partitions before changing partitions, sensors or fault inputs.'
+                    )
+                ]);
+            }
             $this->InsertIPSViewHTMLPageFormItems(
                 $form['elements'],
                 description: $this->Translate(
@@ -1206,6 +1223,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         if ($SenderID === 0 && $Message === IPS_KERNELSTARTED) {
             $this->InitializeRuntime();
+            $this->WriteAttributeString(
+                self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
+                $this->CurrentSecurityConfiguration()
+            );
 
             return;
         }
@@ -2645,6 +2666,87 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
         unset($element);
+    }
+
+    /**
+     * Prevents edits to topology and detector assignments while any partition
+     * is armed, delayed or in alarm state.
+     *
+     * @param list<array<string,mixed>> $elements
+     */
+    private function LockSecurityConfigurationFields(array &$elements): void
+    {
+        foreach ($elements as &$element) {
+            if (!is_array($element)) {
+                continue;
+            }
+
+            if (($element['type'] ?? null) === 'List'
+                && in_array(
+                    $element['name'] ?? null,
+                    [self::PROPERTY_PARTITIONS, self::PROPERTY_SENSORS, self::PROPERTY_FAULT_INPUTS],
+                    true
+                )) {
+                $element['enabled'] = false;
+                $element['add'] = false;
+                $element['delete'] = false;
+            }
+
+            if (isset($element['items']) && is_array($element['items'])) {
+                $this->LockSecurityConfigurationFields($element['items']);
+            }
+        }
+        unset($element);
+    }
+
+    private function GuardSecurityConfigurationChanges(): void
+    {
+        if (!$this->IsSecurityConfigurationLocked()) {
+            return;
+        }
+
+        $appliedConfiguration = $this->ReadAttributeString(self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION);
+        if ($appliedConfiguration === '') {
+            // Establish a baseline when an existing active instance receives
+            // this protection for the first time during a module update.
+            $this->WriteAttributeString(
+                self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
+                $this->CurrentSecurityConfiguration()
+            );
+
+            return;
+        }
+
+        if (!hash_equals($appliedConfiguration, $this->CurrentSecurityConfiguration())) {
+            throw new RuntimeException($this->Translate(
+                'Partitions, sensors and fault inputs can only be changed while all alarm partitions are disarmed.'
+            ));
+        }
+    }
+
+    private function CurrentSecurityConfiguration(): string
+    {
+        return json_encode([
+            self::PROPERTY_PARTITIONS   => $this->ReadPropertyString(self::PROPERTY_PARTITIONS),
+            self::PROPERTY_SENSORS      => $this->ReadPropertyString(self::PROPERTY_SENSORS),
+            self::PROPERTY_FAULT_INPUTS => $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS)
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    private function IsSecurityConfigurationLocked(): bool
+    {
+        try {
+            foreach ($this->ReadPartitionRuntime() as $runtime) {
+                if ($runtime['State'] !== self::STATE_DISARMED || $runtime['Mode'] !== self::MODE_NONE) {
+                    return true;
+                }
+            }
+        } catch (Throwable) {
+            // During early instance creation the state variables may not yet
+            // be available. The normal property validation remains in force.
+        }
+
+        return false;
     }
 
     /**
