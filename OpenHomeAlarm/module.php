@@ -2789,6 +2789,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             : null;
 
         return $this->RenderVisualizationHTMLPage($ipsView, [
+            'language'          => $this->NormalizeHelperTranslationLanguage(
+                $this->ResolveHelperTranslationLanguage()
+            ),
             'classes'           => $ipsView ? ['oha-ipsview', 'oha-style-shared'] : [],
             'rootFontSize'      => $ipsView ? $this->IPSViewStyleRootFontSize() : '100%',
             'title'             => 'OpenHomeAlarm',

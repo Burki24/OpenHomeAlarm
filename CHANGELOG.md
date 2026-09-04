@@ -31,6 +31,8 @@ beispielsweise `v1.109.0`.
 - Die IPSView-Konfiguration verwendet nun dieselbe gemeinsame Bearbeitungsmaske
   wie OpenCalendar, einschließlich optionaler gruppierter Überschreibungen für
   native IPSView-Farben.
+- Das HTML-Dokument von Kachel und IPSView kennzeichnet die aktive
+  Symcon-Sprache nun auch im standardkonformen `lang`-Attribut.
 
 ### Security
 

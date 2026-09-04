@@ -91,10 +91,12 @@ assertIPSView(
     str_contains($module, "require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';")
         && str_contains($module, 'use \\Burki24\\SymconModuleHelper\\IPSViewHTMLPageHelper;')
         && str_contains($module, '$this->RenderVisualizationHTMLPage($ipsView, [')
+        && str_contains($module, "'language'          => \$this->NormalizeHelperTranslationLanguage(")
+        && str_contains($module, '$this->ResolveHelperTranslationLanguage()')
         && str_contains($module, '\'state\'             => $this->ControlStatePayload()')
         && str_contains($module, '\'runtime\'           => $runtime')
         && str_contains($module, '\'translations\'      => $ipsView ? $this->IPSViewTranslationsFromLocale() : []'),
-    'OpenHomeAlarm must delegate both page modes and their bootstrap data to the shared HTML page helper.'
+    'OpenHomeAlarm must delegate both page modes, the active Symcon language and their bootstrap data to the shared HTML page helper.'
 );
 assertIPSView(
     str_contains($htmlPageHelper, '\'contractVersion\' => self::IPSVIEW_HTML_CONTRACT_VERSION')
