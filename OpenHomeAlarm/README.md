@@ -2,7 +2,7 @@
 
 OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
 
-> **Entwicklungsstatus:** Zustandsmodell, Sensor-/Trigger-Datenmodell, aktive und wiederanlaufsichere Sensorüberwachung, modusabhängige Scharfschaltbereitschaft, zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen, 24/7-Sensoren, Ein-/Ausgangsverzögerungen mit Countdown-Status, optionaler Countdown-Aktion und konfigurierbarem Ausgangsweg, wöchentliche automatische Scharfschaltung, konfigurierbare Alarmaktionen mit Alarmdauer und Rücksetzung des Alarmausgangs, eine 24/7-Systemüberwachung für Manipulation und technische Störungen, Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll, eine stabile öffentliche Bedien-API, die professionelle HTML-SDK-Visualisierung sowie eine vollständig bedienbare IPSView-WebContent-Seite sind implementiert. Beide Oberflächen unterstützen Scharf-/Unscharfschalten, Code-Eingabe, Sensorüberbrückungen, Rücksetzung des Alarmausgangs, Quittierung des Alarmgedächtnisses und die Anzeige der letzten Sicherheitsereignisse.
+> **Funktionsstatus:** OpenHomeAlarm stellt eine vollständige, praktisch auf Symcon 9.x geprüfte Alarmsteuerung bereit. Dazu gehören unabhängige Alarmbereiche, mehrere Scharfmodi, wiederanlaufsichere Verzögerungen, 24/7-Sensoren, Störungsüberwachung, Sensorüberbrückungen, Benutzer-Codeschutz, automatische Scharfschaltung, Alarmaktionen und Eskalationsstufen, Alarmgedächtnis, Ereignis- und Diagnoseexporte sowie eine versionierte Konfigurationssicherung. Die HTML-SDK-Kachel und die IPSView-WebContent-Seite verwenden denselben Bedienzustand und Funktionsumfang.
 
 > **Sicherheitshinweis:** OpenHomeAlarm ist keine zertifizierte Einbruch-, Brand- oder Gefahrenmeldeanlage. Die Verfügbarkeit hängt von Symcon, Hostsystem, Netzwerk, Sensoren und konfigurierten Aktionen ab. Für normativ oder versicherungsrechtlich geforderte Schutzaufgaben ist geeignete zertifizierte Sicherheitstechnik erforderlich. Weitere Hinweise enthält die [Sicherheitsrichtlinie](../SECURITY.md).
 
@@ -19,13 +19,14 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 9. [Automatische Scharfschaltung](#9-automatische-scharfschaltung)
 10. [Alarmaktionen](#10-alarmaktionen)
 11. [Alarmgedächtnis](#11-alarmgedächtnis)
-12. [Ereignisprotokoll](#12-ereignisprotokoll)
-13. [Visualisierung](#13-visualisierung)
-14. [PHP-Befehlsreferenz](#14-php-befehlsreferenz)
+12. [Ereignisprotokoll und Diagnose](#12-ereignisprotokoll-und-diagnose)
+13. [Konfigurationssicherung](#13-konfigurationssicherung)
+14. [Visualisierung](#14-visualisierung)
+15. [PHP-Befehlsreferenz](#15-php-befehlsreferenz)
 
 ### 1. Funktionsumfang
 
-Der aktuelle Entwicklungsstand stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen mit laufendem Countdown-Status, optionaler Countdown-Aktion und Ausgangsweg-Sensoren, konfigurierbare Alarmaktionen mit optionaler automatischer Alarmdauer und separater Rücksetzungsaktion, eine 24/7-Systemüberwachung für Manipulation, Batterie-/Stromversorgung, Kommunikation und Gerätestörungen mit optionaler Scharfschaltblockade oder Alarmauslösung, eine optionale Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll sowie eine versionierte öffentliche Bedien-API bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Das Modul stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen mit laufendem Countdown-Status, optionaler Countdown-Aktion und Ausgangsweg-Sensoren, konfigurierbare Alarmaktionen mit optionaler automatischer Alarmdauer und separater Rücksetzungsaktion, eine 24/7-Systemüberwachung für Manipulation, Batterie-/Stromversorgung, Kommunikation und Gerätestörungen mit optionaler Scharfschaltblockade oder Alarmauslösung, eine optionale Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll sowie eine versionierte öffentliche Bedien-API bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich kann ein Sensor als **24/7 aktiv** markiert werden und löst dann unabhängig vom Scharfmodus sofort aus. Sensortyp, Auslösewert sowie die Nutzung als Ausgangsweg und der Eingangsverzögerung werden ebenfalls gespeichert. Der Auslösewert wird aus den diskreten Zuständen der ausgewählten Symcon-Variable abgeleitet. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten.
 
@@ -135,7 +136,7 @@ Die generische Prüfung kann erkennen, ob eine Symcon-Variable fehlt oder nicht 
 
 ### 8. Code-Schutz
 
-Für die spätere benutzerseitige Bedienung können im Konfigurationsformular mehrere aktivierbare Benutzer mit Namen und individuellem vier- bis achtstelligem Zahlencode hinterlegt werden. Doppelte aktive Codes werden abgelehnt. Der bisherige einzelne Unscharfschaltcode bleibt als kompatibler Legacy-Code erhalten; sind weder ein Legacy-Code noch aktive Benutzercodes konfiguriert, ist die Code-Prüfung deaktiviert.
+Für die benutzerseitige Bedienung können im Konfigurationsformular mehrere aktivierbare Benutzer mit Namen und individuellem vier- bis achtstelligem Zahlencode hinterlegt werden. Doppelte aktive Codes werden abgelehnt. Der bisherige einzelne Unscharfschaltcode bleibt als kompatibler Legacy-Code erhalten; sind weder ein Legacy-Code noch aktive Benutzercodes konfiguriert, ist die Code-Prüfung deaktiviert.
 
 Der Code wird als lokale Symcon-Instanzeigenschaft gespeichert. Das Passwortfeld verhindert die offene Anzeige im Konfigurationsformular, ersetzt aber keinen Schutz der Symcon-Administration, Sicherungen und JSON-RPC-Zugänge. Der Code wird nicht in Statusvariablen, Bedienzustand, Debug-Ausgaben oder Ereignisprotokoll übernommen.
 
@@ -165,13 +166,15 @@ Die Alarmdauer ist wiederanlaufsicher: Ein laufender Timer wird über einen pers
 
 Da die Zielauswahl Bestandteil der Symcon-Aktion ist, können sowohl einzelne Gerätevariablen als auch Skripte, Ablaufpläne und andere von Symcon angebotene Aktionsziele verwendet werden. Nicht konfigurierte Alarmaktionen haben keine Wirkung auf die Kernlogik. Auch eine fehlerhafte optionale Aktion verhindert nicht den Wechsel des Alarmzustands oder das Unscharfschalten.
 
+Unter **Alarm-Eskalationsstufen** können zusätzliche Aktionen mit frei wählbaren Verzögerungen hinterlegt werden. Die Verzögerung jeder aktiven Stufe wird ab dem Beginn des gemeinsamen Alarmausgangs gemessen. Fällige Stufen werden in der konfigurierten Reihenfolge jeweils genau einmal ausgeführt; deaktivierte oder unvollständige Einträge bleiben ohne Wirkung. Der Ausführungsstand wird persistent gespeichert. Nach `ApplyChanges()` oder einem Symcon-Neustart werden bereits ausgeführte Stufen deshalb nicht wiederholt, während noch ausstehende Stufen mit ihrem ursprünglichen Fälligkeitszeitpunkt fortgesetzt werden. Eine Rücksetzung des letzten aktiven Alarmausgangs beendet auch den laufenden Eskalationsplan.
+
 ### 11. Alarmgedächtnis
 
 Beim tatsächlichen Eintritt in den Zustand **Alarm** speichert OpenHomeAlarm den auslösenden Sensor und den Alarmzeitpunkt. Bei einem Sensor mit Eingangsverzögerung wird dabei der Sensor gemerkt, der den Countdown gestartet hat; auch wenn dieser Sensor vor Ablauf der Verzögerung wieder in den Ruhezustand zurückkehrt, bleibt er die Alarmquelle. Ein Sensor ohne eingetragenen Namen wird ersatzweise über seine Variablen-ID bezeichnet.
 
 Das Alarmgedächtnis bleibt beim Unscharfschalten erhalten. Dadurch ist nach der Rückkehr weiterhin nachvollziehbar, welcher Sensor den letzten Alarm ausgelöst hat. Jeder Bereich besitzt ein eigenes Gedächtnis; die bestehenden Instanzvariablen zeigen zusammengefasst den jüngsten Alarm. `OHA_ClearAlarmMemory($InstanzID)` quittiert weiterhin den Standardbereich. `OHA_ClearAlarmMemoryPartition($InstanzID, $BereichID)` quittiert gezielt einen Bereich. Während dessen Alarmzustand noch aktiv ist, wird die Quittierung abgelehnt.
 
-### 12. Ereignisprotokoll
+### 12. Ereignisprotokoll und Diagnose
 
 OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle.
 
@@ -179,9 +182,19 @@ Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbare
 
 Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, Start der Ein- und Ausgangsverzögerung, Alarm, Rücksetzungen des Alarmausgangs, Unscharfschalten, temporäre Sensorüberbrückungen, das Löschen des Alarmgedächtnisses, neu aufgetretene bzw. behobene Systemstörungen sowie abgewiesene Code-Eingaben und ausgelöste temporäre Code-Sperren. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
 
-`OHA_GetEventHistory($InstanzID)` liefert das Protokoll als JSON. Mit `OHA_ClearEventHistory($InstanzID)` kann es gezielt geleert werden. Das Ereignisprotokoll ist ein Bedien- und Diagnoseprotokoll und kein manipulationssicheres Audit-Log.
+`OHA_GetEventHistory($InstanzID)` liefert das Protokoll als JSON. `OHA_ExportEventHistory()` exportiert es als JSON oder CSV und kann den Zeitraum sowie den Ereignistyp filtern. Die Schaltflächen **JSON** und **CSV** im Systemprotokoll laden den vollständig gespeicherten Bestand direkt aus der Kachel oder IPSView herunter. Mit `OHA_ClearEventHistory($InstanzID)` kann das Protokoll gezielt geleert werden. Das Ereignisprotokoll ist ein Bedien- und Diagnoseprotokoll und kein manipulationssicheres Audit-Log.
 
-### 13. Visualisierung
+Die Diagnoseansicht führt alle konfigurierten Sensoren und Störungseingänge mit Alarmbereich, Symcon-Variablen-ID und den Zeitpunkten der letzten Änderung und Aktualisierung auf. Mögliche Zustände sind **bereit**, **ausgelöst**, **fehlend**, **unlesbar** und **deaktiviert**. Die zusammengefasste Problemanzahl zählt fehlende oder unlesbare Eingänge sowie ausgelöste Störungseingänge. Ein ausgelöster normaler Alarmsensor wird angezeigt, erhöht diese technische Problemanzahl aber nicht. Kachel, IPSView und `OHA_GetDiagnostics()` verwenden denselben versionierten Diagnose-Snapshot.
+
+Die Diagnose kann über die Schaltflächen **JSON** und **CSV** oder mit `OHA_ExportDiagnostics()` heruntergeladen werden. JSON enthält den vollständigen Snapshot einschließlich Zusammenfassung und Erstellungszeitpunkt. CSV enthält pro Eingang eine maschinenlesbare Zeile in derselben Reihenfolge wie die Diagnoseansicht. Rohwerte, Unscharfschaltcodes und andere Geheimnisse sind nicht Bestandteil des Diagnoseexports.
+
+### 13. Konfigurationssicherung
+
+`OHA_ExportConfigurationBackup($InstanzID)` exportiert sämtliche registrierten Moduleinstellungen als versioniertes, menschenlesbares JSON. Dazu gehören auch Unscharfschalt- und Benutzercodes. Der Export trägt deshalb die Kennzeichnung `ContainsSecrets: true` und muss vertraulich gespeichert sowie ausschließlich über einen geschützten Übertragungsweg weitergegeben werden. Laufzeitzustände, Timer, Alarmgedächtnis und Ereignishistorie werden nicht gesichert.
+
+`OHA_RestoreConfigurationBackup($InstanzID, $JSON)` stellt eine validierte Sicherung nur wieder her, wenn alle Alarmbereiche vollständig unscharf sind. Format, Sicherungsversion, Modul-ID, Eigenschaftsnamen und Datentypen werden vor jeder Änderung geprüft. Fremde oder beschädigte Sicherungen werden ohne Konfigurationsänderung abgewiesen. Scheitert das Anwenden einer bereits validierten Sicherung, setzt das Modul die vorherige Konfiguration zurück. Fehlt in einer älteren Sicherung eine erst später eingeführte Eigenschaft, behält diese ihren aktuellen Wert.
+
+### 14. Visualisierung
 
 OpenHomeAlarm besitzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Das Dashboard ist zustandsorientiert aufgebaut: **Unscharf**, **Scharf**, **Ein-/Ausgangsverzögerung** und **Alarm** werden als zentraler Hauptzustand dargestellt. Countdown, Alarmgedächtnis, aktive Systemstörungen und temporär überbrückte Sensoren erscheinen nur dann als zusätzliche Hinweise, wenn sie tatsächlich relevant sind. Dadurch bleibt die Normalansicht kompakt und die jeweils wichtigste Information steht im Vordergrund. Farben, Oberflächen, Abstände und Fokusdarstellung stammen aus dem gemeinsamen `VisualizationThemeHelper`; die Kachel folgt damit wie OpenCalendar den nativen Symcon-Farben einschließlich Light-/Dark-Umschaltung.
 
@@ -195,7 +208,7 @@ Zusätzlich kann im Konfigurationsabschnitt **IPSView** eine eigenständige WebC
 
 Wird die IPSView-Ausgabe deaktiviert, bleibt eine bereits angelegte Variable zunächst mit ihrer Objekt-ID, ihrem Inhalt und bestehenden Verknüpfungen erhalten; sie wird lediglich nicht mehr aktualisiert. Im Konfigurationsformular kann der Nutzer anschließend selbst entscheiden, ob sie weiter bestehen bleiben oder nach ausdrücklicher Bestätigung gelöscht werden soll. Bei einer erneuten Aktivierung wird eine vorhandene Variable wiederverwendet.
 
-Für die Darstellung stehen vier gemeinsame Stilquellen zur Verfügung: **Benutzerdefinierter Stil**, **IPSView-Standardstil**, **Helle Vorgabe** und **Dunkle Vorgabe**. Beim IPSView-Standardstil wird ein in Symcon hinterlegtes `.ipsView`-Medienobjekt ausgewählt; der Helper übernimmt daraus ausschließlich freigegebene globale Stylewerte. Änderungen am Medienobjekt aktualisieren die HTML-Seite automatisch. Der benutzerdefinierte Stil erlaubt dieselben universellen Einstellungen für View-, Seiten-, Label-, Bedienelement- und Popupflächen, normale/aktive/inaktive Texte, Icons, Rahmen, Linien, Akzent-, Informations-, positive, warnende und kritische Zustände sowie Typografie, Schatten, Deckkraft und Verlaufsstärke. OpenHomeAlarm ordnet seine fachlichen Zustände nur noch diesen gemeinsamen Stilrollen zu und definiert keine eigene IPSView-Farbpalette mehr. Der View-Hintergrund bildet die vollständige HTML-Box, der Seitenhintergrund die Informationskarten und Inhaltsbereiche; normale, aktive und inaktive Bedienelemente verwenden ausschließlich die zugehörigen Bedienelementflächen. Primärtext wird ausschließlich für normalen Inhalt und Werte verwendet. Eyebrows, Abschnittskennzeichnungen und Feldnamen nutzen die Label-Schrift, Beschreibungen die sekundäre Schrift, zurückhaltende Hinweise die Faint-Schrift und neutrale Symbole die Iconfarbe. Die aktive beziehungsweise inaktive Schrift wird auch auf den sichtbaren Text des jeweiligen Bedienelements angewendet. Dadurch führt dieselbe Farbeinstellung in allen Modulen zur gleichen semantischen Änderung.
+Für die Darstellung stehen gemeinsame Stilquellen zur Verfügung: **Benutzerdefinierter Stil**, **IPSView-Standardstil**, **Helle Vorgabe**, **Dunkle Vorgabe**, ein validiertes **Style Profile V1** sowie die zentralen Vorgaben **Hell**, **Dunkel**, **Warm**, **Kühl**, **Erdig**, **Wasser** und **Sonnig**. Beim IPSView-Standardstil wird ein in Symcon hinterlegtes `.ipsView`-Medienobjekt ausgewählt; der Helper übernimmt daraus ausschließlich freigegebene globale Stylewerte. Style Profile V1 lädt eine vollständige validierte Gestaltung aus einem Medienobjekt. Änderungen an ausgewählten Medienobjekten aktualisieren die HTML-Seite automatisch. Der benutzerdefinierte Stil erlaubt dieselben universellen Einstellungen für View-, Seiten-, Label-, Bedienelement- und Popupflächen, normale/aktive/inaktive Texte, Icons, Rahmen, Linien, Akzent-, Informations-, positive, warnende und kritische Zustände sowie Typografie, Schatten, Deckkraft und Verlaufsstärke. OpenHomeAlarm ordnet seine fachlichen Zustände nur noch diesen gemeinsamen Stilrollen zu und definiert keine eigene IPSView-Farbpalette mehr. Der View-Hintergrund bildet die vollständige HTML-Box, der Seitenhintergrund die Informationskarten und Inhaltsbereiche; normale, aktive und inaktive Bedienelemente verwenden ausschließlich die zugehörigen Bedienelementflächen. Primärtext wird ausschließlich für normalen Inhalt und Werte verwendet. Eyebrows, Abschnittskennzeichnungen und Feldnamen nutzen die Label-Schrift, Beschreibungen die sekundäre Schrift, zurückhaltende Hinweise die Faint-Schrift und neutrale Symbole die Iconfarbe. Die aktive beziehungsweise inaktive Schrift wird auch auf den sichtbaren Text des jeweiligen Bedienelements angewendet. Dadurch führt dieselbe Farbeinstellung in allen Modulen zur gleichen semantischen Änderung.
 
 Da IPSView keine HTML-SDK-`requestAction()`-Brücke bereitstellt, kommuniziert die Seite über einen instanzbezogenen Symcon-WebHook. Das Modul erzeugt dafür ein zufälliges, persistentes Zugriffstoken und akzeptiert ausschließlich die fest freigegebenen Visualisierungsaktionen per POST. Der Deaktivierungscode wird nur im Request-Body übertragen, weder in einer URL noch in einer Symcon-Variable gespeichert und nicht protokolliert. Der aktuelle Zustand wird zyklisch vom Modul gelesen; während Ein-/Ausgangsverzögerungen und Code-Sperren erfolgt die Aktualisierung häufiger. Für einen Zugriff außerhalb des eigenen Netzes sollte ausschließlich eine verschlüsselte HTTPS-/Connect-Verbindung verwendet werden.
 
@@ -203,9 +216,9 @@ Statusquelle bleibt unverändert die öffentliche Bedien-API: `OHA_GetControlSta
 
 Die partitionsfähige Struktur verwendet `ApiVersion` 2. `DefaultPartition` enthält die technische ID des Standardbereichs; `Partitions` ist nach diesen IDs indiziert. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
 
-### 14. PHP-Befehlsreferenz
+### 15. PHP-Befehlsreferenz
 
-Folgende öffentliche Modulbefehle stehen zur Verfügung:
+Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verfügung. Weitere öffentliche Methoden dienen ausschließlich Symcon-internen Lebenszyklus-, Timer-, Formular- und Visualisierungsaufrufen.
 
 | PHP-Befehl | Rückgabe | Bedeutung |
 | --- | --- | --- |
@@ -231,6 +244,7 @@ Folgende öffentliche Modulbefehle stehen zur Verfügung:
 | `OHA_ClearAlarmMemory($InstanzID)` | `bool` | Quittiert das gespeicherte Alarmgedächtnis; während eines aktiven Alarms wird `false` zurückgegeben |
 | `OHA_ClearAlarmMemoryPartition($InstanzID, $BereichID)` | `bool` | Quittiert das Alarmgedächtnis eines einzelnen Bereichs nach dessen Unscharfschaltung |
 | `OHA_GetEventHistory($InstanzID)` | `string` | Liefert das persistente Sicherheits-Ereignisprotokoll als JSON, neuester Eintrag zuerst |
+| `OHA_ExportEventHistory($InstanzID, $Format, $VonZeitstempel, $BisZeitstempel, $Ereignistyp)` | `string` | Exportiert die Historie als `json` oder `csv`; Zeitstempel `0` und ein leerer Ereignistyp deaktivieren den jeweiligen Filter |
 | `OHA_ClearEventHistory($InstanzID)` | `bool` | Leert das persistente Sicherheits-Ereignisprotokoll |
 | `OHA_CheckSensorIntegrity($InstanzID)` | `void` | Prüft konfigurierte Sensor- und Störungsvariablen sofort auf Verfügbarkeit und aktualisiert Systemstörung sowie Scharfschaltbereitschaft |
 

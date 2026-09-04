@@ -53,6 +53,12 @@ require_once __DIR__ . '/../libs/helper/VariablePresentationHelper.php';
 require_once __DIR__ . '/../libs/helper/VisualizationAssetHelper.php';
 require_once __DIR__ . '/../libs/helper/VisualizationThemeHelper.php';
 
+/**
+ * Provides the Symcon alarm controller, its public automation API and both visualizations.
+ *
+ * Persistent configuration is kept separate from restart-safe runtime state. Alarm decisions
+ * remain in the PHP backend; the HTML-SDK tile and IPSView consume the same control snapshot.
+ */
 class OpenHomeAlarm extends IPSModuleStrict
 {
     use \Burki24\SymconModuleHelper\ConfigurationFormHelper;
@@ -976,19 +982,33 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
     }
 
-    /** Returns a stable read-only snapshot of all configured input diagnostics. */
+    /**
+     * Returns a stable read-only snapshot of all configured input diagnostics.
+     *
+     * The JSON document contains schema version, generation time, summary and ordered items.
+     * It deliberately excludes trigger values and credentials.
+     */
     public function GetDiagnostics(): string
     {
         return AlarmDiagnostics::encode($this->BuildDiagnosticsPayload());
     }
 
-    /** Exports the current read-only diagnostics snapshot as JSON or CSV. */
+    /**
+     * Exports the current read-only diagnostics snapshot as JSON or CSV.
+     *
+     * @throws InvalidArgumentException When the requested format is unsupported.
+     */
     public function ExportDiagnostics(string $format = 'json'): string
     {
         return AlarmDiagnosticsExporter::export($this->BuildDiagnosticsPayload(), $format);
     }
 
-    /** Exports every registered module property in a versioned, confidential JSON backup. */
+    /**
+     * Exports every registered module property in a versioned, confidential JSON backup.
+     *
+     * Runtime attributes and event history are excluded. The result may contain disarm codes
+     * and is therefore explicitly marked as containing secrets.
+     */
     public function ExportConfigurationBackup(): string
     {
         $configuration = json_decode(
@@ -1004,7 +1024,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         return AlarmConfigurationBackup::encode(AlarmConfigurationBackup::create($configuration, time()));
     }
 
-    /** Restores a validated configuration backup while every alarm partition is disarmed. */
+    /**
+     * Restores a validated configuration backup while every alarm partition is disarmed.
+     *
+     * Unknown properties and type mismatches are rejected before applying changes. Properties
+     * missing from an older backup retain their current values. A failed apply is rolled back.
+     *
+     * @throws InvalidArgumentException For an invalid or incompatible backup document.
+     * @throws RuntimeException         When a partition is active or applying the backup fails.
+     */
     public function RestoreConfigurationBackup(string $json): bool
     {
         foreach ($this->ReadPartitionRuntime() as $runtime) {

@@ -9,6 +9,7 @@ namespace Burki24\OpenHomeAlarm;
  */
 final class AlarmSensorMonitor
 {
+    /** @param array<string,mixed> $sensor */
     public static function isMonitored(array $sensor): bool
     {
         return ($sensor['AlwaysActive'] ?? false) === true
@@ -17,6 +18,7 @@ final class AlarmSensorMonitor
             || ($sensor['ArmNight'] ?? false) === true;
     }
 
+    /** @param list<array<string,mixed>> $sensors */
     public static function containsVariable(int $variableID, array $sensors): bool
     {
         foreach ($sensors as $sensor) {

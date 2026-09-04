@@ -8,9 +8,13 @@ Visualisierungen und der nativen Aktionen.
 Der verbindliche Funktionsumfang, die Kompatibilitätsgrenzen und die
 Release-Gates stehen im [Release-Zielbild](RELEASE_SCOPE.md).
 
-Das jüngste praktische Prüfergebnis ist im
-[Abnahmeergebnis vom 24.08.2026](acceptance-results/2026-08-24-symcon-9.1.md)
-dokumentiert.
+Das jüngste praktische Prüfergebnis ist im internen
+[Abnahmeergebnis vom 04.09.2026](acceptance-results/2026-09-04-symcon-9.1-h.md)
+dokumentiert. Die historische Basisabnahme steht weiterhin im
+[Abnahmeergebnis vom 24.08.2026](acceptance-results/2026-08-24-symcon-9.1.md).
+Die nachfolgende Matrix bleibt als wiederverwendbare Vorlage auf **Offen**;
+konkrete Ausführungen werden ausschließlich in datierten Ergebnisprotokollen
+festgehalten.
 
 ## Freigabestatus
 
@@ -20,7 +24,7 @@ dokumentiert.
 | PHP-Syntax | Bestanden | Alle PHP-Dateien bestehen `php -l` |
 | JSON-Format | Bestanden | `php .style/json-check.php` endet ohne Fehler |
 | Historische Basisabnahme | Bestanden (49/49) | Der freigegebene Basisumfang wurde am 24.08.2026 auf Symcon 9.1 bestanden |
-| Erweiterte Symcon-9.x-Laufzeit | Ausstehend | Alle Pflichtfälle dieser Matrix einschließlich Abschnitt H sind für den Release Candidate bestanden |
+| Erweiterungen H-01 bis H-16 | Bestanden | Alle Pflichtfälle aus Abschnitt H wurden auf der repräsentativen Symcon-9.1-Testinstallation bestanden |
 | HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
 | IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
 | Update/Migration | Bestanden | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
@@ -28,7 +32,7 @@ dokumentiert.
 
 `Bestanden` bezeichnet hier den zuletzt lokal geprüften Repository-Stand. Vor
 jedem Release Candidate müssen die automatisierten Prüfungen erneut ausgeführt
-und die Ergebnisse unten protokolliert werden.
+und die Ergebnisse in einem datierten Ergebnisprotokoll festgehalten werden.
 
 ## Testumgebung
 

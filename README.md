@@ -38,9 +38,6 @@ Der lokale Test-Einstiegspunkt lautet:
 php tests/run.php
 ```
 
-Vor einem Release Candidate muss zusätzlich die
-[Symcon-9.0-Abnahmematrix](docs/SYMCON_9_ACCEPTANCE.md) auf einer realen
-Symcon-9.0-Installation vollständig durchgeführt und protokolliert werden.
 Der verbindliche Umfang und die Freigabekriterien stehen im
 [Release-Zielbild](docs/RELEASE_SCOPE.md).
 
