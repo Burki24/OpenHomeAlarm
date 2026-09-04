@@ -34,6 +34,12 @@ beispielsweise `v1.109.0`.
 - Das HTML-Dokument von Kachel und IPSView kennzeichnet die aktive
   Symcon-Sprache nun auch im standardkonformen `lang`-Attribut.
 
+### Fixed
+
+- Bereits konfigurierte optionale Aktionen behalten ihren Wert in der
+  dynamischen Konfigurationsmaske und blockieren dadurch keine unabhängigen
+  Änderungen mehr mit „Keine Aktion ausgewählt“.
+
 ### Security
 
 - Konfigurationssicherungen sind ausdrücklich als vertraulich gekennzeichnet,

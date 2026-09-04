@@ -684,13 +684,15 @@ assertAlarmAction(
 );
 
 $dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
+$dynamicFormInstance->TestSetPropertyString('AlarmAction', $alarmAction);
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
 $dynamicAlarmAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction');
 assertAlarmAction(
     is_array($dynamicAlarmAction)
     && ($dynamicAlarmAction['type'] ?? null) === 'SelectAction'
-    && ($dynamicAlarmAction['targetID'] ?? null) === -2,
-    'GetConfigurationForm must inject the native SelectAction only after its optional action is enabled.'
+    && ($dynamicAlarmAction['targetID'] ?? null) === -2
+    && ($dynamicAlarmAction['value'] ?? null) === $alarmAction,
+    'GetConfigurationForm must inject the enabled native SelectAction with its stored value.'
 );
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,

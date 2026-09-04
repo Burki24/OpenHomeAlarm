@@ -2688,6 +2688,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'name'     => $definition['name'],
                 'caption'  => $definition['caption'],
                 'targetID' => -2,
+                'value'    => $this->ReadPropertyString($definition['name']),
                 'width'    => '100%'
             ];
         }
