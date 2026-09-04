@@ -831,9 +831,6 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $isEnabled = $enabled === 1;
         $this->UpdateFormField($propertyName, 'enabled', $isEnabled);
-        if (!$isEnabled) {
-            $this->UpdateFormField($propertyName, 'value', false);
-        }
     }
 
     /**

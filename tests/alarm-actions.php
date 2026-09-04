@@ -718,10 +718,9 @@ assertAlarmAction(
 $dynamicFormInstance->UpdateOptionalActionForm('AlarmAction', 0);
 assertAlarmAction(
     $dynamicFormInstance->TestFormUpdates() === [
-        ['field' => 'AlarmAction', 'parameter' => 'enabled', 'value' => false],
-        ['field' => 'AlarmAction', 'parameter' => 'value', 'value' => false]
+        ['field' => 'AlarmAction', 'parameter' => 'enabled', 'value' => false]
     ],
-    'Disabling an optional action must disable its selector and clear the pending target before validation.'
+    'Disabling an optional action must bypass selector validation without clearing its configured target.'
 );
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,
