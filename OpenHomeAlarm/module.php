@@ -47,7 +47,7 @@ require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
 require_once __DIR__ . '/../libs/AlarmVisualizationAdapter.php';
 require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';
-require_once __DIR__ . '/../libs/helper/IPSViewStyleHelper.php';
+require_once __DIR__ . '/../libs/helper/IPSViewStyleConfigurationHelper.php';
 require_once __DIR__ . '/../libs/helper/PersistentJsonCacheHelper.php';
 require_once __DIR__ . '/../libs/helper/VariablePresentationHelper.php';
 require_once __DIR__ . '/../libs/helper/VisualizationAssetHelper.php';
@@ -63,7 +63,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 {
     use \Burki24\SymconModuleHelper\ConfigurationFormHelper;
     use \Burki24\SymconModuleHelper\IPSViewHTMLPageHelper;
-    use \Burki24\SymconModuleHelper\IPSViewStyleHelper;
+    use \Burki24\SymconModuleHelper\IPSViewStyleConfigurationHelper;
     use \Burki24\SymconModuleHelper\PersistentJsonCacheHelper;
     use \Burki24\SymconModuleHelper\VariablePresentationHelper;
     use \Burki24\SymconModuleHelper\VisualizationAssetHelper;

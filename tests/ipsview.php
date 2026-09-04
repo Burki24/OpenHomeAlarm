@@ -18,6 +18,8 @@ $javascript = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/a
 $readme = (string) file_get_contents($root . '/OpenHomeAlarm/README.md');
 $locale = (string) file_get_contents($root . '/OpenHomeAlarm/locale.json');
 $styleHelper = (string) file_get_contents($root . '/libs/helper/IPSViewStyleHelper.php');
+$styleConfigurationHelper = (string) file_get_contents($root . '/libs/helper/IPSViewStyleConfigurationHelper.php');
+$controlThemeHelper = (string) file_get_contents($root . '/libs/helper/IPSViewControlThemeHelper.php');
 $htmlPageHelper = (string) file_get_contents($root . '/libs/helper/IPSViewHTMLPageHelper.php');
 
 assertIPSView(
@@ -126,15 +128,26 @@ assertIPSView(
     'IPSView must poll the backend faster while a countdown is active.'
 );
 assertIPSView(
-    str_contains($module, "require_once __DIR__ . '/../libs/helper/IPSViewStyleHelper.php';")
-        && str_contains($module, 'use \Burki24\SymconModuleHelper\IPSViewStyleHelper;')
+    str_contains($module, "require_once __DIR__ . '/../libs/helper/IPSViewStyleConfigurationHelper.php';")
+        && str_contains($module, 'use \Burki24\SymconModuleHelper\IPSViewStyleConfigurationHelper;')
         && str_contains($module, '$this->RegisterIPSViewStyleProperties();')
         && str_contains($module, "\$this->InsertIPSViewStyleFormItems(\$form['elements'], colorWidth: '220px')")
         && str_contains($module, "\$this->IPSViewStyleCSSVariables(':root')")
         && str_contains($module, '$this->RegisterIPSViewStyleMediaMessages();')
         && str_contains($module, '$this->IsIPSViewStyleMediaUpdate($SenderID, $Message)')
         && !str_contains($module, 'IPSViewColorPaletteHelper'),
-    'OpenHomeAlarm must consume the universal IPSView style helper including media updates.'
+    'OpenHomeAlarm must consume the universal IPSView style configuration helper including media updates.'
+);
+assertIPSView(
+    str_contains($styleConfigurationHelper, 'use IPSViewStyleHelper {')
+        && str_contains($styleConfigurationHelper, "private const IPSVIEW_NATIVE_FORM_PANEL = 'IPSViewStyleNativeColorsPanel';")
+        && str_contains($styleConfigurationHelper, "=> 'ExpansionPanel'")
+        && str_contains($styleConfigurationHelper, "=> 'List'")
+        && str_contains($styleConfigurationHelper, "=> 'CheckBox'")
+        && str_contains($styleConfigurationHelper, "=> 'SelectColor'")
+        && str_contains($controlThemeHelper, "public const FAMILY_BASE = 'base';")
+        && str_contains($controlThemeHelper, "public const FAMILY_CALENDAR = 'calendar';"),
+    'The shared editing form must expose the same grouped native IPSView color overrides as OpenCalendar.'
 );
 assertIPSView(
     str_contains($styleHelper, "'IPSView standard style'")
@@ -265,7 +278,7 @@ assertIPSView(
 );
 assertIPSView(
     str_contains($readme, 'IPSViewHTMLPageHelper')
-        && str_contains($readme, 'IPSViewStyleHelper')
+        && str_contains($readme, 'IPSViewStyleConfigurationHelper')
         && str_contains($readme, 'IPSView-Standardstil')
         && str_contains($readme, 'Medienobjekt')
         && str_contains($readme, 'Browser des Clients')

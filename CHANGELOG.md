@@ -28,6 +28,9 @@ beispielsweise `v1.109.0`.
 - Kachel und IPSView stellen Alarmbereiche, Diagnose und Exportfunktionen über
   denselben Bedienzustand bereit.
 - Der zentrale `IPSViewStyleHelper` wurde bis Version 1.6.4 aktualisiert.
+- Die IPSView-Konfiguration verwendet nun dieselbe gemeinsame Bearbeitungsmaske
+  wie OpenCalendar, einschließlich optionaler gruppierter Überschreibungen für
+  native IPSView-Farben.
 
 ### Security
 
