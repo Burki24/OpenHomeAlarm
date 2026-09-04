@@ -830,6 +830,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $isEnabled = $enabled === 1;
+        if (!$isEnabled) {
+            $storedAction = trim($this->ReadPropertyString($propertyName));
+            if (!in_array($storedAction, ['', '{}', 'false', 'null'], true)) {
+                // SelectAction remains subject to native validation even while
+                // disabled. Restore the last applied selection when the user
+                // cleared the draft before disabling the optional action.
+                $this->UpdateFormField($propertyName, 'value', $storedAction);
+            }
+        }
         $this->UpdateFormField($propertyName, 'enabled', $isEnabled);
     }
 
