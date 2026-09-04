@@ -230,10 +230,10 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
 | `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen aktiven Alarmbereich unabhängig mit `home`, `away` oder `night` scharf |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet genau einen aktiven Alarmbereich unscharf; beim Standardbereich entspricht dies `OHA_Disarm()` |
-| `OHA_Arm($InstanzID, $Modus)` | `bool` | Schaltet über die stabile Bedien-API mit `home`, `away` oder `night` scharf; andere Werte werden sicher abgelehnt |
-| `OHA_ArmHome($InstanzID)` | `bool` | Kompatibilitäts-/Komfortbefehl für **Zuhause**; verwendet intern dieselbe Bedien-API |
-| `OHA_ArmAway($InstanzID)` | `bool` | Kompatibilitäts-/Komfortbefehl für **Abwesend**; verwendet intern dieselbe Bedien-API |
-| `OHA_ArmNight($InstanzID)` | `bool` | Kompatibilitäts-/Komfortbefehl für **Nacht**; verwendet intern dieselbe Bedien-API |
+| `OHA_Arm($InstanzID, $Modus, $Verzögerung = null)` | `bool` | Schaltet über die stabile Bedien-API mit `home`, `away` oder `night` scharf; eine optionale Verzögerung überschreibt die konfigurierte Ausgangsverzögerung für diesen Aufruf |
+| `OHA_ArmHome($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Zuhause**; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_ArmAway($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Abwesend**; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_ArmNight($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Nacht**; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
 | `OHA_BypassSensor($InstanzID, $VariableID)` | `bool` | Überbrückt einen normalen konfigurierten Scharfsensor temporär; nur im Zustand **Unscharf** möglich |
 | `OHA_RemoveSensorBypass($InstanzID, $VariableID)` | `bool` | Entfernt eine einzelne temporäre Sensorüberbrückung; nur im Zustand **Unscharf** möglich |
 | `OHA_ClearSensorBypasses($InstanzID)` | `bool` | Entfernt alle temporären Sensorüberbrückungen; nur im Zustand **Unscharf** möglich |

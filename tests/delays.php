@@ -388,6 +388,39 @@ assertDelay(
     'Exit delay must not publish an entry sensor source.'
 );
 
+$immediateOverride = new OpenHomeAlarm();
+$immediateOverride->Create();
+$immediateOverride->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$immediateOverride->TestClearWrittenValues();
+assertDelay($immediateOverride->ArmAway(0), 'A zero override must allow immediate arming.');
+assertDelay(
+    ($immediateOverride->TestWrittenValues()['State'] ?? null) === 2
+        && ($immediateOverride->TestTimers()['ExitDelay']['interval'] ?? null) === 0,
+    'A zero override must bypass the configured exit delay for this arming request.'
+);
+
+$customOverride = new OpenHomeAlarm();
+$customOverride->Create();
+$customOverride->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$customOverride->TestClearWrittenValues();
+assertDelay($customOverride->ArmHome(3), 'A positive override must start arming.');
+assertDelay(
+    ($customOverride->TestWrittenValues()['State'] ?? null) === 1
+        && ($customOverride->TestTimers()['ExitDelay']['interval'] ?? null) === 3000
+        && ($customOverride->TestWrittenValues()['DelayRemaining'] ?? null) === 3,
+    'A positive override must replace the configured exit delay for this arming request.'
+);
+
+$negativeOverride = new OpenHomeAlarm();
+$negativeOverride->Create();
+$negativeOverride->TestClearWrittenValues();
+assertDelay(!$negativeOverride->ArmNight(-1), 'A negative exit-delay override must be rejected.');
+assertDelay(
+    !array_key_exists('Mode', $negativeOverride->TestWrittenValues())
+        && !array_key_exists('State', $negativeOverride->TestWrittenValues()),
+    'A rejected negative override must not change the alarm mode or state.'
+);
+
 // Sensor changes during exit delay only affect readiness. The final check happens at expiry.
 global $testValues;
 $testValues[3001] = true;

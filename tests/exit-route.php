@@ -398,6 +398,22 @@ assertExitRoute(
     'An open exit-route sensor must block immediate arming when ExitDelaySeconds is 0.'
 );
 
+// Per-call overrides also control whether the exit-route exception is active.
+$instance->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$instance->TestClearWrittenValues();
+assertExitRoute(
+    $instance->ArmAway(0) === false,
+    'A zero delay override must not waive an open exit-route sensor.'
+);
+$instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$instance->TestClearWrittenValues();
+assertExitRoute(
+    $instance->ArmAway(5) === true
+        && ($instance->TestTimers()['ExitDelay']['interval'] ?? null) === 5000,
+    'A positive delay override must temporarily enable the exit-route exception.'
+);
+$instance->Disarm();
+
 // A missing or unreadable exit-route sensor must fail safe instead of being waived.
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 10);
 $instance->TestSetPropertyString(

@@ -1211,17 +1211,17 @@ class OpenHomeAlarm extends IPSModuleStrict
      * Supported mode names are home, away and night. Invalid names are rejected
      * without changing the current alarm state.
      */
-    public function Arm(string $mode): bool
+    public function Arm(string $mode, ?int $delaySeconds = null): bool
     {
         $modeValue = AlarmStateMachine::armingModeFromName($mode);
 
-        if ($modeValue === null) {
+        if ($modeValue === null || ($delaySeconds !== null && $delaySeconds < 0)) {
             $this->PublishVisualizationState();
 
             return false;
         }
 
-        $result = $this->ArmMode($modeValue);
+        $result = $this->ArmMode($modeValue, $delaySeconds);
         $this->PublishVisualizationState();
 
         return $result;
@@ -1343,25 +1343,25 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Arms the system in Home mode when every sensor assigned to Home is ready.
      */
-    public function ArmHome(): bool
+    public function ArmHome(?int $delaySeconds = null): bool
     {
-        return $this->Arm('home');
+        return $this->Arm('home', $delaySeconds);
     }
 
     /**
      * Arms the system in Away mode when every sensor assigned to Away is ready.
      */
-    public function ArmAway(): bool
+    public function ArmAway(?int $delaySeconds = null): bool
     {
-        return $this->Arm('away');
+        return $this->Arm('away', $delaySeconds);
     }
 
     /**
      * Arms the system in Night mode when every sensor assigned to Night is ready.
      */
-    public function ArmNight(): bool
+    public function ArmNight(?int $delaySeconds = null): bool
     {
-        return $this->Arm('night');
+        return $this->Arm('night', $delaySeconds);
     }
 
     /**
@@ -4346,9 +4346,12 @@ class OpenHomeAlarm extends IPSModuleStrict
      *
      * @return array{global:bool,home:bool,away:bool,night:bool}
      */
-    private function UpdateReadinessFromSensors(array $sensors): array
-    {
-        $status = $this->EvaluateReadinessStatus($sensors);
+    private function UpdateReadinessFromSensors(
+        array $sensors,
+        bool $strict = false,
+        ?bool $allowActiveExitRoute = null
+    ): array {
+        $status = $this->EvaluateReadinessStatus($sensors, $strict, $allowActiveExitRoute);
         $faultInputs = $this->FaultInputsForPartition(
             $this->ReadConfiguredFaultInputs(),
             $this->DefaultPartitionID()
@@ -4390,9 +4393,13 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     blockingNight: list<string>
      * }
      */
-    private function EvaluateReadinessStatus(array $sensors, bool $strict = false): array
-    {
-        $allowActiveExitRoute = !$strict && $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS) > 0;
+    private function EvaluateReadinessStatus(
+        array $sensors,
+        bool $strict = false,
+        ?bool $allowActiveExitRoute = null
+    ): array {
+        $allowActiveExitRoute = !$strict
+            && ($allowActiveExitRoute ?? $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS) > 0);
         $readiness = [
             'global' => true,
             'home'   => true,
@@ -4533,9 +4540,13 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     EntryDelay: bool
      * }> $sensors
      */
-    private function ResolveBlockingSensorsForMode(int $mode, array $sensors, bool $strict = false): string
-    {
-        $status = $this->EvaluateReadinessStatus($sensors, $strict);
+    private function ResolveBlockingSensorsForMode(
+        int $mode,
+        array $sensors,
+        bool $strict = false,
+        ?bool $allowActiveExitRoute = null
+    ): string {
+        $status = $this->EvaluateReadinessStatus($sensors, $strict, $allowActiveExitRoute);
         $blockingSensors = match ($mode) {
             self::MODE_HOME  => $status['blockingHome'],
             self::MODE_AWAY  => $status['blockingAway'],
@@ -4577,10 +4588,16 @@ class OpenHomeAlarm extends IPSModuleStrict
         int $mode,
         array $sensors,
         array $faultInputs,
-        bool $strict = false
+        bool $strict = false,
+        ?bool $allowActiveExitRoute = null
     ): string {
         $blockers = [];
-        $sensorBlockers = $this->ResolveBlockingSensorsForMode($mode, $sensors, $strict);
+        $sensorBlockers = $this->ResolveBlockingSensorsForMode(
+            $mode,
+            $sensors,
+            $strict,
+            $allowActiveExitRoute
+        );
         if ($sensorBlockers !== '') {
             $blockers[] = $sensorBlockers;
         }
@@ -4599,7 +4616,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *
      * @param int $mode One of MODE_HOME, MODE_AWAY or MODE_NIGHT.
      */
-    private function ArmMode(int $mode): bool
+    private function ArmMode(int $mode, ?int $delaySeconds = null): bool
     {
         if (!AlarmStateMachine::isArmingMode($mode)) {
             throw new InvalidArgumentException('Unsupported arming target mode.');
@@ -4611,12 +4628,20 @@ class OpenHomeAlarm extends IPSModuleStrict
         $defaultPartitionID = $this->DefaultPartitionID();
         $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $defaultPartitionID);
         $faultInputs = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $defaultPartitionID);
-        $readiness = $this->UpdateReadinessFromSensors($sensors);
+        $exitDelaySeconds = $delaySeconds ?? $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS);
+        $strictReadiness = $exitDelaySeconds === 0;
+        $readiness = $this->UpdateReadinessFromSensors($sensors, $strictReadiness, !$strictReadiness);
 
         if (!$this->IsModeReady($mode, $readiness)) {
             $this->AppendEvent(
                 self::EVENT_ARM_REJECTED,
-                $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs),
+                $this->ResolveArmingBlockersForMode(
+                    $mode,
+                    $sensors,
+                    $faultInputs,
+                    $strictReadiness,
+                    !$strictReadiness
+                ),
                 $mode
             );
 
@@ -4626,7 +4651,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->CancelDelayTimers();
         $this->SetAlarmMode($mode);
 
-        $exitDelaySeconds = $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS);
         if ($exitDelaySeconds === 0) {
             $this->SetAlarmState(self::STATE_ARMED);
             $this->AppendEvent(self::EVENT_ARMED);
