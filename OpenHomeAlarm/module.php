@@ -820,6 +820,23 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Updates an optional action selector immediately when its enable switch
+     * changes in the open configuration form.
+     */
+    public function UpdateOptionalActionForm(string $propertyName, int $enabled): void
+    {
+        if (!in_array($propertyName, array_keys(self::OPTIONAL_ACTION_FIELDS), true)) {
+            throw new InvalidArgumentException('Unknown optional action property.');
+        }
+
+        $isEnabled = $enabled === 1;
+        $this->UpdateFormField($propertyName, 'enabled', $isEnabled);
+        if (!$isEnabled) {
+            $this->UpdateFormField($propertyName, 'value', false);
+        }
+    }
+
+    /**
      * Returns the initial HTML-SDK visualization tile.
      *
      * Static HTML, CSS and JavaScript live in the module's visualization
@@ -2772,9 +2789,22 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->InjectEnabledOptionalActionFields($element['items']);
             }
 
+            $toggleName = $element['name'] ?? null;
+            if (
+                ($element['type'] ?? null) === 'Select'
+                && is_string($toggleName)
+                && array_key_exists($toggleName, self::OPTIONAL_ACTION_FORM_FIELDS)
+            ) {
+                $definition = self::OPTIONAL_ACTION_FORM_FIELDS[$toggleName];
+                $element['onChange'] = sprintf(
+                    "OHA_UpdateOptionalActionForm(\$id, '%s', \$%s);",
+                    $definition['name'],
+                    $toggleName
+                );
+            }
+
             $generated[] = $element;
 
-            $toggleName = $element['name'] ?? null;
             if (
                 ($element['type'] ?? null) !== 'Select'
                 || !is_string($toggleName)

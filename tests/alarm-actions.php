@@ -79,6 +79,9 @@ function IPS_RunAction(string $actionID, array $parameters): bool
 
 class IPSModuleStrict
 {
+    /** @var list<array{field:string,parameter:string,value:mixed}> */
+    private array $formUpdates = [];
+
     /** @var array<string,mixed> */
     private array $properties = [];
 
@@ -140,6 +143,12 @@ class IPSModuleStrict
     public function TestTimers(): array
     {
         return $this->timers;
+    }
+
+    /** @return list<array{field:string,parameter:string,value:mixed}> */
+    public function TestFormUpdates(): array
+    {
+        return $this->formUpdates;
     }
 
     public function TestSetAttributeString(string $name, string $value): void
@@ -305,6 +314,12 @@ class IPSModuleStrict
 
     protected function UpdateFormField(string $field, string $parameter, mixed $value): bool
     {
+        $this->formUpdates[] = [
+            'field'     => $field,
+            'parameter' => $parameter,
+            'value'     => $value
+        ];
+
         return true;
     }
 
@@ -687,12 +702,26 @@ $dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $dynamicFormInstance->TestSetPropertyString('AlarmAction', $alarmAction);
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
 $dynamicAlarmAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction');
+$dynamicAlarmActionToggle = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmActionEnabled');
 assertAlarmAction(
     is_array($dynamicAlarmAction)
     && ($dynamicAlarmAction['type'] ?? null) === 'SelectAction'
     && ($dynamicAlarmAction['targetID'] ?? null) === -2
     && ($dynamicAlarmAction['value'] ?? null) === $alarmAction,
     'GetConfigurationForm must inject the enabled native SelectAction with its stored value.'
+);
+assertAlarmAction(
+    ($dynamicAlarmActionToggle['onChange'] ?? null)
+        === "OHA_UpdateOptionalActionForm(\$id, 'AlarmAction', \$AlarmActionEnabled);",
+    'Optional action toggles must update their selector immediately in the open form.'
+);
+$dynamicFormInstance->UpdateOptionalActionForm('AlarmAction', 0);
+assertAlarmAction(
+    $dynamicFormInstance->TestFormUpdates() === [
+        ['field' => 'AlarmAction', 'parameter' => 'enabled', 'value' => false],
+        ['field' => 'AlarmAction', 'parameter' => 'value', 'value' => false]
+    ],
+    'Disabling an optional action must disable its selector and clear the pending target before validation.'
 );
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,
