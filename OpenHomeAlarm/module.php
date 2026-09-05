@@ -997,8 +997,13 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->BuildControlFaultDetails($partitionFaults, false),
                 $this->BuildControlUnavailableSensorDetails($partitionSensors)
             );
+            $current['Faults']['Active'] = $current['Faults']['Items'] !== [];
             $current['Faults']['Blocking'] = $this->BuildControlFaultDetails($partitionFaults, true);
             $current['BypassedSensors'] = $this->BuildControlBypassedSensorDetails($partitionSensors);
+            $current['RecentEvents'] = array_slice(array_values(array_filter(
+                $this->ReadEventHistory(),
+                static fn (array $event): bool => $event['PartitionID'] === $partition['ID']
+            )), 0, 6);
             $partitionPayload[$partition['ID']] = array_merge([
                 'ID'      => $partition['ID'],
                 'Name'    => $partition['Name'],
@@ -1158,6 +1163,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($partitionID === $this->DefaultPartitionID()) {
             return $this->Disarm();
         }
+        return $this->DisarmPartitionInternal($partitionID, '');
+    }
+
+    /** Disarms a resolved non-default partition and records an optional user name. */
+    private function DisarmPartitionInternal(string $partitionID, string $userName): bool
+    {
         $states = $this->ReadPartitionRuntime();
         $wasAlarm = $states[$partitionID]['State'] === self::STATE_ALARM;
         $hadActiveState = $states[$partitionID]['State'] !== self::STATE_DISARMED
@@ -1172,7 +1183,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
         }
         if ($hadActiveState) {
-            $this->AppendEvent(self::EVENT_DISARMED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
+            $this->AppendEvent(self::EVENT_DISARMED, $userName, self::MODE_NONE, self::STATE_DISARMED, $partitionID);
         }
         $this->PublishVisualizationState();
         return true;
@@ -1392,10 +1403,21 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function DisarmWithCode(string $code): bool
     {
+        $userName = $this->AuthorizedDisarmUser($code);
+        if ($userName === false) {
+            return false;
+        }
+
+        return $this->DisarmInternal($userName);
+    }
+
+    /** Validates the user-facing disarm code and returns the non-sensitive event source. */
+    private function AuthorizedDisarmUser(string $code): string|false
+    {
         $configuredCode = trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE));
         $users = $this->ReadConfiguredDisarmUsers();
         if ($configuredCode === '' && !AlarmDisarmUserRegistry::hasEnabledCode($users)) {
-            return $this->Disarm();
+            return '';
         }
 
         if ($configuredCode !== '' && preg_match('/^[0-9]{4,8}$/', $configuredCode) !== 1) {
@@ -1424,7 +1446,27 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        return $this->DisarmInternal($userName ?? '');
+        return $userName ?? '';
+    }
+
+    /** Applies the normal code protection before disarming one visualization partition. */
+    private function DisarmPartitionWithCode(string $partitionID, string $code): bool
+    {
+        try {
+            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+        $userName = $this->AuthorizedDisarmUser($code);
+        if ($userName === false) {
+            return false;
+        }
+        if ($partitionID === $this->DefaultPartitionID()) {
+            return $this->DisarmInternal($userName);
+        }
+
+        $this->ResetDisarmCodeProtection();
+        return $this->DisarmPartitionInternal($partitionID, $userName);
     }
 
     /**
@@ -1519,6 +1561,35 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($hadBypasses) {
             $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED);
         }
+        $this->PublishVisualizationState();
+
+        return true;
+    }
+
+    /** Clears temporary sensor bypasses belonging to one disarmed partition. */
+    public function ClearSensorBypassesPartition(string $partitionID): bool
+    {
+        try {
+            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+        $runtime = $this->ReadPartitionRuntime();
+        if ($runtime[$partitionID]['State'] !== self::STATE_DISARMED) {
+            return false;
+        }
+
+        $sensors = $this->ReadConfiguredSensors();
+        $partitionVariableIDs = array_column($this->SensorsForPartition($sensors, $partitionID), 'VariableID');
+        $current = $this->ReadBypassedSensorIDs();
+        $remaining = array_values(array_diff($current, $partitionVariableIDs));
+        if ($remaining === $current) {
+            return true;
+        }
+        $this->WriteBypassedSensorIDs($remaining);
+        $this->UpdateBypassedSensorStatus($sensors);
+        $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
+        $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
         $this->PublishVisualizationState();
 
         return true;
@@ -2960,6 +3031,45 @@ class OpenHomeAlarm extends IPSModuleStrict
         $Value = $command['Value'];
 
         switch ($command['Action']) {
+            case 'ArmPartition':
+                $this->ArmPartition($Value['PartitionID'], $Value['Value']);
+
+                return null;
+
+            case 'DisarmPartition':
+                $this->DisarmPartitionWithCode($Value['PartitionID'], '');
+
+                return null;
+
+            case 'DisarmPartitionWithCode':
+                if ($this->DisarmPartitionWithCode($Value['PartitionID'], $Value['Value'])) {
+                    return null;
+                }
+
+                $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+
+                return [
+                    'Type'             => 'disarm_code',
+                    'Success'          => false,
+                    'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
+                    'LockoutRemaining' => $codeProtection['LockoutRemaining']
+                ];
+
+            case 'ClearAlarmMemoryPartition':
+                $this->ClearAlarmMemoryPartition($Value['PartitionID']);
+
+                return null;
+
+            case 'ClearSensorBypassesPartition':
+                $this->ClearSensorBypassesPartition($Value['PartitionID']);
+
+                return null;
+
+            case 'ResetAlarmOutputPartition':
+                $this->ResetAlarmOutputPartition($Value['PartitionID']);
+
+                return null;
+
             case 'Arm':
                 $this->Arm($Value);
 

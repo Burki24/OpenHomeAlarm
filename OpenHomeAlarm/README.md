@@ -306,6 +306,7 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_ResetAlarmOutputPartition($InstanzID, $BereichID)` | `bool` | Setzt nur den Ausgang eines alarmierenden Bereichs zurück; andere aktive Bereichsausgänge halten die Gesamtausgabe aktiv |
 | `OHA_ClearAlarmMemory($InstanzID)` | `bool` | Quittiert das gespeicherte Alarmgedächtnis; während eines aktiven Alarms wird `false` zurückgegeben |
 | `OHA_ClearAlarmMemoryPartition($InstanzID, $BereichID)` | `bool` | Quittiert das Alarmgedächtnis eines einzelnen Bereichs nach dessen Unscharfschaltung |
+| `OHA_ClearSensorBypassesPartition($InstanzID, $BereichID)` | `bool` | Entfernt alle temporären Sensorüberbrückungen eines unscharfen Bereichs |
 | `OHA_GetEventHistory($InstanzID)` | `string` | Liefert das persistente Sicherheits-Ereignisprotokoll als JSON, neuester Eintrag zuerst |
 | `OHA_ExportEventHistory($InstanzID, $Format, $VonZeitstempel, $BisZeitstempel, $Ereignistyp)` | `string` | Exportiert die Historie als `json` oder `csv`; Zeitstempel `0` und ein leerer Ereignistyp deaktivieren den jeweiligen Filter |
 | `OHA_ClearEventHistory($InstanzID)` | `bool` | Leert das persistente Sicherheits-Ereignisprotokoll |

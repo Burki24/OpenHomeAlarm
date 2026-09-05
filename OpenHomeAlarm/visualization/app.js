@@ -13,6 +13,7 @@ const ohaIPSViewConfig = ohaVisualization.mode === 'ipsview'
     : null;
 
 let ohaState = ohaVisualization.state ?? null;
+let ohaSelectedPartitionID = '';
 let ohaCodeBuffer = '';
 let ohaCodeBusy = false;
 let ohaCodeRequestTimer = null;
@@ -123,6 +124,78 @@ function ohaStateIcon(name) {
     };
 
     return icons[name] ?? 'fa-shield';
+}
+
+function ohaAvailablePartitions(state = ohaState) {
+    return state?.Partitions && typeof state.Partitions === 'object'
+        ? Object.values(state.Partitions).filter((partition) => partition && typeof partition.ID === 'string')
+        : [];
+}
+
+function ohaSelectedState(state = ohaState) {
+    const partitions = ohaAvailablePartitions(state);
+    if (partitions.length === 0) {
+        return state;
+    }
+
+    const fallbackID = typeof state.DefaultPartition === 'string' ? state.DefaultPartition : partitions[0].ID;
+    if (!partitions.some((partition) => partition.ID === ohaSelectedPartitionID)) {
+        ohaSelectedPartitionID = fallbackID;
+    }
+    const partition = state.Partitions[ohaSelectedPartitionID] ?? partitions[0];
+    const recentEvents = Array.isArray(partition.RecentEvents)
+        ? partition.RecentEvents
+        : (Array.isArray(state.RecentEvents)
+            ? state.RecentEvents.filter((event) => (event.PartitionID ?? fallbackID) === partition.ID)
+            : []);
+    const diagnosticItems = Array.isArray(state.Diagnostics?.Items)
+        ? state.Diagnostics.Items.filter((item) => item.PartitionID === partition.ID)
+        : [];
+    const diagnosticProblems = diagnosticItems.filter((item) => ['missing', 'unreadable'].includes(item.Status)).length;
+
+    return {
+        ...partition,
+        ApiVersion: state.ApiVersion,
+        DefaultPartition: state.DefaultPartition,
+        Partitions: state.Partitions,
+        RecentEvents: recentEvents,
+        Diagnostics: {
+            ...(state.Diagnostics ?? {}),
+            Items: diagnosticItems,
+            Summary: { ...(state.Diagnostics?.Summary ?? {}), Problems: diagnosticProblems }
+        },
+        Interaction: state.Interaction
+    };
+}
+
+function ohaRenderPartitions(state) {
+    const nav = document.getElementById('partitionNav');
+    const tabs = document.getElementById('partitionTabs');
+    const partitions = ohaAvailablePartitions(state);
+    nav.hidden = partitions.length <= 1;
+    document.getElementById('ohaRoot').dataset.partitionSelectorVisible = nav.hidden ? 'false' : 'true';
+    tabs.replaceChildren();
+    if (nav.hidden) {
+        return;
+    }
+
+    document.getElementById('partitionLabel').textContent = ohaTranslate('Select alarm partition');
+    for (const partition of partitions) {
+        const button = document.createElement('button');
+        button.className = 'oha-partition-tab';
+        button.type = 'button';
+        button.role = 'tab';
+        button.dataset.partitionId = partition.ID;
+        button.dataset.active = partition.ID === ohaSelectedPartitionID ? 'true' : 'false';
+        button.setAttribute('aria-selected', button.dataset.active);
+        button.textContent = partition.Name || partition.ID;
+        tabs.appendChild(button);
+    }
+}
+
+function ohaRequestPartitionAction(action, value = null) {
+    const partitionID = ohaSelectedState()?.ID ?? ohaState?.DefaultPartition ?? '';
+    ohaRequestAction(action, { PartitionID: partitionID, Value: value });
 }
 
 function ohaAllModesReady(state) {
@@ -253,7 +326,7 @@ function ohaRenderMode(modeName, modeState) {
             action.textContent = ohaTranslate('Activate');
         } else if (button.dataset.active === 'true') {
             action.textContent = ohaTranslate('Active');
-        } else if (ohaState?.State?.Name === 'disarmed') {
+        } else if (ohaSelectedState()?.State?.Name === 'disarmed') {
             action.textContent = ohaTranslate('Blocked');
         } else {
             action.textContent = ohaTranslate('Deactivate first to change mode');
@@ -616,10 +689,11 @@ function ohaCodeProtectionLocked(state = ohaState) {
 }
 
 function ohaCodeInputAllowed() {
+    const selectedState = ohaSelectedState();
     return Boolean(
-        ohaState?.Capabilities?.CodeRequired
-        && !ohaCodeProtectionLocked(ohaState)
-        && ohaCanDisarm(ohaState)
+        selectedState?.Capabilities?.CodeRequired
+        && !ohaCodeProtectionLocked(selectedState)
+        && ohaCanDisarm(selectedState)
     );
 }
 
@@ -712,20 +786,22 @@ function ohaRender() {
         return;
     }
 
+    const selectedState = ohaSelectedState();
     ohaRenderStaticText();
-    ohaRenderHero(ohaState);
-    ohaRenderSummary(ohaState);
-    ohaRenderAlarmMemory(ohaState);
-    ohaRenderFaults(ohaState);
-    ohaRenderBypasses(ohaState);
-    ohaRenderSensorManagement(ohaState);
-    ohaRenderEventHistory(ohaState);
-    ohaRenderDiagnostics(ohaState);
+    ohaRenderPartitions(ohaState);
+    ohaRenderHero(selectedState);
+    ohaRenderSummary(selectedState);
+    ohaRenderAlarmMemory(selectedState);
+    ohaRenderFaults(selectedState);
+    ohaRenderBypasses(selectedState);
+    ohaRenderSensorManagement(selectedState);
+    ohaRenderEventHistory(selectedState);
+    ohaRenderDiagnostics(selectedState);
     ohaUpdateOperationsLayout();
-    ohaRenderArming(ohaState);
-    ohaRenderInlineCodepad(ohaState);
-    ohaRenderDisarm(ohaState);
-    ohaScheduleCodeLockRefresh(ohaState);
+    ohaRenderArming(selectedState);
+    ohaRenderInlineCodepad(selectedState);
+    ohaRenderDisarm(selectedState);
+    ohaScheduleCodeLockRefresh(selectedState);
 }
 
 async function ohaIPSViewRequest(action, value) {
@@ -790,8 +866,9 @@ function ohaIPSViewPollInterval() {
         return Math.max(5000, Number(ohaIPSViewConfig?.hiddenPollInterval) || 15000);
     }
 
-    const stateName = ohaState?.State?.Name ?? '';
-    if (stateName === 'exit_delay' || stateName === 'entry_delay' || ohaCodeProtectionLocked(ohaState)) {
+    const selectedState = ohaSelectedState();
+    const stateName = selectedState?.State?.Name ?? '';
+    if (stateName === 'exit_delay' || stateName === 'entry_delay' || ohaCodeProtectionLocked(selectedState)) {
         return Math.max(500, Number(ohaIPSViewConfig?.activePollInterval) || 1000);
     }
 
@@ -831,11 +908,11 @@ function ohaHandleModeButton(button) {
     }
 
     if (button.dataset.canArm === 'true') {
-        ohaRequestAction('Arm', button.dataset.mode ?? '');
+        ohaRequestPartitionAction('ArmPartition', button.dataset.mode ?? '');
         return;
     }
 
-    if (ohaState?.State?.Name !== 'disarmed') {
+    if (ohaSelectedState()?.State?.Name !== 'disarmed') {
         const hint = document.getElementById('armingHint');
         if (hint) {
             hint.textContent = ohaTranslate('Deactivate first to change mode');
@@ -858,18 +935,19 @@ function ohaFocusInlineCodepad() {
 }
 
 function ohaHandleDisarmButton() {
-    if (!ohaCanDisarm(ohaState) || ohaCodeProtectionLocked(ohaState)) {
+    const selectedState = ohaSelectedState();
+    if (!ohaCanDisarm(selectedState) || ohaCodeProtectionLocked(selectedState)) {
         return;
     }
 
-    if (ohaState?.Capabilities?.CodeRequired) {
+    if (selectedState?.Capabilities?.CodeRequired) {
         if (!ohaFocusInlineCodepad()) {
             ohaOpenCodepad();
         }
         return;
     }
 
-    ohaRequestAction('Disarm', '');
+    ohaRequestPartitionAction('DisarmPartition');
 }
 
 function ohaClearCodeRequestTimer() {
@@ -1011,7 +1089,7 @@ function ohaSubmitCode() {
     ohaCodeBusy = true;
     ohaSetCodeError('');
     ohaUpdateCodepad();
-    ohaRequestAction('DisarmWithCode', code);
+    ohaRequestPartitionAction('DisarmPartitionWithCode', code);
 
     ohaClearCodeRequestTimer();
     ohaCodeRequestTimer = window.setTimeout(() => {
@@ -1107,7 +1185,7 @@ function ohaFindInteractiveControl(event) {
 
     return target.closest(
         '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm], '
-        + '[data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
+        + '[data-partition-id], [data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
     );
 }
 
@@ -1158,6 +1236,13 @@ function ohaHandleInteractiveClick(event) {
         return;
     }
 
+    if (control.matches('[data-partition-id]')) {
+        ohaSelectedPartitionID = control.dataset.partitionId ?? '';
+        ohaCloseCodepad();
+        ohaRender();
+        return;
+    }
+
     if (control.matches('[data-operation]')) {
         if (control.dataset.enabled !== 'true') {
             return;
@@ -1168,7 +1253,15 @@ function ohaHandleInteractiveClick(event) {
             return;
         }
         const variableID = Number(control.dataset.variableId) || 0;
-        ohaRequestAction(action, variableID > 0 ? variableID : true);
+        if (action === 'ClearAlarmMemory') {
+            ohaRequestPartitionAction('ClearAlarmMemoryPartition');
+        } else if (action === 'ResetAlarmOutput') {
+            ohaRequestPartitionAction('ResetAlarmOutputPartition');
+        } else if (action === 'ClearSensorBypasses') {
+            ohaRequestPartitionAction('ClearSensorBypassesPartition');
+        } else {
+            ohaRequestAction(action, variableID > 0 ? variableID : true);
+        }
         return;
     }
 
@@ -1224,9 +1317,9 @@ function handleMessage(data) {
         return;
     }
 
-    const previousStateName = ohaState?.State?.Name ?? null;
-    const nextStateName = nextState.State.Name;
+    const previousStateName = ohaSelectedState(ohaState)?.State?.Name ?? null;
     ohaState = nextState;
+    const nextStateName = ohaSelectedState(nextState)?.State?.Name ?? null;
 
     if (nextStateName === 'disarmed' && previousStateName !== 'disarmed') {
         ohaResetCodeEntry();

@@ -602,5 +602,26 @@ assertControlApi(
         && ($partitionState['Alarm']['MemoryActive'] ?? null) === false,
     'The aggregate alarm summary must clear after every local output and memory was cleared.'
 );
+$partitionInstance->RequestAction('ArmPartition', ['PartitionID' => 'garage', 'Value' => 'night']);
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['house']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'The visualization action bridge must arm only its explicitly selected partition.'
+);
+$partitionInstance->RequestAction('DisarmPartition', ['PartitionID' => 'garage', 'Value' => null]);
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed',
+    'The visualization action bridge must disarm its explicitly selected partition.'
+);
+assertControlApi(
+    array_reduce(
+        $partitionState['Partitions']['garage']['RecentEvents'] ?? [],
+        static fn (bool $valid, array $event): bool => $valid && $event['PartitionID'] === 'garage',
+        true
+    ),
+    'Each visualization partition must expose only its own recent events.'
+);
 
 fwrite(STDOUT, "OpenHomeAlarm control API checks passed.\n");

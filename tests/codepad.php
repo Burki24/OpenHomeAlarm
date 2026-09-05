@@ -26,8 +26,8 @@ assertCodepad(
     'The visualization RequestAction gateway must accept DisarmWithCode.'
 );
 assertCodepad(
-    str_contains($module, '$this->DisarmWithCode($Value)'),
-    'Visualization code submission must use the existing DisarmWithCode API.'
+    str_contains($module, '$this->DisarmPartitionWithCode($Value[\'PartitionID\'], $Value[\'Value\'])'),
+    'Visualization code submission must disarm the explicitly selected partition.'
 );
 assertCodepad(
     str_contains($module, "'Type'")
@@ -58,8 +58,8 @@ assertCodepad(substr_count($html, 'data-code-confirm') === 2, 'Both codepad surf
 assertCodepad(substr_count($html, 'class="oha-code-dot"') === 16, 'Both code displays must support up to eight digits.');
 
 assertCodepad(
-    str_contains($javascript, "ohaRequestAction('DisarmWithCode', code);"),
-    'The codepad must submit the entered code through the HTML-SDK RequestAction channel.'
+    str_contains($javascript, "ohaRequestPartitionAction('DisarmPartitionWithCode', code);"),
+    'The codepad must submit the entered code and selected partition through the HTML-SDK RequestAction channel.'
 );
 assertCodepad(
     str_contains($javascript, 'ohaCodeBuffer += digit;'),
@@ -92,7 +92,7 @@ assertCodepad(
     'The codepad must provide a dedicated clear operation.'
 );
 assertCodepad(
-    str_contains($javascript, 'ohaState?.Capabilities?.CodeRequired'),
+    str_contains($javascript, 'selectedState?.Capabilities?.CodeRequired'),
     'The codepad must only open when code protection is enabled.'
 );
 assertCodepad(
@@ -139,7 +139,7 @@ assertCodepad(str_contains($javascript, 'function ohaRenderInlineCodepad(state)'
 assertCodepad(str_contains($javascript, 'function ohaCodeInputAllowed()'), 'Both codepad surfaces must share the same backend-driven enablement rule.');
 assertCodepad(
     str_contains($javascript, 'function ohaCodeProtectionLocked(state = ohaState)')
-        && str_contains($javascript, '!ohaCodeProtectionLocked(ohaState)'),
+        && str_contains($javascript, '!ohaCodeProtectionLocked(selectedState)'),
     'Codepad input must be disabled while the backend reports a temporary lockout.'
 );
 assertCodepad(

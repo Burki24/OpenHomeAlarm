@@ -221,6 +221,56 @@ button:focus-visible {
     box-shadow: 0 0 0 14px var(--oha-bg);
 }
 
+.oha-partition-nav {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+}
+
+.oha-partition-label {
+    flex: 0 0 auto;
+    color: var(--oha-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+.oha-partition-tabs {
+    display: flex;
+    min-width: 0;
+    gap: 7px;
+    overflow-x: auto;
+    padding: 2px;
+    scrollbar-width: thin;
+}
+
+.oha-partition-tab {
+    min-height: 34px;
+    flex: 0 0 auto;
+    padding: 6px 13px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: 999px;
+    background: var(--oha-surface);
+    color: var(--oha-muted);
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.oha-partition-tab:hover,
+.oha-partition-tab[data-active="true"] {
+    border-color: color-mix(in srgb, var(--oha-accent) 45%, var(--oha-border));
+    background: var(--oha-accent-soft);
+    color: var(--oha-accent);
+}
+
+.oha-partition-tab:focus-visible {
+    outline: 2px solid var(--oha-accent);
+    outline-offset: 2px;
+}
+
 .oha-section-heading-compact {
     margin-bottom: 9px;
 }
@@ -1084,6 +1134,7 @@ button:focus-visible {
 
 
 .oha-mode-button,
+.oha-partition-tab,
 .oha-code-key,
 .oha-inline-disarm-button,
 .oha-modal-disarm-button,
@@ -1109,6 +1160,7 @@ button:focus-visible {
     }
 
     .oha-hero,
+    .oha-partition-nav,
     .oha-status-grid,
     .oha-context-grid,
     .oha-operations-grid,
@@ -1130,6 +1182,10 @@ button:focus-visible {
         border-radius: 18px;
         background: var(--oha-surface);
         box-shadow: var(--oha-shadow);
+    }
+
+    .oha-shell[data-partition-selector-visible="true"] .oha-inline-codepad {
+        grid-row: 3 / span 6;
     }
 
 }
@@ -1591,6 +1647,25 @@ html.oha-ipsview .oha-topbar-actions {
     display: none;
 }
 
+html.oha-ipsview .oha-partition-nav {
+    min-height: 36px;
+    gap: 8px;
+}
+
+html.oha-ipsview .oha-partition-label {
+    color: var(--oha-page-label-muted);
+    font-size: 0.62rem;
+}
+
+html.oha-ipsview .oha-partition-tab {
+    min-height: 30px;
+    padding: 4px 10px;
+    border-color: var(--oha-panel-border);
+    background: var(--oha-surface-soft);
+    color: var(--oha-panel-muted);
+    font-size: 0.68rem;
+}
+
 html.oha-ipsview .oha-hero {
     min-height: 96px;
     gap: 12px;
@@ -1994,8 +2069,35 @@ html.oha-ipsview .oha-shell {
             "operations";
     }
 
+    html.oha-ipsview .oha-shell[data-partition-selector-visible="true"] {
+        grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr);
+        grid-template-areas:
+            "partitions codepad"
+            "hero codepad"
+            "arming codepad"
+            "control codepad"
+            "status codepad"
+            "context codepad"
+            "operations codepad";
+    }
+
+    html.oha-ipsview .oha-shell[data-codepad-visible="false"][data-partition-selector-visible="true"] {
+        grid-template-areas:
+            "partitions"
+            "hero"
+            "arming"
+            "control"
+            "status"
+            "context"
+            "operations";
+    }
+
     html.oha-ipsview .oha-hero {
         grid-area: hero;
+    }
+
+    html.oha-ipsview .oha-partition-nav {
+        grid-area: partitions;
     }
 
     html.oha-ipsview .oha-arm-section {

@@ -112,8 +112,24 @@ assertVisualization(
     !str_contains($javascript, '.innerHTML ='),
     'Visualization state must be rendered without assigning HTML strings.'
 );
-assertVisualization(str_contains($javascript, "ohaRequestAction('Arm'"), 'Visualization must arm through RequestAction.');
-assertVisualization(str_contains($javascript, "ohaRequestAction('Disarm'"), 'Visualization must disarm through RequestAction.');
+assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'"), 'Visualization must arm the selected partition through RequestAction.');
+assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'"), 'Visualization must disarm the selected partition through RequestAction.');
+assertVisualization(
+    str_contains($html, 'id="partitionNav"')
+        && str_contains($javascript, 'function ohaRenderPartitions(state)')
+        && str_contains($javascript, "'[data-partition-id], [data-action=\"arm\"]")
+        && str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'")
+        && str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'")
+        && str_contains($module, "case 'ArmPartition':")
+        && str_contains($module, "case 'DisarmPartition':"),
+    'Native and IPSView controls must select and operate one explicit alarm partition.'
+);
+assertVisualization(
+    str_contains($javascript, "ohaRequestPartitionAction('DisarmPartitionWithCode', code);")
+        && str_contains($module, "case 'DisarmPartitionWithCode':")
+        && str_contains($module, '$this->DisarmPartitionWithCode($Value[\'PartitionID\'], $Value[\'Value\'])'),
+    'Code-protected visualization disarming must target the selected partition.'
+);
 foreach ([
     'BypassSensor',
     'RemoveSensorBypass',
@@ -185,7 +201,7 @@ assertVisualization(
 assertVisualization(
     str_contains($module, "'Diagnostics'      => \$this->BuildDiagnosticsPayload(\$allSensors, \$allFaultInputs)")
         && str_contains($javascript, 'const items = Array.isArray(diagnostics?.Items) ? diagnostics.Items : [];')
-        && str_contains($javascript, 'ohaRenderDiagnostics(ohaState);')
+        && str_contains($javascript, 'ohaRenderDiagnostics(selectedState);')
         && str_contains($css, '.oha-diagnostic-row[data-status="missing"]'),
     'Native and IPSView dashboards must render the shared diagnostics payload and highlight unavailable inputs.'
 );
