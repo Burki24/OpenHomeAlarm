@@ -161,12 +161,13 @@
             "version": "1.1.0",
             "sha256": "29fe61a7eccafeb8b2beb77fe3f7a4896f43b3eaace9ebe428a4fc8250fd9088",
             "path": "libs/helper/VisualizationThemeHelper.php",
-            "source_sha": "b53280afa419df360070978003477d0bb8183fac"
+            "source_sha": "d0bb3e0a673de328d2cfc4dff53c6bce8dafe275"
         },
         "VisualizationThemeConfigurationHelper": {
             "version": "1.0.1",
             "sha256": "117b0f8f8a4d9c829115eabf15cf957d5c9e26cedf2954c996cbb1a36e115f01",
             "path": "libs/helper/VisualizationThemeConfigurationHelper.php",
+            "source_sha": "d0bb3e0a673de328d2cfc4dff53c6bce8dafe275",
             "assets": [
                 {
                     "path": "libs/helper/translations/VisualizationThemeConfigurationHelper.json",
@@ -178,13 +179,15 @@
                     "name": "HelperTranslationHelper",
                     "version": "1.0.0",
                     "sha256": "d3deee581eca9f8eb11e9adce060170227a2dc836ee898bd134f93d27604f639",
-                    "path": "libs/helper/HelperTranslationHelper.php"
+                    "path": "libs/helper/HelperTranslationHelper.php",
+                    "source_sha": "d0bb3e0a673de328d2cfc4dff53c6bce8dafe275"
                 },
                 {
                     "name": "VisualizationThemeHelper",
                     "version": "1.1.0",
                     "sha256": "29fe61a7eccafeb8b2beb77fe3f7a4896f43b3eaace9ebe428a4fc8250fd9088",
-                    "path": "libs/helper/VisualizationThemeHelper.php"
+                    "path": "libs/helper/VisualizationThemeHelper.php",
+                    "source_sha": "d0bb3e0a673de328d2cfc4dff53c6bce8dafe275"
                 }
             ]
         }
