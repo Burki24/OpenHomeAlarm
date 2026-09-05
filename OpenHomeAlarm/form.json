@@ -68,6 +68,17 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Symcon tile",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Configure the shared Symcon tile theme used by the HTML-SDK visualization."
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "IPSView",
             "expanded": false,
             "items": [

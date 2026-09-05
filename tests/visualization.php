@@ -39,10 +39,12 @@ assertVisualization(
     'Native and IPSView documents must use the shared HTML page helper.'
 );
 assertVisualization(
-    str_contains($module, "require_once __DIR__ . '/../libs/helper/VisualizationThemeHelper.php';")
-        && str_contains($module, 'use \\Burki24\\SymconModuleHelper\\VisualizationThemeHelper;')
+    str_contains($module, "require_once __DIR__ . '/../libs/helper/VisualizationThemeConfigurationHelper.php';")
+        && str_contains($module, 'use \\Burki24\\SymconModuleHelper\\VisualizationThemeConfigurationHelper;')
+        && str_contains($module, '$this->RegisterVisualizationThemeProperties();')
+        && str_contains($module, '$this->InsertVisualizationThemeFormItems(')
         && str_contains($module, '$this->VisualizationThemeCSS()'),
-    'The visualization must use the shared Symcon theme helper.'
+    'The visualization must use the configurable shared Symcon theme helper.'
 );
 assertVisualization(
     str_contains($module, 'use \\Burki24\\SymconModuleHelper\\VisualizationAssetHelper;'),
@@ -197,6 +199,8 @@ assertVisualization(
 assertVisualization(
     str_contains($css, '--oha-accent: var(--symc-accent);')
         && str_contains($css, '--oha-bg: var(--symc-background);')
+        && str_contains($css, '--oha-heading: var(--symc-heading);')
+        && str_contains($css, '--oha-subheading: var(--symc-subheading);')
         && str_contains($css, 'html.oha-ipsview {')
         && str_contains($css, '--oha-accent: var(--ipsview-role-accent);')
         && str_contains($css, '--oha-bg: var(--ipsview-role-view-background);'),

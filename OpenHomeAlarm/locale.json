@@ -1,6 +1,8 @@
 {
     "translations": {
         "de": {
+            "Symcon tile": "Symcon-Kachel",
+            "Configure the shared Symcon tile theme used by the HTML-SDK visualization.": "Gemeinsames Design der HTML-SDK-Kachel konfigurieren.",
             "Mode": "Modus",
             "State": "Status",
             "Delay remaining": "Verbleibende Verzögerung",

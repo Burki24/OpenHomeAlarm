@@ -15,6 +15,7 @@ Die Dateien in diesem Verzeichnis stammen aus dem gemeinsamen Repository
 | `IPSViewStyleProfileHelper.php` | 1.0.1 | `eca6aa486d60b0db11cc7db0b486dc5b1723c49e26c23fe72465a33cf73f453d` |
 | `PersistentJsonCacheHelper.php` | 1.0.0 | `adbc7680abe814dc6c15a9cda1312cc30023073595052006662716bc0d65f2a4` |
 | `VariablePresentationHelper.php` | 2.0.0 | `ce620078e72bcbffed1adfdd02e8f64baf5f2b2e8e1531e3bb1ae7b32b390fb8` |
-| `VisualizationThemeHelper.php` | 1.0.0 | `81ca4cdeac42ac97cecdb73305e9f68597a6037b1d50b843df11900c96c48dbf` |
+| `VisualizationThemeConfigurationHelper.php` | 1.0.0 | `b895fe15ed6ed3bfdfd27fe184430beba97f56a4acbf8be45e833f198bb3df24` |
+| `VisualizationThemeHelper.php` | 1.1.0 | `29fe61a7eccafeb8b2beb77fe3f7a4896f43b3eaace9ebe428a4fc8250fd9088` |
 
 Die Kopien werden bewusst mit der Library ausgeliefert; zur Laufzeit besteht keine externe Abhängigkeit.

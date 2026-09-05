@@ -6,6 +6,8 @@
     --oha-surface-soft: var(--symc-surface);
     --oha-border: var(--symc-border);
     --oha-text: var(--symc-text);
+    --oha-heading: var(--symc-heading);
+    --oha-subheading: var(--symc-subheading);
     --oha-text-active: var(--symc-text);
     --oha-text-inactive: var(--symc-muted);
     --oha-label: var(--symc-muted);
@@ -51,6 +53,8 @@ html.oha-ipsview {
     --oha-control-inactive: var(--ipsview-role-control-inactive-background);
     --oha-border: var(--ipsview-role-border);
     --oha-text: var(--ipsview-role-text-primary);
+    --oha-heading: var(--ipsview-role-text-primary);
+    --oha-subheading: var(--ipsview-role-text-secondary);
     --oha-text-active: var(--ipsview-role-text-active);
     --oha-text-inactive: var(--ipsview-role-text-inactive);
     --oha-label: var(--ipsview-role-text-label);
@@ -525,11 +529,12 @@ button:focus-visible {
 
 .oha-section-heading h2 {
     margin: 3px 0 0;
+    color: var(--oha-heading);
     font-size: 1.05rem;
 }
 
 .oha-section-hint {
-    color: var(--oha-muted);
+    color: var(--oha-subheading);
     font-size: 0.76rem;
     text-align: right;
 }
@@ -810,6 +815,7 @@ button:focus-visible {
 
 .oha-operation-head h2 {
     margin: 2px 0 0;
+    color: var(--oha-heading);
     font-size: 0.94rem;
 }
 
@@ -1020,6 +1026,7 @@ button:focus-visible {
 
 .oha-inline-codepad-head h2 {
     margin: 3px 0 0;
+    color: var(--oha-heading);
     font-size: 1.05rem;
 }
 
@@ -1301,12 +1308,13 @@ button:focus-visible {
 
 .oha-codepad-title-wrap h2 {
     margin: 0;
+    color: var(--oha-heading);
     font-size: 1rem;
 }
 
 .oha-codepad-title-wrap p {
     margin: 3px 0 0;
-    color: var(--oha-muted);
+    color: var(--oha-subheading);
     font-size: 0.75rem;
     line-height: 1.35;
 }

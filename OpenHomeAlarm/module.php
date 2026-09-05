@@ -51,7 +51,7 @@ require_once __DIR__ . '/../libs/helper/IPSViewStyleConfigurationHelper.php';
 require_once __DIR__ . '/../libs/helper/PersistentJsonCacheHelper.php';
 require_once __DIR__ . '/../libs/helper/VariablePresentationHelper.php';
 require_once __DIR__ . '/../libs/helper/VisualizationAssetHelper.php';
-require_once __DIR__ . '/../libs/helper/VisualizationThemeHelper.php';
+require_once __DIR__ . '/../libs/helper/VisualizationThemeConfigurationHelper.php';
 
 /**
  * Provides the Symcon alarm controller, its public automation API and both visualizations.
@@ -67,7 +67,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     use \Burki24\SymconModuleHelper\PersistentJsonCacheHelper;
     use \Burki24\SymconModuleHelper\VariablePresentationHelper;
     use \Burki24\SymconModuleHelper\VisualizationAssetHelper;
-    use \Burki24\SymconModuleHelper\VisualizationThemeHelper;
+    use \Burki24\SymconModuleHelper\VisualizationThemeConfigurationHelper;
 
     private const CONTROL_API_VERSION = 2;
     private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area","Default":true}]';
@@ -347,6 +347,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES, '[]');
         $this->RegisterIPSViewHTMLPageProperties();
         $this->RegisterIPSViewStyleProperties();
+        $this->RegisterVisualizationThemeProperties();
 
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
@@ -814,6 +815,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 )
             );
             $this->InsertIPSViewStyleFormItems($form['elements'], colorWidth: '220px');
+            $this->InsertVisualizationThemeFormItems($form['elements'], colorWidth: '220px');
         }
 
         return $this->EncodeConfigurationForm($form);

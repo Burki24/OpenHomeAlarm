@@ -27,6 +27,9 @@
         },
         "VisualizationThemeHelper": {
             "target": "libs/helper/VisualizationThemeHelper.php"
+        },
+        "VisualizationThemeConfigurationHelper": {
+            "target": "libs/helper/VisualizationThemeConfigurationHelper.php"
         }
     }
 }
