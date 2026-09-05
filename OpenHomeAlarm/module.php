@@ -1166,29 +1166,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $this->DisarmPartitionInternal($partitionID, '');
     }
 
-    /** Disarms a resolved non-default partition and records an optional user name. */
-    private function DisarmPartitionInternal(string $partitionID, string $userName): bool
-    {
-        $states = $this->ReadPartitionRuntime();
-        $wasAlarm = $states[$partitionID]['State'] === self::STATE_ALARM;
-        $hadActiveState = $states[$partitionID]['State'] !== self::STATE_DISARMED
-            || $states[$partitionID]['Mode'] !== self::MODE_NONE;
-        if ($wasAlarm) {
-            $this->ResetPartitionAlarmOutputInternal($partitionID);
-        }
-        $states[$partitionID] = AlarmPartitionRuntime::disarm($states[$partitionID]);
-        $this->WritePartitionRuntime($states);
-        $this->SchedulePartitionRuntimeTimer($states);
-        if ($wasAlarm) {
-            $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
-        }
-        if ($hadActiveState) {
-            $this->AppendEvent(self::EVENT_DISARMED, $userName, self::MODE_NONE, self::STATE_DISARMED, $partitionID);
-        }
-        $this->PublishVisualizationState();
-        return true;
-    }
-
     /** Advances all persisted partition deadlines; called by the shared timer. */
     public function UpdatePartitionRuntime(): void
     {
@@ -1409,64 +1386,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $this->DisarmInternal($userName);
-    }
-
-    /** Validates the user-facing disarm code and returns the non-sensitive event source. */
-    private function AuthorizedDisarmUser(string $code): string|false
-    {
-        $configuredCode = trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE));
-        $users = $this->ReadConfiguredDisarmUsers();
-        if ($configuredCode === '' && !AlarmDisarmUserRegistry::hasEnabledCode($users)) {
-            return '';
-        }
-
-        if ($configuredCode !== '' && preg_match('/^[0-9]{4,8}$/', $configuredCode) !== 1) {
-            $this->SendDebug(__FUNCTION__, 'Configured disarm code is invalid.', 0);
-
-            return false;
-        }
-
-        $codeProtection = $this->ReadDisarmCodeProtectionStatus();
-        if ($codeProtection['Locked']) {
-            $this->SendDebug(__FUNCTION__, 'Disarm code entry is temporarily locked.', 0);
-
-            return false;
-        }
-
-        $userName = AlarmDisarmUserRegistry::matchingUser($code, $users);
-        $legacyCodeMatches = $configuredCode !== '' && hash_equals($configuredCode, trim($code));
-        if ($userName === null && !$legacyCodeMatches) {
-            $this->SendDebug(__FUNCTION__, 'Disarm code rejected.', 0);
-            $this->AppendEvent(self::EVENT_DISARM_CODE_REJECTED);
-            $codeProtection = $this->RegisterRejectedDisarmCode($codeProtection);
-            if ($codeProtection['Locked']) {
-                $this->AppendEvent(self::EVENT_DISARM_CODE_LOCKED);
-            }
-
-            return false;
-        }
-
-        return $userName ?? '';
-    }
-
-    /** Applies the normal code protection before disarming one visualization partition. */
-    private function DisarmPartitionWithCode(string $partitionID, string $code): bool
-    {
-        try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        $userName = $this->AuthorizedDisarmUser($code);
-        if ($userName === false) {
-            return false;
-        }
-        if ($partitionID === $this->DefaultPartitionID()) {
-            return $this->DisarmInternal($userName);
-        }
-
-        $this->ResetDisarmCodeProtection();
-        return $this->DisarmPartitionInternal($partitionID, $userName);
     }
 
     /**
@@ -2273,6 +2192,87 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
             $this->OutputIPSViewResponse(['Error' => 'Action failed.'], 500);
         }
+    }
+
+    /** Disarms a resolved non-default partition and records an optional user name. */
+    private function DisarmPartitionInternal(string $partitionID, string $userName): bool
+    {
+        $states = $this->ReadPartitionRuntime();
+        $wasAlarm = $states[$partitionID]['State'] === self::STATE_ALARM;
+        $hadActiveState = $states[$partitionID]['State'] !== self::STATE_DISARMED
+            || $states[$partitionID]['Mode'] !== self::MODE_NONE;
+        if ($wasAlarm) {
+            $this->ResetPartitionAlarmOutputInternal($partitionID);
+        }
+        $states[$partitionID] = AlarmPartitionRuntime::disarm($states[$partitionID]);
+        $this->WritePartitionRuntime($states);
+        $this->SchedulePartitionRuntimeTimer($states);
+        if ($wasAlarm) {
+            $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
+        }
+        if ($hadActiveState) {
+            $this->AppendEvent(self::EVENT_DISARMED, $userName, self::MODE_NONE, self::STATE_DISARMED, $partitionID);
+        }
+        $this->PublishVisualizationState();
+        return true;
+    }
+
+    /** Validates the user-facing disarm code and returns the non-sensitive event source. */
+    private function AuthorizedDisarmUser(string $code): string|false
+    {
+        $configuredCode = trim($this->ReadPropertyString(self::PROPERTY_DISARM_CODE));
+        $users = $this->ReadConfiguredDisarmUsers();
+        if ($configuredCode === '' && !AlarmDisarmUserRegistry::hasEnabledCode($users)) {
+            return '';
+        }
+
+        if ($configuredCode !== '' && preg_match('/^[0-9]{4,8}$/', $configuredCode) !== 1) {
+            $this->SendDebug(__FUNCTION__, 'Configured disarm code is invalid.', 0);
+
+            return false;
+        }
+
+        $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+        if ($codeProtection['Locked']) {
+            $this->SendDebug(__FUNCTION__, 'Disarm code entry is temporarily locked.', 0);
+
+            return false;
+        }
+
+        $userName = AlarmDisarmUserRegistry::matchingUser($code, $users);
+        $legacyCodeMatches = $configuredCode !== '' && hash_equals($configuredCode, trim($code));
+        if ($userName === null && !$legacyCodeMatches) {
+            $this->SendDebug(__FUNCTION__, 'Disarm code rejected.', 0);
+            $this->AppendEvent(self::EVENT_DISARM_CODE_REJECTED);
+            $codeProtection = $this->RegisterRejectedDisarmCode($codeProtection);
+            if ($codeProtection['Locked']) {
+                $this->AppendEvent(self::EVENT_DISARM_CODE_LOCKED);
+            }
+
+            return false;
+        }
+
+        return $userName ?? '';
+    }
+
+    /** Applies the normal code protection before disarming one visualization partition. */
+    private function DisarmPartitionWithCode(string $partitionID, string $code): bool
+    {
+        try {
+            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+        $userName = $this->AuthorizedDisarmUser($code);
+        if ($userName === false) {
+            return false;
+        }
+        if ($partitionID === $this->DefaultPartitionID()) {
+            return $this->DisarmInternal($userName);
+        }
+
+        $this->ResetDisarmCodeProtection();
+        return $this->DisarmPartitionInternal($partitionID, $userName);
     }
 
     private function DisarmInternal(string $userName): bool

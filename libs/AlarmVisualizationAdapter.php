@@ -17,15 +17,15 @@ final class AlarmVisualizationAdapter
     public static function command(string $action, mixed $value): array
     {
         $normalizedValue = match ($action) {
-            'ArmPartition'                                                                                  => self::partitionValue($value, true),
+            'ArmPartition'                                                                                              => self::partitionValue($value, true),
             'DisarmPartition', 'ClearSensorBypassesPartition', 'ClearAlarmMemoryPartition', 'ResetAlarmOutputPartition' => self::partitionValue($value, false),
-            'DisarmPartitionWithCode'                                                                       => self::partitionValue($value, true),
-            'Arm'                                                                                           => self::stringValue($value, 'Arm action requires a mode string.'),
-            'DisarmWithCode'                                                                                => self::stringValue($value, 'DisarmWithCode action requires a code string.'),
-            'ExportEventHistory', 'ExportDiagnostics'                                                       => self::exportFormat($value),
-            'BypassSensor', 'RemoveSensorBypass'                                                            => self::variableID($value),
-            'Disarm', 'RefreshVisualization', 'ClearSensorBypasses', 'ClearAlarmMemory', 'ResetAlarmOutput' => null,
-            default                                                                                         => throw new InvalidArgumentException('Unknown visualization action.')
+            'DisarmPartitionWithCode'                                                                                   => self::partitionValue($value, true),
+            'Arm'                                                                                                       => self::stringValue($value, 'Arm action requires a mode string.'),
+            'DisarmWithCode'                                                                                            => self::stringValue($value, 'DisarmWithCode action requires a code string.'),
+            'ExportEventHistory', 'ExportDiagnostics'                                                                   => self::exportFormat($value),
+            'BypassSensor', 'RemoveSensorBypass'                                                                        => self::variableID($value),
+            'Disarm', 'RefreshVisualization', 'ClearSensorBypasses', 'ClearAlarmMemory', 'ResetAlarmOutput'             => null,
+            default                                                                                                     => throw new InvalidArgumentException('Unknown visualization action.')
         };
 
         return ['Action' => $action, 'Value' => $normalizedValue];
