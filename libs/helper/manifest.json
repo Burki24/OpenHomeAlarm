@@ -149,7 +149,8 @@
         "VariablePresentationHelper": {
             "version": "2.0.0",
             "sha256": "ce620078e72bcbffed1adfdd02e8f64baf5f2b2e8e1531e3bb1ae7b32b390fb8",
-            "path": "libs/helper/VariablePresentationHelper.php"
+            "path": "libs/helper/VariablePresentationHelper.php",
+            "source_sha": "d0bb3e0a673de328d2cfc4dff53c6bce8dafe275"
         },
         "VisualizationAssetHelper": {
             "version": "1.0.0",
