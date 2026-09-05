@@ -92,7 +92,8 @@ foreach ([$moduleReadme, $rootReadme] as $readme) {
     assertPartition(
         str_contains($readme, "OHA_ArmPartition(12345, 'garage', 'away')")
             && str_contains($readme, "OHA_DisarmPartition(12345, 'garage')")
-            && str_contains($readme, '1 bis 32 Kleinbuchstaben')
+            && str_contains($readme, '1 bis 32')
+            && str_contains($readme, '`garage`')
             && str_contains($readme, 'Standardbereich'),
         'Both READMEs must document partition IDs, the default partition and independent operation.'
     );

@@ -17,30 +17,35 @@ Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als
 
 ## Alarmbereiche – Kurzstart
 
-OpenHomeAlarm kann mehrere Alarmbereiche unabhängig verwalten. **Aktiv** stellt
-einen Bereich lediglich zur Verfügung und schaltet ihn noch nicht scharf. Genau
-ein aktiver Bereich muss als **Standardbereich** markiert sein; auf ihn beziehen
-sich die bisherigen Schaltbefehle und die zentrale Bedienung in Kachel und
-IPSView.
+Beispiel: Eine Garage soll unabhängig vom Hauptbereich geschaltet werden.
 
-Die technische Bereichs-ID muss mit einem Kleinbuchstaben beginnen und darf aus
-1 bis 32 Kleinbuchstaben, Ziffern, Unterstrichen oder Bindestrichen bestehen,
-beispielsweise `main`, `garage` oder `bereich_1`. Der sichtbare Name ist frei
-wählbar. Sensoren und Störungseingänge werden anschließend über das Auswahlfeld
-**Alarmbereich** zugeordnet.
-
-Zusätzliche Bereiche werden derzeit über die öffentliche PHP-API oder eigene
-Symcon-Skripte unabhängig geschaltet:
+1. Unter **Alarmbereiche** einen aktiven Eintrag mit der ID `garage` und dem
+   Namen `Garage` anlegen. Den vorhandenen Hauptbereich als einzigen
+   **Standardbereich** markiert lassen.
+2. **Änderungen übernehmen**.
+3. Die gewünschten Sensoren bearbeiten und im Feld **Alarmbereich** den Eintrag
+   **Garage** auswählen.
+4. Zum Schalten folgende Befehle in eigenen Symcon-Skripten verwenden:
 
 ```php
+// Nur die Garage im Abwesend-Modus scharfschalten
 OHA_ArmPartition(12345, 'garage', 'away');
+
+// Nur die Garage unscharf schalten
 OHA_DisarmPartition(12345, 'garage');
 ```
 
-`12345` muss durch die ID der OpenHomeAlarm-Instanz ersetzt werden. Das
-Scharfschalten oder Unscharfschalten eines Bereichs verändert die anderen
-Bereiche nicht. Eine vollständige Schritt-für-Schritt-Anleitung enthält die
-[Moduldokumentation](OpenHomeAlarm#alarmbereiche).
+`12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen. Zulässige Modi
+sind `home`, `away` und `night`. Andere Alarmbereiche werden durch diese Befehle
+nicht verändert.
+
+**Aktiv** bedeutet nur, dass ein Bereich verwendet werden kann; es schaltet ihn
+nicht scharf. Kachel und IPSView bedienen derzeit den Standardbereich.
+
+Die Bereichs-ID muss mit einem Kleinbuchstaben beginnen. Zulässig sind insgesamt
+1 bis 32 Kleinbuchstaben, Ziffern, `_` oder `-`, beispielsweise `main`, `garage`
+oder `bereich_1`. Der Anzeigename ist frei wählbar. Weitere Erläuterungen stehen
+in der [vollständigen Anleitung](OpenHomeAlarm#alarmbereiche).
 
 ## Sicherheit
 

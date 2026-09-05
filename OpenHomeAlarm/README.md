@@ -48,31 +48,70 @@ Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Ein
 
 #### Alarmbereiche
 
-Eine Instanz verwaltet mehrere Alarmbereiche über stabile technische IDs und frei wählbare Namen. Eine Bereichs-ID muss mit einem Kleinbuchstaben beginnen und darf insgesamt 1 bis 32 Kleinbuchstaben, Ziffern, Unterstriche oder Bindestriche enthalten. Gültige IDs sind beispielsweise `main`, `garage`, `erdgeschoss`, `bereich_1` und `aussen-2`; `1`, `Garage`, `außen` oder `mein bereich` sind nicht zulässig. Die ID wird in Skripten und gespeicherten Zuordnungen verwendet und sollte deshalb nach der Einrichtung nicht ohne Anpassung aller Verwendungen geändert werden. Der sichtbare Name darf dagegen frei gewählt werden, beispielsweise `Garage und Werkstatt`.
+Mit Alarmbereichen können beispielsweise Wohnhaus und Garage unabhängig voneinander scharf- und unscharf geschaltet werden.
 
-Die drei Einstellungen eines Bereichs haben unterschiedliche Bedeutungen:
+##### Beispiel: Bereich „Garage“ einrichten
 
-- **Aktiv** stellt den Bereich für Zuordnungen und Bedienung zur Verfügung, schaltet ihn aber nicht scharf.
-- **Standardbereich** bestimmt, welcher Bereich von den bisherigen Befehlen wie `OHA_ArmAway()` und `OHA_Disarm()` sowie von der zentralen Kachelbedienung verwendet wird. Genau ein aktiver Bereich muss als Standard markiert sein.
-- **Scharfgeschaltet** ist ein Laufzeitzustand. Jeder aktive Bereich kann unabhängig in den Modus `home`, `away` oder `night` geschaltet werden, ohne den Zustand der anderen Bereiche zu verändern.
+**1. Bereich anlegen**
 
-So wird ein zusätzlicher Bereich eingerichtet und bedient:
+In der Instanzkonfiguration unter **Alarmbereiche** auf **Hinzufügen** klicken und folgende Werte eintragen:
 
-1. Unter **Alarmbereiche** einen Eintrag anlegen, **Aktiv** einschalten, eine technische ID wie `garage` und einen verständlichen Namen wie `Garage` vergeben. Nur den gewünschten Hauptbereich als **Standardbereich** markieren.
-2. Änderungen übernehmen. Anschließend den Sensor oder Störungseingang bearbeiten und im Auswahlfeld **Alarmbereich** den neuen Bereich auswählen. Eine leere Zuordnung verwendet automatisch den Standardbereich.
-3. Den zusätzlichen Bereich über die öffentliche PHP-API schalten; `12345` ist dabei durch die ID der OpenHomeAlarm-Instanz zu ersetzen:
+| Feld | Wert im Beispiel | Bedeutung |
+| --- | --- | --- |
+| Aktiv | Ein | Der Bereich kann verwendet werden. Er ist dadurch noch nicht scharfgeschaltet. |
+| Bereichs-ID | `garage` | Technischer Schlüssel für Zuordnungen und PHP-Befehle |
+| Name | `Garage` | Frei wählbarer Anzeigename |
+| Standardbereich | Aus | Nur der Hauptbereich soll Standardbereich bleiben |
+
+Danach **Änderungen übernehmen**. Genau ein aktiver Bereich muss als Standardbereich markiert sein.
+
+**2. Sensoren zuordnen**
+
+Den gewünschten Eintrag unter **Sensoren und Auslöser** beziehungsweise **Systemüberwachung** bearbeiten. Im Feld **Alarmbereich** den Eintrag **Garage** auswählen und die Änderungen übernehmen. Eine leere Zuordnung verwendet den Standardbereich.
+
+**3. Nur die Garage scharfschalten**
+
+Ein Symcon-Skript anlegen und folgenden Befehl verwenden:
 
 ```php
-// Nur die Garage im Abwesend-Modus scharfschalten.
 OHA_ArmPartition(12345, 'garage', 'away');
+```
 
-// Nur die Garage wieder unscharf schalten.
+- `12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen.
+- `garage` ist die zuvor eingetragene Bereichs-ID.
+- `away` ist der Scharfmodus. Zulässig sind `home`, `away` und `night`.
+- Der Befehl verändert keinen anderen Alarmbereich.
+
+**4. Nur die Garage unscharf schalten**
+
+```php
 OHA_DisarmPartition(12345, 'garage');
 ```
 
-Die zentrale Bedienung in der HTML-SDK-Kachel und der IPSView-Seite schaltet derzeit den Standardbereich. Für zusätzliche Bereiche gibt es dort noch keine sichtbare Bereichsauswahl; sie werden über `OHA_ArmPartition()` und `OHA_DisarmPartition()` oder darauf aufbauende Symcon-Skripte bedient. Änderungen an Bereichen, Sensoren und Störungseingängen sind aus Sicherheitsgründen nur möglich, wenn alle Bereiche unscharf sind.
+Auch dieser Befehl verändert keinen anderen Alarmbereich.
 
-Die Control API 2 veröffentlicht alle aktiven Bereiche mit ihrem jeweils eigenen Modus, Zustand, Ein- oder Ausgangs-Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions` und nennt die Standard-ID in `DefaultPartition`; `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Metadaten separat. Die bisherigen Modus-, Zustands- und Verzögerungsvariablen sowie die bisherigen Schaltbefehle bleiben kompatibel und beziehen sich auf den Standardbereich. Die Laufzeit, Fristen und Alarmdaten aller Bereiche werden neustartsicher gespeichert. `AlarmOutputActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` bilden als bestehende Instanzvariablen eine sichere Gesamtübersicht über alle Bereiche.
+##### Was bedeuten die Begriffe?
+
+| Begriff | Bedeutung |
+| --- | --- |
+| Aktiv | Der Bereich steht zur Verfügung und kann Sensoren erhalten. Das ist kein Scharfbefehl. |
+| Standardbereich | Bereich, den die bisherigen Schaltbefehle sowie die zentrale Kachel- und IPSView-Bedienung verwenden |
+| Scharfgeschaltet | Laufzeitzustand eines Bereichs; seine zugeordneten Sensoren werden entsprechend dem gewählten Modus überwacht |
+
+Die HTML-SDK-Kachel und die IPSView-Seite besitzen derzeit keine Bereichsauswahl und bedienen den Standardbereich. Zusätzliche Bereiche werden über die gezeigten PHP-Befehle oder eigene darauf aufbauende Symcon-Skripte bedient.
+
+##### Regeln für die Bereichs-ID
+
+- 1 bis 32 Zeichen
+- beginnt mit einem Kleinbuchstaben
+- danach sind Kleinbuchstaben, Ziffern, `_` und `-` zulässig
+- keine Leerzeichen, Großbuchstaben oder Umlaute
+
+Gültig sind beispielsweise `main`, `garage`, `erdgeschoss`, `bereich_1` und `aussen-2`. Ungültig sind `1`, `Garage`, `außen` und `mein bereich`. Da die ID in Zuordnungen und Skripten verwendet wird, sollte sie später nicht ohne Anpassung dieser Verwendungen geändert werden.
+
+##### Technischer Hintergrund
+
+Änderungen an Bereichen, Sensoren und Störungseingängen sind nur möglich, wenn alle Bereiche unscharf sind. Die Control API 2 veröffentlicht jeden aktiven Bereich mit eigenem Modus, Zustand, Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions`; `DefaultPartition` nennt die Standard-ID. `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Bereichsmetadaten. Laufzeiten, Fristen und Alarmdaten werden neustartsicher gespeichert. Die bestehenden Instanzvariablen `AlarmOutputActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` fassen den Gesamtzustand aller Bereiche zusammen.
 
 ### 5. Statusvariablen und Darstellungen
 
