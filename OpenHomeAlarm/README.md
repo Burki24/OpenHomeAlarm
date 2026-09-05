@@ -48,7 +48,31 @@ Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Ein
 
 #### Alarmbereiche
 
-Eine Instanz verwaltet mehrere Alarmbereiche über stabile technische IDs und frei wählbare Namen. Genau ein aktiver Bereich ist als Standardbereich markiert. Die Control API 2 veröffentlicht alle aktiven Bereiche mit ihrem jeweils eigenen Modus, Zustand, Ein- oder Ausgangs-Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions` und nennt die Standard-ID in `DefaultPartition`; `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Metadaten separat. Die bisherigen Modus-, Zustands- und Verzögerungsvariablen sowie die bisherigen Schaltbefehle bleiben kompatibel und beziehen sich auf den Standardbereich. Weitere Bereiche werden mit `OHA_ArmPartition()` und `OHA_DisarmPartition()` unabhängig bedient; ihre Laufzeit, Fristen und Alarmdaten werden neustartsicher gespeichert. `AlarmOutputActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` bilden als bestehende Instanzvariablen eine sichere Gesamtübersicht über alle Bereiche.
+Eine Instanz verwaltet mehrere Alarmbereiche über stabile technische IDs und frei wählbare Namen. Eine Bereichs-ID muss mit einem Kleinbuchstaben beginnen und darf insgesamt 1 bis 32 Kleinbuchstaben, Ziffern, Unterstriche oder Bindestriche enthalten. Gültige IDs sind beispielsweise `main`, `garage`, `erdgeschoss`, `bereich_1` und `aussen-2`; `1`, `Garage`, `außen` oder `mein bereich` sind nicht zulässig. Die ID wird in Skripten und gespeicherten Zuordnungen verwendet und sollte deshalb nach der Einrichtung nicht ohne Anpassung aller Verwendungen geändert werden. Der sichtbare Name darf dagegen frei gewählt werden, beispielsweise `Garage und Werkstatt`.
+
+Die drei Einstellungen eines Bereichs haben unterschiedliche Bedeutungen:
+
+- **Aktiv** stellt den Bereich für Zuordnungen und Bedienung zur Verfügung, schaltet ihn aber nicht scharf.
+- **Standardbereich** bestimmt, welcher Bereich von den bisherigen Befehlen wie `OHA_ArmAway()` und `OHA_Disarm()` sowie von der zentralen Kachelbedienung verwendet wird. Genau ein aktiver Bereich muss als Standard markiert sein.
+- **Scharfgeschaltet** ist ein Laufzeitzustand. Jeder aktive Bereich kann unabhängig in den Modus `home`, `away` oder `night` geschaltet werden, ohne den Zustand der anderen Bereiche zu verändern.
+
+So wird ein zusätzlicher Bereich eingerichtet und bedient:
+
+1. Unter **Alarmbereiche** einen Eintrag anlegen, **Aktiv** einschalten, eine technische ID wie `garage` und einen verständlichen Namen wie `Garage` vergeben. Nur den gewünschten Hauptbereich als **Standardbereich** markieren.
+2. Änderungen übernehmen. Anschließend den Sensor oder Störungseingang bearbeiten und im Auswahlfeld **Alarmbereich** den neuen Bereich auswählen. Eine leere Zuordnung verwendet automatisch den Standardbereich.
+3. Den zusätzlichen Bereich über die öffentliche PHP-API schalten; `12345` ist dabei durch die ID der OpenHomeAlarm-Instanz zu ersetzen:
+
+```php
+// Nur die Garage im Abwesend-Modus scharfschalten.
+OHA_ArmPartition(12345, 'garage', 'away');
+
+// Nur die Garage wieder unscharf schalten.
+OHA_DisarmPartition(12345, 'garage');
+```
+
+Die zentrale Bedienung in der HTML-SDK-Kachel und der IPSView-Seite schaltet derzeit den Standardbereich. Für zusätzliche Bereiche gibt es dort noch keine sichtbare Bereichsauswahl; sie werden über `OHA_ArmPartition()` und `OHA_DisarmPartition()` oder darauf aufbauende Symcon-Skripte bedient. Änderungen an Bereichen, Sensoren und Störungseingängen sind aus Sicherheitsgründen nur möglich, wenn alle Bereiche unscharf sind.
+
+Die Control API 2 veröffentlicht alle aktiven Bereiche mit ihrem jeweils eigenen Modus, Zustand, Ein- oder Ausgangs-Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions` und nennt die Standard-ID in `DefaultPartition`; `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Metadaten separat. Die bisherigen Modus-, Zustands- und Verzögerungsvariablen sowie die bisherigen Schaltbefehle bleiben kompatibel und beziehen sich auf den Standardbereich. Die Laufzeit, Fristen und Alarmdaten aller Bereiche werden neustartsicher gespeichert. `AlarmOutputActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` bilden als bestehende Instanzvariablen eine sichere Gesamtübersicht über alle Bereiche.
 
 ### 5. Statusvariablen und Darstellungen
 

@@ -78,6 +78,25 @@ assertPartition(
     array_column($partitionList['columns'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'Default'],
     'The partition form must expose stable identity and default selection fields.'
 );
+$formJSON = json_encode($form, JSON_THROW_ON_ERROR);
+assertPartition(
+    str_contains($formJSON, 'Enabled makes a partition available but does not arm it.')
+        && str_contains($formJSON, 'Partition IDs must start with a lowercase letter')
+        && str_contains($formJSON, 'main, garage or area_1'),
+    'The partition form must explain activation semantics, the ID format and valid examples.'
+);
+
+$moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
+$rootReadme = (string) file_get_contents(dirname(__DIR__) . '/README.md');
+foreach ([$moduleReadme, $rootReadme] as $readme) {
+    assertPartition(
+        str_contains($readme, "OHA_ArmPartition(12345, 'garage', 'away')")
+            && str_contains($readme, "OHA_DisarmPartition(12345, 'garage')")
+            && str_contains($readme, '1 bis 32 Kleinbuchstaben')
+            && str_contains($readme, 'Standardbereich'),
+        'Both READMEs must document partition IDs, the default partition and independent operation.'
+    );
+}
 
 $moduleSource = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/module.php');
 assertPartition(

@@ -11,7 +11,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Configure independently addressable alarm areas. Exactly one enabled partition must be the default."
+                    "caption": "Enabled makes a partition available but does not arm it. Exactly one enabled partition must be the default."
                 },
                 {
                     "type": "List",
@@ -62,7 +62,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Partition IDs are stable technical identifiers and cannot contain spaces."
+                    "caption": "Partition IDs must start with a lowercase letter and may contain up to 32 lowercase letters, digits, underscores or hyphens (for example main, garage or area_1). The name is freely selectable."
                 }
             ]
         },

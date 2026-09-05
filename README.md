@@ -15,6 +15,33 @@ Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als
 
 - Symcon ab Version 9.0
 
+## Alarmbereiche – Kurzstart
+
+OpenHomeAlarm kann mehrere Alarmbereiche unabhängig verwalten. **Aktiv** stellt
+einen Bereich lediglich zur Verfügung und schaltet ihn noch nicht scharf. Genau
+ein aktiver Bereich muss als **Standardbereich** markiert sein; auf ihn beziehen
+sich die bisherigen Schaltbefehle und die zentrale Bedienung in Kachel und
+IPSView.
+
+Die technische Bereichs-ID muss mit einem Kleinbuchstaben beginnen und darf aus
+1 bis 32 Kleinbuchstaben, Ziffern, Unterstrichen oder Bindestrichen bestehen,
+beispielsweise `main`, `garage` oder `bereich_1`. Der sichtbare Name ist frei
+wählbar. Sensoren und Störungseingänge werden anschließend über das Auswahlfeld
+**Alarmbereich** zugeordnet.
+
+Zusätzliche Bereiche werden derzeit über die öffentliche PHP-API oder eigene
+Symcon-Skripte unabhängig geschaltet:
+
+```php
+OHA_ArmPartition(12345, 'garage', 'away');
+OHA_DisarmPartition(12345, 'garage');
+```
+
+`12345` muss durch die ID der OpenHomeAlarm-Instanz ersetzt werden. Das
+Scharfschalten oder Unscharfschalten eines Bereichs verändert die anderen
+Bereiche nicht. Eine vollständige Schritt-für-Schritt-Anleitung enthält die
+[Moduldokumentation](OpenHomeAlarm#alarmbereiche).
+
 ## Sicherheit
 
 Hinweise zum Melden von Schwachstellen und zum Umgang mit dem Unscharfschaltcode stehen in [SECURITY.md](SECURITY.md).
