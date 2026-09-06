@@ -48,7 +48,14 @@ final class AlarmEscalationPlan
                 throw new UnexpectedValueException('Alarm escalation delay must be between 0 and 86400 seconds.');
             }
 
-            $actions = self::normalizeActions($step['Actions'] ?? null, $step['Action'] ?? null, $index, $enabled);
+            $actions = self::normalizeActions(
+                $step['Actions'] ?? null,
+                $step['Action'] ?? null,
+                $step['ResetEnabled'] ?? false,
+                $index,
+                $enabled,
+                $name
+            );
             if ($enabled && !array_filter($actions, static fn (array $action): bool => $action['Enabled'])) {
                 throw new UnexpectedValueException('Enabled alarm escalation steps require at least one enabled action.');
             }
@@ -200,13 +207,22 @@ final class AlarmEscalationPlan
     }
 
     /** @return list<array{Enabled:bool,Name:string,Action:string,ResetEnabled:bool}> */
-    private static function normalizeActions(mixed $configured, mixed $legacyAction, int $stepIndex, bool $stepEnabled): array
-    {
+    private static function normalizeActions(
+        mixed $configured,
+        mixed $legacyAction,
+        mixed $legacyResetEnabled,
+        int $stepIndex,
+        bool $stepEnabled,
+        string $stepName
+    ): array {
         if ($configured === null && $legacyAction !== null) {
+            if (!is_bool($legacyResetEnabled)) {
+                throw new UnexpectedValueException('Invalid automatic reset field type.');
+            }
             $legacy = self::normalizeAction($legacyAction);
             return $legacy === '' ? [] : [[
-                'Enabled' => true, 'Name' => sprintf('Action %d.1', $stepIndex + 1),
-                'Action'  => $legacy, 'ResetEnabled' => false
+                'Enabled' => true, 'Name' => trim($stepName) !== '' ? trim($stepName) : sprintf('Action %d', $stepIndex + 1),
+                'Action'  => $legacy, 'ResetEnabled' => $legacyResetEnabled
             ]];
         }
         if (is_string($configured)) {

@@ -441,13 +441,13 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Each escalation step contains its own action list. Use the gear button to add, edit or disable actions and their automatic reset."
+                    "caption": "Add one row for each escalation action. Actions with the same delay run together. Use the gear button to select the Symcon action."
                 },
                 {
                     "type": "List",
                     "name": "AlarmEscalationSteps",
-                    "caption": "Alarm escalation steps",
-                    "rowCount": 4,
+                    "caption": "Alarm escalation actions",
+                    "rowCount": 6,
                     "add": true,
                     "delete": true,
                     "columns": [
@@ -481,10 +481,13 @@
                             }
                         },
                         {
-                            "caption": "Configured actions",
-                            "name": "ActionCount",
+                            "caption": "Reset automatically",
+                            "name": "ResetEnabled",
                             "width": "150px",
-                            "save": false
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
                         }
                     ],
                     "form": [
@@ -506,68 +509,19 @@
                             "maximum": 86400
                         },
                         {
-                            "type": "List",
-                            "name": "Actions",
-                            "caption": "Actions",
-                            "rowCount": 4,
-                            "add": true,
-                            "delete": true,
-                            "columns": [
-                                {
-                                    "caption": "Enabled",
-                                    "name": "Enabled",
-                                    "width": "70px",
-                                    "add": true,
-                                    "edit": {
-                                        "type": "CheckBox"
-                                    }
-                                },
-                                {
-                                    "caption": "Name",
-                                    "name": "Name",
-                                    "width": "auto",
-                                    "add": "",
-                                    "edit": {
-                                        "type": "ValidationTextBox"
-                                    }
-                                },
-                                {
-                                    "caption": "Reset automatically",
-                                    "name": "ResetEnabled",
-                                    "width": "150px",
-                                    "add": true,
-                                    "edit": {
-                                        "type": "CheckBox"
-                                    }
-                                }
-                            ],
-                            "form": [
-                                {
-                                    "type": "CheckBox",
-                                    "name": "Enabled",
-                                    "caption": "Enabled"
-                                },
-                                {
-                                    "type": "ValidationTextBox",
-                                    "name": "Name",
-                                    "caption": "Name"
-                                },
-                                {
-                                    "type": "SelectAction",
-                                    "name": "Action",
-                                    "caption": "Action",
-                                    "targetID": -2
-                                },
-                                {
-                                    "type": "CheckBox",
-                                    "name": "ResetEnabled",
-                                    "caption": "Reset automatically"
-                                },
-                                {
-                                    "type": "Label",
-                                    "caption": "Automatic reset is available for Boolean set-value actions. Other action types are not inverted automatically."
-                                }
-                            ]
+                            "type": "SelectAction",
+                            "name": "Action",
+                            "caption": "Action",
+                            "targetID": -2
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "ResetEnabled",
+                            "caption": "Reset automatically"
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "Automatic reset is available for Boolean set-value actions. Other action types are not inverted automatically."
                         }
                     ]
                 },

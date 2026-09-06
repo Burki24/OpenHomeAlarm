@@ -772,20 +772,10 @@ $dynamicEscalationList = findAlarmActionFormField($dynamicForm['elements'] ?? []
 $dynamicEscalationValues = $dynamicEscalationList['values'] ?? [];
 assertAlarmAction(
     count($dynamicEscalationValues) === 1
-    && ($dynamicEscalationValues[0]['ActionCount'] ?? null) === 1
-    && is_string($dynamicEscalationValues[0]['Actions'] ?? null),
-    'GetConfigurationForm must pass nested escalation actions to the Symcon Console as encoded JSON.'
-);
-$dynamicEscalationActions = json_decode(
-    $dynamicEscalationValues[0]['Actions'],
-    true,
-    512,
-    JSON_THROW_ON_ERROR
-);
-assertAlarmAction(
-    count($dynamicEscalationActions) === 1
-    && ($dynamicEscalationActions[0]['Action'] ?? null) === $alarmAction,
-    'GetConfigurationForm must expose legacy single actions through the nested action editor and visible action count.'
+    && ($dynamicEscalationValues[0]['Name'] ?? null) === 'Legacy step'
+    && ($dynamicEscalationValues[0]['Action'] ?? null) === $alarmAction
+    && ($dynamicEscalationValues[0]['ResetEnabled'] ?? null) === false,
+    'GetConfigurationForm must expose a legacy single action as one directly editable escalation row.'
 );
 
 $dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);

@@ -2787,19 +2787,30 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function CreateAlarmEscalationListFormValues(): array
     {
         $steps = $this->ReadConfiguredAlarmEscalationSteps();
-        foreach ($steps as &$step) {
-            $step['ActionCount'] = count($step['Actions']);
-            // Nested Symcon List fields consume their value as encoded JSON.
-            // Passing the PHP array through the parent List turns it into
-            // "[object Object]" in the Console and makes the edit dialog fail.
-            $step['Actions'] = json_encode(
-                $step['Actions'],
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-            );
+        $values = [];
+        foreach ($steps as $step) {
+            if ($step['Actions'] === []) {
+                $values[] = [
+                    'Enabled'      => false,
+                    'Name'         => $step['Name'],
+                    'DelaySeconds' => $step['DelaySeconds'],
+                    'Action'       => '',
+                    'ResetEnabled' => false
+                ];
+                continue;
+            }
+            foreach ($step['Actions'] as $action) {
+                $values[] = [
+                    'Enabled'      => $step['Enabled'] && $action['Enabled'],
+                    'Name'         => $action['Name'],
+                    'DelaySeconds' => $step['DelaySeconds'],
+                    'Action'       => $action['Action'],
+                    'ResetEnabled' => $action['ResetEnabled']
+                ];
+            }
         }
-        unset($step);
 
-        return $steps;
+        return $values;
     }
 
     /**

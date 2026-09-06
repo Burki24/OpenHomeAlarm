@@ -145,32 +145,22 @@ foreach ($form['elements'] ?? [] as $element) {
 }
 assertEscalationPlan(is_array($list) && ($list['type'] ?? null) === 'List', 'Escalation steps must be configurable as a list.');
 assertEscalationPlan(
-    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ActionCount'],
-    'The escalation overview must expose the step and its configured action count without rendering native action payloads.'
+    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ResetEnabled'],
+    'The escalation list must expose one understandable row per action without rendering native action payloads.'
 );
 assertEscalationPlan(
-    (($list['columns'] ?? [])[3]['save'] ?? true) === false,
-    'The action count must remain a non-persistent form helper.'
-);
-$actionList = null;
-foreach ($list['form'] ?? [] as $field) {
-    if (($field['name'] ?? null) === 'Actions') {
-        $actionList = $field;
-    }
-}
-assertEscalationPlan(
-    is_array($actionList) && ($actionList['type'] ?? null) === 'List',
-    'Each escalation step must offer its own action list.'
+    (($list['columns'] ?? [])[3]['add'] ?? null) === true,
+    'Every visible escalation column needs a default value so Symcon can add a row.'
 );
 $actionSelector = null;
-foreach ($actionList['form'] ?? [] as $field) {
+foreach ($list['form'] ?? [] as $field) {
     if (($field['name'] ?? null) === 'Action') {
         $actionSelector = $field;
     }
 }
 assertEscalationPlan(
     ($actionSelector['type'] ?? null) === 'SelectAction' && ($actionSelector['targetID'] ?? null) === -2,
-    'Each nested escalation action must use the native Symcon action selector.'
+    'Each escalation row must use the native Symcon action selector in its single edit dialog.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm alarm escalation plan checks passed.\n");
