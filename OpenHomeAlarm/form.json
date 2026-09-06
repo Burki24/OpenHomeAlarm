@@ -20,6 +20,29 @@
                     "rowCount": 4,
                     "add": true,
                     "delete": true,
+                    "form": [
+                        {
+                            "type": "CheckBox",
+                            "name": "Enabled",
+                            "caption": "Enabled"
+                        },
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "ID",
+                            "caption": "Partition ID",
+                            "validate": "^[a-z][a-z0-9_-]{0,31}$"
+                        },
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "Name",
+                            "caption": "Name"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "Default",
+                            "caption": "Default partition"
+                        }
+                    ],
                     "columns": [
                         {
                             "caption": "Enabled",

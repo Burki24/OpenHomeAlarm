@@ -78,6 +78,12 @@ assertPartition(
     array_column($partitionList['columns'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'Default'],
     'The partition form must expose stable identity and default selection fields.'
 );
+assertPartition(
+    ($partitionList['add'] ?? false) === true
+        && ($partitionList['delete'] ?? false) === true
+        && array_column($partitionList['form'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'Default'],
+    'Alarm partitions must provide explicit add, edit and delete controls.'
+);
 $formJSON = json_encode($form, JSON_THROW_ON_ERROR);
 assertPartition(
     str_contains($formJSON, 'Enabled makes a partition available but does not arm it.')
