@@ -512,29 +512,55 @@
                                     "name": "Enabled",
                                     "width": "70px",
                                     "add": true,
-                                    "edit": { "type": "CheckBox" }
+                                    "edit": {
+                                        "type": "CheckBox"
+                                    }
                                 },
                                 {
                                     "caption": "Name",
                                     "name": "Name",
                                     "width": "auto",
                                     "add": "",
-                                    "edit": { "type": "ValidationTextBox" }
+                                    "edit": {
+                                        "type": "ValidationTextBox"
+                                    }
                                 },
                                 {
                                     "caption": "Reset automatically",
                                     "name": "ResetEnabled",
                                     "width": "150px",
                                     "add": true,
-                                    "edit": { "type": "CheckBox" }
+                                    "edit": {
+                                        "type": "CheckBox"
+                                    }
                                 }
                             ],
                             "form": [
-                                { "type": "CheckBox", "name": "Enabled", "caption": "Enabled" },
-                                { "type": "ValidationTextBox", "name": "Name", "caption": "Name" },
-                                { "type": "SelectAction", "name": "Action", "caption": "Action", "targetID": -2 },
-                                { "type": "CheckBox", "name": "ResetEnabled", "caption": "Reset automatically" },
-                                { "type": "Label", "caption": "Automatic reset is available for Boolean set-value actions. Other action types are not inverted automatically." }
+                                {
+                                    "type": "CheckBox",
+                                    "name": "Enabled",
+                                    "caption": "Enabled"
+                                },
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "Name",
+                                    "caption": "Name"
+                                },
+                                {
+                                    "type": "SelectAction",
+                                    "name": "Action",
+                                    "caption": "Action",
+                                    "targetID": -2
+                                },
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ResetEnabled",
+                                    "caption": "Reset automatically"
+                                },
+                                {
+                                    "type": "Label",
+                                    "caption": "Automatic reset is available for Boolean set-value actions. Other action types are not inverted automatically."
+                                }
                             ]
                         }
                     ]
