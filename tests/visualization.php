@@ -115,6 +115,10 @@ assertVisualization(
 assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'"), 'Visualization must arm the selected partition through RequestAction.');
 assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'"), 'Visualization must disarm the selected partition through RequestAction.');
 assertVisualization(
+    str_contains($javascript, 'JSON.stringify({ PartitionID: partitionID, Value: value })'),
+    'Partition visualization commands must cross the native RequestAction boundary as scalar JSON strings.'
+);
+assertVisualization(
     str_contains($html, 'id="partitionNav"')
         && str_contains($javascript, 'function ohaRenderPartitions(state)')
         && str_contains($javascript, "'[data-partition-id], [data-action=\"arm\"]")

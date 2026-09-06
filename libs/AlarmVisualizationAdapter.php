@@ -34,8 +34,15 @@ final class AlarmVisualizationAdapter
     /** @return array{PartitionID:string,Value:mixed} */
     private static function partitionValue(mixed $value, bool $requiresValue): array
     {
+        if (is_string($value)) {
+            try {
+                $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                throw new InvalidArgumentException('Partition visualization action contains invalid JSON.');
+            }
+        }
         if (!is_array($value)) {
-            throw new InvalidArgumentException('Partition visualization action requires an object.');
+            throw new InvalidArgumentException('Partition visualization action requires a JSON object.');
         }
 
         $partitionID = strtolower(trim(self::stringValue(

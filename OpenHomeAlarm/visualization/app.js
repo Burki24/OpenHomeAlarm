@@ -195,7 +195,7 @@ function ohaRenderPartitions(state) {
 
 function ohaRequestPartitionAction(action, value = null) {
     const partitionID = ohaSelectedState()?.ID ?? ohaState?.DefaultPartition ?? '';
-    ohaRequestAction(action, { PartitionID: partitionID, Value: value });
+    ohaRequestAction(action, JSON.stringify({ PartitionID: partitionID, Value: value }));
 }
 
 function ohaAllModesReady(state) {

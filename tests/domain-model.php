@@ -253,14 +253,20 @@ assertDomainSame(
 );
 assertDomainSame(
     ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night']],
-    AlarmVisualizationAdapter::command('ArmPartition', ['PartitionID' => 'Garage', 'Value' => 'night']),
-    'Partition visualization commands must normalize their partition ID and preserve their action value.'
+    AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"Garage","Value":"night"}'),
+    'Partition visualization commands must decode scalar JSON transport, normalize their partition ID and preserve their action value.'
 );
 assertDomainSame(
     ['Action' => 'DisarmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => null]],
     AlarmVisualizationAdapter::command('DisarmPartition', ['PartitionID' => 'garage']),
     'Partition visualization commands without an action value must preserve their explicit partition ID.'
 );
+try {
+    AlarmVisualizationAdapter::command('ArmPartition', '{invalid');
+    throw new RuntimeException('Invalid partition command JSON must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Partition visualization action contains invalid JSON.', $exception->getMessage(), 'Invalid partition JSON must expose a stable diagnostic.');
+}
 try {
     AlarmVisualizationAdapter::command('Arm', 2);
     throw new RuntimeException('A non-string visualization mode must be rejected.');
