@@ -61,7 +61,6 @@ require_once __DIR__ . '/../libs/helper/VisualizationThemeConfigurationHelper.ph
  */
 class OpenHomeAlarm extends IPSModuleStrict
 {
-    private const STATUS_INVALID_PARTITIONS = 201;
     use \Burki24\SymconModuleHelper\ConfigurationFormHelper;
     use \Burki24\SymconModuleHelper\IPSViewHTMLPageHelper;
     use \Burki24\SymconModuleHelper\IPSViewStyleConfigurationHelper;
@@ -71,6 +70,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     use \Burki24\SymconModuleHelper\VisualizationThemeConfigurationHelper;
 
     private const CONTROL_API_VERSION = 2;
+    private const STATUS_INVALID_PARTITIONS = 201;
     private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area","Default":true}]';
 
     private const MODE_NONE = AlarmStateMachine::MODE_NONE;
