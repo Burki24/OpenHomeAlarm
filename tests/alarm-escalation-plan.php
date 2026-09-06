@@ -145,8 +145,12 @@ foreach ($form['elements'] ?? [] as $element) {
 }
 assertEscalationPlan(is_array($list) && ($list['type'] ?? null) === 'List', 'Escalation steps must be configurable as a list.');
 assertEscalationPlan(
-    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds'],
-    'The escalation overview must expose the step without rendering native action payloads.'
+    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ActionCount'],
+    'The escalation overview must expose the step and its configured action count without rendering native action payloads.'
+);
+assertEscalationPlan(
+    (($list['columns'] ?? [])[3]['save'] ?? true) === false,
+    'The action count must remain a non-persistent form helper.'
 );
 $actionList = null;
 foreach ($list['form'] ?? [] as $field) {

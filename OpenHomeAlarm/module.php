@@ -2771,6 +2771,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                     $element['values'] = $this->CreateTriggerListFormValues(self::PROPERTY_SENSORS);
                 } elseif (($element['name'] ?? null) === self::PROPERTY_FAULT_INPUTS) {
                     $element['values'] = $this->CreateTriggerListFormValues(self::PROPERTY_FAULT_INPUTS);
+                } elseif (($element['name'] ?? null) === self::PROPERTY_ALARM_ESCALATION_STEPS) {
+                    $element['values'] = $this->CreateAlarmEscalationListFormValues();
                 }
             }
 
@@ -2779,6 +2781,18 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
         unset($element);
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function CreateAlarmEscalationListFormValues(): array
+    {
+        $steps = $this->ReadConfiguredAlarmEscalationSteps();
+        foreach ($steps as &$step) {
+            $step['ActionCount'] = count($step['Actions']);
+        }
+        unset($step);
+
+        return $steps;
     }
 
     /**

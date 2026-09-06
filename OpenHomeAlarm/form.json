@@ -441,7 +441,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Each enabled escalation step runs all its enabled actions once after the configured delay. Boolean set-value actions can be reset automatically when the alarm output ends."
+                    "caption": "Each escalation step contains its own action list. Use the gear button to add, edit or disable actions and their automatic reset."
                 },
                 {
                     "type": "List",
@@ -479,6 +479,12 @@
                                 "minimum": 0,
                                 "maximum": 86400
                             }
+                        },
+                        {
+                            "caption": "Configured actions",
+                            "name": "ActionCount",
+                            "width": "150px",
+                            "save": false
                         }
                     ],
                     "form": [
@@ -566,9 +572,13 @@
                     ]
                 },
                 {
+                    "type": "Label",
+                    "caption": "The following optional action is independent of the automatic reset actions assigned to escalation steps."
+                },
+                {
                     "type": "Select",
                     "name": "AlarmResetActionEnabled",
-                    "caption": "Reset alarm output",
+                    "caption": "Additional action on alarm output reset",
                     "options": [
                         {
                             "caption": "No action",

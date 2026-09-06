@@ -384,10 +384,12 @@ function findAlarmActionFormField(array $elements, string $name): ?array
         if (($element['name'] ?? null) === $name) {
             return $element;
         }
-        if (isset($element['items']) && is_array($element['items'])) {
-            $found = findAlarmActionFormField($element['items'], $name);
-            if ($found !== null) {
-                return $found;
+        foreach (['items', 'form'] as $childField) {
+            if (isset($element[$childField]) && is_array($element[$childField])) {
+                $found = findAlarmActionFormField($element[$childField], $name);
+                if ($found !== null) {
+                    return $found;
+                }
             }
         }
     }
@@ -755,10 +757,25 @@ foreach (
 
 $dynamicFormInstance = new OpenHomeAlarm();
 $dynamicFormInstance->Create();
+$dynamicFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Legacy step',
+    'DelaySeconds' => 0,
+    'Action'       => $alarmAction
+]], JSON_THROW_ON_ERROR));
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction') === null,
     'GetConfigurationForm must omit disabled SelectAction fields completely.'
+);
+$dynamicEscalationList = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmEscalationSteps');
+$dynamicEscalationValues = $dynamicEscalationList['values'] ?? [];
+assertAlarmAction(
+    count($dynamicEscalationValues) === 1
+    && count($dynamicEscalationValues[0]['Actions'] ?? []) === 1
+    && ($dynamicEscalationValues[0]['ActionCount'] ?? null) === 1
+    && ($dynamicEscalationValues[0]['Actions'][0]['Action'] ?? null) === $alarmAction,
+    'GetConfigurationForm must expose legacy single actions through the nested action editor and visible action count.'
 );
 
 $dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
