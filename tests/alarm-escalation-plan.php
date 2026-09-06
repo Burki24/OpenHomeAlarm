@@ -22,17 +22,21 @@ $steps = AlarmEscalationPlan::steps(json_encode([
 assertEscalationPlan($steps[0]['Name'] === 'Immediate', 'Step names must be trimmed.');
 assertEscalationPlan($steps[0]['DelaySeconds'] === 0, 'Immediate escalation must retain a zero delay.');
 assertEscalationPlan(
-    json_decode($steps[0]['Action'], true, 512, JSON_THROW_ON_ERROR) === $action,
+    json_decode($steps[0]['Actions'][0]['Action'], true, 512, JSON_THROW_ON_ERROR) === $action,
     'A native list action object must be normalized without changing its payload.'
 );
+assertEscalationPlan(
+    $steps[0]['Actions'][0]['ResetEnabled'] === false,
+    'Migrated single actions must not unexpectedly enable automatic reset.'
+);
 assertEscalationPlan($steps[1]['Name'] === 'Step 2', 'Unnamed steps need a stable fallback name.');
-assertEscalationPlan($steps[1]['Action'] === '', 'Disabled steps may remain unconfigured.');
+assertEscalationPlan($steps[1]['Actions'] === [], 'Disabled steps may remain unconfigured.');
 assertEscalationPlan(AlarmEscalationPlan::steps('') === [], 'An empty configuration must disable escalation.');
 
 $runtime = AlarmEscalationPlan::start(1000);
-$firstKey = AlarmEscalationPlan::stepKey($steps[0], 0);
+$firstKey = AlarmEscalationPlan::actionKey($steps[0], 0, $steps[0]['Actions'][0], 0);
 assertEscalationPlan(
-    $runtime === ['StartedAt' => 1000, 'ExecutedStepKeys' => []],
+    $runtime === ['StartedAt' => 1000, 'ExecutedStepKeys' => [], 'ResetActionKeys' => [], 'ExecutedActions' => []],
     'A new escalation cycle must persist its absolute start and an empty execution set.'
 );
 assertEscalationPlan(
@@ -54,29 +58,69 @@ assertEscalationPlan(
     AlarmEscalationPlan::nextDeadline($scheduledSteps, $scheduledRuntime) === 1010,
     'The earliest unexecuted escalation deadline must drive the shared timer.'
 );
-$scheduledRuntime['ExecutedStepKeys'][] = AlarmEscalationPlan::stepKey($scheduledSteps[0], 0);
+$scheduledRuntime['ExecutedStepKeys'][] = AlarmEscalationPlan::actionKey(
+    $scheduledSteps[0],
+    0,
+    $scheduledSteps[0]['Actions'][0],
+    0
+);
 assertEscalationPlan(
     AlarmEscalationPlan::nextDeadline($scheduledSteps, $scheduledRuntime) === 1030,
     'The next pending step must take over after an earlier step executed.'
 );
-$scheduledRuntime['ExecutedStepKeys'][] = AlarmEscalationPlan::stepKey($scheduledSteps[1], 1);
+$scheduledRuntime['ExecutedStepKeys'][] = AlarmEscalationPlan::actionKey(
+    $scheduledSteps[1],
+    1,
+    $scheduledSteps[1]['Actions'][0],
+    0
+);
 assertEscalationPlan(
     AlarmEscalationPlan::nextDeadline($scheduledSteps, $scheduledRuntime) === 0,
     'A completed escalation plan must no longer schedule a timer.'
 );
 assertEscalationPlan(
     AlarmEscalationPlan::runtime(['StartedAt' => 1000, 'ExecutedStepKeys' => [$firstKey, $firstKey]])
-        === ['StartedAt' => 1000, 'ExecutedStepKeys' => [$firstKey]],
+        === [
+            'StartedAt'        => 1000,
+            'ExecutedStepKeys' => [$firstKey],
+            'ResetActionKeys'  => [],
+            'ExecutedActions'  => []
+        ],
     'Persisted execution keys must be normalized without duplicates.'
 );
 assertEscalationPlan(AlarmEscalationPlan::runtime([]) === null, 'Missing runtime state must not create a historical escalation cycle.');
+
+$booleanAction = ['actionID' => '{SWITCH}', 'parameters' => ['VALUE' => true]];
+$multipleActions = AlarmEscalationPlan::steps(json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Outputs',
+    'DelaySeconds' => 0,
+    'Actions'      => [
+        ['Enabled' => true, 'Name' => 'Light', 'Action' => $booleanAction, 'ResetEnabled' => true],
+        ['Enabled' => true, 'Name' => 'Siren', 'Action' => $action, 'ResetEnabled' => false]
+    ]
+]], JSON_THROW_ON_ERROR));
+assertEscalationPlan(
+    count(AlarmEscalationPlan::dueSteps($multipleActions, AlarmEscalationPlan::start(1000), 1000)) === 2,
+    'Every enabled action of a due escalation step must execute independently.'
+);
+$inverse = AlarmEscalationPlan::inverseAction($multipleActions[0]['Actions'][0]['Action']);
+assertEscalationPlan(
+    json_decode($inverse, true, 512, JSON_THROW_ON_ERROR)['parameters']['VALUE'] === false,
+    'Automatic reset must invert the Boolean VALUE of a set-value action.'
+);
+assertEscalationPlan(
+    AlarmEscalationPlan::inverseAction($multipleActions[0]['Actions'][1]['Action']) === '',
+    'Actions without a Boolean VALUE must never receive a guessed inverse action.'
+);
 
 foreach ([
     '{}',
     '[{"Enabled":true,"DelaySeconds":-1,"Action":false}]',
     '[{"Enabled":true,"DelaySeconds":86401,"Action":false}]',
     '[{"Enabled":true,"DelaySeconds":0,"Action":false}]',
-    '[{"Enabled":true,"DelaySeconds":0,"Action":{"actionID":"{A}"}}]'
+    '[{"Enabled":true,"DelaySeconds":0,"Action":{"actionID":"{A}"}}]',
+    '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"TEXT":"Alarm"}},"ResetEnabled":true}]}]'
 ] as $invalidConfiguration) {
     try {
         AlarmEscalationPlan::steps($invalidConfiguration);
@@ -101,13 +145,28 @@ foreach ($form['elements'] ?? [] as $element) {
 }
 assertEscalationPlan(is_array($list) && ($list['type'] ?? null) === 'List', 'Escalation steps must be configurable as a list.');
 assertEscalationPlan(
-    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'Action'],
-    'The escalation list must expose the complete step contract.'
+    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds'],
+    'The escalation overview must expose the step without rendering native action payloads.'
 );
-$actionColumn = ($list['columns'] ?? [])[3] ?? [];
+$actionList = null;
+foreach ($list['form'] ?? [] as $field) {
+    if (($field['name'] ?? null) === 'Actions') {
+        $actionList = $field;
+    }
+}
 assertEscalationPlan(
-    ($actionColumn['edit']['type'] ?? null) === 'SelectAction' && ($actionColumn['edit']['targetID'] ?? null) === -2,
-    'Each escalation step must use the native Symcon action selector.'
+    is_array($actionList) && ($actionList['type'] ?? null) === 'List',
+    'Each escalation step must offer its own action list.'
+);
+$actionSelector = null;
+foreach ($actionList['form'] ?? [] as $field) {
+    if (($field['name'] ?? null) === 'Action') {
+        $actionSelector = $field;
+    }
+}
+assertEscalationPlan(
+    ($actionSelector['type'] ?? null) === 'SelectAction' && ($actionSelector['targetID'] ?? null) === -2,
+    'Each nested escalation action must use the native Symcon action selector.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm alarm escalation plan checks passed.\n");

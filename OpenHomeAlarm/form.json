@@ -441,7 +441,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Each enabled escalation step runs once after its configured delay, measured from the start of the global alarm output."
+                    "caption": "Each enabled escalation step runs all its enabled actions once after the configured delay. Boolean set-value actions can be reset automatically when the alarm output ends."
                 },
                 {
                     "type": "List",
@@ -479,16 +479,63 @@
                                 "minimum": 0,
                                 "maximum": 86400
                             }
+                        }
+                    ],
+                    "form": [
+                        {
+                            "type": "CheckBox",
+                            "name": "Enabled",
+                            "caption": "Enabled"
                         },
                         {
-                            "caption": "Action",
-                            "name": "Action",
-                            "width": "300px",
-                            "add": "",
-                            "edit": {
-                                "type": "SelectAction",
-                                "targetID": -2
-                            }
+                            "type": "ValidationTextBox",
+                            "name": "Name",
+                            "caption": "Name"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "DelaySeconds",
+                            "caption": "Delay (seconds)",
+                            "minimum": 0,
+                            "maximum": 86400
+                        },
+                        {
+                            "type": "List",
+                            "name": "Actions",
+                            "caption": "Actions",
+                            "rowCount": 4,
+                            "add": true,
+                            "delete": true,
+                            "columns": [
+                                {
+                                    "caption": "Enabled",
+                                    "name": "Enabled",
+                                    "width": "70px",
+                                    "add": true,
+                                    "edit": { "type": "CheckBox" }
+                                },
+                                {
+                                    "caption": "Name",
+                                    "name": "Name",
+                                    "width": "auto",
+                                    "add": "",
+                                    "edit": { "type": "ValidationTextBox" }
+                                },
+                                {
+                                    "caption": "Reset automatically",
+                                    "name": "ResetEnabled",
+                                    "width": "150px",
+                                    "add": true,
+                                    "edit": { "type": "CheckBox" }
+                                }
+                            ],
+                            "form": [
+                                { "type": "CheckBox", "name": "Enabled", "caption": "Enabled" },
+                                { "type": "ValidationTextBox", "name": "Name", "caption": "Name" },
+                                { "type": "SelectAction", "name": "Action", "caption": "Action", "targetID": -2 },
+                                { "type": "CheckBox", "name": "ResetEnabled", "caption": "Reset automatically" },
+                                { "type": "Label", "caption": "Automatic reset is available for Boolean set-value actions. Other action types are not inverted automatically." }
+                            ]
                         }
                     ]
                 },

@@ -1671,6 +1671,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SchedulePartitionAlarmOutputTimer($states);
         $after = AlarmPartitionAlarmRegistry::aggregate($states);
         if ($before['OutputActive'] && !$after['OutputActive']) {
+            $this->ResetExecutedAlarmEscalationActions();
             $this->StopAlarmEscalation();
             $this->RunConfiguredAction(self::PROPERTY_ALARM_RESET_ACTION);
         }
@@ -1682,6 +1683,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $states = $this->ReadPartitionAlarmStates();
         if (!AlarmPartitionAlarmRegistry::aggregate($states)['OutputActive']) {
+            $this->ResetExecutedAlarmEscalationActions();
             $this->StopAlarmEscalation();
 
             return;
@@ -1698,18 +1700,30 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $steps = $this->ReadConfiguredAlarmEscalationSteps();
         foreach (AlarmEscalationPlan::dueSteps($steps, $runtime, time()) as $due) {
-            // Persist first so action errors, ApplyChanges or a restart cannot repeat this step.
+            // Persist first so action errors, ApplyChanges or a restart cannot repeat this action.
             $runtime['ExecutedStepKeys'][] = $due['Key'];
+            $runtime['ExecutedActions'][] = [
+                'Key'          => $due['Key'],
+                'StepName'     => $due['Step']['Name'],
+                'ActionName'   => $due['Action']['Name'],
+                'ResetEnabled' => $due['Action']['ResetEnabled'],
+                'Action'       => $due['Action']['Action']
+            ];
             $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
             $result = AlarmActionExecutor::execute(
                 true,
-                $due['Step']['Action'],
+                $due['Action']['Action'],
                 static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
             );
             if ($result['Error'] !== null) {
                 $this->SendDebug(
                     __FUNCTION__,
-                    sprintf('Escalation step "%s": %s', $due['Step']['Name'], $result['Error']),
+                    sprintf(
+                        'Escalation action "%s" in step "%s": %s',
+                        $due['Action']['Name'],
+                        $due['Step']['Name'],
+                        $result['Error']
+                    ),
                     0
                 );
             }
@@ -2517,6 +2531,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SchedulePartitionAlarmOutputTimer($states);
         $after = AlarmPartitionAlarmRegistry::aggregate($states);
         if (!$after['OutputActive']) {
+            $this->ResetExecutedAlarmEscalationActions();
             $this->StopAlarmEscalation();
         }
         $runtime = $this->ReadPartitionRuntime();
@@ -5569,6 +5584,57 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
         $this->ClearPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
+    }
+
+    private function ResetExecutedAlarmEscalationActions(): void
+    {
+        $runtime = AlarmEscalationPlan::runtime(
+            $this->ReadPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME)
+        );
+        if ($runtime === null) {
+            return;
+        }
+
+        foreach (array_reverse($runtime['ExecutedActions']) as $executedAction) {
+            if (!$executedAction['ResetEnabled'] || in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
+                continue;
+            }
+
+            // Mark the reset before executing it so a failing action cannot loop after a restart.
+            $runtime['ResetActionKeys'][] = $executedAction['Key'];
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
+            $inverseAction = AlarmEscalationPlan::inverseAction($executedAction['Action']);
+            if ($inverseAction === '') {
+                $this->SendDebug(
+                    __FUNCTION__,
+                    sprintf(
+                        'Escalation action "%s" in step "%s" cannot be reset automatically.',
+                        $executedAction['ActionName'],
+                        $executedAction['StepName']
+                    ),
+                    0
+                );
+                continue;
+            }
+
+            $result = AlarmActionExecutor::execute(
+                true,
+                $inverseAction,
+                static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
+            );
+            if ($result['Error'] !== null) {
+                $this->SendDebug(
+                    __FUNCTION__,
+                    sprintf(
+                        'Reset of escalation action "%s" in step "%s": %s',
+                        $executedAction['ActionName'],
+                        $executedAction['StepName'],
+                        $result['Error']
+                    ),
+                    0
+                );
+            }
+        }
     }
 
     /**

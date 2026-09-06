@@ -636,6 +636,53 @@ assertAlarmAction(
     'Ending the last alarm output must cancel and clear its escalation cycle.'
 );
 
+// One escalation step may execute multiple actions and automatically invert Boolean set-value actions on reset.
+$testActions = [];
+$testValues[4001] = false;
+$multiEscalation = new OpenHomeAlarm();
+$multiEscalation->Create();
+$multiEscalation->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$multiEscalation->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$multiEscalation->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Outputs',
+    'DelaySeconds' => 0,
+    'Actions'      => [
+        [
+            'Enabled'      => true,
+            'Name'         => 'Light',
+            'Action'       => ['actionID' => '{LIGHT}', 'parameters' => ['VALUE' => true]],
+            'ResetEnabled' => true
+        ],
+        [
+            'Enabled'      => true,
+            'Name'         => 'Siren',
+            'Action'       => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+            'ResetEnabled' => true
+        ]
+    ]
+]], JSON_THROW_ON_ERROR));
+$multiEscalation->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($multiEscalation->ArmAway(), 'Multiple-action escalation test must arm successfully.');
+$testValues[4001] = true;
+$multiEscalation->MessageSink(32, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    count($testActions) === 2
+    && array_column($testActions, 'actionID') === ['{LIGHT}', '{SIREN}']
+    && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, true],
+    'A due escalation step must execute all configured actions.'
+);
+assertAlarmAction($multiEscalation->ResetAlarmOutput(), 'Multiple escalation actions must remain resettable.');
+assertAlarmAction(
+    count($testActions) === 4
+    && array_column(array_slice($testActions, 2), 'actionID') === ['{SIREN}', '{LIGHT}']
+    && array_column(array_column(array_slice($testActions, 2), 'parameters'), 'VALUE') === [false, false],
+    'Reset must invert all executed Boolean actions in reverse execution order.'
+);
+
 // ApplyChanges and a service restart use the persisted absolute start without repeating completed steps.
 $testActions = [];
 $testValues[4001] = false;
