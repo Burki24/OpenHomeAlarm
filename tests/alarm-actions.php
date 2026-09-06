@@ -727,30 +727,25 @@ assertAlarmAction(
     'GetConfigurationForm must inject the enabled native SelectAction with its stored value.'
 );
 assertAlarmAction(
-    ($dynamicAlarmActionToggle['onChange'] ?? null)
-        === "OHA_UpdateOptionalActionForm(\$id, 'AlarmAction', \$AlarmActionEnabled);",
-    'Optional action toggles must update their selector immediately in the open form.'
+    !array_key_exists('onChange', $dynamicAlarmActionToggle),
+    'Optional action toggles must not reload the complete configuration form when changed.'
 );
 $dynamicFormInstance->UpdateOptionalActionForm('AlarmAction', 0);
-$reloadedForms = $dynamicFormInstance->TestReloadedForms();
-$disabledDynamicForm = json_decode($reloadedForms[0] ?? '', true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
-    findAlarmActionFormField($disabledDynamicForm['elements'] ?? [], 'AlarmAction') === null,
-    'Disabling an optional action must reload a form that omits the native selector entirely.'
+    $dynamicFormInstance->TestReloadedForms() === [],
+    'A cached legacy onChange callback must no longer reload the complete form.'
 );
 assertAlarmAction(
     $dynamicFormInstance->TestFormUpdates() === [],
-    'Disabling an optional action must not leave a disabled SelectAction subject to native validation.'
+    'A SelectAction cannot safely be hidden because Symcon would still validate it.'
 );
 
 $enableDynamicFormInstance = new OpenHomeAlarm();
 $enableDynamicFormInstance->Create();
 $enableDynamicFormInstance->UpdateOptionalActionForm('FaultAction', 1);
-$enabledReloadedForms = $enableDynamicFormInstance->TestReloadedForms();
-$enabledDynamicForm = json_decode($enabledReloadedForms[0] ?? '', true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
-    is_array(findAlarmActionFormField($enabledDynamicForm['elements'] ?? [], 'FaultAction')),
-    'Enabling an optional action must reload a form containing its native selector.'
+    $enableDynamicFormInstance->TestReloadedForms() === [],
+    'Enabling an optional action must wait for the normal Apply cycle instead of reloading the form.'
 );
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,
