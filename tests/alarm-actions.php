@@ -82,6 +82,9 @@ class IPSModuleStrict
     /** @var list<array{field:string,parameter:string,value:mixed}> */
     private array $formUpdates = [];
 
+    /** @var list<string> */
+    private array $reloadedForms = [];
+
     /** @var array<string,mixed> */
     private array $properties = [];
 
@@ -149,6 +152,12 @@ class IPSModuleStrict
     public function TestFormUpdates(): array
     {
         return $this->formUpdates;
+    }
+
+    /** @return list<string> */
+    public function TestReloadedForms(): array
+    {
+        return $this->reloadedForms;
     }
 
     public function TestSetAttributeString(string $name, string $value): void
@@ -319,6 +328,13 @@ class IPSModuleStrict
             'parameter' => $parameter,
             'value'     => $value
         ];
+
+        return true;
+    }
+
+    protected function ReloadForm(): bool
+    {
+        $this->reloadedForms[] = $this->GetConfigurationForm();
 
         return true;
     }
@@ -716,12 +732,25 @@ assertAlarmAction(
     'Optional action toggles must update their selector immediately in the open form.'
 );
 $dynamicFormInstance->UpdateOptionalActionForm('AlarmAction', 0);
+$reloadedForms = $dynamicFormInstance->TestReloadedForms();
+$disabledDynamicForm = json_decode($reloadedForms[0] ?? '', true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
-    $dynamicFormInstance->TestFormUpdates() === [
-        ['field' => 'AlarmAction', 'parameter' => 'value', 'value' => $alarmAction],
-        ['field' => 'AlarmAction', 'parameter' => 'enabled', 'value' => false]
-    ],
-    'Disabling an optional action must restore its applied target before native selector validation runs.'
+    findAlarmActionFormField($disabledDynamicForm['elements'] ?? [], 'AlarmAction') === null,
+    'Disabling an optional action must reload a form that omits the native selector entirely.'
+);
+assertAlarmAction(
+    $dynamicFormInstance->TestFormUpdates() === [],
+    'Disabling an optional action must not leave a disabled SelectAction subject to native validation.'
+);
+
+$enableDynamicFormInstance = new OpenHomeAlarm();
+$enableDynamicFormInstance->Create();
+$enableDynamicFormInstance->UpdateOptionalActionForm('FaultAction', 1);
+$enabledReloadedForms = $enableDynamicFormInstance->TestReloadedForms();
+$enabledDynamicForm = json_decode($enabledReloadedForms[0] ?? '', true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    is_array(findAlarmActionFormField($enabledDynamicForm['elements'] ?? [], 'FaultAction')),
+    'Enabling an optional action must reload a form containing its native selector.'
 );
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,

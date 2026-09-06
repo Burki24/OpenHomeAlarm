@@ -305,6 +305,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const IDENT_LAST_FAULT_TIME = 'LastFaultTime';
     private const IDENT_IPSVIEW_ALARM = 'IPSViewAlarm';
 
+    /** @var array<string,bool> */
+    private array $optionalActionFormOverrides = [];
+
     /**
      * Registers the persistent configuration, runtime state, timers and status variables.
      */
@@ -831,17 +834,13 @@ class OpenHomeAlarm extends IPSModuleStrict
             throw new InvalidArgumentException('Unknown optional action property.');
         }
 
-        $isEnabled = $enabled === 1;
-        if (!$isEnabled) {
-            $storedAction = trim($this->ReadPropertyString($propertyName));
-            if (!in_array($storedAction, ['', '{}', 'false', 'null'], true)) {
-                // SelectAction remains subject to native validation even while
-                // disabled. Restore the last applied selection when the user
-                // cleared the draft before disabling the optional action.
-                $this->UpdateFormField($propertyName, 'value', $storedAction);
-            }
-        }
-        $this->UpdateFormField($propertyName, 'enabled', $isEnabled);
+        // A disabled or hidden SelectAction is still validated by Symcon. The
+        // selector therefore has to be removed from the dynamic form entirely.
+        // The one-shot override bridges the unapplied Select value into the
+        // following GetConfigurationForm() call triggered by ReloadForm().
+        $toggleName = self::OPTIONAL_ACTION_FIELDS[$propertyName];
+        $this->optionalActionFormOverrides[$toggleName] = $enabled === 1;
+        $this->ReloadForm();
     }
 
     /**
@@ -2888,7 +2887,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 ($element['type'] ?? null) !== 'Select'
                 || !is_string($toggleName)
                 || !array_key_exists($toggleName, self::OPTIONAL_ACTION_FORM_FIELDS)
-                || $this->ReadPropertyInteger($toggleName) !== 1
+                || !$this->IsOptionalActionFormEnabled($toggleName)
             ) {
                 continue;
             }
@@ -2905,6 +2904,18 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $elements = $generated;
+    }
+
+    private function IsOptionalActionFormEnabled(string $toggleName): bool
+    {
+        if (array_key_exists($toggleName, $this->optionalActionFormOverrides)) {
+            $enabled = $this->optionalActionFormOverrides[$toggleName];
+            unset($this->optionalActionFormOverrides[$toggleName]);
+
+            return $enabled;
+        }
+
+        return $this->ReadPropertyInteger($toggleName) === 1;
     }
 
     /**
