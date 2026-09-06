@@ -2789,6 +2789,13 @@ class OpenHomeAlarm extends IPSModuleStrict
         $steps = $this->ReadConfiguredAlarmEscalationSteps();
         foreach ($steps as &$step) {
             $step['ActionCount'] = count($step['Actions']);
+            // Nested Symcon List fields consume their value as encoded JSON.
+            // Passing the PHP array through the parent List turns it into
+            // "[object Object]" in the Console and makes the edit dialog fail.
+            $step['Actions'] = json_encode(
+                $step['Actions'],
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
         }
         unset($step);
 
