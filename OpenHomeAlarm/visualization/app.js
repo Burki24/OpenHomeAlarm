@@ -182,13 +182,57 @@ function ohaRenderPartitions(state) {
     document.getElementById('partitionLabel').textContent = ohaTranslate('Select alarm partition');
     for (const partition of partitions) {
         const button = document.createElement('button');
+        const stateName = partition.State?.Name ?? 'disarmed';
+        const hasFault = Boolean(partition.Faults?.Active);
+        const hasAlarmMemory = Boolean(partition.Alarm?.MemoryActive);
+        const partitionName = partition.Name || partition.ID;
         button.className = 'oha-partition-tab';
         button.type = 'button';
         button.role = 'tab';
         button.dataset.partitionId = partition.ID;
         button.dataset.active = partition.ID === ohaSelectedPartitionID ? 'true' : 'false';
+        button.dataset.state = stateName;
+        button.dataset.fault = hasFault ? 'true' : 'false';
+        button.dataset.alarmMemory = hasAlarmMemory ? 'true' : 'false';
         button.setAttribute('aria-selected', button.dataset.active);
-        button.textContent = partition.Name || partition.ID;
+        const statusDescription = [partitionName, ohaStateCaption(stateName)];
+        if (hasFault) {
+            statusDescription.push(ohaTranslate('System fault active'));
+        }
+        if (hasAlarmMemory) {
+            statusDescription.push(ohaTranslate('Alarm stored'));
+        }
+        button.setAttribute('aria-label', statusDescription.join(', '));
+        button.title = statusDescription.join(' · ');
+
+        const indicator = document.createElement('span');
+        indicator.className = 'oha-partition-status';
+        indicator.setAttribute('aria-hidden', 'true');
+        const stateIcon = document.createElement('i');
+        stateIcon.className = `fa-light ${ohaStateIcon(stateName)}`;
+        indicator.appendChild(stateIcon);
+        const label = document.createElement('span');
+        label.textContent = partitionName;
+        const badges = document.createElement('span');
+        badges.className = 'oha-partition-badges';
+        badges.setAttribute('aria-hidden', 'true');
+        if (hasFault) {
+            const faultBadge = document.createElement('span');
+            faultBadge.className = 'oha-partition-badge oha-partition-badge-fault';
+            const faultIcon = document.createElement('i');
+            faultIcon.className = 'fa-light fa-triangle-exclamation';
+            faultBadge.appendChild(faultIcon);
+            badges.appendChild(faultBadge);
+        }
+        if (hasAlarmMemory) {
+            const memoryBadge = document.createElement('span');
+            memoryBadge.className = 'oha-partition-badge oha-partition-badge-memory';
+            const memoryIcon = document.createElement('i');
+            memoryIcon.className = 'fa-light fa-bell';
+            memoryBadge.appendChild(memoryIcon);
+            badges.appendChild(memoryBadge);
+        }
+        button.append(indicator, label, badges);
         tabs.appendChild(button);
     }
 }

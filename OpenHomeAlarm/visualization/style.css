@@ -247,23 +247,97 @@ button:focus-visible {
 }
 
 .oha-partition-tab {
+    --oha-partition-color: var(--oha-muted);
+    --oha-partition-background: var(--oha-surface);
+    --oha-partition-border: var(--oha-border);
+    display: inline-flex;
     min-height: 34px;
     flex: 0 0 auto;
+    align-items: center;
+    gap: 7px;
     padding: 6px 13px;
-    border: var(--oha-border-width) solid var(--oha-border);
+    border: var(--oha-border-width) solid var(--oha-partition-border);
     border-radius: 999px;
-    background: var(--oha-surface);
-    color: var(--oha-muted);
+    background: var(--oha-partition-background);
+    color: var(--oha-partition-color);
     cursor: pointer;
     font-size: 0.76rem;
     font-weight: 700;
 }
 
-.oha-partition-tab:hover,
+.oha-partition-tab[data-state="armed"] {
+    --oha-partition-color: var(--oha-success);
+    --oha-partition-background: var(--oha-success-soft);
+    --oha-partition-border: var(--oha-success-border);
+}
+
+.oha-partition-tab[data-state="exit_delay"],
+.oha-partition-tab[data-state="entry_delay"] {
+    --oha-partition-color: var(--oha-warning);
+    --oha-partition-background: var(--oha-warning-soft);
+    --oha-partition-border: color-mix(in srgb, var(--oha-warning) 42%, var(--oha-border));
+}
+
+.oha-partition-tab[data-state="alarm"] {
+    --oha-partition-color: var(--oha-danger);
+    --oha-partition-background: var(--oha-danger-soft);
+    --oha-partition-border: color-mix(in srgb, var(--oha-danger) 52%, var(--oha-border));
+}
+
+.oha-partition-status {
+    display: grid;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+    font-size: 0.68rem;
+}
+
+.oha-partition-badges {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.oha-partition-badge {
+    display: grid;
+    width: 15px;
+    height: 15px;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--oha-danger-contrast);
+    font-size: 0.58rem;
+    font-weight: 850;
+    line-height: 1;
+}
+
+.oha-partition-badge-fault {
+    background: var(--oha-warning);
+}
+
+.oha-partition-badge-memory {
+    background: var(--oha-danger);
+}
+
+.oha-partition-tab:hover {
+    filter: brightness(1.04);
+}
+
 .oha-partition-tab[data-active="true"] {
-    border-color: color-mix(in srgb, var(--oha-accent) 45%, var(--oha-border));
-    background: var(--oha-accent-soft);
-    color: var(--oha-accent);
+    box-shadow: 0 0 0 2px var(--oha-bg), 0 0 0 4px var(--oha-accent);
+}
+
+.oha-partition-tab[data-state="alarm"] .oha-partition-status {
+    animation: oha-partition-alarm-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes oha-partition-alarm-pulse {
+    50% {
+        opacity: 0.45;
+        transform: scale(1.3);
+    }
 }
 
 .oha-partition-tab:focus-visible {
@@ -1660,10 +1734,33 @@ html.oha-ipsview .oha-partition-label {
 html.oha-ipsview .oha-partition-tab {
     min-height: 30px;
     padding: 4px 10px;
-    border-color: var(--oha-panel-border);
-    background: var(--oha-surface-soft);
-    color: var(--oha-panel-muted);
+    --oha-partition-color: var(--oha-panel-muted);
+    --oha-partition-background: var(--oha-surface-soft);
+    --oha-partition-border: var(--oha-panel-border);
     font-size: 0.68rem;
+}
+
+html.oha-ipsview .oha-partition-tab[data-state="armed"] {
+    --oha-partition-color: var(--oha-success);
+    --oha-partition-background: var(--oha-success-soft);
+    --oha-partition-border: var(--oha-success-border);
+}
+
+html.oha-ipsview .oha-partition-tab[data-state="exit_delay"],
+html.oha-ipsview .oha-partition-tab[data-state="entry_delay"] {
+    --oha-partition-color: var(--oha-warning);
+    --oha-partition-background: var(--oha-warning-soft);
+}
+
+html.oha-ipsview .oha-partition-tab[data-state="alarm"] {
+    --oha-partition-color: var(--oha-danger);
+    --oha-partition-background: var(--oha-danger-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .oha-partition-tab[data-state="alarm"] .oha-partition-status {
+        animation: none;
+    }
 }
 
 html.oha-ipsview .oha-hero {

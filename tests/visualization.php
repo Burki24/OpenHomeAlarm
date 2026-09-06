@@ -129,6 +129,20 @@ assertVisualization(
     'Native and IPSView controls must select and operate one explicit alarm partition.'
 );
 assertVisualization(
+    str_contains($javascript, 'button.dataset.state = stateName;')
+        && str_contains($javascript, "button.dataset.fault = hasFault ? 'true' : 'false';")
+        && str_contains($javascript, "button.dataset.alarmMemory = hasAlarmMemory ? 'true' : 'false';")
+        && str_contains($javascript, "button.setAttribute('aria-label', statusDescription.join(', '));")
+        && str_contains($javascript, 'stateIcon.className = `fa-light ${ohaStateIcon(stateName)}`;')
+        && str_contains($javascript, "faultIcon.className = 'fa-light fa-triangle-exclamation';")
+        && str_contains($javascript, "memoryIcon.className = 'fa-light fa-bell';")
+        && str_contains($css, '.oha-partition-tab[data-state="armed"]')
+        && str_contains($css, '.oha-partition-tab[data-state="alarm"]')
+        && str_contains($css, '.oha-partition-badge-fault')
+        && str_contains($css, '.oha-partition-badge-memory'),
+    'Partition tabs must expose armed, delay, alarm, fault and alarm-memory states without relying on color alone.'
+);
+assertVisualization(
     str_contains($javascript, "ohaRequestPartitionAction('DisarmPartitionWithCode', code);")
         && str_contains($module, "case 'DisarmPartitionWithCode':")
         && str_contains($module, '$this->DisarmPartitionWithCode($Value[\'PartitionID\'], $Value[\'Value\'])'),
