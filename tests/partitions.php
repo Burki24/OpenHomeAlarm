@@ -91,6 +91,12 @@ assertPartition(
         && str_contains($formJSON, 'main, garage or area_1'),
     'The partition form must explain activation semantics, the ID format and valid examples.'
 );
+assertPartition(
+    ($form['status'][0]['code'] ?? null) === 201
+        && ($form['status'][0]['icon'] ?? null) === 'error'
+        && str_contains($form['status'][0]['caption'] ?? '', 'select exactly one enabled partition as the default'),
+    'Invalid partition configurations must have a user-facing Symcon status instead of producing an uncaught exception.'
+);
 
 $moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
 $rootReadme = (string) file_get_contents(dirname(__DIR__) . '/README.md');

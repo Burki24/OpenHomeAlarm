@@ -61,6 +61,7 @@ require_once __DIR__ . '/../libs/helper/VisualizationThemeConfigurationHelper.ph
  */
 class OpenHomeAlarm extends IPSModuleStrict
 {
+    private const STATUS_INVALID_PARTITIONS = 201;
     use \Burki24\SymconModuleHelper\ConfigurationFormHelper;
     use \Burki24\SymconModuleHelper\IPSViewHTMLPageHelper;
     use \Burki24\SymconModuleHelper\IPSViewStyleConfigurationHelper;
@@ -770,6 +771,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         parent::ApplyChanges();
 
         $this->GuardSecurityConfigurationChanges();
+
+        try {
+            $this->ReadConfiguredPartitions();
+        } catch (UnexpectedValueException $exception) {
+            $this->SendDebug('Invalid partition configuration', $exception->getMessage(), 0);
+            $this->SetStatus(self::STATUS_INVALID_PARTITIONS);
+
+            return;
+        }
 
         $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
         $this->SetTimerInterval(self::TIMER_AUTOMATIC_ARMING, 0);

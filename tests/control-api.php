@@ -85,6 +85,8 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $writtenValues = [];
 
+    private int $status = 102;
+
     public function Create(): void
     {
     }
@@ -116,6 +118,18 @@ class IPSModuleStrict
     public function TestClearWrittenValues(): void
     {
         $this->writtenValues = [];
+    }
+
+    public function TestStatus(): int
+    {
+        return $this->status;
+    }
+
+    protected function SetStatus(int $status): bool
+    {
+        $this->status = $status;
+
+        return true;
     }
 
     protected function SetVisualizationType(int $type): bool
@@ -297,15 +311,11 @@ $invalidPartitionInstance->TestSetPropertyString(
     'Partitions',
     '[{"Enabled":true,"ID":"house","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":true}]'
 );
-try {
-    $invalidPartitionInstance->ApplyChanges();
-    throw new RuntimeException('ApplyChanges must reject ambiguous default partitions.');
-} catch (UnexpectedValueException $exception) {
-    assertControlApi(
-        $exception->getMessage() === 'Exactly one enabled partition must be the default.',
-        'ApplyChanges must report the partition validation failure.'
-    );
-}
+$invalidPartitionInstance->ApplyChanges();
+assertControlApi(
+    $invalidPartitionInstance->TestStatus() === 201,
+    'ApplyChanges must report ambiguous default partitions through a controlled instance status.'
+);
 
 $invalidAssignmentInstance = new OpenHomeAlarm();
 $invalidAssignmentInstance->Create();

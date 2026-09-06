@@ -29,6 +29,7 @@
             "Not ready": "Nicht bereit",
             "Configure the Symcon variables that can act as alarm sensors or triggers.": "Konfigurieren Sie die Symcon-Variablen, die als Alarmsensoren oder Auslöser dienen können.",
             "Alarm partitions": "Alarmbereiche",
+            "Invalid alarm partition configuration. Enable at least one partition and select exactly one enabled partition as the default.": "Ungültige Alarmbereichskonfiguration. Aktivieren Sie mindestens einen Bereich und wählen Sie genau einen aktiven Bereich als Standardbereich aus.",
             "Alarm partition": "Alarmbereich",
             "Select alarm partition": "Alarmbereich auswählen",
             "Enabled makes a partition available but does not arm it. Exactly one enabled partition must be the default.": "Aktiv stellt einen Bereich zur Verfügung, schaltet ihn aber nicht scharf. Genau ein aktiver Bereich muss der Standardbereich sein.",
