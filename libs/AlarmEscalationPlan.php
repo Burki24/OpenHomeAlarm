@@ -12,7 +12,7 @@ final class AlarmEscalationPlan
 {
     public const MAX_DELAY_SECONDS = 86400;
 
-    /** @return list<array{Enabled:bool,Name:string,DelaySeconds:int,Actions:list<array{Enabled:bool,Name:string,Action:string,ResetEnabled:bool}>}> */
+    /** @return list<array{Enabled:bool,Name:string,DelaySeconds:int,Actions:list<array{Enabled:bool,Name:string,Action:string,ResetMode:int,ResetAction:string}>}> */
     public static function steps(string $encodedSteps): array
     {
         $encodedSteps = trim($encodedSteps);
@@ -111,10 +111,18 @@ final class AlarmEscalationPlan
                 || !is_string($executedAction['Key'] ?? null)
                 || !is_string($executedAction['StepName'] ?? null)
                 || !is_string($executedAction['ActionName'] ?? null)
-                || !is_bool($executedAction['ResetEnabled'] ?? null)
+                || (!is_int($executedAction['ResetMode'] ?? null) && !is_bool($executedAction['ResetEnabled'] ?? null))
+                || !is_string($executedAction['ResetAction'] ?? '')
                 || !is_string($executedAction['Action'] ?? null)) {
                 throw new UnexpectedValueException('Invalid executed alarm escalation action.');
             }
+            $executedAction['ResetMode'] = is_int($executedAction['ResetMode'] ?? null)
+                ? $executedAction['ResetMode']
+                : (($executedAction['ResetEnabled'] ?? false) ? 1 : 0);
+            if (!in_array($executedAction['ResetMode'], [0, 1, 2], true)) {
+                throw new UnexpectedValueException('Unsupported alarm escalation reset mode.');
+            }
+            $executedAction['ResetAction'] ??= '';
             $executedActions[] = $executedAction;
         }
 
@@ -206,7 +214,18 @@ final class AlarmEscalationPlan
         return json_encode($action, JSON_THROW_ON_ERROR);
     }
 
-    /** @return list<array{Enabled:bool,Name:string,Action:string,ResetEnabled:bool}> */
+    /** @param array{ResetMode:int,ResetAction:string,Action:string} $executedAction */
+    public static function resetAction(array $executedAction): string
+    {
+        return match ($executedAction['ResetMode']) {
+            0       => '',
+            1       => self::inverseAction($executedAction['Action']),
+            2       => $executedAction['ResetAction'],
+            default => throw new UnexpectedValueException('Unsupported alarm escalation reset mode.')
+        };
+    }
+
+    /** @return list<array{Enabled:bool,Name:string,Action:string,ResetMode:int,ResetAction:string}> */
     private static function normalizeActions(
         mixed $configured,
         mixed $legacyAction,
@@ -222,7 +241,7 @@ final class AlarmEscalationPlan
             $legacy = self::normalizeAction($legacyAction);
             return $legacy === '' ? [] : [[
                 'Enabled' => true, 'Name' => trim($stepName) !== '' ? trim($stepName) : sprintf('Action %d', $stepIndex + 1),
-                'Action'  => $legacy, 'ResetEnabled' => $legacyResetEnabled
+                'Action'  => $legacy, 'ResetMode' => $legacyResetEnabled ? 1 : 0, 'ResetAction' => ''
             ]];
         }
         if (is_string($configured)) {
@@ -242,24 +261,33 @@ final class AlarmEscalationPlan
             }
             $enabled = $entry['Enabled'] ?? true;
             $name = $entry['Name'] ?? '';
-            $resetEnabled = $entry['ResetEnabled'] ?? true;
-            if (!is_bool($enabled) || !is_string($name) || !is_bool($resetEnabled)) {
+            $legacyResetEnabled = $entry['ResetEnabled'] ?? false;
+            $resetMode = $entry['ResetMode'] ?? ($legacyResetEnabled ? 1 : 0);
+            if (!is_bool($enabled) || !is_string($name) || !is_bool($legacyResetEnabled) || !is_int($resetMode)) {
                 throw new UnexpectedValueException('Invalid alarm escalation action field type.');
             }
+            if (!in_array($resetMode, [0, 1, 2], true)) {
+                throw new UnexpectedValueException('Unsupported alarm escalation reset mode.');
+            }
             $action = self::normalizeAction($entry['Action'] ?? '');
+            $resetAction = self::normalizeAction($entry['ResetAction'] ?? '');
             if ($stepEnabled && $enabled && $action === '') {
                 throw new UnexpectedValueException('Enabled alarm escalation actions require an action.');
             }
-            if ($stepEnabled && $enabled && $resetEnabled && $action !== '' && self::inverseAction($action) === '') {
+            if ($stepEnabled && $enabled && $resetMode === 1 && $action !== '' && self::inverseAction($action) === '') {
                 throw new UnexpectedValueException(
-                    'Automatic reset requires a Boolean set-value action. Disable automatic reset for this action type.'
+                    'Automatic inverse reset requires a Boolean set-value action. Select a custom reset action for this action type.'
                 );
+            }
+            if ($stepEnabled && $enabled && $resetMode === 2 && $resetAction === '') {
+                throw new UnexpectedValueException('A custom reset mode requires a reset action.');
             }
             $actions[] = [
                 'Enabled'      => $enabled,
                 'Name'         => trim($name) !== '' ? trim($name) : sprintf('Action %d.%d', $stepIndex + 1, $index + 1),
                 'Action'       => $action,
-                'ResetEnabled' => $resetEnabled
+                'ResetMode'    => $resetMode,
+                'ResetAction'  => $resetAction
             ];
         }
         return $actions;

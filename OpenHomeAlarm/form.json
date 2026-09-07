@@ -481,12 +481,26 @@
                             }
                         },
                         {
-                            "caption": "Reset automatically",
-                            "name": "ResetEnabled",
-                            "width": "150px",
-                            "add": true,
+                            "caption": "Reset behavior",
+                            "name": "ResetMode",
+                            "width": "190px",
+                            "add": 0,
                             "edit": {
-                                "type": "CheckBox"
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "No reset",
+                                        "value": 0
+                                    },
+                                    {
+                                        "caption": "Invert Boolean automatically",
+                                        "value": 1
+                                    },
+                                    {
+                                        "caption": "Use custom reset action",
+                                        "value": 2
+                                    }
+                                ]
                             }
                         }
                     ],
@@ -515,13 +529,33 @@
                             "targetID": -2
                         },
                         {
-                            "type": "CheckBox",
-                            "name": "ResetEnabled",
-                            "caption": "Reset automatically"
+                            "type": "Select",
+                            "name": "ResetMode",
+                            "caption": "Reset behavior",
+                            "options": [
+                                {
+                                    "caption": "No reset",
+                                    "value": 0
+                                },
+                                {
+                                    "caption": "Invert Boolean automatically",
+                                    "value": 1
+                                },
+                                {
+                                    "caption": "Use custom reset action",
+                                    "value": 2
+                                }
+                            ]
+                        },
+                        {
+                            "type": "SelectAction",
+                            "name": "ResetAction",
+                            "caption": "Custom reset action",
+                            "targetID": -2
                         },
                         {
                             "type": "Label",
-                            "caption": "Automatic reset is available for Boolean set-value actions. Other action types are not inverted automatically."
+                            "caption": "Boolean values can be inverted automatically. For shutters, dimmers, scenes and other multi-value targets, select a custom reset action with the exact desired return value."
                         }
                     ]
                 },

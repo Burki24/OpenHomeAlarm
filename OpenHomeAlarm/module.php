@@ -1732,7 +1732,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'Key'          => $due['Key'],
                 'StepName'     => $due['Step']['Name'],
                 'ActionName'   => $due['Action']['Name'],
-                'ResetEnabled' => $due['Action']['ResetEnabled'],
+                'ResetMode'    => $due['Action']['ResetMode'],
+                'ResetAction'  => $due['Action']['ResetAction'],
                 'Action'       => $due['Action']['Action']
             ];
             $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
@@ -2874,7 +2875,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'Name'         => $step['Name'],
                     'DelaySeconds' => $step['DelaySeconds'],
                     'Action'       => '',
-                    'ResetEnabled' => false
+                    'ResetMode'    => 0,
+                    'ResetAction'  => ''
                 ];
                 continue;
             }
@@ -2884,7 +2886,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'Name'         => $action['Name'],
                     'DelaySeconds' => $step['DelaySeconds'],
                     'Action'       => $action['Action'],
-                    'ResetEnabled' => $action['ResetEnabled']
+                    'ResetMode'    => $action['ResetMode'],
+                    'ResetAction'  => $action['ResetAction']
                 ];
             }
         }
@@ -5842,19 +5845,19 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         foreach (array_reverse($runtime['ExecutedActions']) as $executedAction) {
-            if (!$executedAction['ResetEnabled'] || in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
+            if ($executedAction['ResetMode'] === 0 || in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
                 continue;
             }
 
             // Mark the reset before executing it so a failing action cannot loop after a restart.
             $runtime['ResetActionKeys'][] = $executedAction['Key'];
             $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-            $inverseAction = AlarmEscalationPlan::inverseAction($executedAction['Action']);
-            if ($inverseAction === '') {
+            $resetAction = AlarmEscalationPlan::resetAction($executedAction);
+            if ($resetAction === '') {
                 $this->SendDebug(
                     __FUNCTION__,
                     sprintf(
-                        'Escalation action "%s" in step "%s" cannot be reset automatically.',
+                        'Escalation action "%s" in step "%s" has no executable reset action.',
                         $executedAction['ActionName'],
                         $executedAction['StepName']
                     ),
@@ -5865,7 +5868,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             $result = AlarmActionExecutor::execute(
                 true,
-                $inverseAction,
+                $resetAction,
                 static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
             );
             if ($result['Error'] !== null) {

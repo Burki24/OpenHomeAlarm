@@ -26,7 +26,7 @@ assertEscalationPlan(
     'A native list action object must be normalized without changing its payload.'
 );
 assertEscalationPlan(
-    $steps[0]['Actions'][0]['ResetEnabled'] === false,
+    $steps[0]['Actions'][0]['ResetMode'] === 0 && $steps[0]['Actions'][0]['ResetAction'] === '',
     'Migrated single actions must not unexpectedly enable automatic reset.'
 );
 assertEscalationPlan($steps[1]['Name'] === 'Step 2', 'Unnamed steps need a stable fallback name.');
@@ -113,6 +113,22 @@ assertEscalationPlan(
     AlarmEscalationPlan::inverseAction($multipleActions[0]['Actions'][1]['Action']) === '',
     'Actions without a Boolean VALUE must never receive a guessed inverse action.'
 );
+$shutterCloseAction = ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 2]];
+$shutterOpenAction = ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 0]];
+$customReset = AlarmEscalationPlan::steps(json_encode([[
+    'Enabled' => true,
+    'Actions' => [[
+        'Enabled'     => true,
+        'Name'        => 'Close shutter',
+        'Action'      => $shutterCloseAction,
+        'ResetMode'   => 2,
+        'ResetAction' => $shutterOpenAction
+    ]]
+]], JSON_THROW_ON_ERROR))[0]['Actions'][0];
+assertEscalationPlan(
+    json_decode(AlarmEscalationPlan::resetAction($customReset), true, 512, JSON_THROW_ON_ERROR) === $shutterOpenAction,
+    'A custom reset must execute the explicitly configured action without guessing an inverse value.'
+);
 
 foreach ([
     '{}',
@@ -120,7 +136,8 @@ foreach ([
     '[{"Enabled":true,"DelaySeconds":86401,"Action":false}]',
     '[{"Enabled":true,"DelaySeconds":0,"Action":false}]',
     '[{"Enabled":true,"DelaySeconds":0,"Action":{"actionID":"{A}"}}]',
-    '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"TEXT":"Alarm"}},"ResetEnabled":true}]}]'
+    '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"TEXT":"Alarm"}},"ResetMode":1}]}]',
+    '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"VALUE":2}},"ResetMode":2}]}]'
 ] as $invalidConfiguration) {
     try {
         AlarmEscalationPlan::steps($invalidConfiguration);
@@ -145,22 +162,30 @@ foreach ($form['elements'] ?? [] as $element) {
 }
 assertEscalationPlan(is_array($list) && ($list['type'] ?? null) === 'List', 'Escalation steps must be configurable as a list.');
 assertEscalationPlan(
-    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ResetEnabled'],
+    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ResetMode'],
     'The escalation list must expose one understandable row per action without rendering native action payloads.'
 );
 assertEscalationPlan(
-    (($list['columns'] ?? [])[3]['add'] ?? null) === true,
+    (($list['columns'] ?? [])[3]['add'] ?? null) === 0,
     'Every visible escalation column needs a default value so Symcon can add a row.'
 );
 $actionSelector = null;
+$resetActionSelector = null;
 foreach ($list['form'] ?? [] as $field) {
     if (($field['name'] ?? null) === 'Action') {
         $actionSelector = $field;
+    }
+    if (($field['name'] ?? null) === 'ResetAction') {
+        $resetActionSelector = $field;
     }
 }
 assertEscalationPlan(
     ($actionSelector['type'] ?? null) === 'SelectAction' && ($actionSelector['targetID'] ?? null) === -2,
     'Each escalation row must use the native Symcon action selector in its single edit dialog.'
+);
+assertEscalationPlan(
+    ($resetActionSelector['type'] ?? null) === 'SelectAction' && ($resetActionSelector['targetID'] ?? null) === -2,
+    'Each escalation row must allow an explicit native Symcon reset action.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm alarm escalation plan checks passed.\n");

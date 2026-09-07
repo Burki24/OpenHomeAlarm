@@ -661,6 +661,13 @@ $multiEscalation->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
             'Name'         => 'Siren',
             'Action'       => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
             'ResetEnabled' => true
+        ],
+        [
+            'Enabled'     => true,
+            'Name'        => 'Shutter',
+            'Action'      => ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 2]],
+            'ResetMode'   => 2,
+            'ResetAction' => ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 0]]
         ]
     ]
 ]], JSON_THROW_ON_ERROR));
@@ -672,17 +679,17 @@ assertAlarmAction($multiEscalation->ArmAway(), 'Multiple-action escalation test 
 $testValues[4001] = true;
 $multiEscalation->MessageSink(32, 4001, VM_UPDATE, [true, true, false]);
 assertAlarmAction(
-    count($testActions) === 2
-    && array_column($testActions, 'actionID') === ['{LIGHT}', '{SIREN}']
-    && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, true],
+    count($testActions) === 3
+    && array_column($testActions, 'actionID') === ['{LIGHT}', '{SIREN}', '{SHUTTER}']
+    && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, true, 2],
     'A due escalation step must execute all configured actions.'
 );
 assertAlarmAction($multiEscalation->ResetAlarmOutput(), 'Multiple escalation actions must remain resettable.');
 assertAlarmAction(
-    count($testActions) === 4
-    && array_column(array_slice($testActions, 2), 'actionID') === ['{SIREN}', '{LIGHT}']
-    && array_column(array_column(array_slice($testActions, 2), 'parameters'), 'VALUE') === [false, false],
-    'Reset must invert all executed Boolean actions in reverse execution order.'
+    count($testActions) === 6
+    && array_column(array_slice($testActions, 3), 'actionID') === ['{SHUTTER}', '{SIREN}', '{LIGHT}']
+    && array_column(array_column(array_slice($testActions, 3), 'parameters'), 'VALUE') === [0, false, false],
+    'Reset must execute custom actions and inverted Boolean actions in reverse execution order.'
 );
 
 // ApplyChanges and a service restart use the persisted absolute start without repeating completed steps.
@@ -774,7 +781,8 @@ assertAlarmAction(
     count($dynamicEscalationValues) === 1
     && ($dynamicEscalationValues[0]['Name'] ?? null) === 'Legacy step'
     && ($dynamicEscalationValues[0]['Action'] ?? null) === $alarmAction
-    && ($dynamicEscalationValues[0]['ResetEnabled'] ?? null) === false,
+    && ($dynamicEscalationValues[0]['ResetMode'] ?? null) === 0
+    && ($dynamicEscalationValues[0]['ResetAction'] ?? null) === '',
     'GetConfigurationForm must expose a legacy single action as one directly editable escalation row.'
 );
 

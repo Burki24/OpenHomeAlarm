@@ -240,26 +240,34 @@ Unter **Alarm-Eskalationsaktionen** können zusätzliche Aktionen mit frei wähl
 3. Aktivieren Sie die Zeile mit **Aktiv** und vergeben Sie einen verständlichen Namen, beispielsweise `Flurlicht einschalten`, `Sirene einschalten` oder `Benachrichtigung senden`.
 4. Tragen Sie unter **Verzögerung (Sekunden)** ein, wie viele Sekunden nach Beginn des gemeinsamen Alarmausgangs die Aktion ausgeführt werden soll. Der Wert `0` führt die Aktion unmittelbar aus.
 5. Wählen Sie unter **Aktion** das gewünschte Symcon-Ziel und anschließend die auszuführende native Symcon-Aktion aus.
-6. Aktivieren Sie **Automatisch zurücksetzen** nur dann, wenn eine boolesche Aktion vom Typ **Schalte auf Wert** ausgewählt wurde und OpenHomeAlarm beim Ende des Alarmausgangs selbständig den Gegenwert schalten soll.
-7. Bestätigen Sie den Bearbeitungsdialog. Weitere Aktionen werden jeweils als eigene Tabellenzeile hinzugefügt.
-8. Übernehmen Sie abschließend die Änderungen der Instanzkonfiguration.
+6. Wählen Sie unter **Rücksetzverhalten** eine der drei Möglichkeiten: **Keine Rücksetzung**, **Boolean automatisch umkehren** oder **Eigene Rücksetzaktion verwenden**.
+7. Bei **Eigene Rücksetzaktion verwenden** wählen Sie unter **Eigene Rücksetzaktion** das gewünschte Ziel und den exakten Rückgabewert, beispielsweise `Auf` für einen zuvor auf `Zu` gefahrenen Rollladen.
+8. Bestätigen Sie den Bearbeitungsdialog. Weitere Aktionen werden jeweils als eigene Tabellenzeile hinzugefügt.
+9. Übernehmen Sie abschließend die Änderungen der Instanzkonfiguration.
 
 Eine Eskalationsstufe entsteht durch die eingetragene Verzögerung: Alle aktiven Zeilen mit derselben Verzögerung gehören funktional zur gleichen Stufe und werden beim Erreichen dieses Zeitpunkts nacheinander ausgeführt. Beispielsweise können drei Zeilen mit `0` Sekunden gleichzeitig Licht, Innensirene und Außensirene einschalten. Eine weitere Zeile mit `60` Sekunden kann nach einer Minute eine zusätzliche Benachrichtigung auslösen. Für mehrere Aktionen derselben Stufe muss deshalb keine Unterliste geöffnet werden.
 
 Eine vorhandene Zeile kann über das Zahnrad bearbeitet, über **Aktiv** vorübergehend deaktiviert oder über den Papierkorb gelöscht werden. Deaktivieren behält die Konfiguration der Aktion für eine spätere erneute Aktivierung bei. Löschen entfernt die vollständige Aktionszeile. Änderungen an einer bereits laufenden Alarmeskalation sollten vermieden werden; konfigurieren und testen Sie die Aktionen bei unscharfer Anlage.
 
-#### Automatische Rücksetzung
+#### Rücksetzverhalten
 
-Bei aktivierter Option **Automatisch zurücksetzen** erzeugt OpenHomeAlarm für native boolesche Aktionen vom Typ **Schalte auf Wert** automatisch die Gegenaktion:
+Für jede Eskalationsaktion kann das Rücksetzverhalten unabhängig festgelegt werden:
 
-- Aus `An` wird bei der Rücksetzung `Aus`.
-- Aus `Aus` wird bei der Rücksetzung `An`.
+Standardmäßig ist **Keine Rücksetzung** gewählt. Eine Gegenaktion wird erst ausgeführt, wenn sie ausdrücklich aktiviert beziehungsweise konfiguriert wurde.
+
+- **Keine Rücksetzung** führt beim Ende des Alarmausgangs keine Gegenaktion aus. Das eignet sich beispielsweise für Benachrichtigungen.
+- **Boolean automatisch umkehren** erzeugt für native boolesche Aktionen vom Typ **Schalte auf Wert** automatisch die Gegenaktion:
+
+  - Aus `An` wird bei der Rücksetzung `Aus`.
+  - Aus `Aus` wird bei der Rücksetzung `An`.
+
+- **Eigene Rücksetzaktion verwenden** führt die ausdrücklich konfigurierte native Symcon-Aktion aus. Damit können mehrwertige Geräte eindeutig behandelt werden, beispielsweise Rollladen bei Alarm auf `Zu` und bei Rücksetzung auf `Auf`, ein Dimmer von `100 %` zurück auf `20 %` oder eine Alarm-Szene zurück auf eine Normal-Szene.
 
 Die Gegenaktionen werden ausgeführt, sobald der letzte aktive Alarmausgang endet – unabhängig davon, ob dies durch die konfigurierte Alarmdauer, eine manuelle Rücksetzung oder das Unscharfschalten geschieht. Wurden mehrere Aktionen ausgeführt, setzt OpenHomeAlarm sie in umgekehrter Ausführungsreihenfolge zurück. Noch nicht fällige beziehungsweise nicht ausgeführte Eskalationsaktionen werden nicht zurückgesetzt.
 
-Andere Aktionstypen, beispielsweise Skriptaufrufe, Benachrichtigungen oder Aktionen ohne booleschen Zielwert, besitzen keine eindeutig ableitbare Gegenaktion. Für diese muss **Automatisch zurücksetzen** deaktiviert bleiben. Falls dennoch eine separate Reaktion beim Ende des gesamten Alarmausgangs benötigt wird, kann dafür die **Zusätzliche Aktion bei Rücksetzung des Alarmausgangs** verwendet werden. Diese globale Zusatzaktion ist unabhängig von den automatischen Gegenaktionen und wird genau einmal ausgeführt, nachdem auch der letzte Bereichsausgang zurückgesetzt wurde.
+OpenHomeAlarm errät für Integer-, Float- oder Stringwerte keine Gegenwerte. Insbesondere wird bei Zuständen wie `Auf / Stop / Zu` niemals automatisch entschieden, ob `Auf` oder `Zu` die Gegenaktion sein soll. Dafür ist **Eigene Rücksetzaktion verwenden** vorgesehen. Die **Zusätzliche Aktion bei Rücksetzung des Alarmausgangs** bleibt davon unabhängig und wird genau einmal ausgeführt, nachdem auch der letzte Bereichsausgang zurückgesetzt wurde.
 
-Der Ausführungsstand einschließlich der ausgeführten Aktionen wird persistent gespeichert. Nach `ApplyChanges()` oder einem Symcon-Neustart werden bereits ausgeführte Aktionen deshalb nicht wiederholt, während noch ausstehende Aktionen mit ihrem ursprünglichen Fälligkeitszeitpunkt fortgesetzt werden. Eine Rücksetzung des letzten aktiven Alarmausgangs setzt die dafür markierten Aktionen zurück und beendet anschließend den laufenden Eskalationsplan. Bestehende Eskalationsstufen mit nur einer Aktion werden weiterhin gelesen; bei ihnen bleibt die automatische Rücksetzung zunächst deaktiviert.
+Der Ausführungsstand einschließlich der ausgeführten Aktionen und ihrer gewählten Rücksetzwege wird persistent gespeichert. Nach `ApplyChanges()` oder einem Symcon-Neustart werden bereits ausgeführte Aktionen deshalb nicht wiederholt, während noch ausstehende Aktionen mit ihrem ursprünglichen Fälligkeitszeitpunkt fortgesetzt werden. Eine Rücksetzung des letzten aktiven Alarmausgangs führt die vorgesehenen Rücksetzaktionen in umgekehrter Ausführungsreihenfolge aus und beendet anschließend den laufenden Eskalationsplan. Bestehende Einträge mit der bisherigen Option **Automatisch zurücksetzen** werden kompatibel übernommen: aktiviert entspricht **Boolean automatisch umkehren**, deaktiviert entspricht **Keine Rücksetzung**.
 
 ### 11. Alarmgedächtnis
 

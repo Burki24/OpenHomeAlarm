@@ -9,6 +9,9 @@ beispielsweise `v1.109.0`.
 
 ### Added
 
+- Eskalationsaktionen unterstützen neben der automatischen Boolean-Umkehrung
+  eine explizite native Rücksetzaktion für Rollläden, Dimmer, Szenen und andere
+  mehrwertige Ziele.
 - Sensoren können mehreren Alarmbereichen gleichzeitig zugeordnet werden;
   temporäre Überbrückungen bleiben dabei je Sensor und Bereich getrennt.
 - Unabhängig bedienbare Alarmbereiche mit bereichsbezogenen Zuständen,
