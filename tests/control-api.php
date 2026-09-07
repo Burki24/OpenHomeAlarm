@@ -663,5 +663,11 @@ assertControlApi(
         && ($sharedState['Partitions']['garage']['Modes']['away']['Ready'] ?? null) === true,
     'A per-area bypass must not bypass the same sensor in another assigned area.'
 );
+$sharedSensorInstance->RequestAction('BypassSensorPartition', '{"PartitionID":"house","Value":2001}');
+$sharedState = json_decode($sharedSensorInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($sharedState['Partitions']['house']['Modes']['away']['Ready'] ?? null) === true,
+    'The visualization action bridge must accept the complete partition bypass payload.'
+);
 
 fwrite(STDOUT, "OpenHomeAlarm control API checks passed.\n");

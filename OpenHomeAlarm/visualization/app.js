@@ -546,12 +546,12 @@ function ohaCollectSensorOperations(state) {
     return Array.from(operations.values());
 }
 
-function ohaCreateOperationButton(action, variableID, caption, tone = 'neutral') {
+function ohaCreateOperationButton(action, value, caption, tone = 'neutral') {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'oha-row-action';
     button.dataset.operation = action;
-    button.dataset.variableId = String(variableID);
+    button.dataset.operationValue = String(value);
     button.dataset.tone = tone;
     button.dataset.enabled = 'true';
     button.textContent = ohaTranslate(caption);
@@ -1296,7 +1296,6 @@ function ohaHandleInteractiveClick(event) {
             ohaRequestAction(action, control.dataset.format ?? '');
             return;
         }
-        const variableID = Number(control.dataset.variableId) || 0;
         if (action === 'ClearAlarmMemory') {
             ohaRequestPartitionAction('ClearAlarmMemoryPartition');
         } else if (action === 'ResetAlarmOutput') {
@@ -1304,7 +1303,7 @@ function ohaHandleInteractiveClick(event) {
         } else if (action === 'ClearSensorBypasses') {
             ohaRequestPartitionAction('ClearSensorBypassesPartition');
         } else {
-            ohaRequestAction(action, variableID > 0 ? variableID : true);
+            ohaRequestAction(action, control.dataset.operationValue ?? true);
         }
         return;
     }

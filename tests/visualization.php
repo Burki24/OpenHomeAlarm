@@ -217,6 +217,12 @@ assertVisualization(
     'Sensor operations and recent security events must be rendered from the backend control state.'
 );
 assertVisualization(
+    str_contains($javascript, 'button.dataset.operationValue = String(value);')
+        && str_contains($javascript, "ohaRequestAction(action, control.dataset.operationValue ?? true);")
+        && !str_contains($javascript, 'const variableID = Number(control.dataset.variableId) || 0;'),
+    'Partition sensor operations must forward their complete JSON payload instead of reducing it to a boolean.'
+);
+assertVisualization(
     str_contains($module, "'Diagnostics'      => \$this->BuildDiagnosticsPayload(\$allSensors, \$allFaultInputs)")
         && str_contains($javascript, 'const items = Array.isArray(diagnostics?.Items) ? diagnostics.Items : [];')
         && str_contains($javascript, 'ohaRenderDiagnostics(selectedState);')
