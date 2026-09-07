@@ -11,14 +11,16 @@ const VM_UPDATE = 10603;
 $testVariables = [
     2101 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     2102 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    2103 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    2103 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    2104 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
 $testValues = [
     2101 => false,
     2102 => false,
-    2103 => false
+    2103 => false,
+    2104 => false
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -300,13 +302,14 @@ function exitRouteSensor(
     int $variableID,
     bool $exitDelay,
     bool $alwaysActive = false,
-    string $name = ''
+    string $name = '',
+    int $sensorType = 0
 ): array {
     return [
         'Enabled'      => true,
         'Name'         => $name !== '' ? $name : 'Test ' . $variableID,
         'VariableID'   => $variableID,
-        'SensorType'   => 0,
+        'SensorType'   => $sensorType,
         'TriggerValue' => 'true',
         'ArmHome'      => false,
         'ArmAway'      => true,
@@ -346,16 +349,17 @@ assertExitRoute(
     'The configured exit delay must still run for an open exit-route sensor.'
 );
 
-// The same sensor must be ready when the exit countdown ends.
+// An opening contact on the exit route still has to be closed when the countdown ends.
 $instance->TestClearWrittenValues();
 $instance->CompleteExitDelay();
 assertExitRoute(
     ($instance->TestWrittenValues()['State'] ?? null) === 0
     && ($instance->TestWrittenValues()['Mode'] ?? null) === 0,
-    'An exit-route sensor that is still open at countdown end must cancel arming.'
+    'An exit-route opening contact that is still open at countdown end must cancel arming.'
 );
 
 // Closing the exit-route sensor before countdown completion allows arming to finish.
+$instance->Disarm();
 $testValues[2101] = true;
 $instance->TestClearWrittenValues();
 assertExitRoute($instance->ArmAway() === true, 'A second arming attempt must start normally.');
@@ -365,6 +369,44 @@ $instance->CompleteExitDelay();
 assertExitRoute(
     ($instance->TestWrittenValues()['State'] ?? null) === 2,
     'A cleared exit-route sensor must allow the exit delay to complete into Armed.'
+);
+
+// A reachable motion detector may still report its triggered value when the
+// countdown ends because its Boolean value can outlast the actual movement.
+$instance->Disarm();
+$testValues[2104] = true;
+$instance->TestSetPropertyString(
+    'Sensors',
+    json_encode([exitRouteSensor(2104, true, name: 'Bewegung Flur', sensorType: 1)], JSON_THROW_ON_ERROR)
+);
+assertExitRoute($instance->ArmAway() === true, 'An active exit-route motion detector must start the exit delay.');
+$instance->TestClearWrittenValues();
+$instance->CompleteExitDelay();
+assertExitRoute(
+    ($instance->TestWrittenValues()['State'] ?? null) === 2
+    && !array_key_exists('Mode', $instance->TestWrittenValues()),
+    'An active exit-route motion detector must allow arming to complete.'
+);
+
+// A regular sensor that becomes active during the countdown remains a blocker.
+$instance->Disarm();
+$testValues[2101] = false;
+$testValues[2102] = false;
+$instance->TestSetPropertyString(
+    'Sensors',
+    json_encode([
+        exitRouteSensor(2101, true, name: 'Bewegung Flur'),
+        exitRouteSensor(2102, false, name: 'Küchenfenster')
+    ], JSON_THROW_ON_ERROR)
+);
+assertExitRoute($instance->ArmAway() === true, 'A ready sensor set must start the exit delay.');
+$testValues[2102] = true;
+$instance->TestClearWrittenValues();
+$instance->CompleteExitDelay();
+assertExitRoute(
+    ($instance->TestWrittenValues()['State'] ?? null) === 0
+    && ($instance->TestWrittenValues()['Mode'] ?? null) === 0,
+    'A regular sensor that becomes active during the exit delay must still cancel arming.'
 );
 
 // A regular open Away sensor continues to block immediately.

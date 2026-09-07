@@ -896,7 +896,7 @@ foreach ([
     'Other trigger',
     '24/7 active',
     'Exit route',
-    'Exit-route sensors may be open when arming starts if an exit delay is configured, but must be ready when the countdown ends.',
+    'Exit-route motion detectors may remain active through the end of a configured exit delay; all other sensors must be ready.',
     '24/7 sensors trigger immediately in every system state; mode assignments and entry/exit delay are ignored.',
     '24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored.',
     'Select a variable to choose its trigger value.',

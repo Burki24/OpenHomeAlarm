@@ -1180,7 +1180,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                     $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
                     $faults = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $partitionID);
                     $readiness = $this->ApplyFaultBlockingToReadiness(
-                        $this->EvaluateReadinessStatus($sensors, true)['readiness'],
+                        $this->EvaluateReadinessStatus($sensors, true, true, true)['readiness'],
                         $faults
                     );
                     if (!$this->IsModeReady($state['Mode'], $readiness)) {
@@ -1764,8 +1764,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Completes a running exit delay. The system is armed only if the selected
-     * mode is still ready at the end of the countdown.
+     * Completes a running exit delay. Reachable motion detectors explicitly
+     * assigned to the exit route may still be active because they commonly keep
+     * their Boolean trigger value set beyond the actual movement. Every other
+     * sensor and blocking fault is checked strictly.
      */
     public function CompleteExitDelay(): void
     {
@@ -1790,13 +1792,13 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->UpdateReadinessFromSensors($sensors);
         $faultInputs = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $this->DefaultPartitionID());
         $strictReadiness = $this->ApplyFaultBlockingToReadiness(
-            $this->EvaluateReadinessStatus($sensors, true)['readiness'],
+            $this->EvaluateReadinessStatus($sensors, true, true, true)['readiness'],
             $faultInputs
         );
         if (!$this->IsModeReady($mode, $strictReadiness)) {
             $this->AppendEvent(
                 self::EVENT_ARM_CANCELLED,
-                $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs, true),
+                $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs, true, true, true),
                 $mode
             );
             $this->Disarm();
@@ -2005,7 +2007,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             ],
             [
                 'type'    => 'Label',
-                'caption' => $this->Translate('Exit-route sensors may be open when arming starts if an exit delay is configured, but must be ready when the countdown ends.')
+                'caption' => $this->Translate('Exit-route motion detectors may remain active through the end of a configured exit delay; all other sensors must be ready.')
             ],
             [
                 'type'    => 'Label',
@@ -4801,10 +4803,11 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function EvaluateReadinessStatus(
         array $sensors,
         bool $strict = false,
-        ?bool $allowActiveExitRoute = null
+        ?bool $allowActiveExitRoute = null,
+        bool $motionExitRouteOnly = false
     ): array {
-        $allowActiveExitRoute = !$strict
-            && ($allowActiveExitRoute ?? $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS) > 0);
+        $allowActiveExitRoute ??= !$strict
+            && $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS) > 0;
         $readiness = [
             'global' => true,
             'home'   => true,
@@ -4839,6 +4842,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             if (
                 $allowActiveExitRoute
                 && !$sensor['AlwaysActive']
+                && (!$motionExitRouteOnly || $sensor['SensorType'] === self::SENSOR_TYPE_MOTION)
                 && $sensor['ExitDelay']
                 && $triggerState === true
             ) {
@@ -4949,9 +4953,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         int $mode,
         array $sensors,
         bool $strict = false,
-        ?bool $allowActiveExitRoute = null
+        ?bool $allowActiveExitRoute = null,
+        bool $motionExitRouteOnly = false
     ): string {
-        $status = $this->EvaluateReadinessStatus($sensors, $strict, $allowActiveExitRoute);
+        $status = $this->EvaluateReadinessStatus(
+            $sensors,
+            $strict,
+            $allowActiveExitRoute,
+            $motionExitRouteOnly
+        );
         $blockingSensors = match ($mode) {
             self::MODE_HOME  => $status['blockingHome'],
             self::MODE_AWAY  => $status['blockingAway'],
@@ -4994,14 +5004,16 @@ class OpenHomeAlarm extends IPSModuleStrict
         array $sensors,
         array $faultInputs,
         bool $strict = false,
-        ?bool $allowActiveExitRoute = null
+        ?bool $allowActiveExitRoute = null,
+        bool $motionExitRouteOnly = false
     ): string {
         $blockers = [];
         $sensorBlockers = $this->ResolveBlockingSensorsForMode(
             $mode,
             $sensors,
             $strict,
-            $allowActiveExitRoute
+            $allowActiveExitRoute,
+            $motionExitRouteOnly
         );
         if ($sensorBlockers !== '') {
             $blockers[] = $sensorBlockers;

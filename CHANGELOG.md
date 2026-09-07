@@ -7,6 +7,12 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+### Fixed
+
+- Ausgangsweg-Bewegungsmelder dürfen am Ende der Ausgangsverzögerung noch ihren
+  nachlaufenden Auslösewert melden, ohne die Scharfschaltung abzubrechen; Kontakte,
+  normale, fehlende oder unlesbare Sensoren und blockierende Störungen bleiben strikt.
+
 ### Added
 
 - Eskalationsaktionen unterstützen neben der automatischen Boolean-Umkehrung
