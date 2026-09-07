@@ -692,6 +692,49 @@ assertAlarmAction(
     'Reset must execute custom actions and inverted Boolean actions in reverse execution order.'
 );
 
+// Disarming directly from Alarm must execute the same escalation reset actions.
+$testActions = [];
+$testValues[4001] = false;
+$disarmEscalation = new OpenHomeAlarm();
+$disarmEscalation->Create();
+$disarmEscalation->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$disarmEscalation->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$disarmEscalation->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Disarm outputs',
+    'DelaySeconds' => 0,
+    'Actions'      => [
+        [
+            'Enabled'     => true,
+            'Name'        => 'Light',
+            'Action'      => ['actionID' => '{LIGHT}', 'parameters' => ['VALUE' => true]],
+            'ResetMode'   => 1,
+            'ResetAction' => ''
+        ],
+        [
+            'Enabled'     => true,
+            'Name'        => 'Shutter',
+            'Action'      => ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 2]],
+            'ResetMode'   => 2,
+            'ResetAction' => ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 0]]
+        ]
+    ]
+]], JSON_THROW_ON_ERROR));
+$disarmEscalation->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($disarmEscalation->ArmAway(), 'Disarm escalation test must arm successfully.');
+$testValues[4001] = true;
+$disarmEscalation->MessageSink(33, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction($disarmEscalation->Disarm(), 'Disarming an active alarm must succeed.');
+assertAlarmAction(
+    count($testActions) === 4
+    && array_column($testActions, 'actionID') === ['{LIGHT}', '{SHUTTER}', '{SHUTTER}', '{LIGHT}']
+    && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, 2, 0, false],
+    'Disarming must execute custom and inverted escalation reset actions in reverse execution order.'
+);
+
 // ApplyChanges and a service restart use the persisted absolute start without repeating completed steps.
 $testActions = [];
 $testValues[4001] = false;
@@ -793,14 +836,22 @@ assertAlarmAction(
     'Boolean automatic reset must omit the custom SelectAction so an empty action cannot fail validation.'
 );
 $customResetForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
-    'ResetMode' => 2
+    'ResetMode'   => 2,
+    'ResetAction' => json_encode([
+        'actionID'   => '{SHUTTER}',
+        'parameters' => ['VALUE' => 0]
+    ], JSON_THROW_ON_ERROR)
 ]);
 $customResetSelector = findAlarmActionFormField($customResetForm, 'ResetAction');
 assertAlarmAction(
     is_array($customResetSelector)
     && ($customResetSelector['type'] ?? null) === 'SelectAction'
-    && ($customResetSelector['targetID'] ?? null) === -2,
-    'A custom reset mode must expose its native Symcon reset action selector.'
+    && ($customResetSelector['targetID'] ?? null) === -2
+    && json_decode((string) ($customResetSelector['value'] ?? ''), true, 512, JSON_THROW_ON_ERROR) === [
+        'actionID'   => '{SHUTTER}',
+        'parameters' => ['VALUE' => 0]
+    ],
+    'A custom reset mode must expose its stored native Symcon reset action selector.'
 );
 
 $dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);

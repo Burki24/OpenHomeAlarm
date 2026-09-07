@@ -2027,6 +2027,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function GetAlarmEscalationEditForm(mixed $step): array
     {
         $resetMode = $this->ReadSensorEditInteger($step, 'ResetMode', 0);
+        $resetAction = $this->ReadSensorEditString($step, 'ResetAction', '');
 
         return [
             ['type' => 'CheckBox', 'name' => 'Enabled', 'caption' => $this->Translate('Enabled')],
@@ -2055,7 +2056,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             [
                 'type'  => 'ColumnLayout',
                 'name'  => 'CustomResetActionContainer',
-                'items' => $this->CustomResetActionFormItems($resetMode)
+                'items' => $this->CustomResetActionFormItems($resetMode, $resetAction)
             ],
             [
                 'type'    => 'Label',
@@ -3689,18 +3690,23 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /** @return list<array<string,mixed>> */
-    private function CustomResetActionFormItems(int $resetMode): array
+    private function CustomResetActionFormItems(int $resetMode, string $resetAction = ''): array
     {
         if ($resetMode !== 2) {
             return [];
         }
 
-        return [[
+        $item = [
             'type'     => 'SelectAction',
             'name'     => 'ResetAction',
             'caption'  => $this->Translate('Custom reset action'),
             'targetID' => -2
-        ]];
+        ];
+        if ($resetAction !== '') {
+            $item['value'] = $resetAction;
+        }
+
+        return [$item];
     }
 
     /**
