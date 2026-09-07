@@ -218,7 +218,7 @@ assertVisualization(
 );
 assertVisualization(
     str_contains($javascript, 'button.dataset.operationValue = String(value);')
-        && str_contains($javascript, "ohaRequestAction(action, control.dataset.operationValue ?? true);")
+        && str_contains($javascript, 'ohaRequestAction(action, control.dataset.operationValue ?? true);')
         && !str_contains($javascript, 'const variableID = Number(control.dataset.variableId) || 0;'),
     'Partition sensor operations must forward their complete JSON payload instead of reducing it to a boolean.'
 );
