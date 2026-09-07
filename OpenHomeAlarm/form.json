@@ -776,13 +776,11 @@
                     }
                 },
                 {
-                    "caption": "Alarm partition",
-                    "name": "PartitionID",
+                    "caption": "Alarm partitions",
+                    "name": "PartitionNames",
                     "width": "150px",
                     "add": "",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
+                    "save": false
                 },
                 {
                     "caption": "Variable",

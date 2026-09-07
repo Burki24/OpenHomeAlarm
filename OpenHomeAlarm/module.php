@@ -1399,11 +1399,23 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function BypassSensor(int $variableID): bool
     {
-        if ($this->ReadAlarmState() !== self::STATE_DISARMED || $variableID <= 0) {
+        return $this->BypassSensorPartition($this->DefaultPartitionID(), $variableID);
+    }
+
+    /** Temporarily bypasses one sensor in exactly one alarm partition. */
+    public function BypassSensorPartition(string $partitionID, int $variableID): bool
+    {
+        try {
+            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+        $runtime = $this->ReadPartitionRuntime();
+        if ($runtime[$partitionID]['State'] !== self::STATE_DISARMED || $variableID <= 0) {
             return false;
         }
 
-        $sensors = $this->ReadConfiguredSensors();
+        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
         $bypassable = false;
         foreach ($sensors as $sensor) {
             if (
@@ -1421,14 +1433,18 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        $bypassedIDs = $this->ReadBypassedSensorIDs();
-        $bypassedIDs[] = $variableID;
-        $this->WriteBypassedSensorIDs($bypassedIDs);
-        $this->UpdateBypassedSensorStatus($sensors);
-        $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
+        $assignments = $this->ReadBypassedSensorAssignments();
+        $assignments[] = $this->SensorBypassKey($partitionID, $variableID);
+        $this->WriteBypassedSensorAssignments($assignments);
+        $allSensors = $this->ReadConfiguredSensors();
+        $this->UpdateBypassedSensorStatus($allSensors);
+        $this->UpdateReadinessFromSensors($this->SensorsForPartition($allSensors, $this->DefaultPartitionID()));
         $this->AppendEvent(
             self::EVENT_SENSOR_BYPASSED,
-            $this->ResolveSensorNameByVariableID($variableID, $sensors)
+            $this->ResolveSensorNameByVariableID($variableID, $sensors),
+            self::MODE_NONE,
+            self::STATE_DISARMED,
+            $partitionID
         );
         $this->PublishVisualizationState();
 
@@ -1440,19 +1456,32 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function RemoveSensorBypass(int $variableID): bool
     {
-        if ($this->ReadAlarmState() !== self::STATE_DISARMED || $variableID <= 0) {
+        return $this->RemoveSensorBypassPartition($this->DefaultPartitionID(), $variableID);
+    }
+
+    /** Removes one temporary bypass from exactly one alarm partition. */
+    public function RemoveSensorBypassPartition(string $partitionID, int $variableID): bool
+    {
+        try {
+            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+        $runtime = $this->ReadPartitionRuntime();
+        if ($runtime[$partitionID]['State'] !== self::STATE_DISARMED || $variableID <= 0) {
             return false;
         }
 
-        $bypassedIDs = $this->ReadBypassedSensorIDs();
-        if (!in_array($variableID, $bypassedIDs, true)) {
+        $assignments = $this->ReadBypassedSensorAssignments();
+        $key = $this->SensorBypassKey($partitionID, $variableID);
+        if (!in_array($key, $assignments, true)) {
             return false;
         }
 
-        $this->WriteBypassedSensorIDs(
+        $this->WriteBypassedSensorAssignments(
             array_values(array_filter(
-                $bypassedIDs,
-                static fn (int $bypassedID): bool => $bypassedID !== $variableID
+                $assignments,
+                static fn (string $assignment): bool => $assignment !== $key
             ))
         );
 
@@ -1461,7 +1490,10 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
         $this->AppendEvent(
             self::EVENT_SENSOR_BYPASS_REMOVED,
-            $this->ResolveSensorNameByVariableID($variableID, $sensors)
+            $this->ResolveSensorNameByVariableID($variableID, $sensors),
+            self::MODE_NONE,
+            self::STATE_DISARMED,
+            $partitionID
         );
         $this->PublishVisualizationState();
 
@@ -1473,11 +1505,11 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ClearSensorBypasses(): bool
     {
-        if ($this->ReadAlarmState() !== self::STATE_DISARMED) {
+        if ($this->IsSecurityConfigurationLocked()) {
             return false;
         }
 
-        $hadBypasses = $this->ReadBypassedSensorIDs() !== [];
+        $hadBypasses = $this->ReadBypassedSensorAssignments() !== [];
         $this->ClearSensorBypassesInternal();
         if ($hadBypasses) {
             $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED);
@@ -1501,15 +1533,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $sensors = $this->ReadConfiguredSensors();
-        $partitionVariableIDs = array_column($this->SensorsForPartition($sensors, $partitionID), 'VariableID');
-        $current = $this->ReadBypassedSensorIDs();
-        $remaining = array_values(array_diff($current, $partitionVariableIDs));
-        if ($remaining === $current) {
+        if (!$this->ClearSensorBypassesPartitionInternal($partitionID, $sensors)) {
             return true;
         }
-        $this->WriteBypassedSensorIDs($remaining);
-        $this->UpdateBypassedSensorStatus($sensors);
-        $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
         $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
         $this->PublishVisualizationState();
 
@@ -1848,11 +1874,18 @@ class OpenHomeAlarm extends IPSModuleStrict
         $variableID = $this->ReadSensorEditInteger($sensor, 'VariableID', 0);
         $triggerValue = $this->ReadSensorEditString($sensor, 'TriggerValue', '1');
         $partitions = $this->ReadConfiguredPartitions();
-        $partitionID = AlarmPartitionRegistry::assignedPartitionID(
+        $legacyPartitionID = AlarmPartitionRegistry::assignedPartitionID(
             $this->ReadSensorEditString($sensor, 'PartitionID', ''),
             $partitions,
             'Sensor partition'
         );
+        $hasExplicitAssignments = false;
+        foreach ($partitions as $partition) {
+            if ($this->SensorEditHasKey($sensor, 'Partition_' . $partition['ID'])) {
+                $hasExplicitAssignments = true;
+                break;
+            }
+        }
         $hasVariable = $this->IsExistingVariable($variableID);
         $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
         $hasTriggerOptions = $triggerOptions !== [];
@@ -1872,12 +1905,27 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'caption' => $this->Translate('Name')
             ],
             [
-                'type'    => 'Select',
+                'type'    => 'ValidationTextBox',
                 'name'    => 'PartitionID',
-                'caption' => $this->Translate('Alarm partition'),
-                'options' => $this->CreatePartitionOptions($partitions),
-                'value'   => $partitionID
+                'value'   => $legacyPartitionID,
+                'visible' => false
             ],
+            [
+                'type'    => 'Label',
+                'caption' => $this->Translate('Select every alarm partition that should monitor this sensor.')
+            ],
+            ...array_map(
+                fn (array $partition): array => [
+                    'type'    => 'CheckBox',
+                    'name'    => 'Partition_' . $partition['ID'],
+                    'caption' => $partition['Name'],
+                    'value'   => $hasExplicitAssignments
+                        ? $this->ReadSensorEditBoolean($sensor, 'Partition_' . $partition['ID'], false)
+                        : $partition['ID'] === $legacyPartitionID,
+                    'enabled' => $partition['Enabled']
+                ],
+                $partitions
+            ),
             [
                 'type'     => 'SelectVariable',
                 'name'     => 'VariableID',
@@ -2223,6 +2271,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $states[$partitionID] = AlarmPartitionRuntime::disarm($states[$partitionID]);
         $this->WritePartitionRuntime($states);
         $this->SchedulePartitionRuntimeTimer($states);
+        $this->ClearSensorBypassesPartitionInternal($partitionID);
         if ($wasAlarm) {
             $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
         }
@@ -2308,7 +2357,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         $this->SetAlarmState(self::STATE_DISARMED);
         $this->SetAlarmMode(self::MODE_NONE);
-        $this->ClearSensorBypassesInternal();
+        $this->ClearSensorBypassesPartitionInternal($this->DefaultPartitionID());
         $this->ResetDisarmCodeProtection();
 
         if ($wasAlarm) {
@@ -2380,6 +2429,11 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function DefaultPartitionID(): string
     {
         return AlarmPartitionRegistry::defaultPartition($this->ReadConfiguredPartitions())['ID'];
+    }
+
+    private function DefaultPartitionName(): string
+    {
+        return AlarmPartitionRegistry::defaultPartition($this->ReadConfiguredPartitions())['Name'];
     }
 
     private function ResolveEnabledPartitionID(string $partitionID): string
@@ -2769,8 +2823,18 @@ class OpenHomeAlarm extends IPSModuleStrict
             if (($element['type'] ?? null) === 'List') {
                 if (($element['name'] ?? null) === self::PROPERTY_SENSORS) {
                     $element['values'] = $this->CreateTriggerListFormValues(self::PROPERTY_SENSORS);
+                    $this->SetConfigurationListAddValue(
+                        $element,
+                        'PartitionNames',
+                        $this->DefaultPartitionName()
+                    );
                 } elseif (($element['name'] ?? null) === self::PROPERTY_FAULT_INPUTS) {
                     $element['values'] = $this->CreateTriggerListFormValues(self::PROPERTY_FAULT_INPUTS);
+                    $this->SetConfigurationListAddValue(
+                        $element,
+                        'PartitionID',
+                        $this->DefaultPartitionID()
+                    );
                 } elseif (($element['name'] ?? null) === self::PROPERTY_ALARM_ESCALATION_STEPS) {
                     $element['values'] = $this->CreateAlarmEscalationListFormValues();
                 }
@@ -2781,6 +2845,21 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
         unset($element);
+    }
+
+    /** @param array<string,mixed> $list */
+    private function SetConfigurationListAddValue(array &$list, string $columnName, mixed $value): void
+    {
+        if (!isset($list['columns']) || !is_array($list['columns'])) {
+            return;
+        }
+        foreach ($list['columns'] as &$column) {
+            if (is_array($column) && ($column['name'] ?? null) === $columnName) {
+                $column['add'] = $value;
+                break;
+            }
+        }
+        unset($column);
     }
 
     /** @return list<array<string,mixed>> */
@@ -3114,6 +3193,16 @@ class OpenHomeAlarm extends IPSModuleStrict
 
                 return null;
 
+            case 'BypassSensorPartition':
+                $this->BypassSensorPartition($Value['PartitionID'], $Value['Value']);
+
+                return null;
+
+            case 'RemoveSensorBypassPartition':
+                $this->RemoveSensorBypassPartition($Value['PartitionID'], $Value['Value']);
+
+                return null;
+
             case 'ResetAlarmOutputPartition':
                 $this->ResetAlarmOutputPartition($Value['PartitionID']);
 
@@ -3377,16 +3466,18 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function BuildControlBypassedSensorDetails(array $sensors): array
     {
-        $bypassedIDs = $this->ReadBypassedSensorIDs();
         $details = [];
-        foreach ($bypassedIDs as $variableID) {
-            $details[] = [
-                'VariableID' => $variableID,
-                'Name'       => $this->ResolveSensorNameByVariableID($variableID, $sensors)
+        foreach ($sensors as $sensor) {
+            if (!$this->IsSensorBypassed($sensor)) {
+                continue;
+            }
+            $details[$sensor['VariableID']] = [
+                'VariableID' => $sensor['VariableID'],
+                'Name'       => $this->ResolveSensorDisplayName($sensor)
             ];
         }
 
-        return $details;
+        return array_values($details);
     }
 
     /**
@@ -3639,6 +3730,24 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $value;
+    }
+
+    private function ReadSensorEditBoolean(mixed $sensor, string $key, bool $default): bool
+    {
+        if (!is_array($sensor) && !is_object($sensor)) {
+            throw new UnexpectedValueException('Sensor edit row must support array-style access.');
+        }
+        $value = $sensor[$key] ?? $default;
+        if (!is_bool($value)) {
+            throw new UnexpectedValueException(sprintf('Sensor edit field %s must be boolean.', $key));
+        }
+
+        return $value;
+    }
+
+    private function SensorEditHasKey(mixed $sensor, string $key): bool
+    {
+        return (is_array($sensor) || is_object($sensor)) && isset($sensor[$key]);
     }
 
     /**
@@ -3932,13 +4041,47 @@ class OpenHomeAlarm extends IPSModuleStrict
                 }
             }
 
-            $values[] = [
+            $value = [
                 'TriggerValueSelection' => $selectionValue,
                 'TriggerValueManual'    => $triggerValue
             ];
+            if ($propertyName === self::PROPERTY_SENSORS) {
+                $value['PartitionNames'] = $this->SensorPartitionNames($row);
+            }
+            $values[] = $value;
         }
 
         return $values;
+    }
+
+    /** @param array<string,mixed> $sensor */
+    private function SensorPartitionNames(array $sensor): string
+    {
+        $selectedIDs = [];
+        $hasPartitionFields = false;
+        foreach ($sensor as $key => $selected) {
+            if (is_string($key) && str_starts_with($key, 'Partition_')) {
+                $hasPartitionFields = true;
+                if ($selected === true) {
+                    $selectedIDs[] = strtolower(substr($key, strlen('Partition_')));
+                }
+            }
+        }
+        if ($selectedIDs === []) {
+            $legacyID = is_string($sensor['PartitionID'] ?? null) ? $sensor['PartitionID'] : '';
+            $selectedIDs = [!$hasPartitionFields && $legacyID !== ''
+                ? strtolower(trim($legacyID))
+                : $this->DefaultPartitionID()];
+        }
+
+        $names = [];
+        foreach ($this->ReadConfiguredPartitions() as $partition) {
+            if (in_array($partition['ID'], $selectedIDs, true)) {
+                $names[] = $partition['Name'];
+            }
+        }
+
+        return implode(', ', $names);
     }
 
     /**
@@ -3995,16 +4138,22 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::SENSOR_TYPE_OPENING
         );
         $partitions = $this->ReadConfiguredPartitions();
-        foreach ($sensors as &$sensor) {
-            $sensor['PartitionID'] = AlarmPartitionRegistry::assignedPartitionID(
-                $sensor['PartitionID'],
+        $expanded = [];
+        foreach ($sensors as $sensor) {
+            $partitionIDs = AlarmPartitionRegistry::assignedPartitionIDs(
+                $sensor['PartitionIDs'],
                 $partitions,
                 'Sensor partition'
             );
+            foreach ($partitionIDs as $partitionID) {
+                $assignment = $sensor;
+                $assignment['PartitionID'] = $partitionID;
+                unset($assignment['PartitionIDs']);
+                $expanded[] = $assignment;
+            }
         }
-        unset($sensor);
 
-        return $sensors;
+        return $expanded;
     }
 
     /**
@@ -4959,20 +5108,38 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
     }
 
-    /**
-     * @return list<int>
-     */
-    private function ReadBypassedSensorIDs(): array
+    /** @return list<string> */
+    private function ReadBypassedSensorAssignments(): array
     {
-        return $this->ReadPersistentVariableIDs(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
+        try {
+            $stored = $this->ReadPersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
+        } catch (UnexpectedValueException) {
+            return [];
+        }
+
+        $assignments = [];
+        foreach ($stored as $value) {
+            if (is_int($value) && $value > 0) {
+                $assignments[] = $this->SensorBypassKey($this->DefaultPartitionID(), $value);
+            } elseif (is_string($value) && preg_match('/^[a-z][a-z0-9_-]{0,31}:[1-9][0-9]*$/', $value) === 1) {
+                $assignments[] = $value;
+            }
+        }
+
+        return array_values(array_unique($assignments));
     }
 
-    /**
-     * @param list<int> $variableIDs
-     */
-    private function WriteBypassedSensorIDs(array $variableIDs): void
+    /** @param list<string> $assignments */
+    private function WriteBypassedSensorAssignments(array $assignments): void
     {
-        $this->WritePersistentVariableIDs(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, $variableIDs);
+        $assignments = array_values(array_unique($assignments));
+        sort($assignments, SORT_STRING);
+        $this->WritePersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS, $assignments);
+    }
+
+    private function SensorBypassKey(string $partitionID, int $variableID): string
+    {
+        return $partitionID . ':' . $variableID;
     }
 
     /**
@@ -4994,7 +5161,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function NormalizeSensorBypasses(array $sensors): void
     {
-        $validIDs = [];
+        $validAssignments = [];
         foreach ($sensors as $sensor) {
             if (
                 $sensor['Enabled']
@@ -5002,19 +5169,25 @@ class OpenHomeAlarm extends IPSModuleStrict
                 && $sensor['VariableID'] > 0
                 && $this->IsSensorUsedForArming($sensor)
             ) {
-                $validIDs[] = $sensor['VariableID'];
+                $validAssignments[] = $this->SensorBypassKey(
+                    is_string($sensor['PartitionID'] ?? null) ? $sensor['PartitionID'] : $this->DefaultPartitionID(),
+                    $sensor['VariableID']
+                );
             }
         }
 
-        $currentIDs = $this->ReadBypassedSensorIDs();
-        $normalizedIDs = array_values(array_intersect($currentIDs, array_values(array_unique($validIDs))));
-        sort($normalizedIDs, SORT_NUMERIC);
+        $currentAssignments = $this->ReadBypassedSensorAssignments();
+        $normalizedAssignments = array_values(array_intersect(
+            $currentAssignments,
+            array_values(array_unique($validAssignments))
+        ));
+        sort($normalizedAssignments, SORT_STRING);
 
-        if ($normalizedIDs !== $currentIDs) {
-            $this->WriteBypassedSensorIDs($normalizedIDs);
+        if ($normalizedAssignments !== $currentAssignments) {
+            $this->WriteBypassedSensorAssignments($normalizedAssignments);
         }
 
-        if ($currentIDs !== [] || $normalizedIDs !== []) {
+        if ($currentAssignments !== [] || $normalizedAssignments !== []) {
             $this->UpdateBypassedSensorStatus($sensors);
         }
     }
@@ -5040,7 +5213,14 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        return in_array($sensor['VariableID'], $this->ReadBypassedSensorIDs(), true);
+        return in_array(
+            $this->SensorBypassKey(
+                is_string($sensor['PartitionID'] ?? null) ? $sensor['PartitionID'] : $this->DefaultPartitionID(),
+                $sensor['VariableID']
+            ),
+            $this->ReadBypassedSensorAssignments(),
+            true
+        );
     }
 
     /**
@@ -5060,27 +5240,30 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function UpdateBypassedSensorStatus(array $sensors): void
     {
-        $bypassedIDs = $this->ReadBypassedSensorIDs();
+        $assignments = $this->ReadBypassedSensorAssignments();
         $names = [];
 
-        foreach ($bypassedIDs as $variableID) {
+        foreach ($assignments as $assignment) {
+            [$partitionID, $variableIDText] = explode(':', $assignment, 2);
+            $variableID = (int) $variableIDText;
             $matched = false;
             foreach ($sensors as $sensor) {
                 if (
                     !$sensor['Enabled']
                     || $sensor['AlwaysActive']
                     || $sensor['VariableID'] !== $variableID
+                    || $sensor['PartitionID'] !== $partitionID
                     || !$this->IsSensorUsedForArming($sensor)
                 ) {
                     continue;
                 }
 
-                $names[] = $this->ResolveSensorDisplayName($sensor);
+                $names[] = $this->ResolveSensorDisplayName($sensor) . ' (' . $partitionID . ')';
                 $matched = true;
             }
 
             if (!$matched) {
-                $names[] = sprintf($this->Translate('Variable #%d'), $variableID);
+                $names[] = sprintf($this->Translate('Variable #%d'), $variableID) . ' (' . $partitionID . ')';
             }
         }
 
@@ -5089,11 +5272,11 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function ClearSensorBypassesInternal(): void
     {
-        if ($this->ReadBypassedSensorIDs() === []) {
+        if ($this->ReadBypassedSensorAssignments() === []) {
             return;
         }
 
-        $this->WriteBypassedSensorIDs([]);
+        $this->WriteBypassedSensorAssignments([]);
         $this->SetBypassedSensors('');
 
         try {
@@ -5101,6 +5284,37 @@ class OpenHomeAlarm extends IPSModuleStrict
         } catch (\Throwable $exception) {
             $this->SendDebug(__FUNCTION__, 'Unable to refresh readiness after clearing sensor bypasses: ' . $exception->getMessage(), 0);
         }
+    }
+
+    /** @param list<array<string,mixed>>|null $sensors */
+    private function ClearSensorBypassesPartitionInternal(string $partitionID, ?array $sensors = null): bool
+    {
+        $prefix = $partitionID . ':';
+        $current = $this->ReadBypassedSensorAssignments();
+        $remaining = array_values(array_filter(
+            $current,
+            static fn (string $assignment): bool => !str_starts_with($assignment, $prefix)
+        ));
+        if ($remaining === $current) {
+            return false;
+        }
+
+        $this->WriteBypassedSensorAssignments($remaining);
+        if ($sensors === null) {
+            try {
+                $sensors = $this->ReadConfiguredSensors();
+            } catch (Throwable) {
+                $sensors = null;
+            }
+        }
+        if ($sensors !== null) {
+            $this->UpdateBypassedSensorStatus($sensors);
+            $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
+        } elseif ($remaining === []) {
+            $this->SetBypassedSensors('');
+        }
+
+        return true;
     }
 
     /**

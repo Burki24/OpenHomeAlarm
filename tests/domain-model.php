@@ -242,6 +242,11 @@ assertDomainSame(
     'Visualization variable IDs must be normalized to positive integers.'
 );
 assertDomainSame(
+    ['Action' => 'BypassSensorPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 42]],
+    AlarmVisualizationAdapter::command('BypassSensorPartition', '{"PartitionID":"Garage","Value":42}'),
+    'Partition bypass commands must preserve both the selected area and sensor ID.'
+);
+assertDomainSame(
     ['Action' => 'ExportEventHistory', 'Value' => 'csv'],
     AlarmVisualizationAdapter::command('ExportEventHistory', ' CSV '),
     'Visualization history exports must normalize their selected format.'
@@ -323,6 +328,7 @@ assertDomainSame(
         [
             'Enabled'      => true,
             'PartitionID'  => '',
+            'PartitionIDs' => [],
             'Name'         => 'Front door',
             'VariableID'   => 1001,
             'SensorType'   => 1,
@@ -337,6 +343,15 @@ assertDomainSame(
     ],
     $sensors,
     'Sensor configuration must be normalized.'
+);
+assertDomainSame(
+    ['house', 'garage'],
+    AlarmConfigurationNormalizer::sensors(
+        '[{"Partition_house":true,"Partition_garage":true}]',
+        [0],
+        0
+    )[0]['PartitionIDs'],
+    'A sensor must retain every explicitly selected alarm partition.'
 );
 assertDomainThrows(
     static fn (): array => AlarmConfigurationNormalizer::sensors(

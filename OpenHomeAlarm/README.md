@@ -67,7 +67,9 @@ Danach **Änderungen übernehmen**. Genau ein aktiver Bereich muss als Standardb
 
 **2. Sensoren zuordnen**
 
-Den gewünschten Eintrag unter **Sensoren und Auslöser** beziehungsweise **Systemüberwachung** bearbeiten. Im Feld **Alarmbereich** den Eintrag **Garage** auswählen und die Änderungen übernehmen. Eine leere Zuordnung verwendet den Standardbereich.
+Den gewünschten Eintrag unter **Sensoren und Auslöser** bearbeiten. Im Editor werden alle aktiven Alarmbereiche als Checkboxen angezeigt. **Garage** aktivieren und die Änderungen übernehmen. Ein Sensor kann gleichzeitig mehreren Bereichen zugeordnet werden; sein Zustand beeinflusst dann die Bereitschaft jedes zugeordneten Bereichs und löst nur in den jeweils scharfgeschalteten beziehungsweise bei 24/7-Sensoren in allen zugeordneten Bereichen aus. Neue Sensoren sind automatisch dem Standardbereich zugeordnet. Störungseingänge bleiben einem einzelnen Bereich zugeordnet und verwenden bei neuen Einträgen ebenfalls automatisch den Standardbereich.
+
+Temporäre Überbrückungen gelten immer nur für den aktuell ausgewählten Bereich. Ist derselbe Sensor beispielsweise **Haus** und **Garage** zugeordnet, lässt eine Überbrückung in **Garage** seine Überwachung in **Haus** unverändert.
 
 **3. Nur die Garage scharfschalten**
 
@@ -95,10 +97,10 @@ Auch dieser Befehl verändert keinen anderen Alarmbereich.
 | Begriff | Bedeutung |
 | --- | --- |
 | Aktiv | Der Bereich steht zur Verfügung und kann Sensoren erhalten. Das ist kein Scharfbefehl. |
-| Standardbereich | Bereich, den die bisherigen Schaltbefehle sowie die zentrale Kachel- und IPSView-Bedienung verwenden |
+| Standardbereich | Bereich, den die bisherigen Schaltbefehle ohne Bereichsangabe verwenden; Kachel und IPSView können zwischen allen aktiven Bereichen wechseln |
 | Scharfgeschaltet | Laufzeitzustand eines Bereichs; seine zugeordneten Sensoren werden entsprechend dem gewählten Modus überwacht |
 
-Die HTML-SDK-Kachel und die IPSView-Seite besitzen derzeit keine Bereichsauswahl und bedienen den Standardbereich. Zusätzliche Bereiche werden über die gezeigten PHP-Befehle oder eigene darauf aufbauende Symcon-Skripte bedient.
+Die HTML-SDK-Kachel und die IPSView-Seite zeigen oberhalb des Sicherheitsstatus eine Bereichsauswahl. Scharf-/Unscharfschaltung, Bereitschaft, Diagnose, Alarmgedächtnis und Sensorüberbrückungen beziehen sich auf den dort gewählten Bereich. Die öffentlichen PHP-Funktionen stehen zusätzlich für Automationen zur Verfügung.
 
 ##### Regeln für die Bereichs-ID
 
@@ -327,6 +329,8 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_ArmNight($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Nacht**; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
 | `OHA_BypassSensor($InstanzID, $VariableID)` | `bool` | Überbrückt einen normalen konfigurierten Scharfsensor temporär; nur im Zustand **Unscharf** möglich |
 | `OHA_RemoveSensorBypass($InstanzID, $VariableID)` | `bool` | Entfernt eine einzelne temporäre Sensorüberbrückung; nur im Zustand **Unscharf** möglich |
+| `OHA_BypassSensorPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Überbrückt einen Sensor ausschließlich im angegebenen unscharfen Alarmbereich |
+| `OHA_RemoveSensorBypassPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Entfernt die Überbrückung ausschließlich im angegebenen unscharfen Alarmbereich |
 | `OHA_ClearSensorBypasses($InstanzID)` | `bool` | Entfernt alle temporären Sensorüberbrückungen; nur im Zustand **Unscharf** möglich |
 | `OHA_Disarm($InstanzID)` | `bool` | Schaltet die Anlage als vertrauenswürdige direkte API ohne Code-Prüfung unscharf und setzt den Scharfmodus zurück |
 | `OHA_DisarmWithCode($InstanzID, $Code)` | `bool` | Prüft den optionalen Unscharfschaltcode und schaltet bei Erfolg unscharf |

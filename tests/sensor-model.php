@@ -524,7 +524,7 @@ foreach ($list['columns'] ?? [] as $column) {
 foreach ([
     'Enabled',
     'Name',
-    'PartitionID',
+    'PartitionNames',
     'VariableID',
     'SensorType',
     'TriggerValue',
@@ -550,7 +550,10 @@ assertSensorModel(
     'Sensor type values must remain stable.'
 );
 assertSensorModel(($columns['Enabled']['add'] ?? null) === true, 'New sensors must be enabled by default.');
-assertSensorModel(($columns['PartitionID']['add'] ?? null) === '', 'New sensors must resolve the default partition dynamically.');
+assertSensorModel(
+    ($columns['PartitionNames']['save'] ?? true) === false,
+    'The readable alarm-area summary must not be persisted.'
+);
 assertSensorModel(($columns['TriggerValue']['add'] ?? null) === '1', 'New sensors must use trigger value 1 by default.');
 assertSensorModel(($columns['ArmHome']['add'] ?? null) === false, 'New sensors must not be active in Home by default.');
 assertSensorModel(($columns['ArmAway']['add'] ?? null) === true, 'New sensors must be active in Away by default.');
@@ -624,15 +627,18 @@ assertSensorModel(
     ($generatedSensorList['values'] ?? null) === [
         [
             'TriggerValueSelection' => 'ALARM',
-            'TriggerValueManual'    => 'ALARM'
+            'TriggerValueManual'    => 'ALARM',
+            'PartitionNames'        => 'Main area'
         ],
         [
             'TriggerValueSelection' => 'true',
-            'TriggerValueManual'    => 'true'
+            'TriggerValueManual'    => 'true',
+            'PartitionNames'        => 'Main area'
         ],
         [
             'TriggerValueSelection' => 'IDLE',
-            'TriggerValueManual'    => '"IDLE"'
+            'TriggerValueManual'    => '"IDLE"',
+            'PartitionNames'        => 'Main area'
         ]
     ],
     'Generated List values must restore the persisted trigger value into non-persistent edit helper fields.'
@@ -653,10 +659,12 @@ assertSensorModel(
     'Sensor editor must use SelectVariable for VariableID.'
 );
 assertSensorModel(
-    ($editFields['PartitionID']['type'] ?? null) === 'Select'
+    ($editFields['PartitionID']['type'] ?? null) === 'ValidationTextBox'
     && ($editFields['PartitionID']['value'] ?? null) === 'main'
-    && array_column($editFields['PartitionID']['options'] ?? [], 'value') === ['main'],
-    'Sensor editor must select an enabled partition and default empty assignments to main.'
+    && ($editFields['PartitionID']['visible'] ?? true) === false
+    && ($editFields['Partition_main']['type'] ?? null) === 'CheckBox'
+    && ($editFields['Partition_main']['value'] ?? null) === true,
+    'Sensor editor must select the default area and persist its assignment with a checkbox.'
 );
 assertSensorModel(
     ($editFields['AlwaysActive']['type'] ?? null) === 'CheckBox',

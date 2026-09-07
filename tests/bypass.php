@@ -333,18 +333,18 @@ assertBypass($instance->TestValue('ReadyAway') === false, 'The triggered shared 
 assertBypass($instance->TestValue('ReadyNight') === false, 'A missing Night sensor must fail safe before bypassing.');
 
 assertBypass($instance->BypassSensor(7001) === true, 'A normal arming sensor must be bypassable while disarmed.');
-assertBypass($instance->TestValue('BypassedSensors') === 'Haustür', 'The bypass status must expose the bypassed sensor name.');
+assertBypass($instance->TestValue('BypassedSensors') === 'Haustür (main)', 'The bypass status must expose sensor and partition.');
 assertBypass($instance->TestValue('ReadyHome') === true, 'Bypassing the only Home blocker must make Home ready.');
 assertBypass($instance->TestValue('ReadyAway') === true, 'Bypassing the shared blocker must make Away ready.');
 assertBypass(
-    json_decode($instance->TestAttributeString('BypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [7001],
-    'The bypassed variable ID must be stored persistently.'
+    json_decode($instance->TestAttributeString('BypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === ['main:7001'],
+    'The bypassed sensor assignment must be stored persistently.'
 );
 
 assertBypass($instance->BypassSensor(9999) === true, 'A missing configured arming sensor must remain explicitly bypassable.');
 assertBypass($instance->TestValue('ReadyNight') === true, 'Bypassing a missing Night sensor must make Night ready.');
 assertBypass(
-    $instance->TestValue('BypassedSensors') === 'Haustür, Defekter Nachtkontakt',
+    $instance->TestValue('BypassedSensors') === 'Haustür (main), Defekter Nachtkontakt (main)',
     'Multiple bypasses must be published in deterministic sensor order.'
 );
 

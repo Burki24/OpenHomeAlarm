@@ -9,6 +9,8 @@ beispielsweise `v1.109.0`.
 
 ### Added
 
+- Sensoren können mehreren Alarmbereichen gleichzeitig zugeordnet werden;
+  temporäre Überbrückungen bleiben dabei je Sensor und Bereich getrennt.
 - Unabhängig bedienbare Alarmbereiche mit bereichsbezogenen Zuständen,
   Alarmgedächtnissen und Ausgängen.
 - Benutzerbezogene Unscharfschaltcodes mit gemeinsamer, wiederanlaufsicherer

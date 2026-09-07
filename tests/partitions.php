@@ -33,6 +33,15 @@ assertPartition(
     AlarmPartitionRegistry::assignedPartitionID(' GARAGE ', $partitions, 'Sensor partition') === 'garage',
     'Assignments must resolve enabled partition IDs case-insensitively.'
 );
+assertPartition(
+    AlarmPartitionRegistry::assignedPartitionIDs(['garage', 'house', 'garage'], $partitions, 'Sensor partition')
+        === ['garage', 'house'],
+    'Multiple sensor assignments must resolve enabled partitions and remove duplicates.'
+);
+assertPartition(
+    AlarmPartitionRegistry::assignedPartitionIDs([], $partitions, 'Sensor partition') === ['house'],
+    'An empty multi-area assignment must remain compatible with the default partition.'
+);
 foreach (['shed', 'unknown'] as $invalidAssignment) {
     try {
         AlarmPartitionRegistry::assignedPartitionID($invalidAssignment, $partitions, 'Sensor partition');

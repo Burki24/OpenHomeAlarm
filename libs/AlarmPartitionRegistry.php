@@ -116,4 +116,28 @@ final class AlarmPartitionRegistry
 
         throw new UnexpectedValueException(sprintf('%s references an unknown partition.', $context));
     }
+
+    /**
+     * Resolves a sensor assignment to one or more enabled partitions.
+     * An empty assignment deliberately falls back to the default partition for
+     * compatibility with configurations created before multi-area support.
+     *
+     * @param list<string> $partitionIDs
+     * @param list<array{Enabled:bool,ID:string,Name:string,Default:bool}> $partitions
+     *
+     * @return list<string>
+     */
+    public static function assignedPartitionIDs(array $partitionIDs, array $partitions, string $context): array
+    {
+        if ($partitionIDs === []) {
+            return [self::defaultPartition($partitions)['ID']];
+        }
+
+        $resolved = [];
+        foreach ($partitionIDs as $partitionID) {
+            $resolved[] = self::assignedPartitionID($partitionID, $partitions, $context);
+        }
+
+        return array_values(array_unique($resolved));
+    }
 }

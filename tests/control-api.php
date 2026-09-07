@@ -634,4 +634,34 @@ assertControlApi(
     'Each visualization partition must expose only its own recent events.'
 );
 
+$sharedSensorInstance = new OpenHomeAlarm();
+$sharedSensorInstance->Create();
+$sharedSensorInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"house","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
+);
+$sharedSensor = array_merge(controlSensor(2001, 'true', true, false, true), [
+    'Partition_house'  => true,
+    'Partition_garage' => true
+]);
+$testValues[2001] = true;
+$sharedSensorInstance->TestSetPropertyString('Sensors', json_encode([$sharedSensor], JSON_THROW_ON_ERROR));
+$sharedSensorInstance->ApplyChanges();
+$sharedState = json_decode($sharedSensorInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($sharedState['Partitions']['house']['Modes']['away']['Ready'] ?? null) === false
+        && ($sharedState['Partitions']['garage']['Modes']['away']['Ready'] ?? null) === false,
+    'One sensor assigned to multiple areas must independently block every assigned area.'
+);
+assertControlApi(
+    $sharedSensorInstance->BypassSensorPartition('garage', 2001),
+    'A shared sensor must be bypassable in one selected area.'
+);
+$sharedState = json_decode($sharedSensorInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($sharedState['Partitions']['house']['Modes']['away']['Ready'] ?? null) === false
+        && ($sharedState['Partitions']['garage']['Modes']['away']['Ready'] ?? null) === true,
+    'A per-area bypass must not bypass the same sensor in another assigned area.'
+);
+
 fwrite(STDOUT, "OpenHomeAlarm control API checks passed.\n");

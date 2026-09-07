@@ -18,6 +18,7 @@ final class AlarmConfigurationNormalizer
      * @return list<array{
      *     Enabled: bool,
      *     PartitionID: string,
+     *     PartitionIDs: list<string>,
      *     Name: string,
      *     VariableID: int,
      *     SensorType: int,
@@ -61,9 +62,26 @@ final class AlarmConfigurationNormalizer
                 throw new UnexpectedValueException('Unsupported sensor type.');
             }
 
+            $legacyPartitionID = strtolower(trim(self::stringField($sensor, 'PartitionID', '', 'Sensor')));
+            $partitionIDs = [];
+            $hasPartitionFields = false;
+            foreach ($sensor as $key => $selected) {
+                if (!is_string($key) || !str_starts_with($key, 'Partition_')) {
+                    continue;
+                }
+                $hasPartitionFields = true;
+                if ($selected === true) {
+                    $partitionIDs[] = strtolower(substr($key, strlen('Partition_')));
+                }
+            }
+            if (!$hasPartitionFields && $legacyPartitionID !== '') {
+                $partitionIDs[] = $legacyPartitionID;
+            }
+
             $normalizedSensors[] = [
                 'Enabled'      => self::booleanField($sensor, 'Enabled', true, 'Sensor'),
-                'PartitionID'  => strtolower(trim(self::stringField($sensor, 'PartitionID', '', 'Sensor'))),
+                'PartitionID'  => $legacyPartitionID,
+                'PartitionIDs' => array_values(array_unique($partitionIDs)),
                 'Name'         => trim(self::stringField($sensor, 'Name', '', 'Sensor')),
                 'VariableID'   => $variableID,
                 'SensorType'   => $sensorType,

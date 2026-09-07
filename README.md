@@ -23,8 +23,8 @@ Beispiel: Eine Garage soll unabhängig vom Hauptbereich geschaltet werden.
    Namen `Garage` anlegen. Den vorhandenen Hauptbereich als einzigen
    **Standardbereich** markiert lassen.
 2. **Änderungen übernehmen**.
-3. Die gewünschten Sensoren bearbeiten und im Feld **Alarmbereich** den Eintrag
-   **Garage** auswählen.
+3. Die gewünschten Sensoren bearbeiten und unter **Alarmbereiche** mindestens
+   **Garage** auswählen. Ein Sensor darf mehreren Bereichen zugeordnet werden.
 4. Zum Schalten folgende Befehle in eigenen Symcon-Skripten verwenden:
 
 ```php
@@ -40,7 +40,7 @@ sind `home`, `away` und `night`. Andere Alarmbereiche werden durch diese Befehle
 nicht verändert.
 
 **Aktiv** bedeutet nur, dass ein Bereich verwendet werden kann; es schaltet ihn
-nicht scharf. Kachel und IPSView bedienen derzeit den Standardbereich.
+nicht scharf. Kachel und IPSView bieten eine Auswahl aller aktiven Bereiche.
 
 Die Bereichs-ID muss mit einem Kleinbuchstaben beginnen. Zulässig sind insgesamt
 1 bis 32 Kleinbuchstaben, Ziffern, `_` oder `-`, beispielsweise `main`, `garage`

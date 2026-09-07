@@ -23,6 +23,7 @@ final class AlarmVisualizationAdapter
             'Arm'                                                                                                       => self::stringValue($value, 'Arm action requires a mode string.'),
             'DisarmWithCode'                                                                                            => self::stringValue($value, 'DisarmWithCode action requires a code string.'),
             'ExportEventHistory', 'ExportDiagnostics'                                                                   => self::exportFormat($value),
+            'BypassSensorPartition', 'RemoveSensorBypassPartition'                                                      => self::partitionVariableID($value),
             'BypassSensor', 'RemoveSensorBypass'                                                                        => self::variableID($value),
             'Disarm', 'RefreshVisualization', 'ClearSensorBypasses', 'ClearAlarmMemory', 'ResetAlarmOutput'             => null,
             default                                                                                                     => throw new InvalidArgumentException('Unknown visualization action.')
@@ -83,6 +84,18 @@ final class AlarmVisualizationAdapter
         }
 
         return $variableID;
+    }
+
+    /** @return array{PartitionID:string,Value:int} */
+    private static function partitionVariableID(mixed $value): array
+    {
+        $partition = self::partitionValue($value, false);
+        if (is_string($value)) {
+            $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        }
+        $partition['Value'] = self::variableID(is_array($value) ? ($value['Value'] ?? null) : null);
+
+        return $partition;
     }
 
     private static function exportFormat(mixed $value): string

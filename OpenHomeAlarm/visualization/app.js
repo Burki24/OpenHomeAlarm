@@ -604,8 +604,8 @@ function ohaRenderSensorManagement(state) {
         row.append(icon, copy);
         if (operation.Bypassed && state.Capabilities?.CanManageBypasses) {
             row.append(ohaCreateOperationButton(
-                'RemoveSensorBypass',
-                operation.VariableID,
+                'RemoveSensorBypassPartition',
+                JSON.stringify({ PartitionID: state.ID ?? ohaSelectedPartitionID, Value: operation.VariableID }),
                 'Restore',
                 'accent'
             ));
@@ -615,8 +615,8 @@ function ohaRenderSensorManagement(state) {
             && state.Capabilities?.CanManageBypasses
         ) {
             row.append(ohaCreateOperationButton(
-                'BypassSensor',
-                operation.VariableID,
+                'BypassSensorPartition',
+                JSON.stringify({ PartitionID: state.ID ?? ohaSelectedPartitionID, Value: operation.VariableID }),
                 'Bypass once',
                 'warning'
             ));

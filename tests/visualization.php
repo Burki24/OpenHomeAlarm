@@ -149,8 +149,8 @@ assertVisualization(
     'Code-protected visualization disarming must target the selected partition.'
 );
 foreach ([
-    'BypassSensor',
-    'RemoveSensorBypass',
+    'BypassSensorPartition',
+    'RemoveSensorBypassPartition',
     'ClearSensorBypasses',
     'ClearAlarmMemory',
     'ResetAlarmOutput'
