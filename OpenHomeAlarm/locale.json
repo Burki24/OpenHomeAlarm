@@ -238,7 +238,7 @@
             "Export event history as CSV": "Ereignishistorie als CSV exportieren",
             "Export diagnostics as JSON": "Diagnose als JSON exportieren",
             "Export diagnostics as CSV": "Diagnose als CSV exportieren",
-            "Silence alarm": "Alarmton stoppen",
+            "Reset alarm actions": "Alarmaktionen zurücksetzen",
             "Arming rejected": "Scharfschaltung abgelehnt",
             "Arming cancelled": "Scharfschaltung abgebrochen",
             "Exit delay started": "Ausgangsverzögerung gestartet",

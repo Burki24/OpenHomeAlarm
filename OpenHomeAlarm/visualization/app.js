@@ -792,7 +792,7 @@ function ohaRenderDisarm(state) {
     document.getElementById('controlTitle').textContent = ohaTranslate('System control');
     resetAlarmOutputButton.hidden = !canResetAlarmOutput;
     resetAlarmOutputButton.dataset.enabled = canResetAlarmOutput ? 'true' : 'false';
-    document.getElementById('resetAlarmOutputLabel').textContent = ohaTranslate('Silence alarm');
+    document.getElementById('resetAlarmOutputLabel').textContent = ohaTranslate('Reset alarm actions');
     codeHint.hidden = !codeRequired;
     codeHint.textContent = codeRequired
         ? ohaTranslate(codeLocked ? 'Code entry is temporarily locked.' : 'Code required for disarming')

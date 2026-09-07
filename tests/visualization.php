@@ -287,7 +287,7 @@ foreach ([
     'Export diagnostics as CSV',
     'Export event history as JSON',
     'Export event history as CSV',
-    'Silence alarm',
+    'Reset alarm actions',
     'Alarm triggered',
     'Reset alarm output',
     'Alarm output reset',

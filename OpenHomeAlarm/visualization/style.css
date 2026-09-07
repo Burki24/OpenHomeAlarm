@@ -223,9 +223,11 @@ button:focus-visible {
 
 .oha-partition-nav {
     display: flex;
+    min-height: 46px;
     min-width: 0;
     align-items: center;
     gap: 10px;
+    padding: 4px 0;
 }
 
 .oha-partition-label {
@@ -1234,13 +1236,16 @@ button:focus-visible {
     }
 
     .oha-hero,
-    .oha-partition-nav,
     .oha-status-grid,
     .oha-context-grid,
     .oha-operations-grid,
     .oha-arm-section,
     .oha-control-bar {
         grid-column: 1;
+    }
+
+    .oha-partition-nav {
+        grid-column: 1 / -1;
     }
 
     .oha-inline-codepad {
@@ -1722,8 +1727,9 @@ html.oha-ipsview .oha-topbar-actions {
 }
 
 html.oha-ipsview .oha-partition-nav {
-    min-height: 36px;
+    min-height: 46px;
     gap: 8px;
+    padding: 5px 0;
 }
 
 html.oha-ipsview .oha-partition-label {
@@ -1732,8 +1738,8 @@ html.oha-ipsview .oha-partition-label {
 }
 
 html.oha-ipsview .oha-partition-tab {
-    min-height: 30px;
-    padding: 4px 10px;
+    min-height: 34px;
+    padding: 6px 12px;
     --oha-partition-color: var(--oha-panel-muted);
     --oha-partition-background: var(--oha-surface-soft);
     --oha-partition-border: var(--oha-panel-border);
