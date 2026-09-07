@@ -20,8 +20,9 @@ Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als
 Beispiel: Eine Garage soll unabhängig vom Hauptbereich geschaltet werden.
 
 1. Unter **Alarmbereiche** einen aktiven Eintrag mit der ID `garage` und dem
-   Namen `Garage` anlegen. Den vorhandenen Hauptbereich als einzigen
-   **Standardbereich** markiert lassen.
+   Namen `Garage` anlegen. Den vorhandenen Hauptbereich (`main`) als einzigen
+   **Standardbereich** markiert lassen. Er ist die Gesamtanlage und schaltet alle
+   aktiven Bereiche gemeinsam.
 2. **Änderungen übernehmen**.
 3. Die gewünschten Sensoren bearbeiten und unter **Alarmbereiche** mindestens
    **Garage** auswählen. Ein Sensor darf mehreren Bereichen zugeordnet werden.
@@ -38,6 +39,11 @@ OHA_DisarmPartition(12345, 'garage');
 `12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen. Zulässige Modi
 sind `home`, `away` und `night`. Andere Alarmbereiche werden durch diese Befehle
 nicht verändert.
+
+Für alle aktiven Bereiche gemeinsam verwenden Sie `OHA_ArmHome()`,
+`OHA_ArmAway()`, `OHA_ArmNight()` oder `OHA_Disarm()`. Ein Scharfschaltversuch
+über den Hauptbereich wird nur ausgeführt, wenn jeder aktive Bereich bereit ist;
+bei einem Blocker bleibt kein Bereich teilweise scharfgeschaltet.
 
 **Aktiv** bedeutet nur, dass ein Bereich verwendet werden kann; es schaltet ihn
 nicht scharf. Kachel und IPSView bieten eine Auswahl aller aktiven Bereiche.

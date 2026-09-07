@@ -1080,7 +1080,10 @@ class OpenHomeAlarm extends IPSModuleStrict
         return true;
     }
 
-    /** Arms one enabled alarm partition without changing any other partition. */
+    /**
+     * Arms one enabled alarm partition. The configured main/default partition
+     * represents the complete system and therefore arms every enabled area.
+     */
     public function ArmPartition(string $partitionID, string $mode): bool
     {
         try {
@@ -1091,36 +1094,14 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($partitionID === $this->DefaultPartitionID()) {
             return $this->Arm($mode);
         }
-        $modeValue = AlarmStateMachine::armingModeFromName($mode);
-        if ($modeValue === null) {
-            return false;
-        }
-        $states = $this->ReadPartitionRuntime();
-        if (!AlarmStateMachine::canArm($states[$partitionID]['State'], $modeValue)) {
-            return false;
-        }
-        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
-        $faults = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $partitionID);
-        $readiness = $this->ApplyFaultBlockingToReadiness(
-            $this->EvaluateReadinessStatus($sensors)['readiness'],
-            $faults
-        );
-        if (!$this->IsModeReady($modeValue, $readiness)) {
-            return false;
-        }
-        $states[$partitionID] = AlarmPartitionRuntime::arm(
-            $states[$partitionID],
-            $modeValue,
-            time(),
-            $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS)
-        );
-        $this->WritePartitionRuntime($states);
-        $this->SchedulePartitionRuntimeTimer($states);
-        $this->PublishVisualizationState();
-        return true;
+
+        return $this->ArmSinglePartition($partitionID, $mode);
     }
 
-    /** Disarms one enabled alarm partition without changing any other partition. */
+    /**
+     * Disarms one enabled alarm partition. The configured main/default
+     * partition represents the complete system and therefore disarms every area.
+     */
     public function DisarmPartition(string $partitionID): bool
     {
         try {
@@ -1188,7 +1169,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        $result = $this->ArmMode($modeValue, $delaySeconds);
+        $result = $this->ArmAllPartitions($modeValue, $delaySeconds);
         $this->PublishVisualizationState();
 
         return $result;
@@ -2388,6 +2369,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->AppendEvent(self::EVENT_DISARMED, $userName);
         }
 
+        foreach ($this->EnabledNonDefaultPartitionIDs() as $partitionID) {
+            $this->DisarmPartitionInternal($partitionID, $userName);
+        }
+
         $this->PublishVisualizationState();
 
         return true;
@@ -2464,6 +2449,20 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->ReadConfiguredPartitions(),
             'Alarm partition'
         );
+    }
+
+    /** @return list<string> */
+    private function EnabledNonDefaultPartitionIDs(): array
+    {
+        $defaultPartitionID = $this->DefaultPartitionID();
+
+        return array_values(array_map(
+            static fn (array $partition): string => $partition['ID'],
+            array_filter(
+                $this->ReadConfiguredPartitions(),
+                static fn (array $partition): bool => $partition['Enabled'] && $partition['ID'] !== $defaultPartitionID
+            )
+        ));
     }
 
     /** @return array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> */
@@ -5048,6 +5047,86 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->AppendEvent(self::EVENT_EXIT_DELAY_STARTED);
 
         return true;
+    }
+
+    /** Arms one non-default area after validating only that area's readiness. */
+    private function ArmSinglePartition(string $partitionID, string $mode): bool
+    {
+        $modeValue = AlarmStateMachine::armingModeFromName($mode);
+        if ($modeValue === null) {
+            return false;
+        }
+        $states = $this->ReadPartitionRuntime();
+        if (!$this->CanArmPartition($states, $partitionID, $modeValue)) {
+            return false;
+        }
+        $states[$partitionID] = AlarmPartitionRuntime::arm(
+            $states[$partitionID],
+            $modeValue,
+            time(),
+            $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS)
+        );
+        $this->WritePartitionRuntime($states);
+        $this->SchedulePartitionRuntimeTimer($states);
+        $this->PublishVisualizationState();
+
+        return true;
+    }
+
+    /**
+     * Arms the configured main/default area as the complete alarm system.
+     *
+     * Every non-default area is validated before the main area changes state,
+     * so a blocker in any area leaves all areas unchanged.
+     */
+    private function ArmAllPartitions(int $mode, ?int $delaySeconds = null): bool
+    {
+        $states = $this->ReadPartitionRuntime();
+        foreach ($this->EnabledNonDefaultPartitionIDs() as $partitionID) {
+            if (!$this->CanArmPartition($states, $partitionID, $mode, $delaySeconds)) {
+                return false;
+            }
+        }
+
+        if (!$this->ArmMode($mode, $delaySeconds)) {
+            return false;
+        }
+
+        $states = $this->ReadPartitionRuntime();
+        $exitDelaySeconds = $delaySeconds ?? $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS);
+        $now = time();
+        foreach ($this->EnabledNonDefaultPartitionIDs() as $partitionID) {
+            $states[$partitionID] = AlarmPartitionRuntime::arm(
+                $states[$partitionID],
+                $mode,
+                $now,
+                $exitDelaySeconds
+            );
+        }
+        $this->WritePartitionRuntime($states);
+        $this->SchedulePartitionRuntimeTimer($states);
+
+        return true;
+    }
+
+    /**
+     * @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states
+     */
+    private function CanArmPartition(array $states, string $partitionID, int $mode, ?int $delaySeconds = null): bool
+    {
+        if (!AlarmStateMachine::canArm($states[$partitionID]['State'], $mode)) {
+            return false;
+        }
+        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
+        $faults = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $partitionID);
+        $exitDelaySeconds = $delaySeconds ?? $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS);
+        $strictReadiness = $exitDelaySeconds === 0;
+        $readiness = $this->ApplyFaultBlockingToReadiness(
+            $this->EvaluateReadinessStatus($sensors, $strictReadiness, !$strictReadiness)['readiness'],
+            $faults
+        );
+
+        return $this->IsModeReady($mode, $readiness);
     }
 
     /**

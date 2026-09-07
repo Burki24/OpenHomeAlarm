@@ -547,32 +547,51 @@ $partitionInstance->TestSetPropertyString(
 );
 $partitionSensors = [
     array_merge(controlSensor(2001, 'true', true, true), ['PartitionID' => 'house']),
-    array_merge(controlSensor(2002, 'true', true, false, true), ['PartitionID' => 'garage'])
+    array_merge(controlSensor(2002, 'true', true, true, true), ['PartitionID' => 'garage'])
 ];
 $testValues[2001] = false;
 $testValues[2002] = false;
 $partitionInstance->TestSetPropertyString('Sensors', json_encode($partitionSensors, JSON_THROW_ON_ERROR));
 $partitionInstance->ApplyChanges();
 assertControlApi(!$partitionInstance->ArmPartition('unknown', 'away'), 'Unknown partitions must be rejected safely.');
-assertControlApi($partitionInstance->ArmPartition('house', 'home'), 'The default partition must arm through the partition API.');
-assertControlApi($partitionInstance->ArmPartition('garage', 'away'), 'A second partition must arm independently.');
-$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-assertControlApi(
-    ($partitionState['Partitions']['house']['State']['Name'] ?? null) === 'armed'
-        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
-    'Both partitions must expose their independent armed states.'
-);
-assertControlApi($partitionInstance->DisarmPartition('house'), 'The default partition must disarm through the partition API.');
+assertControlApi($partitionInstance->ArmPartition('garage', 'away'), 'A non-default partition must still arm independently.');
 $partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
 assertControlApi(
     ($partitionState['Partitions']['house']['State']['Name'] ?? null) === 'disarmed'
         && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
-    'Disarming one partition must leave the other partition armed.'
+    'Arming a non-default partition must leave the main/default partition unchanged.'
+);
+assertControlApi($partitionInstance->DisarmPartition('garage'), 'A non-default partition must disarm independently.');
+assertControlApi($partitionInstance->ArmPartition('house', 'home'), 'The main/default partition must arm every enabled area.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['house']['State']['Name'] ?? null) === 'armed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'Arming the main/default partition must arm all enabled areas.'
+);
+assertControlApi($partitionInstance->DisarmPartition('house'), 'The main/default partition must disarm through the partition API.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['house']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed',
+    'Disarming the main/default partition must disarm all enabled areas.'
 );
 $testValues[2002] = true;
-$partitionInstance->MessageSink(2, 2002, VM_UPDATE, [true, true, false]);
 $testValues[2001] = false;
-assertControlApi($partitionInstance->ArmPartition('house', 'home'), 'A partition must arm while another partition is alarming.');
+assertControlApi(
+    !$partitionInstance->ArmPartition('house', 'home'),
+    'A blocker in one enabled area must prevent the main/default partition from arming any area.'
+);
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['house']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed',
+    'A blocked main/default arming attempt must leave every area unchanged.'
+);
+$testValues[2002] = false;
+assertControlApi($partitionInstance->ArmPartition('house', 'home'), 'The main/default partition must arm all ready areas.');
+$testValues[2002] = true;
+$partitionInstance->MessageSink(2, 2002, VM_UPDATE, [true, true, false]);
 $testValues[2001] = true;
 $partitionInstance->MessageSink(3, 2001, VM_UPDATE, [true, true, false]);
 $partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
@@ -601,9 +620,14 @@ assertControlApi(
         && ($partitionState['Alarm']['OutputActive'] ?? null) === true,
     'Resetting one partition must retain another partition and the aggregated output.'
 );
-assertControlApi($partitionInstance->DisarmPartition('house'), 'The first alarm partition must disarm independently.');
-assertControlApi($partitionInstance->ResetAlarmOutputPartition('garage'), 'The remaining alarm output must be resettable.');
-assertControlApi($partitionInstance->DisarmPartition('garage'), 'The second alarm partition must disarm independently.');
+assertControlApi($partitionInstance->DisarmPartition('house'), 'The main/default partition must disarm every alarm partition.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['house']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Alarm']['OutputActive'] ?? null) === false,
+    'Disarming the main/default partition must reset all active areas and their outputs.'
+);
 assertControlApi($partitionInstance->ClearAlarmMemoryPartition('house'), 'The first partition memory must be acknowledgeable.');
 assertControlApi($partitionInstance->ClearAlarmMemoryPartition('garage'), 'The second partition memory must be acknowledgeable.');
 $partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);

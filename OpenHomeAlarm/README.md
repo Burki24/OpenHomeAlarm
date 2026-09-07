@@ -48,7 +48,7 @@ Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Ein
 
 #### Alarmbereiche
 
-Mit Alarmbereichen können beispielsweise Wohnhaus und Garage unabhängig voneinander scharf- und unscharf geschaltet werden.
+Mit Alarmbereichen können beispielsweise Wohnhaus und Garage unabhängig voneinander scharf- und unscharf geschaltet werden. Der Standardbereich (`main`) ist dabei die **Gesamtanlage**: Scharf- und Unscharfschalten über ihn wirkt auf alle aktiven Bereiche.
 
 ##### Beispiel: Bereich „Garage“ einrichten
 
@@ -71,7 +71,7 @@ Den gewünschten Eintrag unter **Sensoren und Auslöser** bearbeiten. Im Editor 
 
 Temporäre Überbrückungen gelten immer nur für den aktuell ausgewählten Bereich. Ist derselbe Sensor beispielsweise **Haus** und **Garage** zugeordnet, lässt eine Überbrückung in **Garage** seine Überwachung in **Haus** unverändert.
 
-**3. Nur die Garage scharfschalten**
+**3. Einzelnen Bereich oder Gesamtanlage schalten**
 
 Ein Symcon-Skript anlegen und folgenden Befehl verwenden:
 
@@ -83,6 +83,18 @@ OHA_ArmPartition(12345, 'garage', 'away');
 - `garage` ist die zuvor eingetragene Bereichs-ID.
 - `away` ist der Scharfmodus. Zulässig sind `home`, `away` und `night`.
 - Der Befehl verändert keinen anderen Alarmbereich.
+
+Für die Gesamtanlage verwenden Sie den Standardbereich beziehungsweise die bestehenden Befehle ohne Bereichs-ID:
+
+```php
+// Alle aktiven Bereiche im Abwesend-Modus scharfschalten
+OHA_ArmAway(12345);
+
+// Alle aktiven Bereiche unscharf schalten
+OHA_Disarm(12345);
+```
+
+Vor dem Scharfschalten prüft OpenHomeAlarm alle aktiven Bereiche. Blockiert ein Sensor oder Störungseingang einen Bereich, bleibt die gesamte Anlage unverändert unscharf.
 
 **4. Nur die Garage unscharf schalten**
 
@@ -97,7 +109,7 @@ Auch dieser Befehl verändert keinen anderen Alarmbereich.
 | Begriff | Bedeutung |
 | --- | --- |
 | Aktiv | Der Bereich steht zur Verfügung und kann Sensoren erhalten. Das ist kein Scharfbefehl. |
-| Standardbereich | Bereich, den die bisherigen Schaltbefehle ohne Bereichsangabe verwenden; Kachel und IPSView können zwischen allen aktiven Bereichen wechseln |
+| Standardbereich (`main`) | Gesamtanlage. Die Befehle ohne Bereichsangabe sowie die Auswahl `main` in Kachel und IPSView schalten alle aktiven Bereiche gemeinsam; Kachel und IPSView können weiterhin einzelne Bereiche auswählen |
 | Scharfgeschaltet | Laufzeitzustand eines Bereichs; seine zugeordneten Sensoren werden entsprechend dem gewählten Modus überwacht |
 
 Die HTML-SDK-Kachel und die IPSView-Seite zeigen oberhalb des Sicherheitsstatus eine Bereichsauswahl. Scharf-/Unscharfschaltung, Bereitschaft, Diagnose, Alarmgedächtnis und Sensorüberbrückungen beziehen sich auf den dort gewählten Bereich. Die öffentlichen PHP-Funktionen stehen zusätzlich für Automationen zur Verfügung.
@@ -329,12 +341,12 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_ExportDiagnostics($InstanzID, $Format)` | `string` | Exportiert den aktuellen Diagnose-Snapshot als `json` oder `csv` |
 | `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert sämtliche Moduleinstellungen als versioniertes JSON; das Ergebnis kann Unscharfschalt- und Benutzercodes enthalten und muss vertraulich gespeichert werden |
 | `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
-| `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen aktiven Alarmbereich unabhängig mit `home`, `away` oder `night` scharf |
-| `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet genau einen aktiven Alarmbereich unscharf; beim Standardbereich entspricht dies `OHA_Disarm()` |
-| `OHA_Arm($InstanzID, $Modus, $Verzögerung = null)` | `bool` | Schaltet über die stabile Bedien-API mit `home`, `away` oder `night` scharf; eine optionale Verzögerung überschreibt die konfigurierte Ausgangsverzögerung für diesen Aufruf |
-| `OHA_ArmHome($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Zuhause**; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
-| `OHA_ArmAway($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Abwesend**; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
-| `OHA_ArmNight($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Nacht**; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; beim Standardbereich werden alle aktiven Bereiche gemeinsam geschaltet |
+| `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich unscharf; beim Standardbereich werden alle aktiven Bereiche gemeinsam unscharf geschaltet |
+| `OHA_Arm($InstanzID, $Modus, $Verzögerung = null)` | `bool` | Schaltet alle aktiven Bereiche über die stabile Bedien-API mit `home`, `away` oder `night` scharf; eine optionale Verzögerung überschreibt die konfigurierte Ausgangsverzögerung für diesen Aufruf |
+| `OHA_ArmHome($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_ArmAway($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Abwesend** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_ArmNight($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Nacht** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
 | `OHA_BypassSensor($InstanzID, $VariableID)` | `bool` | Überbrückt einen normalen konfigurierten Scharfsensor temporär; nur im Zustand **Unscharf** möglich |
 | `OHA_RemoveSensorBypass($InstanzID, $VariableID)` | `bool` | Entfernt eine einzelne temporäre Sensorüberbrückung; nur im Zustand **Unscharf** möglich |
 | `OHA_BypassSensorPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Überbrückt einen Sensor ausschließlich im angegebenen unscharfen Alarmbereich |
