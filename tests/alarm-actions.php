@@ -785,6 +785,23 @@ assertAlarmAction(
     && ($dynamicEscalationValues[0]['ResetAction'] ?? null) === '',
     'GetConfigurationForm must expose a legacy single action as one directly editable escalation row.'
 );
+$automaticResetForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
+    'ResetMode' => 1
+]);
+assertAlarmAction(
+    findAlarmActionFormField($automaticResetForm, 'ResetAction') === null,
+    'Boolean automatic reset must omit the custom SelectAction so an empty action cannot fail validation.'
+);
+$customResetForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
+    'ResetMode' => 2
+]);
+$customResetSelector = findAlarmActionFormField($customResetForm, 'ResetAction');
+assertAlarmAction(
+    is_array($customResetSelector)
+    && ($customResetSelector['type'] ?? null) === 'SelectAction'
+    && ($customResetSelector['targetID'] ?? null) === -2,
+    'A custom reset mode must expose its native Symcon reset action selector.'
+);
 
 $dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
 $dynamicFormInstance->TestSetPropertyString('AlarmAction', $alarmAction);

@@ -2015,6 +2015,64 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Builds an escalation editor that only contains a native reset action
+     * selector when a custom reset was explicitly selected.
+     *
+     * @param mixed $step Current List row supplied by the Symcon configuration form.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function GetAlarmEscalationEditForm(mixed $step): array
+    {
+        $resetMode = $this->ReadSensorEditInteger($step, 'ResetMode', 0);
+
+        return [
+            ['type' => 'CheckBox', 'name' => 'Enabled', 'caption' => $this->Translate('Enabled')],
+            ['type' => 'ValidationTextBox', 'name' => 'Name', 'caption' => $this->Translate('Name')],
+            [
+                'type'    => 'NumberSpinner',
+                'name'    => 'DelaySeconds',
+                'caption' => $this->Translate('Delay (seconds)'),
+                'minimum' => 0,
+                'maximum' => AlarmEscalationPlan::MAX_DELAY_SECONDS
+            ],
+            [
+                'type'     => 'SelectAction',
+                'name'     => 'Action',
+                'caption'  => $this->Translate('Action'),
+                'targetID' => -2
+            ],
+            [
+                'type'     => 'Select',
+                'name'     => 'ResetMode',
+                'caption'  => $this->Translate('Reset behavior'),
+                'options'  => $this->AlarmEscalationResetModeOptions(),
+                'value'    => $resetMode,
+                'onChange' => 'OHA_UpdateAlarmEscalationResetForm($id, $ResetMode);'
+            ],
+            [
+                'type'  => 'ColumnLayout',
+                'name'  => 'CustomResetActionContainer',
+                'items' => $this->CustomResetActionFormItems($resetMode)
+            ],
+            [
+                'type'    => 'Label',
+                'caption' => $this->Translate('Boolean values can be inverted automatically. For shutters, dimmers, scenes and other multi-value targets, select a custom reset action with the exact desired return value.')
+            ]
+        ];
+    }
+
+    /** Updates the custom reset selector without leaving the List edit dialog. */
+    public function UpdateAlarmEscalationResetForm(int $resetMode): void
+    {
+        $this->UpdateFormField(
+            'CustomResetActionContainer',
+            'items',
+            json_encode($this->CustomResetActionFormItems($resetMode), JSON_THROW_ON_ERROR)
+        );
+    }
+
+    /**
      * Rebuilds the trigger-value choices when another Symcon variable is chosen.
      *
      * A native Select is used for variables which expose discrete presentation values.
@@ -3616,6 +3674,31 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $options;
+    }
+
+    /** @return list<array{caption:string,value:int}> */
+    private function AlarmEscalationResetModeOptions(): array
+    {
+        return [
+            ['caption' => $this->Translate('No reset'), 'value' => 0],
+            ['caption' => $this->Translate('Invert Boolean automatically'), 'value' => 1],
+            ['caption' => $this->Translate('Use custom reset action'), 'value' => 2]
+        ];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function CustomResetActionFormItems(int $resetMode): array
+    {
+        if ($resetMode !== 2) {
+            return [];
+        }
+
+        return [[
+            'type'     => 'SelectAction',
+            'name'     => 'ResetAction',
+            'caption'  => $this->Translate('Custom reset action'),
+            'targetID' => -2
+        ]];
     }
 
     /**

@@ -169,23 +169,9 @@ assertEscalationPlan(
     (($list['columns'] ?? [])[3]['add'] ?? null) === 0,
     'Every visible escalation column needs a default value so Symcon can add a row.'
 );
-$actionSelector = null;
-$resetActionSelector = null;
-foreach ($list['form'] ?? [] as $field) {
-    if (($field['name'] ?? null) === 'Action') {
-        $actionSelector = $field;
-    }
-    if (($field['name'] ?? null) === 'ResetAction') {
-        $resetActionSelector = $field;
-    }
-}
 assertEscalationPlan(
-    ($actionSelector['type'] ?? null) === 'SelectAction' && ($actionSelector['targetID'] ?? null) === -2,
-    'Each escalation row must use the native Symcon action selector in its single edit dialog.'
-);
-assertEscalationPlan(
-    ($resetActionSelector['type'] ?? null) === 'SelectAction' && ($resetActionSelector['targetID'] ?? null) === -2,
-    'Each escalation row must allow an explicit native Symcon reset action.'
+    ($list['form'][0] ?? null) === 'return OHA_GetAlarmEscalationEditForm($id, $AlarmEscalationSteps);',
+    'The escalation list must use a dynamic editor so unused reset actions are absent.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm alarm escalation plan checks passed.\n");

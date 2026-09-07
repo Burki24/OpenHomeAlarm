@@ -41,6 +41,9 @@ beispielsweise `v1.109.0`.
 
 ### Fixed
 
+- Die native Auswahl einer eigenen Eskalations-Rücksetzaktion wird nur noch im
+  entsprechenden Rücksetzmodus erzeugt und blockiert Boolean-Aktionen nicht
+  mehr mit „Keine Aktion ausgewählt“.
 - Bereits konfigurierte optionale Aktionen behalten ihren Wert in der
   dynamischen Konfigurationsmaske und blockieren dadurch keine unabhängigen
   Änderungen mehr mit „Keine Aktion ausgewählt“.

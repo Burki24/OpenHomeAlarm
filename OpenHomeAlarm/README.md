@@ -241,7 +241,7 @@ Unter **Alarm-Eskalationsaktionen** können zusätzliche Aktionen mit frei wähl
 4. Tragen Sie unter **Verzögerung (Sekunden)** ein, wie viele Sekunden nach Beginn des gemeinsamen Alarmausgangs die Aktion ausgeführt werden soll. Der Wert `0` führt die Aktion unmittelbar aus.
 5. Wählen Sie unter **Aktion** das gewünschte Symcon-Ziel und anschließend die auszuführende native Symcon-Aktion aus.
 6. Wählen Sie unter **Rücksetzverhalten** eine der drei Möglichkeiten: **Keine Rücksetzung**, **Boolean automatisch umkehren** oder **Eigene Rücksetzaktion verwenden**.
-7. Bei **Eigene Rücksetzaktion verwenden** wählen Sie unter **Eigene Rücksetzaktion** das gewünschte Ziel und den exakten Rückgabewert, beispielsweise `Auf` für einen zuvor auf `Zu` gefahrenen Rollladen.
+7. Nur bei **Eigene Rücksetzaktion verwenden** erscheint das Feld **Eigene Rücksetzaktion**. Wählen Sie dort das gewünschte Ziel und den exakten Rückgabewert, beispielsweise `Auf` für einen zuvor auf `Zu` gefahrenen Rollladen. Bei **Keine Rücksetzung** und **Boolean automatisch umkehren** ist dieses Aktionsfeld nicht vorhanden und muss daher auch nicht ausgefüllt werden.
 8. Bestätigen Sie den Bearbeitungsdialog. Weitere Aktionen werden jeweils als eigene Tabellenzeile hinzugefügt.
 9. Übernehmen Sie abschließend die Änderungen der Instanzkonfiguration.
 
