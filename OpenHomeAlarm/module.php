@@ -149,13 +149,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_COUNTDOWN_ACTION_ENABLED = 'CountdownActionEnabled';
     private const PROPERTY_COUNTDOWN_ACTION = 'CountdownAction';
     private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
-    private const PROPERTY_ALARM_ACTION_ENABLED = 'AlarmActionEnabled';
-    private const PROPERTY_ALARM_ACTION = 'AlarmAction';
     private const PROPERTY_ALARM_ESCALATION_STEPS = 'AlarmEscalationSteps';
-    private const PROPERTY_ALARM_RESET_ACTION_ENABLED = 'AlarmResetActionEnabled';
-    private const PROPERTY_ALARM_RESET_ACTION = 'AlarmResetAction';
-    private const PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED = 'DisarmAfterAlarmActionEnabled';
-    private const PROPERTY_DISARM_AFTER_ALARM_ACTION = 'DisarmAfterAlarmAction';
     private const PROPERTY_FAULT_ACTION_ENABLED = 'FaultActionEnabled';
     private const PROPERTY_FAULT_ACTION = 'FaultAction';
     private const PROPERTY_FAULT_CLEARED_ACTION_ENABLED = 'FaultClearedActionEnabled';
@@ -218,30 +212,15 @@ class OpenHomeAlarm extends IPSModuleStrict
     ];
 
     private const OPTIONAL_ACTION_FIELDS = [
-        self::PROPERTY_COUNTDOWN_ACTION          => self::PROPERTY_COUNTDOWN_ACTION_ENABLED,
-        self::PROPERTY_ALARM_ACTION              => self::PROPERTY_ALARM_ACTION_ENABLED,
-        self::PROPERTY_ALARM_RESET_ACTION        => self::PROPERTY_ALARM_RESET_ACTION_ENABLED,
-        self::PROPERTY_DISARM_AFTER_ALARM_ACTION => self::PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED,
-        self::PROPERTY_FAULT_ACTION              => self::PROPERTY_FAULT_ACTION_ENABLED,
-        self::PROPERTY_FAULT_CLEARED_ACTION      => self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED
+        self::PROPERTY_COUNTDOWN_ACTION     => self::PROPERTY_COUNTDOWN_ACTION_ENABLED,
+        self::PROPERTY_FAULT_ACTION         => self::PROPERTY_FAULT_ACTION_ENABLED,
+        self::PROPERTY_FAULT_CLEARED_ACTION => self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED
     ];
 
     private const OPTIONAL_ACTION_FORM_FIELDS = [
         self::PROPERTY_COUNTDOWN_ACTION_ENABLED => [
             'name'    => self::PROPERTY_COUNTDOWN_ACTION,
             'caption' => 'On countdown step'
-        ],
-        self::PROPERTY_ALARM_ACTION_ENABLED => [
-            'name'    => self::PROPERTY_ALARM_ACTION,
-            'caption' => 'On alarm'
-        ],
-        self::PROPERTY_ALARM_RESET_ACTION_ENABLED => [
-            'name'    => self::PROPERTY_ALARM_RESET_ACTION,
-            'caption' => 'On alarm output reset'
-        ],
-        self::PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED => [
-            'name'    => self::PROPERTY_DISARM_AFTER_ALARM_ACTION,
-            'caption' => 'On disarm after alarm'
         ],
         self::PROPERTY_FAULT_ACTION_ENABLED => [
             'name'    => self::PROPERTY_FAULT_ACTION,
@@ -323,13 +302,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_COUNTDOWN_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_ACTION, '');
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
-        $this->RegisterPropertyInteger(self::PROPERTY_ALARM_ACTION_ENABLED, 0);
-        $this->RegisterPropertyString(self::PROPERTY_ALARM_ACTION, '');
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS, '[]');
-        $this->RegisterPropertyInteger(self::PROPERTY_ALARM_RESET_ACTION_ENABLED, 0);
-        $this->RegisterPropertyString(self::PROPERTY_ALARM_RESET_ACTION, '');
-        $this->RegisterPropertyInteger(self::PROPERTY_DISARM_AFTER_ALARM_ACTION_ENABLED, 0);
-        $this->RegisterPropertyString(self::PROPERTY_DISARM_AFTER_ALARM_ACTION, '');
         $this->RegisterPropertyInteger(self::PROPERTY_FAULT_ACTION_ENABLED, 0);
         $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, '');
         $this->RegisterPropertyInteger(self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED, 0);
@@ -831,14 +804,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $this->EncodeConfigurationForm($form);
     }
 
-    /**
-     * Retained for configuration forms cached from an earlier module version.
-     *
-     * SelectAction fields cannot be added to or removed from an open main form
-     * through UpdateFormField(). ReloadForm() would reset the complete form and
-     * lose the user's position. The selector is therefore rendered after the
-     * enable choice has been applied normally.
-     */
+    /** Rejects stale callbacks for optional non-alarm actions. */
     public function UpdateOptionalActionForm(string $propertyName, int $enabled): void
     {
         if (!in_array($propertyName, array_keys(self::OPTIONAL_ACTION_FIELDS), true)) {
@@ -1699,7 +1665,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($before['OutputActive'] && !$after['OutputActive']) {
             $this->ResetExecutedAlarmEscalationActions();
             $this->StopAlarmEscalation();
-            $this->RunConfiguredAction(self::PROPERTY_ALARM_RESET_ACTION);
         }
         $this->PublishVisualizationState();
     }
@@ -2334,9 +2299,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->WritePartitionRuntime($states);
         $this->SchedulePartitionRuntimeTimer($states);
         $this->ClearSensorBypassesPartitionInternal($partitionID);
-        if ($wasAlarm) {
-            $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
-        }
         if ($hadActiveState) {
             $this->AppendEvent(self::EVENT_DISARMED, $userName, self::MODE_NONE, self::STATE_DISARMED, $partitionID);
         }
@@ -2422,9 +2384,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->ClearSensorBypassesPartitionInternal($this->DefaultPartitionID());
         $this->ResetDisarmCodeProtection();
 
-        if ($wasAlarm) {
-            $this->RunConfiguredAction(self::PROPERTY_DISARM_AFTER_ALARM_ACTION);
-        }
         if ($hadActiveState) {
             $this->AppendEvent(self::EVENT_DISARMED, $userName);
         }
@@ -2630,7 +2589,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SetLastAlarmTime(date('d.m.Y H:i:s', $eventTimestamp));
         $this->SchedulePartitionAlarmOutputTimer($states);
         if (!$before['OutputActive']) {
-            $this->RunConfiguredAction(self::PROPERTY_ALARM_ACTION);
             $this->StartAlarmEscalation();
         }
     }
@@ -2661,7 +2619,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         return $after['OutputActive']
             ? true
-            : $this->RunConfiguredAction(self::PROPERTY_ALARM_RESET_ACTION);
+            : true;
     }
 
     /** @param array<string,array{OutputActive:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $states */

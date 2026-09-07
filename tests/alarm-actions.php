@@ -406,15 +406,6 @@ $alarmAction = json_encode([
         'VALUE'       => true
     ]
 ], JSON_THROW_ON_ERROR);
-$disarmAction = json_encode([
-    'actionID'   => '{22222222-2222-2222-2222-222222222222}',
-    'parameters' => [
-        'TARGET'      => 5001,
-        'ENVIRONMENT' => 'Default',
-        'PARENT'      => 6001,
-        'VALUE'       => false
-    ]
-], JSON_THROW_ON_ERROR);
 $countdownAction = json_encode([
     'actionID'   => '{33333333-3333-3333-3333-333333333333}',
     'parameters' => [
@@ -425,73 +416,7 @@ $countdownAction = json_encode([
     ]
 ], JSON_THROW_ON_ERROR);
 
-$instance = new OpenHomeAlarm();
-$instance->Create();
-$instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$instance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$instance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$instance->TestSetPropertyString('AlarmAction', $alarmAction);
-$instance->TestSetPropertyInteger('DisarmAfterAlarmActionEnabled', 1);
-$instance->TestSetPropertyString('DisarmAfterAlarmAction', $disarmAction);
-$instance->TestSetPropertyString(
-    'Sensors',
-    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
-);
-$instance->TestClearWrittenValues();
-
-assertAlarmAction($instance->ArmAway() === true, 'Away arming must succeed before testing alarm actions.');
-
-global $testValues, $testActions;
-$testValues[4001] = true;
-$instance->TestClearWrittenValues();
-$instance->MessageSink(1, 4001, VM_UPDATE, [true, true, false]);
-assertAlarmAction(
-    ($instance->TestWrittenValues()['State'] ?? null) === 4,
-    'An immediate sensor must enter Alarm before its configured action is executed.'
-);
-assertAlarmAction(count($testActions) === 1, 'Alarm action must run exactly once when Alarm starts.');
-assertAlarmAction(
-    $testActions[0]['actionID'] === '{11111111-1111-1111-1111-111111111111}'
-    && ($testActions[0]['parameters']['VALUE'] ?? null) === true,
-    'Alarm action must preserve the action ID and parameters selected by Symcon.'
-);
-
-$instance->MessageSink(2, 4001, VM_UPDATE, [true, true, true]);
-assertAlarmAction(count($testActions) === 1, 'Further sensor updates during Alarm must not rerun the alarm action.');
-
-$instance->Disarm();
-assertAlarmAction(count($testActions) === 2, 'Disarming an active Alarm must run the reset action once.');
-assertAlarmAction(
-    $testActions[1]['actionID'] === '{22222222-2222-2222-2222-222222222222}'
-    && ($testActions[1]['parameters']['VALUE'] ?? null) === false,
-    'Reset action must preserve the action ID and parameters selected by Symcon.'
-);
-assertAlarmAction(
-    ($instance->TestWrittenValues()['State'] ?? null) === 0
-    && ($instance->TestWrittenValues()['Mode'] ?? null) === 0,
-    'Disarming must remain successful independently of the configured reset action.'
-);
-
-$instance->Disarm();
-assertAlarmAction(count($testActions) === 2, 'Disarming an already disarmed system must not rerun the reset action.');
-
-// The native SelectAction false value represents a valid, deliberately unconfigured optional action.
-$testActions = [];
-$testValues[4001] = false;
-$noActionInstance = new OpenHomeAlarm();
-$noActionInstance->Create();
-$noActionInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$noActionInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$noActionInstance->TestSetPropertyString(
-    'Sensors',
-    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
-);
-assertAlarmAction($noActionInstance->ArmAway() === true, 'Unconfigured optional-action test must arm successfully.');
-$testValues[4001] = true;
-$noActionInstance->MessageSink(20, 4001, VM_UPDATE, [true, true, false]);
-assertAlarmAction($testActions === [], 'A native SelectAction false value must behave as no configured action.');
-
-// Entry-delay completion must use the same central Alarm transition and therefore run the alarm action.
+// Countdown actions remain independent of escalation actions.
 $testActions = [];
 $testValues[4001] = false;
 $testValues[4002] = false;
@@ -499,8 +424,6 @@ $delayedInstance = new OpenHomeAlarm();
 $delayedInstance->Create();
 $delayedInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $delayedInstance->TestSetPropertyInteger('EntryDelaySeconds', 10);
-$delayedInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$delayedInstance->TestSetPropertyString('AlarmAction', $alarmAction);
 $delayedInstance->TestSetPropertyInteger('CountdownActionEnabled', 1);
 $delayedInstance->TestSetPropertyString('CountdownAction', $countdownAction);
 $delayedInstance->TestSetPropertyString(
@@ -528,9 +451,8 @@ assertAlarmAction(
 );
 $delayedInstance->CompleteEntryDelay();
 assertAlarmAction(
-    count($testActions) === 3
-    && $testActions[2]['actionID'] === '{11111111-1111-1111-1111-111111111111}',
-    'Entry-delay expiry must run the alarm action exactly once after the countdown actions.'
+    count($testActions) === 2,
+    'Entry-delay expiry must not execute removed global alarm actions.'
 );
 
 // A broken optional countdown action must never block the delay state machine.
@@ -551,29 +473,6 @@ assertAlarmAction(
     'A broken countdown action must not block the normal exit-delay state.'
 );
 assertAlarmAction($testActions === [], 'An invalid countdown action must not call IPS_RunAction.');
-
-// Broken optional action configuration must never prevent the core alarm state transition.
-$testActions = [];
-$testValues[4001] = false;
-$brokenInstance = new OpenHomeAlarm();
-$brokenInstance->Create();
-$brokenInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$brokenInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$brokenInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$brokenInstance->TestSetPropertyString('AlarmAction', '{invalid json');
-$brokenInstance->TestSetPropertyString(
-    'Sensors',
-    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
-);
-$brokenInstance->TestClearWrittenValues();
-assertAlarmAction($brokenInstance->ArmAway() === true, 'Broken optional alarm action must not block arming.');
-$testValues[4001] = true;
-$brokenInstance->MessageSink(4, 4001, VM_UPDATE, [true, true, false]);
-assertAlarmAction(
-    ($brokenInstance->TestWrittenValues()['State'] ?? null) === 4,
-    'Broken optional action configuration must not prevent the Alarm state.'
-);
-assertAlarmAction($testActions === [], 'Invalid action configuration must not call IPS_RunAction.');
 
 // Escalation steps execute once relative to the global alarm start and stop with the alarm output.
 $testActions = [];
@@ -786,13 +685,16 @@ assertAlarmAction(
     && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'CountdownAction') === null,
-    'Disabled optional SelectAction fields must be absent from static form.json so native validation cannot block unrelated changes.'
+    'Removed global alarm-action selectors must be absent from the configuration form.'
+);
+assertAlarmAction(
+    findAlarmActionFormField($form['elements'] ?? [], 'AlarmActionEnabled') === null
+    && findAlarmActionFormField($form['elements'] ?? [], 'AlarmResetActionEnabled') === null
+    && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmActionEnabled') === null,
+    'Global alarm-action configuration must be removed completely.'
 );
 foreach (
     [
-        'AlarmActionEnabled',
-        'AlarmResetActionEnabled',
-        'DisarmAfterAlarmActionEnabled',
         'FaultActionEnabled',
         'FaultClearedActionEnabled',
         'CountdownActionEnabled'
@@ -816,7 +718,7 @@ $dynamicFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode(
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction') === null,
-    'GetConfigurationForm must omit disabled SelectAction fields completely.'
+    'GetConfigurationForm must not expose removed global alarm-action fields.'
 );
 $dynamicEscalationList = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmEscalationSteps');
 $dynamicEscalationValues = $dynamicEscalationList['values'] ?? [];
@@ -854,32 +756,6 @@ assertAlarmAction(
     'A custom reset mode must expose its stored native Symcon reset action selector.'
 );
 
-$dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$dynamicFormInstance->TestSetPropertyString('AlarmAction', $alarmAction);
-$dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
-$dynamicAlarmAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction');
-$dynamicAlarmActionToggle = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmActionEnabled');
-assertAlarmAction(
-    is_array($dynamicAlarmAction)
-    && ($dynamicAlarmAction['type'] ?? null) === 'SelectAction'
-    && ($dynamicAlarmAction['targetID'] ?? null) === -2
-    && ($dynamicAlarmAction['value'] ?? null) === $alarmAction,
-    'GetConfigurationForm must inject the enabled native SelectAction with its stored value.'
-);
-assertAlarmAction(
-    !array_key_exists('onChange', $dynamicAlarmActionToggle),
-    'Optional action toggles must not reload the complete configuration form when changed.'
-);
-$dynamicFormInstance->UpdateOptionalActionForm('AlarmAction', 0);
-assertAlarmAction(
-    $dynamicFormInstance->TestReloadedForms() === [],
-    'A cached legacy onChange callback must no longer reload the complete form.'
-);
-assertAlarmAction(
-    $dynamicFormInstance->TestFormUpdates() === [],
-    'A SelectAction cannot safely be hidden because Symcon would still validate it.'
-);
-
 $enableDynamicFormInstance = new OpenHomeAlarm();
 $enableDynamicFormInstance->Create();
 $enableDynamicFormInstance->UpdateOptionalActionForm('FaultAction', 1);
@@ -889,7 +765,7 @@ assertAlarmAction(
 );
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,
-    'Enabling one optional action must not inject other disabled SelectAction fields.'
+    'Removed global alarm-reset selectors must never be injected.'
 );
 
 $dynamicFormInstance->TestSetPropertyInteger('CountdownActionEnabled', 1);
@@ -909,7 +785,7 @@ $locale = json_decode(
     JSON_THROW_ON_ERROR
 );
 $translations = $locale['translations']['de'] ?? [];
-foreach (['Alarm actions', 'No action', 'Configure action', 'Alarm start', 'On alarm', 'On disarm after alarm', 'Countdown output', 'On countdown step'] as $translationKey) {
+foreach (['Alarm escalation', 'Countdown output', 'On countdown step'] as $translationKey) {
     assertAlarmAction(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }
 

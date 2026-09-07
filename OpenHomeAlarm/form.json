@@ -401,16 +401,12 @@
         },
         {
             "type": "ExpansionPanel",
-            "caption": "Alarm actions",
+            "caption": "Alarm escalation",
             "expanded": true,
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Configure optional Symcon actions for alarm start, automatic alarm-output reset and disarming after an alarm."
-                },
-                {
-                    "type": "Label",
-                    "caption": "Optional actions are disabled by default. Select Configure action and apply once; the native Symcon action selector will then appear."
+                    "caption": "Configure all alarm actions as escalation steps. A step with a delay of 0 runs immediately when an alarm starts."
                 },
                 {
                     "type": "NumberSpinner",
@@ -422,22 +418,6 @@
                 {
                     "type": "Label",
                     "caption": "A value of 0 keeps the alarm output active until it is reset manually or the system is disarmed."
-                },
-                {
-                    "type": "Select",
-                    "name": "AlarmActionEnabled",
-                    "caption": "Alarm start",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Configure action",
-                            "value": 1
-                        }
-                    ],
-                    "width": "300px"
                 },
                 {
                     "type": "Label",
@@ -507,42 +487,6 @@
                     "form": [
                         "return OHA_GetAlarmEscalationEditForm($id, $AlarmEscalationSteps);"
                     ]
-                },
-                {
-                    "type": "Label",
-                    "caption": "The following optional action is independent of the automatic reset actions assigned to escalation steps."
-                },
-                {
-                    "type": "Select",
-                    "name": "AlarmResetActionEnabled",
-                    "caption": "Additional action on alarm output reset",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Configure action",
-                            "value": 1
-                        }
-                    ],
-                    "width": "300px"
-                },
-                {
-                    "type": "Select",
-                    "name": "DisarmAfterAlarmActionEnabled",
-                    "caption": "Disarm after alarm",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Configure action",
-                            "value": 1
-                        }
-                    ],
-                    "width": "300px"
                 }
             ]
         },
