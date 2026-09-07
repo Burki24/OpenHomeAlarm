@@ -246,7 +246,7 @@ button:focus-visible {
     overflow-x: auto;
     /* The active tab uses a 4px outer focus ring. Keep it inside the
        horizontally scrollable tab container instead of clipping it. */
-    padding: 6px 2px;
+    padding: 6px;
     scrollbar-width: thin;
 }
 
