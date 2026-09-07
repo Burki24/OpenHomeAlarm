@@ -223,7 +223,7 @@ button:focus-visible {
 
 .oha-partition-nav {
     display: flex;
-    min-height: 46px;
+    min-height: 54px;
     min-width: 0;
     align-items: center;
     gap: 10px;
@@ -244,7 +244,9 @@ button:focus-visible {
     min-width: 0;
     gap: 7px;
     overflow-x: auto;
-    padding: 2px;
+    /* The active tab uses a 4px outer focus ring. Keep it inside the
+       horizontally scrollable tab container instead of clipping it. */
+    padding: 6px 2px;
     scrollbar-width: thin;
 }
 
@@ -1727,7 +1729,7 @@ html.oha-ipsview .oha-topbar-actions {
 }
 
 html.oha-ipsview .oha-partition-nav {
-    min-height: 46px;
+    min-height: 54px;
     gap: 8px;
     padding: 5px 0;
 }
