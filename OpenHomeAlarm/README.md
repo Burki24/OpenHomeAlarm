@@ -42,11 +42,10 @@ aktivierte Anlage.
 9. [Automatische Scharfschaltung](#9-automatische-scharfschaltung)
 10. [Alarmaktionen](#10-alarmaktionen)
 11. [Alarmgedächtnis](#11-alarmgedächtnis)
-12. [Alarmkameras](#12-alarmkameras)
-13. [Ereignisprotokoll und Diagnose](#13-ereignisprotokoll-und-diagnose)
-14. [Konfigurationssicherung](#14-konfigurationssicherung)
-15. [Visualisierung](#15-visualisierung)
-16. [PHP-Befehlsreferenz](#16-php-befehlsreferenz)
+12. [Ereignisprotokoll und Diagnose](#12-ereignisprotokoll-und-diagnose)
+13. [Konfigurationssicherung](#13-konfigurationssicherung)
+14. [Visualisierung](#14-visualisierung)
+15. [PHP-Befehlsreferenz](#15-php-befehlsreferenz)
 
 ### 1. Funktionsumfang
 
@@ -310,24 +309,7 @@ Beim tatsächlichen Eintritt in den Zustand **Alarm** speichert OpenHomeAlarm de
 
 Das Alarmgedächtnis bleibt beim Unscharfschalten erhalten. Dadurch ist nach der Rückkehr weiterhin nachvollziehbar, welcher Sensor den letzten Alarm ausgelöst hat. Jeder Bereich besitzt ein eigenes Gedächtnis; die bestehenden Instanzvariablen zeigen zusammengefasst den jüngsten Alarm. `OHA_ClearAlarmMemory($InstanzID)` quittiert das Gedächtnis von `main`. `OHA_ClearAlarmMemoryPartition($InstanzID, $BereichID)` quittiert gezielt einen Bereich. Während dessen Alarmzustand noch aktiv ist, wird die Quittierung abgelehnt.
 
-### 12. Alarmkameras
-
-Unter **Alarmkameras** können vorhandene Symcon-Medienobjekte einem aktiven
-Alarmbereich zugeordnet werden. Jeder Eintrag besteht aus Bereich, Anzeigename,
-Medienobjekt und der Option **Bei Alarm anzeigen**. Beim Übergang eines Bereichs
-in den Alarmzustand wählen Kachel und IPSView automatisch diesen Bereich und
-öffnen für die erste aktivierte Kamera einen Dialog.
-
-Für ein Bild innerhalb des Dialogs verwenden Sie ein Symcon-**Bild-Medienobjekt**,
-das durch die Kamera oder ein Snapshot-Modul aktualisiert wird. HTTP(S)-Streams
-im MJPEG-Format werden über einen instanzinternen, kamera-spezifisch signierten
-Symcon-Proxy an den Dialog weitergeleitet. Die ursprüngliche Stream-Adresse und
-ihre Zugangsdaten werden dabei weder im Steuerzustand noch im HTML ausgegeben.
-Ein **RTSP**-Stream bleibt in der nativen Symcon-Medienansicht, weil er nicht
-browserübergreifend in einer HTML-SDK-Kachel eingebettet werden kann. Für einen
-Bereich können mehrere Kameras hinterlegt werden.
-
-### 13. Ereignisprotokoll und Diagnose
+### 12. Ereignisprotokoll und Diagnose
 
 OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle.
 
@@ -341,13 +323,13 @@ Die Diagnoseansicht führt alle konfigurierten Sensoren und Störungseingänge m
 
 Die Diagnose kann über die Schaltflächen **JSON** und **CSV** oder mit `OHA_ExportDiagnostics()` heruntergeladen werden. JSON enthält den vollständigen Snapshot einschließlich Zusammenfassung und Erstellungszeitpunkt. CSV enthält pro Eingang eine maschinenlesbare Zeile in derselben Reihenfolge wie die Diagnoseansicht. Rohwerte, Unscharfschaltcodes und andere Geheimnisse sind nicht Bestandteil des Diagnoseexports.
 
-### 14. Konfigurationssicherung
+### 13. Konfigurationssicherung
 
 `OHA_ExportConfigurationBackup($InstanzID)` exportiert sämtliche registrierten Moduleinstellungen als versioniertes, menschenlesbares JSON. Dazu gehören auch Unscharfschalt- und Benutzercodes. Der Export trägt deshalb die Kennzeichnung `ContainsSecrets: true` und muss vertraulich gespeichert sowie ausschließlich über einen geschützten Übertragungsweg weitergegeben werden. Laufzeitzustände, Timer, Alarmgedächtnis und Ereignishistorie werden nicht gesichert.
 
 `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` stellt eine validierte Sicherung nur wieder her, wenn alle Alarmbereiche vollständig unscharf sind. Format, Sicherungsversion, Modul-ID, Eigenschaftsnamen und Datentypen werden vor jeder Änderung geprüft. Fremde oder beschädigte Sicherungen werden ohne Konfigurationsänderung abgewiesen. Scheitert das Anwenden einer bereits validierten Sicherung, setzt das Modul die vorherige Konfiguration zurück. Fehlt in einer älteren Sicherung eine erst später eingeführte Eigenschaft, behält diese ihren aktuellen Wert.
 
-### 15. Visualisierung
+### 14. Visualisierung
 
 OpenHomeAlarm besitzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Das Dashboard ist zustandsorientiert aufgebaut: **Unscharf**, **Scharf**, **Ein-/Ausgangsverzögerung** und **Alarm** werden als zentraler Hauptzustand dargestellt. Countdown, Alarmgedächtnis, aktive Systemstörungen und temporär überbrückte Sensoren erscheinen nur dann als zusätzliche Hinweise, wenn sie tatsächlich relevant sind. Dadurch bleibt die Normalansicht kompakt und die jeweils wichtigste Information steht im Vordergrund. Farben, Oberflächen, Abstände und Fokusdarstellung stammen aus dem gemeinsamen `VisualizationThemeConfigurationHelper`; standardmäßig folgt die Kachel den nativen Symcon-Farben einschließlich Light-/Dark-Umschaltung. Im Konfigurationsabschnitt **Symcon-Kachel** können Text-, Überschriften-, Hintergrund-, Akzent- und Statusfarben optional überschrieben werden. Nur tatsächlich vom Standard abweichende Farben werden fest vorgegeben; alle unveränderten Rollen passen sich weiterhin dem nativen Symcon-Schema an.
 
@@ -369,7 +351,7 @@ Statusquelle bleibt unverändert die öffentliche Bedien-API: `OHA_GetControlSta
 
 Die partitionsfähige Struktur verwendet `ApiVersion` 2. `DefaultPartition` enthält immer `main`; `Partitions` ist nach den Bereichs-IDs indiziert. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
 
-### 16. PHP-Befehlsreferenz
+### 15. PHP-Befehlsreferenz
 
 Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verfügung. Weitere öffentliche Methoden dienen ausschließlich Symcon-internen Lebenszyklus-, Timer-, Formular- und Visualisierungsaufrufen.
 

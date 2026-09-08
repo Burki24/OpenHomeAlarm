@@ -143,7 +143,6 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private const PROPERTY_SENSORS = 'Sensors';
     private const PROPERTY_PARTITIONS = 'Partitions';
-    private const PROPERTY_AREA_CAMERAS = 'AreaCameras';
     private const PROPERTY_FAULT_INPUTS = 'FaultInputs';
     private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
@@ -297,7 +296,6 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
         $this->RegisterPropertyString(self::PROPERTY_PARTITIONS, self::DEFAULT_PARTITIONS_JSON);
-        $this->RegisterPropertyString(self::PROPERTY_AREA_CAMERAS, '[]');
         $this->RegisterPropertyString(self::PROPERTY_FAULT_INPUTS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
@@ -974,10 +972,6 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->ReadEventHistory(),
                 static fn (array $event): bool => $event['PartitionID'] === $partition['ID']
             )), 0, 6);
-            $current['Cameras'] = $this->BuildPartitionCameraPayload(
-                $partition['ID'],
-                $runtime['State'] === self::STATE_ALARM
-            );
             $partitionPayload[$partition['ID']] = array_merge([
                 'ID'      => $partition['ID'],
                 'Name'    => $partition['Name'],
@@ -2177,53 +2171,6 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Builds one camera-assignment editor with only currently enabled areas.
-     *
-     * @param mixed $camera Current list row supplied by the Symcon configuration form.
-     *
-     * @return list<array<string,mixed>>
-     */
-    public function GetAreaCameraEditForm(mixed $camera): array
-    {
-        $partitions = $this->ReadConfiguredPartitions();
-        $partitionID = AlarmPartitionRegistry::assignedPartitionID(
-            $this->ReadSensorEditString($camera, 'PartitionID', ''),
-            $partitions,
-            'Camera partition'
-        );
-
-        return [
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'Enabled',
-                'caption' => $this->Translate('Enabled')
-            ],
-            [
-                'type'    => 'Select',
-                'name'    => 'PartitionID',
-                'caption' => $this->Translate('Alarm partition'),
-                'options' => $this->CreatePartitionOptions($partitions),
-                'value'   => $partitionID
-            ],
-            [
-                'type'    => 'ValidationTextBox',
-                'name'    => 'Name',
-                'caption' => $this->Translate('Name')
-            ],
-            [
-                'type'    => 'SelectMedia',
-                'name'    => 'MediaID',
-                'caption' => $this->Translate('Media object')
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'OpenOnAlarm',
-                'caption' => $this->Translate('Show on alarm')
-            ]
-        ];
-    }
-
-    /**
      * Rebuilds the fault-value choices when another Symcon variable is chosen.
      */
     public function UpdateFaultTriggerValueForm(int $variableID, string $triggerValue): void
@@ -2265,13 +2212,6 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     protected function ProcessHookData(): void
     {
-        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) === 'GET'
-            && is_string($_GET['camera'] ?? null)) {
-            $this->ProcessCameraStreamProxy((string) $_GET['camera'], (string) ($_GET['token'] ?? ''));
-
-            return;
-        }
-
         if (!$this->IsIPSViewHTMLPageEnabled()) {
             $this->OutputIPSViewResponse(['Error' => 'IPSView is disabled.'], 404);
 
@@ -2490,242 +2430,6 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function ReadConfiguredPartitions(): array
     {
         return AlarmPartitionRegistry::partitions($this->ReadPropertyString(self::PROPERTY_PARTITIONS));
-    }
-
-    /**
-     * Returns valid, enabled camera assignments. Camera URLs deliberately never
-     * leave the module: a visualization only receives a current image snapshot.
-     *
-     * @return list<array{Enabled:bool,PartitionID:string,Name:string,MediaID:int,OpenOnAlarm:bool}>
-     */
-    private function ReadConfiguredAreaCameras(): array
-    {
-        try {
-            $configured = json_decode($this->ReadPropertyString(self::PROPERTY_AREA_CAMERAS), true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return [];
-        }
-        if (!is_array($configured)) {
-            return [];
-        }
-
-        $enabledIDs = array_column(
-            array_filter($this->ReadConfiguredPartitions(), static fn (array $partition): bool => $partition['Enabled']),
-            'ID'
-        );
-        $cameras = [];
-        foreach ($configured as $camera) {
-            if (!is_array($camera) || !($camera['Enabled'] ?? true)) {
-                continue;
-            }
-            $partitionID = strtolower(trim((string) ($camera['PartitionID'] ?? '')));
-            $mediaID = (int) ($camera['MediaID'] ?? 0);
-            if ($mediaID <= 0 || !in_array($partitionID, $enabledIDs, true)) {
-                continue;
-            }
-            $cameras[] = [
-                'Enabled'     => true,
-                'PartitionID' => $partitionID,
-                'Name'        => trim((string) ($camera['Name'] ?? '')),
-                'MediaID'     => $mediaID,
-                'OpenOnAlarm' => (bool) ($camera['OpenOnAlarm'] ?? true)
-            ];
-        }
-
-        return $cameras;
-    }
-
-    /** @return list<array{PartitionName:string}> */
-    private function CreateAreaCameraListFormValues(): array
-    {
-        try {
-            $rows = json_decode($this->ReadPropertyString(self::PROPERTY_AREA_CAMERAS), true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return [];
-        }
-        if (!is_array($rows) || !array_is_list($rows)) {
-            return [];
-        }
-
-        $names = [];
-        foreach ($this->ReadConfiguredPartitions() as $partition) {
-            $names[$partition['ID']] = $partition['Name'];
-        }
-
-        return array_map(
-            static fn (mixed $row): array => [
-                'PartitionName' => is_array($row)
-                    ? ($names[strtolower(trim((string) ($row['PartitionID'] ?? '')))] ?? '')
-                    : ''
-            ],
-            $rows
-        );
-    }
-
-    /** @return list<array{ID:string,Name:string,MediaID:int,Type:string,Snapshot:string,ProxyURL:string,OpenOnAlarm:bool}> */
-    private function BuildPartitionCameraPayload(string $partitionID, bool $includeSnapshot): array
-    {
-        $cameras = [];
-        foreach ($this->ReadConfiguredAreaCameras() as $index => $camera) {
-            if ($camera['PartitionID'] !== $partitionID) {
-                continue;
-            }
-
-            $snapshot = '';
-            $type = 'stream';
-            $proxyURL = '';
-            if (function_exists('IPS_MediaExists') && IPS_MediaExists($camera['MediaID'])) {
-                $media = function_exists('IPS_GetMedia') ? IPS_GetMedia($camera['MediaID']) : [];
-                $mediaType = is_array($media) ? (int) ($media['MediaType'] ?? MEDIATYPE_STREAM) : MEDIATYPE_STREAM;
-                $type = $mediaType === MEDIATYPE_IMAGE ? 'image' : 'stream';
-                if ($includeSnapshot && $mediaType === MEDIATYPE_IMAGE && function_exists('IPS_GetMediaContent')) {
-                    $content = IPS_GetMediaContent($camera['MediaID']);
-                    if (is_string($content) && $content !== '') {
-                        $snapshot = str_starts_with($content, 'data:')
-                            ? $content
-                            : 'data:image/jpeg;base64,' . $content;
-                    }
-                }
-                if ($mediaType === MEDIATYPE_STREAM && $this->IsHTTPStreamMedia($media)) {
-                    $type = 'mjpeg';
-                    $proxyURL = $this->CameraStreamProxyURL($partitionID . '-' . $index);
-                }
-            }
-            $cameras[] = [
-                'ID'          => $partitionID . '-' . $index,
-                'Name'        => $camera['Name'] !== '' ? $camera['Name'] : $this->Translate('Camera'),
-                'MediaID'     => $camera['MediaID'],
-                'Type'        => $type,
-                'Snapshot'    => $snapshot,
-                'ProxyURL'    => $proxyURL,
-                'OpenOnAlarm' => $camera['OpenOnAlarm']
-            ];
-        }
-
-        return $cameras;
-    }
-
-    /** @param array<string,mixed> $media */
-    private function IsHTTPStreamMedia(array $media): bool
-    {
-        $url = $media['MediaFile'] ?? '';
-        if (!is_string($url) || $url === '') {
-            return false;
-        }
-
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-
-        return is_string($scheme) && in_array(strtolower($scheme), ['http', 'https'], true);
-    }
-
-    private function CameraStreamProxyURL(string $cameraID): string
-    {
-        return '/hook/' . $this->IPSViewHookAddress()
-            . '?camera=' . rawurlencode($cameraID)
-            . '&token=' . $this->CameraStreamProxyToken($cameraID);
-    }
-
-    private function CameraStreamProxyToken(string $cameraID): string
-    {
-        return hash_hmac('sha256', $cameraID, $this->IPSViewToken());
-    }
-
-    private function ProcessCameraStreamProxy(string $cameraID, string $token): void
-    {
-        if ($cameraID === '' || !hash_equals($this->CameraStreamProxyToken($cameraID), $token)) {
-            $this->OutputCameraStreamError(403);
-
-            return;
-        }
-
-        $camera = $this->ConfiguredCameraByID($cameraID);
-        if ($camera === null || !function_exists('IPS_MediaExists') || !IPS_MediaExists($camera['MediaID'])) {
-            $this->OutputCameraStreamError(404);
-
-            return;
-        }
-
-        $media = function_exists('IPS_GetMedia') ? IPS_GetMedia($camera['MediaID']) : [];
-        if (!is_array($media) || !$this->IsHTTPStreamMedia($media)) {
-            $this->OutputCameraStreamError(415);
-
-            return;
-        }
-        $sourceURL = (string) $media['MediaFile'];
-        $context = stream_context_create([
-            'http' => [
-                'timeout'         => 10,
-                'follow_location' => 0,
-                'ignore_errors'   => true,
-                'user_agent'      => 'OpenHomeAlarm/1.0'
-            ],
-            'ssl' => [
-                'verify_peer'      => true,
-                'verify_peer_name' => true
-            ]
-        ]);
-        $stream = @fopen($sourceURL, 'rb', false, $context);
-        if ($stream === false) {
-            $this->OutputCameraStreamError(502);
-
-            return;
-        }
-
-        $contentType = $this->CameraStreamContentType(stream_get_meta_data($stream));
-        http_response_code(200);
-        header('Content-Type: ' . $contentType);
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-        header('X-Content-Type-Options: nosniff');
-        while (!connection_aborted() && !feof($stream)) {
-            $chunk = fread($stream, 8192);
-            if ($chunk === false) {
-                break;
-            }
-            echo $chunk;
-            flush();
-        }
-        fclose($stream);
-    }
-
-    /**
-     * @return array{Enabled:bool,PartitionID:string,Name:string,MediaID:int,OpenOnAlarm:bool}|null
-     */
-    private function ConfiguredCameraByID(string $cameraID): ?array
-    {
-        foreach ($this->ReadConfiguredAreaCameras() as $index => $camera) {
-            if (hash_equals($camera['PartitionID'] . '-' . $index, $cameraID)) {
-                return $camera;
-            }
-        }
-
-        return null;
-    }
-
-    /** @param array<string,mixed> $metadata */
-    private function CameraStreamContentType(array $metadata): string
-    {
-        $headers = $metadata['wrapper_data'] ?? [];
-        if (!is_array($headers)) {
-            return 'image/jpeg';
-        }
-        foreach ($headers as $header) {
-            if (!is_string($header) || !str_starts_with(strtolower($header), 'content-type:')) {
-                continue;
-            }
-            $contentType = trim(substr($header, strlen('Content-Type:')));
-            if ($contentType !== '' && !str_contains($contentType, "\r") && !str_contains($contentType, "\n")) {
-                return $contentType;
-            }
-        }
-
-        return 'image/jpeg';
-    }
-
-    private function OutputCameraStreamError(int $statusCode): void
-    {
-        http_response_code($statusCode);
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-        header('X-Content-Type-Options: nosniff');
     }
 
     private function DefaultPartitionID(): string
@@ -3152,9 +2856,6 @@ class OpenHomeAlarm extends IPSModuleStrict
                     );
                 } elseif (($element['name'] ?? null) === self::PROPERTY_ALARM_ESCALATION_STEPS) {
                     $element['values'] = $this->CreateAlarmEscalationListFormValues();
-                } elseif (($element['name'] ?? null) === self::PROPERTY_AREA_CAMERAS) {
-                    $element['values'] = $this->CreateAreaCameraListFormValues();
-                    $this->SetConfigurationListAddValue($element, 'PartitionID', $this->DefaultPartitionID());
                 }
             }
 
