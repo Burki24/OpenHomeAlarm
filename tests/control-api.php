@@ -407,6 +407,29 @@ assertControlApi(
     ($state['Partitions']['main']['State']['Name'] ?? null) === 'disarmed',
     'Slice 1 must publish the existing runtime as the default partition state.'
 );
+$instance->TestSetPropertyString('AreaCameras', json_encode([
+    [
+        'Enabled'     => true,
+        'PartitionID' => 'main',
+        'Name'        => 'Entrance',
+        'MediaID'     => 4711,
+        'OpenOnAlarm' => true
+    ]
+], JSON_THROW_ON_ERROR));
+$state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($state['Partitions']['main']['Cameras'][0]['Name'] ?? null) === 'Entrance'
+    && ($state['Partitions']['main']['Cameras'][0]['MediaID'] ?? null) === 4711
+    && ($state['Partitions']['main']['Cameras'][0]['Snapshot'] ?? null) === '',
+    'Area camera assignments must be published without exposing a media URL or content when no image is available.'
+);
+$instance->TestSetPropertyString('AreaCameras', '[]');
+$cameraEditor = $instance->GetAreaCameraEditForm([]);
+assertControlApi(
+    ($cameraEditor[1]['name'] ?? null) === 'PartitionID'
+    && ($cameraEditor[1]['value'] ?? null) === 'main',
+    'A new area camera must default to the required main area.'
+);
 $partitionMetadata = json_decode($instance->GetPartitions(), true, 512, JSON_THROW_ON_ERROR);
 assertControlApi(
     ($partitionMetadata[0]['ID'] ?? null) === 'main'

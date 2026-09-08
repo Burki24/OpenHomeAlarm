@@ -20,6 +20,7 @@ let ohaCodeRequestTimer = null;
 let ohaCodeLockTimer = null;
 let ohaIPSViewPollTimer = null;
 let ohaIPSViewPendingRequests = 0;
+let ohaCameraAlarmKeys = new Set();
 
 function ohaTranslate(text) {
     if (typeof translate === 'function') {
@@ -830,6 +831,7 @@ function ohaRender() {
         return;
     }
 
+    ohaHandleAlarmCameras(ohaState);
     const selectedState = ohaSelectedState();
     ohaRenderStaticText();
     ohaRenderPartitions(ohaState);
@@ -846,6 +848,65 @@ function ohaRender() {
     ohaRenderInlineCodepad(selectedState);
     ohaRenderDisarm(selectedState);
     ohaScheduleCodeLockRefresh(selectedState);
+}
+
+function ohaOpenCamera(camera, partition) {
+    const overlay = document.getElementById('cameraOverlay');
+    const content = document.getElementById('cameraContent');
+    if (!overlay || !content || !camera) {
+        return;
+    }
+    document.getElementById('cameraTitle').textContent = camera.Name || ohaTranslate('Camera');
+    document.getElementById('cameraHint').textContent = partition?.Name || '';
+    document.getElementById('cameraClose').setAttribute('aria-label', ohaTranslate('Close camera'));
+    content.replaceChildren();
+    if (typeof camera.Snapshot === 'string' && camera.Snapshot !== '') {
+        const image = document.createElement('img');
+        image.className = 'oha-camera-image';
+        image.src = camera.Snapshot;
+        image.alt = camera.Name || ohaTranslate('Camera');
+        content.appendChild(image);
+    } else {
+        const notice = document.createElement('p');
+        notice.className = 'oha-camera-notice';
+        notice.textContent = camera.Type === 'stream'
+            ? ohaTranslate('This Symcon stream is available in the native media view. Add an image media object for an in-tile camera image.')
+            : ohaTranslate('No current camera image is available.');
+        content.appendChild(notice);
+    }
+    overlay.hidden = false;
+    document.body.classList.add('oha-modal-open');
+    window.requestAnimationFrame(() => document.getElementById('cameraClose')?.focus());
+}
+
+function ohaCloseCamera() {
+    const overlay = document.getElementById('cameraOverlay');
+    if (overlay) {
+        overlay.hidden = true;
+    }
+    document.body.classList.remove('oha-modal-open');
+}
+
+function ohaHandleAlarmCameras(state) {
+    const activeKeys = new Set();
+    for (const partition of ohaAvailablePartitions(state)) {
+        if (partition.State?.Name !== 'alarm') {
+            continue;
+        }
+        const camera = Array.isArray(partition.Cameras)
+            ? partition.Cameras.find((item) => item && item.OpenOnAlarm)
+            : null;
+        if (!camera) {
+            continue;
+        }
+        const key = `${partition.ID}:${partition.Alarm?.LastTime || 'active'}:${camera.ID}`;
+        activeKeys.add(key);
+        if (!ohaCameraAlarmKeys.has(key)) {
+            ohaSelectedPartitionID = partition.ID;
+            ohaOpenCamera(camera, partition);
+        }
+    }
+    ohaCameraAlarmKeys = activeKeys;
 }
 
 async function ohaIPSViewRequest(action, value) {
@@ -1229,7 +1290,7 @@ function ohaFindInteractiveControl(event) {
 
     return target.closest(
         '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm], '
-        + '[data-partition-id], [data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
+        + '[data-partition-id], [data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose, #cameraClose'
     );
 }
 
@@ -1320,6 +1381,10 @@ function ohaHandleInteractiveClick(event) {
 
     if (control.id === 'codepadClose') {
         ohaCloseCodepad();
+        return;
+    }
+    if (control.id === 'cameraClose') {
+        ohaCloseCamera();
     }
 }
 
@@ -1378,11 +1443,27 @@ document.getElementById('codepadOverlay').addEventListener('click', (event) => {
     }
 });
 
+document.getElementById('cameraOverlay').addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) {
+        ohaCloseCamera();
+    }
+});
+
 document.addEventListener('keydown', (event) => {
     const overlay = document.getElementById('codepadOverlay');
+    const cameraOverlay = document.getElementById('cameraOverlay');
     const inlineCodepad = document.getElementById('inlineCodepad');
     const overlayOpen = !overlay.hidden;
+    const cameraOpen = !cameraOverlay.hidden;
     const inlineFocused = inlineCodepad.contains(document.activeElement);
+
+    if (cameraOpen) {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            ohaCloseCamera();
+        }
+        return;
+    }
 
     if ((!overlayOpen && !inlineFocused) || !ohaCodeInputAllowed()) {
         return;

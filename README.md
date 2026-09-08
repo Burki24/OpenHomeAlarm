@@ -28,6 +28,16 @@ Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als
 5. Mit einem Testlauf prüfen, ob Sensorblocker, Unscharfschaltung und Aktionen
    wie erwartet funktionieren.
 
+## Kameras bei Alarm
+
+Unter **Alarmkameras** kann einem Bereich ein vorhandenes Symcon-Medienobjekt
+zugeordnet werden. Bei Alarm wählt die Kachel beziehungsweise IPSView automatisch
+den betroffenen Bereich und zeigt dessen Kamerabild als Dialog. Verwenden Sie für
+das Bild in der Darstellung ein Bild-Medienobjekt, das von Ihrer Kamera oder einem
+Snapshot-Modul aktualisiert wird. Native Symcon-Streams bleiben über ihre
+Medienansicht verfügbar; ihre Stream-Adresse und Zugangsdaten werden nicht an die
+Visualisierung übertragen.
+
 Die ausführliche Anleitung mit allen Einstellungen und PHP-Befehlen steht in der
 [OpenHomeAlarm-Dokumentation](OpenHomeAlarm).
 
