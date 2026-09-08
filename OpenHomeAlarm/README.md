@@ -6,6 +6,29 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 > **Sicherheitshinweis:** OpenHomeAlarm ist keine zertifizierte Einbruch-, Brand- oder Gefahrenmeldeanlage. Die Verfügbarkeit hängt von Symcon, Hostsystem, Netzwerk, Sensoren und konfigurierten Aktionen ab. Für normativ oder versicherungsrechtlich geforderte Schutzaufgaben ist geeignete zertifizierte Sicherheitstechnik erforderlich. Weitere Hinweise enthält die [Sicherheitsrichtlinie](../SECURITY.md).
 
+## Schnellstart für neue Anwender
+
+1. Installieren Sie die Library über die Symcon-Modulverwaltung und legen Sie eine
+   **OpenHomeAlarm**-Instanz an.
+2. Prüfen Sie unter **Alarmbereiche**, dass `main` aktiv und als
+   **Standardbereich** ausgewählt ist. `main` schaltet die Gesamtanlage; weitere
+   Bereiche wie `garage` können später einzeln bedient werden.
+3. Öffnen Sie **Sensoren und Auslöser**, klicken Sie auf **Hinzufügen**, wählen
+   Sie eine Symcon-Variable und ordnen Sie den Sensor mindestens einem Bereich
+   und einem Scharfmodus zu. Ein Sensor darf mehreren Bereichen zugeordnet werden.
+4. Übernehmen Sie die Konfiguration und öffnen Sie die HTML-SDK-Kachel. Im
+   unscharfen Zustand wählen Sie **Zuhause**, **Abwesend** oder **Nacht**.
+   Wählen Sie `main` für alle aktiven Bereiche oder einen anderen Bereich für
+   eine Einzelbedienung.
+5. Testen Sie anschließend Unscharfschaltung, Sensorblockade und – falls
+   eingerichtet – die Alarmaktion. Erst danach sollten automatische Pläne oder
+   Eskalationsstufen aktiviert werden.
+
+**Wichtig:** „Aktiv“ bei einem Bereich oder Sensor bedeutet nur verfügbar – es
+schaltet noch nichts scharf. Ein Scharfschaltversuch über `main` wird vollständig
+abgelehnt, sobald ein aktiver Bereich nicht bereit ist; es gibt keine teilweise
+aktivierte Anlage.
+
 ### Inhaltsverzeichnis
 
 1. [Funktionsumfang](#1-funktionsumfang)
