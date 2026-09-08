@@ -238,6 +238,8 @@
             "Export diagnostics as JSON": "Diagnose als JSON exportieren",
             "Export diagnostics as CSV": "Diagnose als CSV exportieren",
             "Reset alarm actions": "Alarmaktionen zurücksetzen",
+            "Stop signal generator": "Signalgeber stoppen",
+            "Signal generator": "Signalgeber",
             "Arming rejected": "Scharfschaltung abgelehnt",
             "Arming cancelled": "Scharfschaltung abgebrochen",
             "Exit delay started": "Ausgangsverzögerung gestartet",

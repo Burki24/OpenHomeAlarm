@@ -153,7 +153,8 @@ foreach ([
     'RemoveSensorBypassPartition',
     'ClearSensorBypasses',
     'ClearAlarmMemory',
-    'ResetAlarmOutput'
+    'ResetAlarmOutput',
+    'StopSignalGenerator'
 ] as $operation) {
     assertVisualization(
         str_contains($module, "case '" . $operation . "':"),

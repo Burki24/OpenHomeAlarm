@@ -137,7 +137,8 @@ foreach ([
     '[{"Enabled":true,"DelaySeconds":0,"Action":false}]',
     '[{"Enabled":true,"DelaySeconds":0,"Action":{"actionID":"{A}"}}]',
     '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"TEXT":"Alarm"}},"ResetMode":1}]}]',
-    '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"VALUE":2}},"ResetMode":2}]}]'
+    '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"VALUE":2}},"ResetMode":2}]}]',
+    '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"VALUE":true}},"SignalGenerator":true}]}]'
 ] as $invalidConfiguration) {
     try {
         AlarmEscalationPlan::steps($invalidConfiguration);
@@ -162,11 +163,12 @@ foreach ($form['elements'] ?? [] as $element) {
 }
 assertEscalationPlan(is_array($list) && ($list['type'] ?? null) === 'List', 'Escalation steps must be configurable as a list.');
 assertEscalationPlan(
-    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ResetMode'],
+    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ResetMode', 'SignalGenerator'],
     'The escalation list must expose one understandable row per action without rendering native action payloads.'
 );
 assertEscalationPlan(
-    (($list['columns'] ?? [])[3]['add'] ?? null) === 0,
+    (($list['columns'] ?? [])[3]['add'] ?? null) === 0
+        && (($list['columns'] ?? [])[4]['add'] ?? null) === false,
     'Every visible escalation column needs a default value so Symcon can add a row.'
 );
 assertEscalationPlan(

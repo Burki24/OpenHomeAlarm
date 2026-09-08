@@ -879,7 +879,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $state,
                 $this->IsDisarmCodeProtectionEnabled(),
                 $alarmMemory,
-                $alarmOutputActive
+                $alarmOutputActive,
+                $this->HasStoppableSignalGenerator()
             ),
             'Modes' => [
                 'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs),
@@ -942,7 +943,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $runtime['State'],
                 $this->IsDisarmCodeProtectionEnabled(),
                 $partitionAlarm['MemoryActive'],
-                $partitionAlarm['OutputActive']
+                $partitionAlarm['OutputActive'],
+                $this->HasStoppableSignalGenerator()
             );
             $current['Modes'] = [
                 'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $partitionReadiness['home'], $partitionIsDisarmed, $partitionSensors, $partitionFaults),
@@ -1603,6 +1605,25 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Stops only the escalation actions marked as signal generators.
+     *
+     * It deliberately keeps the alarm output, alarm memory and all other
+     * escalation actions active so a user can silence a siren while retaining
+     * lights or other measures needed to assess the situation.
+     */
+    public function StopSignalGenerator(): bool
+    {
+        if (!AlarmPartitionAlarmRegistry::aggregate($this->ReadPartitionAlarmStates())['OutputActive']) {
+            return false;
+        }
+
+        $stopped = $this->ResetExecutedAlarmEscalationActions(true);
+        $this->PublishVisualizationState();
+
+        return $stopped;
+    }
+
+    /**
      * Completes the configured alarm duration and resets only the alarm output.
      */
     public function CompleteAlarmDuration(): void
@@ -1675,12 +1696,13 @@ class OpenHomeAlarm extends IPSModuleStrict
             // Persist first so action errors, ApplyChanges or a restart cannot repeat this action.
             $runtime['ExecutedStepKeys'][] = $due['Key'];
             $runtime['ExecutedActions'][] = [
-                'Key'          => $due['Key'],
-                'StepName'     => $due['Step']['Name'],
-                'ActionName'   => $due['Action']['Name'],
-                'ResetMode'    => $due['Action']['ResetMode'],
-                'ResetAction'  => $due['Action']['ResetAction'],
-                'Action'       => $due['Action']['Action']
+                'Key'             => $due['Key'],
+                'StepName'        => $due['Step']['Name'],
+                'ActionName'      => $due['Action']['Name'],
+                'ResetMode'       => $due['Action']['ResetMode'],
+                'ResetAction'     => $due['Action']['ResetAction'],
+                'SignalGenerator' => $due['Action']['SignalGenerator'],
+                'Action'          => $due['Action']['Action']
             ];
             $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
             $result = AlarmActionExecutor::execute(
@@ -1990,6 +2012,11 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'name'     => 'Action',
                 'caption'  => $this->Translate('Action'),
                 'targetID' => -2
+            ],
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'SignalGenerator',
+                'caption' => $this->Translate('Signal generator')
             ],
             [
                 'type'     => 'Select',
@@ -2889,23 +2916,25 @@ class OpenHomeAlarm extends IPSModuleStrict
         foreach ($steps as $step) {
             if ($step['Actions'] === []) {
                 $values[] = [
-                    'Enabled'      => false,
-                    'Name'         => $step['Name'],
-                    'DelaySeconds' => $step['DelaySeconds'],
-                    'Action'       => '',
-                    'ResetMode'    => 0,
-                    'ResetAction'  => ''
+                    'Enabled'         => false,
+                    'Name'            => $step['Name'],
+                    'DelaySeconds'    => $step['DelaySeconds'],
+                    'Action'          => '',
+                    'ResetMode'       => 0,
+                    'ResetAction'     => '',
+                    'SignalGenerator' => false
                 ];
                 continue;
             }
             foreach ($step['Actions'] as $action) {
                 $values[] = [
-                    'Enabled'      => $step['Enabled'] && $action['Enabled'],
-                    'Name'         => $action['Name'],
-                    'DelaySeconds' => $step['DelaySeconds'],
-                    'Action'       => $action['Action'],
-                    'ResetMode'    => $action['ResetMode'],
-                    'ResetAction'  => $action['ResetAction']
+                    'Enabled'         => $step['Enabled'] && $action['Enabled'],
+                    'Name'            => $action['Name'],
+                    'DelaySeconds'    => $step['DelaySeconds'],
+                    'Action'          => $action['Action'],
+                    'ResetMode'       => $action['ResetMode'],
+                    'ResetAction'     => $action['ResetAction'],
+                    'SignalGenerator' => $action['SignalGenerator']
                 ];
             }
         }
@@ -3226,6 +3255,11 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             case 'ResetAlarmOutputPartition':
                 $this->ResetAlarmOutputPartition($Value['PartitionID']);
+
+                return null;
+
+            case 'StopSignalGenerator':
+                $this->StopSignalGenerator();
 
                 return null;
 
@@ -5973,16 +6007,20 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->ClearPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
     }
 
-    private function ResetExecutedAlarmEscalationActions(): void
+    private function ResetExecutedAlarmEscalationActions(bool $signalGeneratorsOnly = false): bool
     {
         $runtime = AlarmEscalationPlan::runtime(
             $this->ReadPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME)
         );
         if ($runtime === null) {
-            return;
+            return false;
         }
 
+        $resetAnyAction = false;
         foreach (array_reverse($runtime['ExecutedActions']) as $executedAction) {
+            if ($signalGeneratorsOnly && !$executedAction['SignalGenerator']) {
+                continue;
+            }
             if ($executedAction['ResetMode'] === 0 || in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
                 continue;
             }
@@ -6004,6 +6042,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
+            $resetAnyAction = true;
+
             $result = AlarmActionExecutor::execute(
                 true,
                 $resetAction,
@@ -6022,6 +6062,28 @@ class OpenHomeAlarm extends IPSModuleStrict
                 );
             }
         }
+
+        return $resetAnyAction;
+    }
+
+    private function HasStoppableSignalGenerator(): bool
+    {
+        $runtime = AlarmEscalationPlan::runtime(
+            $this->ReadPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME)
+        );
+        if ($runtime === null) {
+            return false;
+        }
+
+        foreach ($runtime['ExecutedActions'] as $executedAction) {
+            if ($executedAction['SignalGenerator']
+                && $executedAction['ResetMode'] !== 0
+                && !in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

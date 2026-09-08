@@ -468,6 +468,15 @@
                                     }
                                 ]
                             }
+                        },
+                        {
+                            "caption": "Signal generator",
+                            "name": "SignalGenerator",
+                            "width": "150px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
                         }
                     ],
                     "form": [

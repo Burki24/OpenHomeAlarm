@@ -780,6 +780,8 @@ function ohaRenderDisarm(state) {
     const canDisarm = ohaCanDisarm(state);
     const resetAlarmOutputButton = document.getElementById('resetAlarmOutputButton');
     const canResetAlarmOutput = Boolean(state.Capabilities?.CanResetAlarmOutput);
+    const stopSignalGeneratorButton = document.getElementById('stopSignalGeneratorButton');
+    const canStopSignalGenerator = Boolean(state.Capabilities?.CanStopSignalGenerator);
 
     bar.hidden = !canDisarm;
     bar.dataset.codeRequired = codeRequired ? 'true' : 'false';
@@ -790,6 +792,9 @@ function ohaRenderDisarm(state) {
     }
 
     document.getElementById('controlTitle').textContent = ohaTranslate('System control');
+    stopSignalGeneratorButton.hidden = !canStopSignalGenerator;
+    stopSignalGeneratorButton.dataset.enabled = canStopSignalGenerator ? 'true' : 'false';
+    document.getElementById('stopSignalGeneratorLabel').textContent = ohaTranslate('Stop signal generator');
     resetAlarmOutputButton.hidden = !canResetAlarmOutput;
     resetAlarmOutputButton.dataset.enabled = canResetAlarmOutput ? 'true' : 'false';
     document.getElementById('resetAlarmOutputLabel').textContent = ohaTranslate('Reset alarm actions');
@@ -1298,6 +1303,8 @@ function ohaHandleInteractiveClick(event) {
         }
         if (action === 'ClearAlarmMemory') {
             ohaRequestPartitionAction('ClearAlarmMemoryPartition');
+        } else if (action === 'StopSignalGenerator') {
+            ohaRequestAction('StopSignalGenerator', true);
         } else if (action === 'ResetAlarmOutput') {
             ohaRequestPartitionAction('ResetAlarmOutputPartition');
         } else if (action === 'ClearSensorBypasses') {

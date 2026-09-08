@@ -556,10 +556,11 @@ $multiEscalation->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
             'ResetEnabled' => true
         ],
         [
-            'Enabled'      => true,
-            'Name'         => 'Siren',
-            'Action'       => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
-            'ResetEnabled' => true
+            'Enabled'         => true,
+            'Name'            => 'Siren',
+            'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+            'ResetEnabled'    => true,
+            'SignalGenerator' => true
         ],
         [
             'Enabled'     => true,
@@ -583,12 +584,25 @@ assertAlarmAction(
     && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, true, 2],
     'A due escalation step must execute all configured actions.'
 );
+assertAlarmAction($multiEscalation->StopSignalGenerator(), 'An active signal generator must be stoppable without resetting the alarm output.');
+assertAlarmAction(
+    count($testActions) === 4
+    && $testActions[3]['actionID'] === '{SIREN}'
+    && $testActions[3]['parameters']['VALUE'] === false,
+    'Stopping the signal generator must execute only the siren reset action.'
+);
+$multiEscalationState = json_decode($multiEscalation->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $multiEscalationState['Alarm']['OutputActive'] === true
+    && $multiEscalationState['Capabilities']['CanStopSignalGenerator'] === false,
+    'Silencing a signal generator must retain the alarm output while hiding the already consumed silence control.'
+);
 assertAlarmAction($multiEscalation->ResetAlarmOutput(), 'Multiple escalation actions must remain resettable.');
 assertAlarmAction(
     count($testActions) === 6
-    && array_column(array_slice($testActions, 3), 'actionID') === ['{SHUTTER}', '{SIREN}', '{LIGHT}']
-    && array_column(array_column(array_slice($testActions, 3), 'parameters'), 'VALUE') === [0, false, false],
-    'Reset must execute custom actions and inverted Boolean actions in reverse execution order.'
+    && array_column(array_slice($testActions, 4), 'actionID') === ['{SHUTTER}', '{LIGHT}']
+    && array_column(array_column(array_slice($testActions, 4), 'parameters'), 'VALUE') === [0, false],
+    'Reset must preserve an already silenced signal generator and reset the remaining actions in reverse execution order.'
 );
 
 // Disarming directly from Alarm must execute the same escalation reset actions.

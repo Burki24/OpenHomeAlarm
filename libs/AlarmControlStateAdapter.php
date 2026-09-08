@@ -21,23 +21,25 @@ final class AlarmControlStateAdapter
     }
 
     /**
-     * @return array{CodeRequired:bool,CanDisarm:bool,CanManageBypasses:bool,CanResetAlarmOutput:bool,CanClearAlarmMemory:bool}
+     * @return array{CodeRequired:bool,CanDisarm:bool,CanManageBypasses:bool,CanResetAlarmOutput:bool,CanStopSignalGenerator:bool,CanClearAlarmMemory:bool}
      */
     public static function capabilities(
         int $mode,
         int $state,
         bool $codeRequired,
         bool $alarmMemory,
-        bool $alarmOutputActive
+        bool $alarmOutputActive,
+        bool $canStopSignalGenerator = false
     ): array {
         $isDisarmed = $state === AlarmStateMachine::STATE_DISARMED;
 
         return [
-            'CodeRequired'        => $codeRequired,
-            'CanDisarm'           => !$isDisarmed || $mode !== AlarmStateMachine::MODE_NONE,
-            'CanManageBypasses'   => $isDisarmed,
-            'CanResetAlarmOutput' => $state === AlarmStateMachine::STATE_ALARM && $alarmOutputActive,
-            'CanClearAlarmMemory' => $alarmMemory && $state !== AlarmStateMachine::STATE_ALARM
+            'CodeRequired'           => $codeRequired,
+            'CanDisarm'              => !$isDisarmed || $mode !== AlarmStateMachine::MODE_NONE,
+            'CanManageBypasses'      => $isDisarmed,
+            'CanResetAlarmOutput'    => $state === AlarmStateMachine::STATE_ALARM && $alarmOutputActive,
+            'CanStopSignalGenerator' => $state === AlarmStateMachine::STATE_ALARM && $alarmOutputActive && $canStopSignalGenerator,
+            'CanClearAlarmMemory'    => $alarmMemory && $state !== AlarmStateMachine::STATE_ALARM
         ];
     }
 

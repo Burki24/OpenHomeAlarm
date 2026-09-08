@@ -212,14 +212,20 @@ assertDomainThrows(
 );
 assertDomainSame(
     [
-        'CodeRequired'        => true,
-        'CanDisarm'           => true,
-        'CanManageBypasses'   => false,
-        'CanResetAlarmOutput' => true,
-        'CanClearAlarmMemory' => false
+        'CodeRequired'           => true,
+        'CanDisarm'              => true,
+        'CanManageBypasses'      => false,
+        'CanResetAlarmOutput'    => true,
+        'CanStopSignalGenerator' => false,
+        'CanClearAlarmMemory'    => false
     ],
     AlarmControlStateAdapter::capabilities(2, 4, true, true, true),
     'Alarm capabilities must be derived independently from visualization transports.'
+);
+assertDomainSame(
+    true,
+    AlarmControlStateAdapter::capabilities(2, 4, true, true, true, true)['CanStopSignalGenerator'],
+    'An active alarm with a configured signal generator must expose the dedicated silence capability.'
 );
 assertDomainSame(
     ['ApiVersion' => 2, 'Interaction' => ['Type' => 'test']],

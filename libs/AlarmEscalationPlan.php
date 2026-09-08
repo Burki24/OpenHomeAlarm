@@ -12,7 +12,7 @@ final class AlarmEscalationPlan
 {
     public const MAX_DELAY_SECONDS = 86400;
 
-    /** @return list<array{Enabled:bool,Name:string,DelaySeconds:int,Actions:list<array{Enabled:bool,Name:string,Action:string,ResetMode:int,ResetAction:string}>}> */
+    /** @return list<array{Enabled:bool,Name:string,DelaySeconds:int,Actions:list<array{Enabled:bool,Name:string,Action:string,ResetMode:int,ResetAction:string,SignalGenerator:bool}>}> */
     public static function steps(string $encodedSteps): array
     {
         $encodedSteps = trim($encodedSteps);
@@ -123,6 +123,10 @@ final class AlarmEscalationPlan
                 throw new UnexpectedValueException('Unsupported alarm escalation reset mode.');
             }
             $executedAction['ResetAction'] ??= '';
+            $executedAction['SignalGenerator'] = $executedAction['SignalGenerator'] ?? false;
+            if (!is_bool($executedAction['SignalGenerator'])) {
+                throw new UnexpectedValueException('Invalid alarm signal generator flag.');
+            }
             $executedActions[] = $executedAction;
         }
 
@@ -225,7 +229,7 @@ final class AlarmEscalationPlan
         };
     }
 
-    /** @return list<array{Enabled:bool,Name:string,Action:string,ResetMode:int,ResetAction:string}> */
+    /** @return list<array{Enabled:bool,Name:string,Action:string,ResetMode:int,ResetAction:string,SignalGenerator:bool}> */
     private static function normalizeActions(
         mixed $configured,
         mixed $legacyAction,
@@ -241,7 +245,7 @@ final class AlarmEscalationPlan
             $legacy = self::normalizeAction($legacyAction);
             return $legacy === '' ? [] : [[
                 'Enabled' => true, 'Name' => trim($stepName) !== '' ? trim($stepName) : sprintf('Action %d', $stepIndex + 1),
-                'Action'  => $legacy, 'ResetMode' => $legacyResetEnabled ? 1 : 0, 'ResetAction' => ''
+                'Action'  => $legacy, 'ResetMode' => $legacyResetEnabled ? 1 : 0, 'ResetAction' => '', 'SignalGenerator' => false
             ]];
         }
         if (is_string($configured)) {
@@ -263,7 +267,8 @@ final class AlarmEscalationPlan
             $name = $entry['Name'] ?? '';
             $legacyResetEnabled = $entry['ResetEnabled'] ?? false;
             $resetMode = $entry['ResetMode'] ?? ($legacyResetEnabled ? 1 : 0);
-            if (!is_bool($enabled) || !is_string($name) || !is_bool($legacyResetEnabled) || !is_int($resetMode)) {
+            $signalGenerator = $entry['SignalGenerator'] ?? false;
+            if (!is_bool($enabled) || !is_string($name) || !is_bool($legacyResetEnabled) || !is_int($resetMode) || !is_bool($signalGenerator)) {
                 throw new UnexpectedValueException('Invalid alarm escalation action field type.');
             }
             if (!in_array($resetMode, [0, 1, 2], true)) {
@@ -282,12 +287,16 @@ final class AlarmEscalationPlan
             if ($stepEnabled && $enabled && $resetMode === 2 && $resetAction === '') {
                 throw new UnexpectedValueException('A custom reset mode requires a reset action.');
             }
+            if ($stepEnabled && $enabled && $signalGenerator && $resetMode === 0) {
+                throw new UnexpectedValueException('Signal generators require an automatic or custom reset action.');
+            }
             $actions[] = [
-                'Enabled'      => $enabled,
-                'Name'         => trim($name) !== '' ? trim($name) : sprintf('Action %d.%d', $stepIndex + 1, $index + 1),
-                'Action'       => $action,
-                'ResetMode'    => $resetMode,
-                'ResetAction'  => $resetAction
+                'Enabled'         => $enabled,
+                'Name'            => trim($name) !== '' ? trim($name) : sprintf('Action %d.%d', $stepIndex + 1, $index + 1),
+                'Action'          => $action,
+                'ResetMode'       => $resetMode,
+                'ResetAction'     => $resetAction,
+                'SignalGenerator' => $signalGenerator
             ];
         }
         return $actions;
