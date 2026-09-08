@@ -71,7 +71,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private const CONTROL_API_VERSION = 2;
     private const STATUS_INVALID_PARTITIONS = 201;
-    private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area","Default":true}]';
+    private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area"}]';
 
     private const MODE_NONE = AlarmStateMachine::MODE_NONE;
     private const MODE_HOME = AlarmStateMachine::MODE_HOME;

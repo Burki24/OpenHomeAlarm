@@ -10,6 +10,8 @@ use UnexpectedValueException;
 /** Normalizes independently addressable alarm partitions. */
 final class AlarmPartitionRegistry
 {
+    private const MAIN_PARTITION_ID = 'main';
+
     /** @return list<array{Enabled:bool,ID:string,Name:string,Default:bool}> */
     public static function partitions(string $encodedPartitions): array
     {
@@ -24,8 +26,7 @@ final class AlarmPartitionRegistry
 
         $normalized = [];
         $knownIDs = [];
-        $enabledCount = 0;
-        $defaultCount = 0;
+        $mainPartitionIndex = null;
         foreach ($partitions as $index => $partition) {
             if (!is_array($partition)) {
                 throw new UnexpectedValueException('Every partition configuration must be an object.');
@@ -34,8 +35,7 @@ final class AlarmPartitionRegistry
             $enabled = $partition['Enabled'] ?? true;
             $id = $partition['ID'] ?? '';
             $name = $partition['Name'] ?? '';
-            $default = $partition['Default'] ?? false;
-            if (!is_bool($enabled) || !is_string($id) || !is_string($name) || !is_bool($default)) {
+            if (!is_bool($enabled) || !is_string($id) || !is_string($name)) {
                 throw new UnexpectedValueException('Invalid partition field type.');
             }
 
@@ -47,26 +47,26 @@ final class AlarmPartitionRegistry
             if (isset($knownIDs[$id])) {
                 throw new UnexpectedValueException('Partition IDs must be unique.');
             }
-            if ($default && !$enabled) {
-                throw new UnexpectedValueException('The default partition must be enabled.');
-            }
-
             $knownIDs[$id] = true;
-            $enabledCount += $enabled ? 1 : 0;
-            $defaultCount += $default ? 1 : 0;
+            if ($id === self::MAIN_PARTITION_ID) {
+                $mainPartitionIndex = $index;
+            }
             $normalized[] = [
                 'Enabled' => $enabled,
                 'ID'      => $id,
                 'Name'    => $name !== '' ? $name : sprintf('Partition %d', $index + 1),
-                'Default' => $default
+                'Default' => false
             ];
         }
 
-        if ($enabledCount === 0) {
-            throw new UnexpectedValueException('At least one partition must be enabled.');
+        if ($mainPartitionIndex === null) {
+            throw new UnexpectedValueException('The main partition is required.');
         }
-        if ($defaultCount !== 1) {
-            throw new UnexpectedValueException('Exactly one enabled partition must be the default.');
+        if (!$normalized[$mainPartitionIndex]['Enabled']) {
+            throw new UnexpectedValueException('The main partition must be enabled.');
+        }
+        foreach ($normalized as $index => $partition) {
+            $normalized[$index]['Default'] = $partition['ID'] === self::MAIN_PARTITION_ID;
         }
 
         return $normalized;

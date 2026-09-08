@@ -14,33 +14,33 @@ function assertPartition(bool $condition, string $message): void
 }
 
 $partitions = AlarmPartitionRegistry::partitions(json_encode([
-    ['Enabled' => true, 'ID' => ' House ', 'Name' => ' Home ', 'Default' => true],
+    ['Enabled' => true, 'ID' => ' Main ', 'Name' => ' Home ', 'Default' => false],
     ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'Default' => false],
     ['Enabled' => false, 'ID' => 'shed', 'Name' => '', 'Default' => false]
 ], JSON_THROW_ON_ERROR));
-assertPartition($partitions[0]['ID'] === 'house', 'Partition IDs must be normalized to lowercase.');
+assertPartition($partitions[0]['ID'] === 'main', 'Partition IDs must be normalized to lowercase.');
 assertPartition($partitions[0]['Name'] === 'Home', 'Partition names must be trimmed.');
 assertPartition($partitions[2]['Name'] === 'Partition 3', 'Empty partition names need a stable fallback.');
 assertPartition(
-    AlarmPartitionRegistry::defaultPartition($partitions)['ID'] === 'house',
-    'The configured default partition must be resolved.'
+    AlarmPartitionRegistry::defaultPartition($partitions)['ID'] === 'main',
+    'The fixed main partition must be resolved.'
 );
 assertPartition(
-    AlarmPartitionRegistry::assignedPartitionID('', $partitions, 'Sensor partition') === 'house',
-    'An empty assignment must resolve to the default partition.'
+    AlarmPartitionRegistry::assignedPartitionID('', $partitions, 'Sensor partition') === 'main',
+    'An empty assignment must resolve to main.'
 );
 assertPartition(
     AlarmPartitionRegistry::assignedPartitionID(' GARAGE ', $partitions, 'Sensor partition') === 'garage',
     'Assignments must resolve enabled partition IDs case-insensitively.'
 );
 assertPartition(
-    AlarmPartitionRegistry::assignedPartitionIDs(['garage', 'house', 'garage'], $partitions, 'Sensor partition')
-        === ['garage', 'house'],
+    AlarmPartitionRegistry::assignedPartitionIDs(['garage', 'main', 'garage'], $partitions, 'Sensor partition')
+        === ['garage', 'main'],
     'Multiple sensor assignments must resolve enabled partitions and remove duplicates.'
 );
 assertPartition(
-    AlarmPartitionRegistry::assignedPartitionIDs([], $partitions, 'Sensor partition') === ['house'],
-    'An empty multi-area assignment must remain compatible with the default partition.'
+    AlarmPartitionRegistry::assignedPartitionIDs([], $partitions, 'Sensor partition') === ['main'],
+    'An empty multi-area assignment must resolve to main.'
 );
 foreach (['shed', 'unknown'] as $invalidAssignment) {
     try {
@@ -55,8 +55,8 @@ foreach ([
     '[{"Enabled":true,"ID":"invalid id","Name":"Home","Default":true}]',
     '[{"Enabled":true,"ID":"home","Name":"Home","Default":true},{"Enabled":true,"ID":"HOME","Name":"Other","Default":false}]',
     '[{"Enabled":true,"ID":"home","Name":"Home","Default":false}]',
-    '[{"Enabled":true,"ID":"home","Name":"Home","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":true}]',
-    '[{"Enabled":false,"ID":"home","Name":"Home","Default":true}]'
+    '[{"Enabled":true,"ID":"main","Name":"Main","Default":false},{"Enabled":true,"ID":"MAIN","Name":"Other","Default":true}]',
+    '[{"Enabled":false,"ID":"main","Name":"Main","Default":true}]'
 ] as $invalidConfiguration) {
     try {
         AlarmPartitionRegistry::partitions($invalidConfiguration);
@@ -84,28 +84,46 @@ assertPartition(
     'Alarm partitions must be configurable as a list.'
 );
 assertPartition(
-    array_column($partitionList['columns'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'Default'],
-    'The partition form must expose stable identity and default selection fields.'
+    array_column($partitionList['columns'] ?? [], 'name') === ['Enabled', 'ID', 'Name'],
+    'The partition form must expose stable identity without a selectable default area.'
 );
 assertPartition(
     ($partitionList['add'] ?? false) === true
         && ($partitionList['delete'] ?? false) === true
-        && array_column($partitionList['form'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'Default'],
+        && array_column($partitionList['form'] ?? [], 'name') === ['Enabled', 'ID', 'Name'],
     'Alarm partitions must provide explicit add, edit and delete controls.'
 );
 $formJSON = json_encode($form, JSON_THROW_ON_ERROR);
 assertPartition(
-    str_contains($formJSON, 'Enabled makes a partition available but does not arm it.')
-        && str_contains($formJSON, 'Partition IDs must start with a lowercase letter')
-        && str_contains($formJSON, 'main, garage or area_1'),
-    'The partition form must explain activation semantics, the ID format and valid examples.'
+    str_contains($formJSON, 'The required area main is the complete alarm system')
+        && str_contains($formJSON, 'The area main is the fixed complete alarm system')
+        && str_contains($formJSON, 'garage or area_1'),
+    'The partition form must explain activation semantics, the fixed main area and valid ID examples.'
 );
 assertPartition(
     ($form['status'][0]['code'] ?? null) === 201
         && ($form['status'][0]['icon'] ?? null) === 'error'
-        && str_contains($form['status'][0]['caption'] ?? '', 'select exactly one enabled partition as the default'),
+        && str_contains($form['status'][0]['caption'] ?? '', 'The main area must exist and be enabled'),
     'Invalid partition configurations must have a user-facing Symcon status instead of producing an uncaught exception.'
 );
+
+$mainPartitions = AlarmPartitionRegistry::partitions(json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main area', 'Default' => false],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'Default' => true]
+], JSON_THROW_ON_ERROR));
+assertPartition(
+    AlarmPartitionRegistry::defaultPartition($mainPartitions)['ID'] === 'main'
+        && $mainPartitions[0]['Default'] === true
+        && $mainPartitions[1]['Default'] === false,
+    'The fixed main area must override legacy default selections.'
+);
+try {
+    AlarmPartitionRegistry::partitions(json_encode([
+        ['Enabled' => false, 'ID' => 'main', 'Name' => 'Main area', 'Default' => true]
+    ], JSON_THROW_ON_ERROR));
+    throw new RuntimeException('A disabled main area must be rejected.');
+} catch (UnexpectedValueException) {
+}
 
 $moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
 $rootReadme = (string) file_get_contents(dirname(__DIR__) . '/README.md');
@@ -115,8 +133,8 @@ foreach ([$moduleReadme, $rootReadme] as $readme) {
             && str_contains($readme, "OHA_DisarmPartition(12345, 'garage')")
             && str_contains($readme, '1 bis 32')
             && str_contains($readme, '`garage`')
-            && str_contains($readme, 'Standardbereich'),
-        'Both READMEs must document partition IDs, the default partition and independent operation.'
+            && str_contains($readme, 'Gesamtanlage'),
+        'Both READMEs must document partition IDs, the fixed main area and independent operation.'
     );
 }
 

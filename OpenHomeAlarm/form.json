@@ -3,7 +3,7 @@
         {
             "code": 201,
             "icon": "error",
-            "caption": "Invalid alarm partition configuration. Enable at least one partition and select exactly one enabled partition as the default."
+            "caption": "Invalid alarm partition configuration. The main area must exist and be enabled."
         }
     ],
     "elements": [
@@ -18,7 +18,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Enabled makes a partition available but does not arm it. Exactly one enabled partition must be the default."
+                    "caption": "Enabled makes an area available but does not arm it. The required area main is the complete alarm system; it must stay enabled."
                 },
                 {
                     "type": "List",
@@ -43,11 +43,6 @@
                             "type": "ValidationTextBox",
                             "name": "Name",
                             "caption": "Name"
-                        },
-                        {
-                            "type": "CheckBox",
-                            "name": "Default",
-                            "caption": "Default partition"
                         }
                     ],
                     "columns": [
@@ -78,21 +73,12 @@
                             "edit": {
                                 "type": "ValidationTextBox"
                             }
-                        },
-                        {
-                            "caption": "Default partition",
-                            "name": "Default",
-                            "width": "130px",
-                            "add": false,
-                            "edit": {
-                                "type": "CheckBox"
-                            }
                         }
                     ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Partition IDs must start with a lowercase letter and may contain up to 32 lowercase letters, digits, underscores or hyphens (for example main, garage or area_1). The name is freely selectable."
+                    "caption": "The area main is the fixed complete alarm system. Additional areas can be switched independently. Area IDs must start with a lowercase letter and may contain up to 32 lowercase letters, digits, underscores or hyphens (for example garage or area_1). The name is freely selectable."
                 }
             ]
         },

@@ -18,9 +18,8 @@ Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als
 ## Schnellstart
 
 1. Library installieren und eine **OpenHomeAlarm**-Instanz anlegen.
-2. Den vorhandenen Bereich `main` aktiv und als **Standardbereich** belassen.
-   `main` steht für die Gesamtanlage; zusätzliche Bereiche können einzeln
-   geschaltet werden.
+2. Den vorhandenen Bereich `main` aktiv belassen. Er ist fest die Gesamtanlage;
+   zusätzliche Bereiche können einzeln geschaltet werden.
 3. Unter **Sensoren und Auslöser** Variablen hinzufügen, einem oder mehreren
    Bereichen zuordnen und die gewünschten Modi (**Zuhause**, **Abwesend**,
    **Nacht**) aktivieren.
@@ -37,9 +36,8 @@ Die ausführliche Anleitung mit allen Einstellungen und PHP-Befehlen steht in de
 Beispiel: Eine Garage soll unabhängig vom Hauptbereich geschaltet werden.
 
 1. Unter **Alarmbereiche** einen aktiven Eintrag mit der ID `garage` und dem
-   Namen `Garage` anlegen. Den vorhandenen Hauptbereich (`main`) als einzigen
-   **Standardbereich** markiert lassen. Er ist die Gesamtanlage und schaltet alle
-   aktiven Bereiche gemeinsam.
+   Namen `Garage` anlegen. Den vorhandenen Hauptbereich (`main`) aktiv lassen.
+   Er ist fest die Gesamtanlage und schaltet alle aktiven Bereiche gemeinsam.
 2. **Änderungen übernehmen**.
 3. Die gewünschten Sensoren bearbeiten und unter **Alarmbereiche** mindestens
    **Garage** auswählen. Ein Sensor darf mehreren Bereichen zugeordnet werden.

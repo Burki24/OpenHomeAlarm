@@ -10,9 +10,9 @@ OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Lib
 
 1. Installieren Sie die Library über die Symcon-Modulverwaltung und legen Sie eine
    **OpenHomeAlarm**-Instanz an.
-2. Prüfen Sie unter **Alarmbereiche**, dass `main` aktiv und als
-   **Standardbereich** ausgewählt ist. `main` schaltet die Gesamtanlage; weitere
-   Bereiche wie `garage` können später einzeln bedient werden.
+2. Prüfen Sie unter **Alarmbereiche**, dass `main` aktiv ist. `main` ist fest
+   die Gesamtanlage; weitere Bereiche wie `garage` können später einzeln
+   bedient werden.
 3. Öffnen Sie **Sensoren und Auslöser**, klicken Sie auf **Hinzufügen**, wählen
    Sie eine Symcon-Variable und ordnen Sie den Sensor mindestens einem Bereich
    und einem Scharfmodus zu. Ein Sensor darf mehreren Bereichen zugeordnet werden.
@@ -71,7 +71,7 @@ Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Ein
 
 #### Alarmbereiche
 
-Mit Alarmbereichen können beispielsweise Wohnhaus und Garage unabhängig voneinander scharf- und unscharf geschaltet werden. Der Standardbereich (`main`) ist dabei die **Gesamtanlage**: Scharf- und Unscharfschalten über ihn wirkt auf alle aktiven Bereiche.
+Mit Alarmbereichen können beispielsweise Wohnhaus und Garage unabhängig voneinander scharf- und unscharf geschaltet werden. `main` ist dabei fest die **Gesamtanlage**: Scharf- und Unscharfschalten über ihn wirkt auf alle aktiven Bereiche.
 
 ##### Beispiel: Bereich „Garage“ einrichten
 
@@ -84,13 +84,12 @@ In der Instanzkonfiguration unter **Alarmbereiche** auf **Hinzufügen** klicken 
 | Aktiv | Ein | Der Bereich kann verwendet werden. Er ist dadurch noch nicht scharfgeschaltet. |
 | Bereichs-ID | `garage` | Technischer Schlüssel für Zuordnungen und PHP-Befehle |
 | Name | `Garage` | Frei wählbarer Anzeigename |
-| Standardbereich | Aus | Nur der Hauptbereich soll Standardbereich bleiben |
 
-Danach **Änderungen übernehmen**. Genau ein aktiver Bereich muss als Standardbereich markiert sein.
+Danach **Änderungen übernehmen**. Der vorhandene Bereich `main` muss aktiv bleiben; er wird nicht ausgewählt, sondern ist fest die Gesamtanlage.
 
 **2. Sensoren zuordnen**
 
-Den gewünschten Eintrag unter **Sensoren und Auslöser** bearbeiten. Im Editor werden alle aktiven Alarmbereiche als Checkboxen angezeigt. **Garage** aktivieren und die Änderungen übernehmen. Ein Sensor kann gleichzeitig mehreren Bereichen zugeordnet werden; sein Zustand beeinflusst dann die Bereitschaft jedes zugeordneten Bereichs und löst nur in den jeweils scharfgeschalteten beziehungsweise bei 24/7-Sensoren in allen zugeordneten Bereichen aus. Neue Sensoren sind automatisch dem Standardbereich zugeordnet. Störungseingänge bleiben einem einzelnen Bereich zugeordnet und verwenden bei neuen Einträgen ebenfalls automatisch den Standardbereich.
+Den gewünschten Eintrag unter **Sensoren und Auslöser** bearbeiten. Im Editor werden alle aktiven Alarmbereiche als Checkboxen angezeigt. **Garage** aktivieren und die Änderungen übernehmen. Ein Sensor kann gleichzeitig mehreren Bereichen zugeordnet werden; sein Zustand beeinflusst dann die Bereitschaft jedes zugeordneten Bereichs und löst nur in den jeweils scharfgeschalteten beziehungsweise bei 24/7-Sensoren in allen zugeordneten Bereichen aus. Neue Sensoren sind automatisch `main` zugeordnet. Störungseingänge bleiben einem einzelnen Bereich zugeordnet und verwenden bei neuen Einträgen ebenfalls automatisch `main`.
 
 Temporäre Überbrückungen gelten immer nur für den aktuell ausgewählten Bereich. Ist derselbe Sensor beispielsweise **Haus** und **Garage** zugeordnet, lässt eine Überbrückung in **Garage** seine Überwachung in **Haus** unverändert.
 
@@ -107,7 +106,7 @@ OHA_ArmPartition(12345, 'garage', 'away');
 - `away` ist der Scharfmodus. Zulässig sind `home`, `away` und `night`.
 - Der Befehl verändert keinen anderen Alarmbereich.
 
-Für die Gesamtanlage verwenden Sie den Standardbereich beziehungsweise die bestehenden Befehle ohne Bereichs-ID:
+Für die Gesamtanlage verwenden Sie `main` beziehungsweise die bestehenden Befehle ohne Bereichs-ID:
 
 ```php
 // Alle aktiven Bereiche im Abwesend-Modus scharfschalten
@@ -132,7 +131,7 @@ Auch dieser Befehl verändert keinen anderen Alarmbereich.
 | Begriff | Bedeutung |
 | --- | --- |
 | Aktiv | Der Bereich steht zur Verfügung und kann Sensoren erhalten. Das ist kein Scharfbefehl. |
-| Standardbereich (`main`) | Gesamtanlage. Die Befehle ohne Bereichsangabe sowie die Auswahl `main` in Kachel und IPSView schalten alle aktiven Bereiche gemeinsam; Kachel und IPSView können weiterhin einzelne Bereiche auswählen |
+| `main` | Feste Gesamtanlage. Die Befehle ohne Bereichsangabe sowie die Auswahl `main` in Kachel und IPSView schalten alle aktiven Bereiche gemeinsam; Kachel und IPSView können weiterhin einzelne Bereiche auswählen |
 | Scharfgeschaltet | Laufzeitzustand eines Bereichs; seine zugeordneten Sensoren werden entsprechend dem gewählten Modus überwacht |
 
 Die HTML-SDK-Kachel und die IPSView-Seite zeigen oberhalb des Sicherheitsstatus eine Bereichsauswahl. Scharf-/Unscharfschaltung, Bereitschaft, Diagnose, Alarmgedächtnis und Sensorüberbrückungen beziehen sich auf den dort gewählten Bereich. Die öffentlichen PHP-Funktionen stehen zusätzlich für Automationen zur Verfügung.
@@ -148,7 +147,7 @@ Gültig sind beispielsweise `main`, `garage`, `erdgeschoss`, `bereich_1` und `au
 
 ##### Technischer Hintergrund
 
-Änderungen an Bereichen, Sensoren und Störungseingängen sind nur möglich, wenn alle Bereiche unscharf sind. Die Control API 2 veröffentlicht jeden aktiven Bereich mit eigenem Modus, Zustand, Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions`; `DefaultPartition` nennt die Standard-ID. `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Bereichsmetadaten. Laufzeiten, Fristen und Alarmdaten werden neustartsicher gespeichert. Die bestehenden Instanzvariablen `AlarmOutputActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` fassen den Gesamtzustand aller Bereiche zusammen.
+Änderungen an Bereichen, Sensoren und Störungseingängen sind nur möglich, wenn alle Bereiche unscharf sind. Die Control API 2 veröffentlicht jeden aktiven Bereich mit eigenem Modus, Zustand, Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions`; `DefaultPartition` ist stets `main`. `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Bereichsmetadaten. Laufzeiten, Fristen und Alarmdaten werden neustartsicher gespeichert. Die bestehenden Instanzvariablen `AlarmOutputActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` fassen den Gesamtzustand aller Bereiche zusammen.
 
 ### 5. Statusvariablen und Darstellungen
 
@@ -187,7 +186,7 @@ Jeder konfigurierte Eintrag enthält folgende Daten:
 | Feld | Bedeutung |
 | --- | --- |
 | `Enabled` | Eintrag grundsätzlich aktiviert/deaktiviert |
-| `PartitionID` | Technische ID des Alarmbereichs; leer wird dem Standardbereich zugeordnet |
+| `PartitionID` | Technische ID des Alarmbereichs; leer wird `main` zugeordnet |
 | `Name` | Frei wählbare Bezeichnung |
 | `VariableID` | ID der verwendeten Symcon-Variable |
 | `SensorType` | Öffnungskontakt, Bewegungsmelder, Glasbruch-, Rauch- oder Wassermelder, Panikauslöser oder sonstiger Auslöser |
@@ -222,7 +221,7 @@ Beim Unscharfschalten werden laufende Ein- und Ausgangsverzögerungen immer been
 
 Zusätzlich zu den eigentlichen Alarmsensoren können im Abschnitt **Systemüberwachung** unabhängige 24/7-Eingänge für **Manipulation**, **Batterie/Stromversorgung**, **Kommunikation**, **Gerätestörung** oder eine sonstige Störung angelegt werden. Jeder Eintrag verweist wie ein normaler Sensor auf eine Symcon-Variable; der Störwert wird aus deren Variablendarstellung übernommen oder bei Bedarf als Rohwert eingegeben.
 
-Jeder Sensor und jeder Störungseingang ist über `PartitionID` genau einem aktiven Alarmbereich zugeordnet. Leere Zuordnungen werden auf den Standardbereich aufgelöst. Unbekannte oder deaktivierte Zielbereiche werden bereits bei `ApplyChanges()` abgewiesen, damit keine Eingänge unbemerkt außerhalb eines aktiven Bereichs liegen.
+Jeder Sensor und jeder Störungseingang ist über `PartitionID` genau einem aktiven Alarmbereich zugeordnet. Leere Zuordnungen werden auf `main` aufgelöst. Unbekannte oder deaktivierte Zielbereiche werden bereits bei `ApplyChanges()` abgewiesen, damit keine Eingänge unbemerkt außerhalb eines aktiven Bereichs liegen.
 
 Für jeden Störungseingang kann separat festgelegt werden, ob eine aktive Störung die **Scharfschaltung blockiert** und ob sie den normalen Alarmzustand **sofort und 24/7 auslöst**. Dadurch kann beispielsweise ein Sabotagekontakt unmittelbar alarmieren, während eine schwache Batterie lediglich als Systemstörung angezeigt wird. Eine blockierende Störung setzt `ReadyHome`, `ReadyAway`, `ReadyNight` und `ReadyToArm` auf **Nicht bereit** und erscheint zusätzlich in `BlockingFaults`.
 
@@ -308,7 +307,7 @@ Der Ausführungsstand einschließlich der ausgeführten Aktionen und ihrer gewä
 
 Beim tatsächlichen Eintritt in den Zustand **Alarm** speichert OpenHomeAlarm den auslösenden Sensor und den Alarmzeitpunkt. Bei einem Sensor mit Eingangsverzögerung wird dabei der Sensor gemerkt, der den Countdown gestartet hat; auch wenn dieser Sensor vor Ablauf der Verzögerung wieder in den Ruhezustand zurückkehrt, bleibt er die Alarmquelle. Ein Sensor ohne eingetragenen Namen wird ersatzweise über seine Variablen-ID bezeichnet.
 
-Das Alarmgedächtnis bleibt beim Unscharfschalten erhalten. Dadurch ist nach der Rückkehr weiterhin nachvollziehbar, welcher Sensor den letzten Alarm ausgelöst hat. Jeder Bereich besitzt ein eigenes Gedächtnis; die bestehenden Instanzvariablen zeigen zusammengefasst den jüngsten Alarm. `OHA_ClearAlarmMemory($InstanzID)` quittiert weiterhin den Standardbereich. `OHA_ClearAlarmMemoryPartition($InstanzID, $BereichID)` quittiert gezielt einen Bereich. Während dessen Alarmzustand noch aktiv ist, wird die Quittierung abgelehnt.
+Das Alarmgedächtnis bleibt beim Unscharfschalten erhalten. Dadurch ist nach der Rückkehr weiterhin nachvollziehbar, welcher Sensor den letzten Alarm ausgelöst hat. Jeder Bereich besitzt ein eigenes Gedächtnis; die bestehenden Instanzvariablen zeigen zusammengefasst den jüngsten Alarm. `OHA_ClearAlarmMemory($InstanzID)` quittiert das Gedächtnis von `main`. `OHA_ClearAlarmMemoryPartition($InstanzID, $BereichID)` quittiert gezielt einen Bereich. Während dessen Alarmzustand noch aktiv ist, wird die Quittierung abgelehnt.
 
 ### 12. Ereignisprotokoll und Diagnose
 
@@ -350,7 +349,7 @@ Da IPSView keine HTML-SDK-`requestAction()`-Brücke bereitstellt, kommuniziert d
 
 Statusquelle bleibt unverändert die öffentliche Bedien-API: `OHA_GetControlState($InstanzID)` liefert einen versionierten JSON-Snapshot mit Modus, Zustand, verfügbaren Bedienmöglichkeiten, Code-Sperrstatus, Scharfschaltbereitschaft, strukturierten Blockierern samt Variablen-ID, temporären Überbrückungen, Verzögerungsstatus, Alarmgedächtnis und Systemstörungen. Die Visualisierung bildet keine Alarmregeln nach.
 
-Die partitionsfähige Struktur verwendet `ApiVersion` 2. `DefaultPartition` enthält die technische ID des Standardbereichs; `Partitions` ist nach diesen IDs indiziert. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
+Die partitionsfähige Struktur verwendet `ApiVersion` 2. `DefaultPartition` enthält immer `main`; `Partitions` ist nach den Bereichs-IDs indiziert. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
 
 ### 15. PHP-Befehlsreferenz
 
@@ -364,8 +363,8 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_ExportDiagnostics($InstanzID, $Format)` | `string` | Exportiert den aktuellen Diagnose-Snapshot als `json` oder `csv` |
 | `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert sämtliche Moduleinstellungen als versioniertes JSON; das Ergebnis kann Unscharfschalt- und Benutzercodes enthalten und muss vertraulich gespeichert werden |
 | `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
-| `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; beim Standardbereich werden alle aktiven Bereiche gemeinsam geschaltet |
-| `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich unscharf; beim Standardbereich werden alle aktiven Bereiche gemeinsam unscharf geschaltet |
+| `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; bei `main` werden alle aktiven Bereiche gemeinsam geschaltet |
+| `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich unscharf; bei `main` werden alle aktiven Bereiche gemeinsam unscharf geschaltet |
 | `OHA_Arm($InstanzID, $Modus, $Verzögerung = null)` | `bool` | Schaltet alle aktiven Bereiche über die stabile Bedien-API mit `home`, `away` oder `night` scharf; eine optionale Verzögerung überschreibt die konfigurierte Ausgangsverzögerung für diesen Aufruf |
 | `OHA_ArmHome($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
 | `OHA_ArmAway($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Abwesend** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
