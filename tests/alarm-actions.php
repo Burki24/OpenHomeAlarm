@@ -784,10 +784,11 @@ $disableDynamicFormInstance->Create();
 $disableDynamicFormInstance->UpdateOptionalActionForm('CountdownAction', 0);
 assertAlarmAction(
     $disableDynamicFormInstance->TestFormUpdates() === [
+        ['field' => 'CountdownAction', 'parameter' => 'value', 'value' => '{}'],
         ['field' => 'CountdownAction', 'parameter' => 'enabled', 'value' => false],
         ['field' => 'CountdownAction', 'parameter' => 'visible', 'value' => false]
     ],
-    'Disabling an optional action must remove its native selector before it can reject an empty selection.'
+    'Disabling an optional action must normalize and remove its native selector before it can reject an empty selection.'
 );
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,

@@ -806,8 +806,9 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     /**
      * Removes an already rendered optional action selector before its toggle is
-     * saved as "No action". This prevents native SelectAction validation from
-     * rejecting the empty selector during the same Apply operation.
+     * saved as "No action". The native selector represents an empty choice as
+     * Boolean false, whereas this module persists actions as strings. Normalize
+     * it first so the same Apply operation remains type-valid.
      */
     public function UpdateOptionalActionForm(string $propertyName, int $enabled): void
     {
@@ -819,6 +820,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
+        $this->UpdateFormField($propertyName, 'value', '{}');
         $this->UpdateFormField($propertyName, 'enabled', false);
         $this->UpdateFormField($propertyName, 'visible', false);
     }
