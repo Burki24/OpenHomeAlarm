@@ -2528,6 +2528,33 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $cameras;
     }
 
+    /** @return list<array{PartitionName:string}> */
+    private function CreateAreaCameraListFormValues(): array
+    {
+        try {
+            $rows = json_decode($this->ReadPropertyString(self::PROPERTY_AREA_CAMERAS), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+        if (!is_array($rows) || !array_is_list($rows)) {
+            return [];
+        }
+
+        $names = [];
+        foreach ($this->ReadConfiguredPartitions() as $partition) {
+            $names[$partition['ID']] = $partition['Name'];
+        }
+
+        return array_map(
+            static fn (mixed $row): array => [
+                'PartitionName' => is_array($row)
+                    ? ($names[strtolower(trim((string) ($row['PartitionID'] ?? '')))] ?? '')
+                    : ''
+            ],
+            $rows
+        );
+    }
+
     /** @return list<array{ID:string,Name:string,MediaID:int,Type:string,Snapshot:string,OpenOnAlarm:bool}> */
     private function BuildPartitionCameraPayload(string $partitionID, bool $includeSnapshot): array
     {
@@ -2990,6 +3017,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 } elseif (($element['name'] ?? null) === self::PROPERTY_ALARM_ESCALATION_STEPS) {
                     $element['values'] = $this->CreateAlarmEscalationListFormValues();
                 } elseif (($element['name'] ?? null) === self::PROPERTY_AREA_CAMERAS) {
+                    $element['values'] = $this->CreateAreaCameraListFormValues();
                     $this->SetConfigurationListAddValue($element, 'PartitionID', $this->DefaultPartitionID());
                 }
             }

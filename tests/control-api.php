@@ -423,6 +423,10 @@ assertControlApi(
     && ($state['Partitions']['main']['Cameras'][0]['Snapshot'] ?? null) === '',
     'Area camera assignments must be published without exposing a media URL or content when no image is available.'
 );
+assertControlApi(
+    str_contains($instance->GetConfigurationForm(), '"PartitionName":"Main area"'),
+    'The camera list must display the configured partition name instead of its hidden technical ID.'
+);
 $instance->TestSetPropertyString('AreaCameras', '[]');
 $cameraEditor = $instance->GetAreaCameraEditForm([]);
 assertControlApi(

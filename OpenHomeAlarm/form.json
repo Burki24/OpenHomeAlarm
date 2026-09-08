@@ -113,12 +113,11 @@
                         },
                         {
                             "caption": "Alarm partition",
-                            "name": "PartitionID",
+                            "name": "PartitionName",
                             "width": "180px",
-                            "add": "main",
+                            "add": "",
                             "edit": {
-                                "type": "Select",
-                                "options": []
+                                "type": "ValidationTextBox"
                             }
                         },
                         {
