@@ -144,6 +144,7 @@
                     "type": "Select",
                     "name": "CountdownActionEnabled",
                     "caption": "Countdown output",
+                    "onChange": "OHA_UpdateOptionalActionForm($id, 'CountdownAction', $CountdownActionEnabled);",
                     "options": [
                         {
                             "caption": "No action",
@@ -514,6 +515,7 @@
                     "type": "Select",
                     "name": "FaultActionEnabled",
                     "caption": "New fault",
+                    "onChange": "OHA_UpdateOptionalActionForm($id, 'FaultAction', $FaultActionEnabled);",
                     "options": [
                         {
                             "caption": "No action",
@@ -530,6 +532,7 @@
                     "type": "Select",
                     "name": "FaultClearedActionEnabled",
                     "caption": "Fault cleared",
+                    "onChange": "OHA_UpdateOptionalActionForm($id, 'FaultClearedAction', $FaultClearedActionEnabled);",
                     "options": [
                         {
                             "caption": "No action",

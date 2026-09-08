@@ -804,12 +804,23 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $this->EncodeConfigurationForm($form);
     }
 
-    /** Rejects stale callbacks for optional non-alarm actions. */
+    /**
+     * Removes an already rendered optional action selector before its toggle is
+     * saved as "No action". This prevents native SelectAction validation from
+     * rejecting the empty selector during the same Apply operation.
+     */
     public function UpdateOptionalActionForm(string $propertyName, int $enabled): void
     {
         if (!in_array($propertyName, array_keys(self::OPTIONAL_ACTION_FIELDS), true)) {
             throw new InvalidArgumentException('Unknown optional action property.');
         }
+
+        if ($enabled !== 0) {
+            return;
+        }
+
+        $this->UpdateFormField($propertyName, 'enabled', false);
+        $this->UpdateFormField($propertyName, 'visible', false);
     }
 
     /**
@@ -3047,14 +3058,6 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
 
             $toggleName = $element['name'] ?? null;
-            if (
-                ($element['type'] ?? null) === 'Select'
-                && is_string($toggleName)
-                && array_key_exists($toggleName, self::OPTIONAL_ACTION_FORM_FIELDS)
-            ) {
-                unset($element['onChange']);
-            }
-
             $generated[] = $element;
 
             if (

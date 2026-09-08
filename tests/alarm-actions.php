@@ -716,7 +716,9 @@ foreach (
 ) {
     $toggle = findAlarmActionFormField($form['elements'] ?? [], $toggleName);
     assertAlarmAction(
-        is_array($toggle) && ($toggle['type'] ?? null) === 'Select',
+        is_array($toggle)
+        && ($toggle['type'] ?? null) === 'Select'
+        && str_contains((string) ($toggle['onChange'] ?? ''), 'OHA_UpdateOptionalActionForm'),
         'Optional action toggle ' . $toggleName . ' must be present in static form.json.'
     );
 }
@@ -776,6 +778,16 @@ $enableDynamicFormInstance->UpdateOptionalActionForm('FaultAction', 1);
 assertAlarmAction(
     $enableDynamicFormInstance->TestReloadedForms() === [],
     'Enabling an optional action must wait for the normal Apply cycle instead of reloading the form.'
+);
+$disableDynamicFormInstance = new OpenHomeAlarm();
+$disableDynamicFormInstance->Create();
+$disableDynamicFormInstance->UpdateOptionalActionForm('CountdownAction', 0);
+assertAlarmAction(
+    $disableDynamicFormInstance->TestFormUpdates() === [
+        ['field' => 'CountdownAction', 'parameter' => 'enabled', 'value' => false],
+        ['field' => 'CountdownAction', 'parameter' => 'visible', 'value' => false]
+    ],
+    'Disabling an optional action must remove its native selector before it can reject an empty selection.'
 );
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,
