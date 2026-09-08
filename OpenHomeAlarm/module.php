@@ -2265,6 +2265,13 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     protected function ProcessHookData(): void
     {
+        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) === 'GET'
+            && is_string($_GET['camera'] ?? null)) {
+            $this->ProcessCameraStreamProxy((string) $_GET['camera'], (string) ($_GET['token'] ?? ''));
+
+            return;
+        }
+
         if (!$this->IsIPSViewHTMLPageEnabled()) {
             $this->OutputIPSViewResponse(['Error' => 'IPSView is disabled.'], 404);
 
@@ -2555,7 +2562,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
     }
 
-    /** @return list<array{ID:string,Name:string,MediaID:int,Type:string,Snapshot:string,OpenOnAlarm:bool}> */
+    /** @return list<array{ID:string,Name:string,MediaID:int,Type:string,Snapshot:string,ProxyURL:string,OpenOnAlarm:bool}> */
     private function BuildPartitionCameraPayload(string $partitionID, bool $includeSnapshot): array
     {
         $cameras = [];
@@ -2566,6 +2573,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             $snapshot = '';
             $type = 'stream';
+            $proxyURL = '';
             if (function_exists('IPS_MediaExists') && IPS_MediaExists($camera['MediaID'])) {
                 $media = function_exists('IPS_GetMedia') ? IPS_GetMedia($camera['MediaID']) : [];
                 $mediaType = is_array($media) ? (int) ($media['MediaType'] ?? MEDIATYPE_STREAM) : MEDIATYPE_STREAM;
@@ -2578,6 +2586,10 @@ class OpenHomeAlarm extends IPSModuleStrict
                             : 'data:image/jpeg;base64,' . $content;
                     }
                 }
+                if ($mediaType === MEDIATYPE_STREAM && $this->IsHTTPStreamMedia($media)) {
+                    $type = 'mjpeg';
+                    $proxyURL = $this->CameraStreamProxyURL($partitionID . '-' . $index);
+                }
             }
             $cameras[] = [
                 'ID'          => $partitionID . '-' . $index,
@@ -2585,11 +2597,135 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'MediaID'     => $camera['MediaID'],
                 'Type'        => $type,
                 'Snapshot'    => $snapshot,
+                'ProxyURL'    => $proxyURL,
                 'OpenOnAlarm' => $camera['OpenOnAlarm']
             ];
         }
 
         return $cameras;
+    }
+
+    /** @param array<string,mixed> $media */
+    private function IsHTTPStreamMedia(array $media): bool
+    {
+        $url = $media['MediaFile'] ?? '';
+        if (!is_string($url) || $url === '') {
+            return false;
+        }
+
+        $scheme = parse_url($url, PHP_URL_SCHEME);
+
+        return is_string($scheme) && in_array(strtolower($scheme), ['http', 'https'], true);
+    }
+
+    private function CameraStreamProxyURL(string $cameraID): string
+    {
+        return '/hook/' . $this->IPSViewHookAddress()
+            . '?camera=' . rawurlencode($cameraID)
+            . '&token=' . $this->CameraStreamProxyToken($cameraID);
+    }
+
+    private function CameraStreamProxyToken(string $cameraID): string
+    {
+        return hash_hmac('sha256', $cameraID, $this->IPSViewToken());
+    }
+
+    private function ProcessCameraStreamProxy(string $cameraID, string $token): void
+    {
+        if ($cameraID === '' || !hash_equals($this->CameraStreamProxyToken($cameraID), $token)) {
+            $this->OutputCameraStreamError(403);
+
+            return;
+        }
+
+        $camera = $this->ConfiguredCameraByID($cameraID);
+        if ($camera === null || !function_exists('IPS_MediaExists') || !IPS_MediaExists($camera['MediaID'])) {
+            $this->OutputCameraStreamError(404);
+
+            return;
+        }
+
+        $media = function_exists('IPS_GetMedia') ? IPS_GetMedia($camera['MediaID']) : [];
+        if (!is_array($media) || !$this->IsHTTPStreamMedia($media)) {
+            $this->OutputCameraStreamError(415);
+
+            return;
+        }
+        $sourceURL = (string) $media['MediaFile'];
+        $context = stream_context_create([
+            'http' => [
+                'timeout'         => 10,
+                'follow_location' => 0,
+                'ignore_errors'   => true,
+                'user_agent'      => 'OpenHomeAlarm/1.0'
+            ],
+            'ssl' => [
+                'verify_peer'      => true,
+                'verify_peer_name' => true
+            ]
+        ]);
+        $stream = @fopen($sourceURL, 'rb', false, $context);
+        if ($stream === false) {
+            $this->OutputCameraStreamError(502);
+
+            return;
+        }
+
+        $contentType = $this->CameraStreamContentType(stream_get_meta_data($stream));
+        http_response_code(200);
+        header('Content-Type: ' . $contentType);
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('X-Content-Type-Options: nosniff');
+        while (!connection_aborted() && !feof($stream)) {
+            $chunk = fread($stream, 8192);
+            if ($chunk === false) {
+                break;
+            }
+            echo $chunk;
+            flush();
+        }
+        fclose($stream);
+    }
+
+    /**
+     * @return array{Enabled:bool,PartitionID:string,Name:string,MediaID:int,OpenOnAlarm:bool}|null
+     */
+    private function ConfiguredCameraByID(string $cameraID): ?array
+    {
+        foreach ($this->ReadConfiguredAreaCameras() as $index => $camera) {
+            if (hash_equals($camera['PartitionID'] . '-' . $index, $cameraID)) {
+                return $camera;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param array<string,mixed> $metadata */
+    private function CameraStreamContentType(array $metadata): string
+    {
+        $headers = $metadata['wrapper_data'] ?? [];
+        if (!is_array($headers)) {
+            return 'image/jpeg';
+        }
+        foreach ($headers as $header) {
+            if (!is_string($header) || !str_starts_with(strtolower($header), 'content-type:')) {
+                continue;
+            }
+            $contentType = trim(substr($header, strlen('Content-Type:')));
+            if ($contentType !== '' && !str_contains($contentType, "\r") && !str_contains($contentType, "\n")) {
+                return $contentType;
+            }
+        }
+
+        return 'image/jpeg';
+    }
+
+    private function OutputCameraStreamError(int $statusCode): void
+    {
+        http_response_code($statusCode);
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('X-Content-Type-Options: nosniff');
     }
 
     private function DefaultPartitionID(): string

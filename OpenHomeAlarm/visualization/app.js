@@ -860,23 +860,34 @@ function ohaOpenCamera(camera, partition) {
     document.getElementById('cameraHint').textContent = partition?.Name || '';
     document.getElementById('cameraClose').setAttribute('aria-label', ohaTranslate('Close camera'));
     content.replaceChildren();
-    if (typeof camera.Snapshot === 'string' && camera.Snapshot !== '') {
+    const imageURL = typeof camera.ProxyURL === 'string' && camera.ProxyURL !== ''
+        ? camera.ProxyURL
+        : camera.Snapshot;
+    if (typeof imageURL === 'string' && imageURL !== '') {
         const image = document.createElement('img');
         image.className = 'oha-camera-image';
-        image.src = camera.Snapshot;
         image.alt = camera.Name || ohaTranslate('Camera');
+        image.addEventListener('error', () => {
+            image.replaceWith(ohaCameraUnavailableNotice());
+        }, { once: true });
+        image.src = imageURL;
         content.appendChild(image);
     } else {
-        const notice = document.createElement('p');
-        notice.className = 'oha-camera-notice';
-        notice.textContent = camera.Type === 'stream'
-            ? ohaTranslate('This Symcon stream is available in the native media view. Add an image media object for an in-tile camera image.')
-            : ohaTranslate('No current camera image is available.');
-        content.appendChild(notice);
+        content.appendChild(ohaCameraUnavailableNotice(camera.Type));
     }
     overlay.hidden = false;
     document.body.classList.add('oha-modal-open');
     window.requestAnimationFrame(() => document.getElementById('cameraClose')?.focus());
+}
+
+function ohaCameraUnavailableNotice(type = '') {
+    const notice = document.createElement('p');
+    notice.className = 'oha-camera-notice';
+    notice.textContent = type === 'stream'
+        ? ohaTranslate('This Symcon stream is available in the native media view. Add an image media object for an in-tile camera image.')
+        : ohaTranslate('No current camera image is available.');
+
+    return notice;
 }
 
 function ohaCloseCamera() {

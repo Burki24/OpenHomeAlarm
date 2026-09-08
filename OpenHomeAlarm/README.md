@@ -319,13 +319,13 @@ in den Alarmzustand wählen Kachel und IPSView automatisch diesen Bereich und
 öffnen für die erste aktivierte Kamera einen Dialog.
 
 Für ein Bild innerhalb des Dialogs verwenden Sie ein Symcon-**Bild-Medienobjekt**,
-das durch die Kamera oder ein Snapshot-Modul aktualisiert wird. Das Modul
-überträgt nur den aktuellen Bildinhalt an die bereits angemeldete Darstellung;
-eine Stream-Adresse oder Zugangsdaten aus einem Medienobjekt werden nicht
-ausgegeben. Ein Symcon-**Stream-Medienobjekt** kann ebenfalls dokumentiert und
-dem Bereich zugeordnet werden, bleibt aber in der nativen Symcon-Medienansicht,
-weil RTSP in einer HTML-SDK-Kachel nicht browserübergreifend eingebettet werden
-kann. Für einen Bereich können mehrere Kameras hinterlegt werden.
+das durch die Kamera oder ein Snapshot-Modul aktualisiert wird. HTTP(S)-Streams
+im MJPEG-Format werden über einen instanzinternen, kamera-spezifisch signierten
+Symcon-Proxy an den Dialog weitergeleitet. Die ursprüngliche Stream-Adresse und
+ihre Zugangsdaten werden dabei weder im Steuerzustand noch im HTML ausgegeben.
+Ein **RTSP**-Stream bleibt in der nativen Symcon-Medienansicht, weil er nicht
+browserübergreifend in einer HTML-SDK-Kachel eingebettet werden kann. Für einen
+Bereich können mehrere Kameras hinterlegt werden.
 
 ### 13. Ereignisprotokoll und Diagnose
 
