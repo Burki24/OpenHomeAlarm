@@ -12,6 +12,9 @@ beispielsweise `v1.109.0`.
 - Der Zustand ausgeführter Signalgeber wird über die sichtbare Boolean-Variable
   `SignalGeneratorActive` geführt. Alarmierte Areas erhalten dadurch zuverlässig
   die separate Aktion **Signalgeber stoppen**, ohne andere Alarmaktionen zurückzusetzen.
+- Das von der Symcon-Konsole gespeicherte flache Format der Eskalationsaktionen
+  übernimmt `ResetMode`, `ResetAction` und `SignalGenerator` nun vollständig;
+  zuvor ging insbesondere die Signalgeber-Markierung beim Einlesen verloren.
 - Ausgangsweg-Bewegungsmelder dürfen am Ende der Ausgangsverzögerung noch ihren
   nachlaufenden Auslösewert melden, ohne die Scharfschaltung abzubrechen; Kontakte,
   normale, fehlende oder unlesbare Sensoren und blockierende Störungen bleiben strikt.

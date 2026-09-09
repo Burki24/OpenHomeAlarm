@@ -91,6 +91,20 @@ assertEscalationPlan(
 assertEscalationPlan(AlarmEscalationPlan::runtime([]) === null, 'Missing runtime state must not create a historical escalation cycle.');
 
 $booleanAction = ['actionID' => '{SWITCH}', 'parameters' => ['VALUE' => true]];
+$flatSignalGenerator = AlarmEscalationPlan::steps(json_encode([[
+    'Enabled'         => true,
+    'Name'            => 'Siren',
+    'DelaySeconds'    => 0,
+    'Action'          => $booleanAction,
+    'ResetMode'       => 1,
+    'ResetAction'     => '',
+    'SignalGenerator' => true
+]], JSON_THROW_ON_ERROR))[0]['Actions'][0];
+assertEscalationPlan(
+    $flatSignalGenerator['ResetMode'] === 1
+        && $flatSignalGenerator['SignalGenerator'] === true,
+    'The flat Symcon list format must retain signal-generator and reset settings.'
+);
 $multipleActions = AlarmEscalationPlan::steps(json_encode([[
     'Enabled'      => true,
     'Name'         => 'Outputs',

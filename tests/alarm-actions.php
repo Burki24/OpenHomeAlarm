@@ -577,6 +577,43 @@ assertAlarmAction(
     'Ending the last alarm output must cancel and clear its escalation cycle.'
 );
 
+// Symcon persists each row of the current escalation form as one flat action.
+$testActions = [];
+$testValues[4001] = false;
+$flatSignalGenerator = new OpenHomeAlarm();
+$flatSignalGenerator->Create();
+$flatSignalGenerator->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$flatSignalGenerator->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$flatSignalGenerator->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'         => true,
+    'Name'            => 'Form siren',
+    'DelaySeconds'    => 0,
+    'Action'          => ['actionID' => '{FORM-SIREN}', 'parameters' => ['VALUE' => true]],
+    'ResetMode'       => 1,
+    'ResetAction'     => '',
+    'SignalGenerator' => true
+]], JSON_THROW_ON_ERROR));
+$flatSignalGenerator->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($flatSignalGenerator->ArmAway(), 'The flat-form signal-generator test must arm successfully.');
+$testValues[4001] = true;
+$flatSignalGenerator->MessageSink(31, 4001, VM_UPDATE, [true, true, false]);
+$flatSignalState = json_decode($flatSignalGenerator->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    count($testActions) === 1
+        && $testActions[0]['parameters']['VALUE'] === true
+        && $flatSignalState['Alarm']['SignalGeneratorActive'] === true
+        && $flatSignalState['Capabilities']['CanStopSignalGenerator'] === true,
+    'A signal generator saved by the real Symcon form must expose its separate stop control.'
+);
+assertAlarmAction($flatSignalGenerator->StopSignalGenerator(), 'The flat-form signal generator must be stoppable.');
+assertAlarmAction(
+    count($testActions) === 2 && $testActions[1]['parameters']['VALUE'] === false,
+    'Stopping a flat-form signal generator must execute its inverse Boolean action.'
+);
+
 // One escalation step may execute multiple actions and automatically invert Boolean set-value actions on reset.
 $testActions = [];
 $testValues[4001] = false;

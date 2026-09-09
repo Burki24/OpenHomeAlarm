@@ -52,6 +52,9 @@ final class AlarmEscalationPlan
                 $step['Actions'] ?? null,
                 $step['Action'] ?? null,
                 $step['ResetEnabled'] ?? false,
+                $step['ResetMode'] ?? null,
+                $step['ResetAction'] ?? '',
+                $step['SignalGenerator'] ?? false,
                 $index,
                 $enabled,
                 $name
@@ -232,20 +235,31 @@ final class AlarmEscalationPlan
     /** @return list<array{Enabled:bool,Name:string,Action:string,ResetMode:int,ResetAction:string,SignalGenerator:bool}> */
     private static function normalizeActions(
         mixed $configured,
-        mixed $legacyAction,
-        mixed $legacyResetEnabled,
+        mixed $flatAction,
+        mixed $flatLegacyResetEnabled,
+        mixed $flatResetMode,
+        mixed $flatResetAction,
+        mixed $flatSignalGenerator,
         int $stepIndex,
         bool $stepEnabled,
         string $stepName
     ): array {
-        if ($configured === null && $legacyAction !== null) {
-            if (!is_bool($legacyResetEnabled)) {
+        if ($configured === null && $flatAction !== null) {
+            if (!is_bool($flatLegacyResetEnabled)) {
                 throw new UnexpectedValueException('Invalid automatic reset field type.');
             }
-            $legacy = self::normalizeAction($legacyAction);
-            return $legacy === '' ? [] : [[
-                'Enabled' => true, 'Name' => trim($stepName) !== '' ? trim($stepName) : sprintf('Action %d', $stepIndex + 1),
-                'Action'  => $legacy, 'ResetMode' => $legacyResetEnabled ? 1 : 0, 'ResetAction' => '', 'SignalGenerator' => false
+            $normalizedFlatAction = self::normalizeAction($flatAction);
+            if ($normalizedFlatAction === '') {
+                return [];
+            }
+            $configured = [[
+                'Enabled'         => true,
+                'Name'            => trim($stepName) !== '' ? trim($stepName) : sprintf('Action %d', $stepIndex + 1),
+                'Action'          => $normalizedFlatAction,
+                'ResetEnabled'    => $flatLegacyResetEnabled,
+                'ResetMode'       => $flatResetMode ?? ($flatLegacyResetEnabled ? 1 : 0),
+                'ResetAction'     => $flatResetAction,
+                'SignalGenerator' => $flatSignalGenerator
             ]];
         }
         if (is_string($configured)) {
