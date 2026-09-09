@@ -786,7 +786,16 @@ $locale = json_decode(
     JSON_THROW_ON_ERROR
 );
 $translations = $locale['translations']['de'] ?? [];
-foreach (['Alarm escalation', 'Countdown output', 'On countdown step'] as $translationKey) {
+foreach ([
+    'Alarm escalation',
+    'Countdown output',
+    'On countdown step',
+    'Optional: Runs once for every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. Leave the action empty when no countdown output is wanted. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API.',
+    'On new fault',
+    'On fault cleared',
+    'Optional: Runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. Leave the action empty when no notification is wanted.',
+    'Optional: Runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. Leave the action empty when no action is wanted.'
+] as $translationKey) {
     assertAlarmAction(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }
 

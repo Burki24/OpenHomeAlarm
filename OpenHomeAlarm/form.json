@@ -150,7 +150,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "The optional action runs once for every positive countdown value. Its target can read DelayRemaining, DelaySource, Mode and State from this instance."
+                    "caption": "Optional: Runs once for every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. Leave the action empty when no countdown output is wanted. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API."
                 }
             ]
         },
@@ -508,12 +508,20 @@
                     "width": "100%"
                 },
                 {
+                    "type": "Label",
+                    "caption": "Optional: Runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. Leave the action empty when no notification is wanted."
+                },
+                {
                     "type": "SelectAction",
                     "name": "FaultClearedAction",
                     "caption": "On fault cleared",
                     "targetID": -2,
                     "value": false,
                     "width": "100%"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Optional: Runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. Leave the action empty when no action is wanted."
                 },
                 {
                     "type": "List",
