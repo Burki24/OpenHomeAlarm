@@ -277,15 +277,17 @@ Eine Eskalationsstufe entsteht durch die eingetragene Verzögerung: Alle aktiven
 
 Eine vorhandene Zeile kann über das Zahnrad bearbeitet, über **Aktiv** vorübergehend deaktiviert oder über den Papierkorb gelöscht werden. Deaktivieren behält die Konfiguration der Aktion für eine spätere erneute Aktivierung bei. Löschen entfernt die vollständige Aktionszeile. Änderungen an einer bereits laufenden Alarmeskalation sollten vermieden werden; konfigurieren und testen Sie die Aktionen bei unscharfer Anlage.
 
-#### Beispiel: Push-Nachricht mit Area und Sensor
+#### Push-Nachricht mit Area und Sensor
 
-Das kopierfertige Symcon-Skript [push-alarm-notification.php](../docs/examples/push-alarm-notification.php) liest den öffentlichen Bedienzustand über `OHA_GetControlState()`, ermittelt die zuletzt ausgelöste Area und erzeugt beispielsweise:
+Für eine native Symcon-Push-Nachricht ist kein Skript erforderlich. Öffnen Sie in der Instanzkonfiguration den Abschnitt **Push-Benachrichtigungen**, wählen Sie **Sofort bei Alarmauslösung** oder **Als verzögerte Eskalationsstufe** und tragen Sie nur die ID Ihrer Kachel-Visualisierung ein. Im verzögerten Modus bestimmen Sie zusätzlich die Verzögerung in Sekunden. Die Nachricht wird pro Alarmzyklus genau einmal versendet und öffnet beim Antippen diese OpenHomeAlarm-Instanz in der ausgewählten Kachel-Visualisierung.
+
+Sie enthält automatisch den zuletzt alarmierenden Bereich und Sensor, beispielsweise:
 
 > **Einbruchalarm Keller!**
 >
 > Der Sensor Fensterkontakt HAR hat ausgelöst.
 
-Passen Sie am Anfang des Skripts die IDs der OpenHomeAlarm-Instanz, der Kachel-Visualisierung und des beim Antippen zu öffnenden Zielobjekts an. Das Zielobjekt muss innerhalb der angegebenen Kachel-Visualisierung verfügbar sein. Legen Sie das Skript anschließend als aktive Eskalationsaktion mit der gewünschten Verzögerung an; `0` versendet die Nachricht unmittelbar beim Alarm. Wählen Sie dabei das gespeicherte PHP-Skript als **Ziel** und anschließend die Aktion **Führe Automation aus**. Damit wird der bereits gespeicherte Skriptinhalt ausgeführt. **Führe PHP Code aus** ist hierfür nicht geeignet: Diese Aktion erwartet stattdessen neuen, unabhängigen PHP-Code im eingeblendeten Editor. Wählen Sie als Rücksetzverhalten **Keine Rücksetzung** und lassen Sie **Signalgeber** deaktiviert. Die verwendete Symcon-Funktion `VISU_PostNotificationEx()` sendet an die für diese Kachel-Visualisierung registrierten Mobilgeräte und unterstützt ein eigenes Icon sowie den Ton `siren`. Für das klassische WebFront kann stattdessen `WFC_PushNotification()` verwendet werden.
+Das vorhandene Beispielskript [push-alarm-notification.php](../docs/examples/push-alarm-notification.php) bleibt für individuell angepasste Texte, andere Ziele oder das klassische WebFront verfügbar.
 
 #### Signalgeber separat stoppen
 

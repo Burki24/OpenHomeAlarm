@@ -153,6 +153,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
     private const PROPERTY_AUTO_REARM_AFTER_ALARM = 'AutoRearmAfterAlarm';
     private const PROPERTY_ALARM_ESCALATION_STEPS = 'AlarmEscalationSteps';
+    private const PROPERTY_PUSH_NOTIFICATION_MODE = 'PushNotificationMode';
+    private const PROPERTY_PUSH_NOTIFICATION_TILE_ID = 'PushNotificationTileID';
+    private const PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS = 'PushNotificationDelaySeconds';
     private const PROPERTY_FAULT_ACTION = 'FaultAction';
     private const PROPERTY_FAULT_CLEARED_ACTION = 'FaultClearedAction';
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
@@ -293,6 +296,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
         $this->RegisterBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM, true);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS, '[]');
+        $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE, 0);
+        $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID, 0);
+        $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS, 30);
         $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
@@ -1784,6 +1790,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $steps = $this->ReadConfiguredAlarmEscalationSteps();
+        if ($this->IsConfiguredPushNotificationDue($runtime, time())) {
+            // Persist first so a restart or transport error cannot send the same alarm twice.
+            $runtime['PushNotificationSent'] = true;
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
+            $this->PostConfiguredAlarmNotification();
+        }
         $signalGeneratorStateChanged = false;
         foreach (AlarmEscalationPlan::dueSteps($steps, $runtime, time()) as $due) {
             // Persist first so action errors, ApplyChanges or a restart cannot repeat this action.
@@ -1825,7 +1837,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
 
-        $deadline = AlarmEscalationPlan::nextDeadline($steps, $runtime);
+        $deadline = $this->EarlierDeadline(
+            AlarmEscalationPlan::nextDeadline($steps, $runtime),
+            $this->ConfiguredPushNotificationDeadline($runtime)
+        );
         $this->SetTimerInterval(
             self::TIMER_ALARM_ESCALATION,
             $deadline > 0 ? max(1, $deadline - time()) * 1000 : 0
@@ -3257,6 +3272,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::PROPERTY_ALARM_DURATION_SECONDS            => $this->ReadPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS),
             self::PROPERTY_AUTO_REARM_AFTER_ALARM            => $this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM),
             self::PROPERTY_ALARM_ESCALATION_STEPS            => $this->ReadPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS),
+            self::PROPERTY_PUSH_NOTIFICATION_MODE            => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE),
+            self::PROPERTY_PUSH_NOTIFICATION_TILE_ID         => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
+            self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS   => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS),
             self::PROPERTY_FAULT_ACTION                      => $this->ReadPropertyString(self::PROPERTY_FAULT_ACTION),
             self::PROPERTY_FAULT_CLEARED_ACTION              => $this->ReadPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION),
             self::PROPERTY_DISARM_CODE                       => $this->ReadPropertyString(self::PROPERTY_DISARM_CODE),
@@ -6326,7 +6344,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function StartAlarmEscalation(): void
     {
-        if ($this->ReadConfiguredAlarmEscalationSteps() === []) {
+        if ($this->ReadConfiguredAlarmEscalationSteps() === [] && !$this->IsConfiguredPushNotificationEnabled()) {
             $this->StopAlarmEscalation();
 
             return;
@@ -6339,6 +6357,103 @@ class OpenHomeAlarm extends IPSModuleStrict
             AlarmEscalationPlan::start(time())
         );
         $this->ProcessAlarmEscalation();
+    }
+
+    private function IsConfiguredPushNotificationEnabled(): bool
+    {
+        return in_array($this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE), [1, 2], true)
+            && $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID) > 0;
+    }
+
+    /** @param array{StartedAt:int,PushNotificationSent:bool} $runtime */
+    private function ConfiguredPushNotificationDeadline(array $runtime): int
+    {
+        if (!$this->IsConfiguredPushNotificationEnabled() || $runtime['PushNotificationSent']) {
+            return 0;
+        }
+
+        $delaySeconds = $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE) === 2
+            ? min(AlarmEscalationPlan::MAX_DELAY_SECONDS, max(0, $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS)))
+            : 0;
+
+        return $runtime['StartedAt'] + $delaySeconds;
+    }
+
+    /** @param array{StartedAt:int,PushNotificationSent:bool} $runtime */
+    private function IsConfiguredPushNotificationDue(array $runtime, int $timestamp): bool
+    {
+        $deadline = $this->ConfiguredPushNotificationDeadline($runtime);
+
+        return $deadline > 0 && $deadline <= $timestamp;
+    }
+
+    private function EarlierDeadline(int $first, int $second): int
+    {
+        if ($first === 0) {
+            return $second;
+        }
+        if ($second === 0) {
+            return $first;
+        }
+
+        return min($first, $second);
+    }
+
+    private function PostConfiguredAlarmNotification(): void
+    {
+        if (!function_exists('VISU_PostNotificationEx')) {
+            $this->SendDebug(__FUNCTION__, 'Tile visualization push notifications are not available.', 0);
+
+            return;
+        }
+
+        $states = $this->ReadPartitionAlarmStates();
+        $latestPartitionID = $this->DefaultPartitionID();
+        $latestTimestamp = -1;
+        foreach ($states as $partitionID => $state) {
+            if (!($state['OutputActive'] ?? false) || ($state['LastTimestamp'] ?? 0) < $latestTimestamp) {
+                continue;
+            }
+            $latestPartitionID = $partitionID;
+            $latestTimestamp = $state['LastTimestamp'];
+        }
+
+        $partitions = $this->ReadConfiguredPartitions();
+        $areaName = '';
+        foreach ($partitions as $partition) {
+            if ($partition['ID'] === $latestPartitionID) {
+                $areaName = $partition['Name'];
+                break;
+            }
+        }
+        $areaName = trim($areaName);
+        $sourceName = trim($states[$latestPartitionID]['LastSource'] ?? '');
+        $areaName = $areaName !== '' ? $areaName : $this->Translate('Alarm partition');
+        $sourceName = $sourceName !== '' ? $sourceName : $this->Translate('Unknown trigger');
+        $title = $this->ShortenPushNotificationText(sprintf($this->Translate('Intrusion alarm %s!'), $areaName), 32);
+        $message = $this->ShortenPushNotificationText(sprintf($this->Translate('Sensor %s triggered.'), $sourceName), 256);
+        $notificationID = VISU_PostNotificationEx(
+            $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
+            $title,
+            $message,
+            'Alert',
+            'siren',
+            $this->InstanceID
+        );
+        if ($notificationID === false) {
+            $this->SendDebug(__FUNCTION__, 'The configured push notification could not be sent.', 0);
+        }
+    }
+
+    private function ShortenPushNotificationText(string $text, int $maximumLength): string
+    {
+        if (function_exists('mb_strimwidth')) {
+            return mb_strimwidth($text, 0, $maximumLength, '…', 'UTF-8');
+        }
+
+        return strlen($text) <= $maximumLength
+            ? $text
+            : substr($text, 0, max(0, $maximumLength - 3)) . '...';
     }
 
     private function RestoreAlarmEscalation(): void

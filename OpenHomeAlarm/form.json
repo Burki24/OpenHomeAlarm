@@ -519,6 +519,55 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Push notifications",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Send a native Symcon push notification to the registered devices of a tile visualization. The notification contains the affected alarm area and triggering sensor."
+                },
+                {
+                    "type": "Select",
+                    "name": "PushNotificationMode",
+                    "caption": "Push notification",
+                    "options": [
+                        {
+                            "caption": "Disabled",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Immediately when alarm starts",
+                            "value": 1
+                        },
+                        {
+                            "caption": "As delayed escalation step",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PushNotificationTileID",
+                    "caption": "Tile visualization ID",
+                    "minimum": 0,
+                    "width": "250px"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PushNotificationDelaySeconds",
+                    "caption": "Push delay (seconds)",
+                    "minimum": 0,
+                    "maximum": 86400,
+                    "width": "250px"
+                },
+                {
+                    "type": "Label",
+                    "caption": "The delay applies only to the delayed escalation mode. A value of 0 sends the push notification immediately. Tapping it opens this OpenHomeAlarm instance in the selected tile visualization."
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "System monitoring",
             "expanded": true,
             "items": [

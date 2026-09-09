@@ -24,6 +24,30 @@ $testActions = [];
 
 $testPendingConfigurationChanges = false;
 $testResetConfigurationChanges = 0;
+/** @var list<array{tileID:int,title:string,message:string,icon:string,sound:string,targetID:int}> */
+$testPushNotifications = [];
+
+function VISU_PostNotificationEx(
+    int $tileID,
+    string $title,
+    string $message,
+    string $icon,
+    string $sound,
+    int $targetID
+): int|false {
+    global $testPushNotifications;
+
+    $testPushNotifications[] = [
+        'tileID'   => $tileID,
+        'title'    => $title,
+        'message'  => $message,
+        'icon'     => $icon,
+        'sound'    => $sound,
+        'targetID' => $targetID
+    ];
+
+    return count($testPushNotifications);
+}
 
 function IPS_HasChanges(int $instanceID): bool
 {
@@ -575,6 +599,77 @@ assertAlarmAction(
     ($escalationInstance->TestTimers()['AlarmEscalation']['interval'] ?? -1) === 0
     && ($escalationInstance->TestAttributes()['AlarmEscalationRuntime'] ?? '') === '[]',
     'Ending the last alarm output must cancel and clear its escalation cycle.'
+);
+
+// Native tile push notifications may be sent immediately without requiring a PHP action row.
+$testPushNotifications = [];
+$testValues[4001] = false;
+$immediatePush = new OpenHomeAlarm();
+$immediatePush->Create();
+$immediatePush->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$immediatePush->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$immediatePush->TestSetPropertyInteger('PushNotificationMode', 1);
+$immediatePush->TestSetPropertyInteger('PushNotificationTileID', 12345);
+$immediatePush->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($immediatePush->ArmAway(), 'Immediate-push test must arm successfully.');
+$testValues[4001] = true;
+$immediatePush->MessageSink(34, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $testPushNotifications === [[
+        'tileID'   => 12345,
+        'title'    => 'Intrusion alarm Main area!',
+        'message'  => 'Sensor Test 4001 triggered.',
+        'icon'     => 'Alert',
+        'sound'    => 'siren',
+        'targetID' => 0
+    ]],
+    'An immediate native push notification must include the affected area and triggering sensor.'
+);
+$immediatePush->ProcessAlarmEscalation();
+assertAlarmAction(count($testPushNotifications) === 1, 'An immediate native push notification must be sent only once per alarm cycle.');
+
+// The delayed mode shares the escalation timer but does not require a user-defined action.
+$testPushNotifications = [];
+$testValues[4001] = false;
+$delayedPush = new OpenHomeAlarm();
+$delayedPush->Create();
+$delayedPush->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$delayedPush->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$delayedPush->TestSetPropertyInteger('PushNotificationMode', 2);
+$delayedPush->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$delayedPush->TestSetPropertyInteger('PushNotificationDelaySeconds', 60);
+$delayedPush->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($delayedPush->ArmAway(), 'Delayed-push test must arm successfully.');
+$testValues[4001] = true;
+$delayedPush->MessageSink(35, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $testPushNotifications === []
+    && ($delayedPush->TestTimers()['AlarmEscalation']['interval'] ?? 0) > 0,
+    'A delayed native push notification must schedule the shared escalation timer without sending immediately.'
+);
+$delayedPushRuntime = json_decode(
+    (string) ($delayedPush->TestAttributes()['AlarmEscalationRuntime'] ?? '[]'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$delayedPushRuntime['StartedAt'] = time() - 120;
+$delayedPush->TestSetAttributeString(
+    'AlarmEscalationRuntime',
+    json_encode($delayedPushRuntime, JSON_THROW_ON_ERROR)
+);
+$delayedPush->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($testPushNotifications) === 1
+    && $testPushNotifications[0]['tileID'] === 23456
+    && $testPushNotifications[0]['message'] === 'Sensor Test 4001 triggered.',
+    'An elapsed native push delay must send the notification through the escalation timer.'
 );
 
 // Symcon persists each row of the current escalation form as one flat action.

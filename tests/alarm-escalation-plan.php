@@ -36,7 +36,13 @@ assertEscalationPlan(AlarmEscalationPlan::steps('') === [], 'An empty configurat
 $runtime = AlarmEscalationPlan::start(1000);
 $firstKey = AlarmEscalationPlan::actionKey($steps[0], 0, $steps[0]['Actions'][0], 0);
 assertEscalationPlan(
-    $runtime === ['StartedAt' => 1000, 'ExecutedStepKeys' => [], 'ResetActionKeys' => [], 'ExecutedActions' => []],
+    $runtime === [
+        'StartedAt'            => 1000,
+        'PushNotificationSent' => false,
+        'ExecutedStepKeys'     => [],
+        'ResetActionKeys'      => [],
+        'ExecutedActions'      => []
+    ],
     'A new escalation cycle must persist its absolute start and an empty execution set.'
 );
 assertEscalationPlan(
@@ -81,10 +87,11 @@ assertEscalationPlan(
 assertEscalationPlan(
     AlarmEscalationPlan::runtime(['StartedAt' => 1000, 'ExecutedStepKeys' => [$firstKey, $firstKey]])
         === [
-            'StartedAt'        => 1000,
-            'ExecutedStepKeys' => [$firstKey],
-            'ResetActionKeys'  => [],
-            'ExecutedActions'  => []
+            'StartedAt'            => 1000,
+            'PushNotificationSent' => false,
+            'ExecutedStepKeys'     => [$firstKey],
+            'ResetActionKeys'      => [],
+            'ExecutedActions'      => []
         ],
     'Persisted execution keys must be normalized without duplicates.'
 );
