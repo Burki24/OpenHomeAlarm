@@ -167,6 +167,12 @@ assertCodepad(str_contains($javascript, "window.matchMedia('(min-width: 900px)')
 assertCodepad(str_contains($css, '.oha-codepad-overlay'), 'The codepad overlay must be styled.');
 assertCodepad(str_contains($css, '.oha-code-grid'), 'The numeric code grid must be styled.');
 assertCodepad(str_contains($css, '@media (max-width: 420px)'), 'The codepad must have a mobile layout.');
+assertCodepad(
+    str_contains($css, 'touch-action: pan-y;')
+        && str_contains($css, 'max-height: 100vh;')
+        && str_contains($css, 'max-height: 100dvh;'),
+    'The mobile codepad must stay scrollable and constrained to the visible viewport.'
+);
 
 $translations = $locale['translations']['de'] ?? [];
 foreach ([
