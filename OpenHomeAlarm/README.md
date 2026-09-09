@@ -277,6 +277,16 @@ Eine Eskalationsstufe entsteht durch die eingetragene Verzögerung: Alle aktiven
 
 Eine vorhandene Zeile kann über das Zahnrad bearbeitet, über **Aktiv** vorübergehend deaktiviert oder über den Papierkorb gelöscht werden. Deaktivieren behält die Konfiguration der Aktion für eine spätere erneute Aktivierung bei. Löschen entfernt die vollständige Aktionszeile. Änderungen an einer bereits laufenden Alarmeskalation sollten vermieden werden; konfigurieren und testen Sie die Aktionen bei unscharfer Anlage.
 
+#### Beispiel: Push-Nachricht mit Area und Sensor
+
+Das kopierfertige Symcon-Skript [push-alarm-notification.php](../docs/examples/push-alarm-notification.php) liest den öffentlichen Bedienzustand über `OHA_GetControlState()`, ermittelt die zuletzt ausgelöste Area und erzeugt beispielsweise:
+
+> **Einbruchalarm Keller!**
+>
+> Der Sensor Fensterkontakt HAR hat ausgelöst.
+
+Passen Sie am Anfang des Skripts die IDs der OpenHomeAlarm-Instanz, der Kachel-Visualisierung und des beim Antippen zu öffnenden Zielobjekts an. Das Zielobjekt muss innerhalb der angegebenen Kachel-Visualisierung verfügbar sein. Legen Sie das Skript anschließend als aktive Eskalationsaktion mit der gewünschten Verzögerung an; `0` versendet die Nachricht unmittelbar beim Alarm. Wählen Sie für diese Aktion **Keine Rücksetzung** und lassen Sie **Signalgeber** deaktiviert. Die verwendete Symcon-Funktion `VISU_PostNotificationEx()` sendet an die für diese Kachel-Visualisierung registrierten Mobilgeräte und unterstützt ein eigenes Icon sowie den Ton `siren`. Für das klassische WebFront kann stattdessen `WFC_PushNotification()` verwendet werden.
+
 #### Signalgeber separat stoppen
 
 Nach der erfolgreichen Ausführung einer als **Signalgeber** markierten Eskalationsaktion wechselt die Statusvariable `SignalGeneratorActive` auf **Signalgeber aktiv**. In jeder Area mit aktivem Alarm erscheint dann zusätzlich **Signalgeber stoppen**. Die Schaltfläche führt ausschließlich die Rücksetzaktionen der Signalgeber aus und setzt die Statusvariable wieder auf **Signalgeber inaktiv**. So lässt sich im Symcon-Objektbaum direkt unterscheiden, ob bereits die Aktion nicht gestartet wurde oder lediglich ihre Schaltfläche in einer Area fehlt.
