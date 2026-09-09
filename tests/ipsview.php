@@ -253,6 +253,7 @@ assertIPSView(
 );
 assertIPSView(
     str_contains($form, '"caption": "View"')
+        && str_contains($form, '"caption": "Tile view"')
         && str_contains($form, '"caption": "Configure optional IPSView HTML output."')
         && str_contains($form, '"caption": "Configure the shared IPSView style used by the standalone HTML page."')
         && !str_contains($form, '"name": "EnableIPSView"')

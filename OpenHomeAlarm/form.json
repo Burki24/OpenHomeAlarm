@@ -88,20 +88,34 @@
             "expanded": false,
             "items": [
                 {
-                    "type": "Label",
-                    "caption": "Configure the shared Symcon tile theme used by the HTML-SDK visualization."
+                    "type": "ExpansionPanel",
+                    "caption": "Tile view",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Configure the shared Symcon tile theme used by the HTML-SDK visualization."
+                        }
+                    ]
                 },
                 {
-                    "type": "Label",
-                    "caption": "Configure optional IPSView HTML output."
-                },
-                {
-                    "type": "Label",
-                    "caption": "Configure the shared IPSView style used by the standalone HTML page."
-                },
-                {
-                    "type": "Label",
-                    "caption": "In IPSView, use an HTML-Box with the client browser renderer so JavaScript and the controls are available."
+                    "type": "ExpansionPanel",
+                    "caption": "IPSView",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Configure optional IPSView HTML output."
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "Configure the shared IPSView style used by the standalone HTML page."
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "In IPSView, use an HTML-Box with the client browser renderer so JavaScript and the controls are available."
+                        }
+                    ]
                 }
             ]
         },

@@ -3,6 +3,7 @@
         "de": {
             "Symcon tile": "Symcon-Kachel",
             "View": "Ansicht",
+            "Tile view": "Kachel-Ansicht",
             "Configure the shared Symcon tile theme used by the HTML-SDK visualization.": "Gemeinsames Design der HTML-SDK-Kachel konfigurieren.",
             "Mode": "Modus",
             "State": "Status",
