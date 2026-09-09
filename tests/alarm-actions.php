@@ -703,7 +703,15 @@ assertAlarmAction(
         && $flatSignalState['Capabilities']['CanStopSignalGenerator'] === true,
     'A signal generator saved by the real Symcon form must expose its separate stop control.'
 );
-assertAlarmAction($flatSignalGenerator->StopSignalGenerator(), 'The flat-form signal generator must be stoppable.');
+$flatSignalGenerator->TestSetPropertyString('DisarmCode', '1234');
+assertAlarmAction(
+    !$flatSignalGenerator->StopSignalGeneratorWithCode('0000') && count($testActions) === 1,
+    'A configured code must reject stopping a signal generator without the correct code.'
+);
+assertAlarmAction(
+    $flatSignalGenerator->StopSignalGeneratorWithCode('1234'),
+    'The flat-form signal generator must be stoppable with the configured code.'
+);
 assertAlarmAction(
     count($testActions) === 2 && $testActions[1]['parameters']['VALUE'] === false,
     'Stopping a flat-form signal generator must execute its inverse Boolean action.'

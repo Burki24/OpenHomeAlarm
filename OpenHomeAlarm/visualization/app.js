@@ -781,6 +781,11 @@ function ohaRenderInlineCodepad(state) {
     }
 
     document.getElementById('inlineDisarmLabel').textContent = ohaTranslate('Deactivate');
+    const canStopSignalGenerator = Boolean(state.Capabilities?.CanStopSignalGenerator);
+    const inlineStopSignalGenerator = document.getElementById('inlineStopSignalGenerator');
+    inlineStopSignalGenerator.hidden = !canStopSignalGenerator;
+    inlineStopSignalGenerator.dataset.enabled = enabled && canStopSignalGenerator ? 'true' : 'false';
+    document.getElementById('inlineStopSignalGeneratorLabel').textContent = ohaTranslate('Stop signal generator');
     ohaUpdateCodepad();
 }
 
@@ -798,6 +803,7 @@ function ohaRenderDisarm(state) {
     const canResetFalseAlarm = Boolean(state.Capabilities?.CanResetFalseAlarm);
     const stopSignalGeneratorButton = document.getElementById('stopSignalGeneratorButton');
     const canStopSignalGenerator = Boolean(state.Capabilities?.CanStopSignalGenerator);
+    const modalStopSignalGenerator = document.getElementById('codepadStopSignalGenerator');
 
     bar.hidden = !canDisarm;
     bar.dataset.codeRequired = codeRequired ? 'true' : 'false';
@@ -808,8 +814,10 @@ function ohaRenderDisarm(state) {
     }
 
     document.getElementById('controlTitle').textContent = ohaTranslate('System control');
-    stopSignalGeneratorButton.hidden = !canStopSignalGenerator;
+    stopSignalGeneratorButton.hidden = !canStopSignalGenerator || codeRequired;
     stopSignalGeneratorButton.dataset.enabled = canStopSignalGenerator ? 'true' : 'false';
+    modalStopSignalGenerator.hidden = !canStopSignalGenerator || !codeRequired;
+    modalStopSignalGenerator.dataset.enabled = canStopSignalGenerator && codeRequired && !codeLocked ? 'true' : 'false';
     document.getElementById('stopSignalGeneratorLabel').textContent = ohaTranslate('Stop signal generator');
     resetAlarmOutputButton.hidden = !canResetAlarmOutput;
     resetAlarmOutputButton.dataset.enabled = canResetAlarmOutput ? 'true' : 'false';
@@ -837,6 +845,8 @@ function ohaRenderStaticText() {
     document.getElementById('codepadClear').setAttribute('aria-label', ohaTranslate('Clear code entry'));
     document.getElementById('codepadConfirm').setAttribute('aria-label', ohaTranslate('Deactivate'));
     document.getElementById('modalDisarmLabel').textContent = ohaTranslate('Deactivate');
+    document.getElementById('codepadStopSignalGenerator').setAttribute('aria-label', ohaTranslate('Stop signal generator'));
+    document.getElementById('modalStopSignalGeneratorLabel').textContent = ohaTranslate('Stop signal generator');
     document.getElementById('codepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('inlineCodepad').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('inlineCodepadDelete').setAttribute('aria-label', ohaTranslate('Delete last digit'));
@@ -1162,20 +1172,23 @@ function ohaClearCodeEntry() {
     ohaUpdateCodepad();
 }
 
-function ohaSubmitCode() {
+function ohaSubmitCode(requestedAction = null) {
     if (!ohaCodeInputAllowed() || ohaCodeBusy || ohaCodeBuffer.length < 4 || ohaCodeBuffer.length > 8) {
         return;
     }
 
+    const codeAction = requestedAction || ohaCodeAction;
     const code = ohaCodeBuffer;
     ohaCodeBuffer = '';
     ohaCodeBusy = true;
     ohaSetCodeError('');
     ohaUpdateCodepad();
-    if (ohaCodeAction === 'DisarmPartitionWithCode') {
+    if (codeAction === 'DisarmPartitionWithCode') {
         ohaRequestPartitionAction('DisarmPartitionWithCode', code);
+    } else if (codeAction === 'StopSignalGeneratorWithCode') {
+        ohaRequestAction('StopSignalGeneratorWithCode', code);
     } else {
-        ohaRequestPartitionAction(ohaCodeAction, code);
+        ohaRequestPartitionAction(codeAction, code);
     }
 
     ohaClearCodeRequestTimer();
@@ -1297,7 +1310,7 @@ function ohaActivateCodeControl(control) {
     }
 
     if (control.matches('[data-code-confirm]')) {
-        ohaSubmitCode();
+        ohaSubmitCode(control.dataset.codeAction ?? null);
     }
 }
 

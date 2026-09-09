@@ -1714,6 +1714,16 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $stopped;
     }
 
+    /** Stops signal generators after validating the configured disarm code. */
+    public function StopSignalGeneratorWithCode(string $code): bool
+    {
+        if ($this->AuthorizedDisarmUser($code) === false) {
+            return false;
+        }
+
+        return $this->StopSignalGenerator();
+    }
+
     /**
      * Completes the configured alarm duration, resets its actions and optionally
      * re-arms ready areas in their previous mode.
@@ -3580,6 +3590,20 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->StopSignalGenerator();
 
                 return null;
+
+            case 'StopSignalGeneratorWithCode':
+                if ($this->StopSignalGeneratorWithCode($Value)) {
+                    return null;
+                }
+
+                $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+
+                return [
+                    'Type'             => 'disarm_code',
+                    'Success'          => false,
+                    'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
+                    'LockoutRemaining' => $codeProtection['LockoutRemaining']
+                ];
 
             case 'Arm':
                 $this->Arm($Value);

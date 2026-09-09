@@ -156,6 +156,14 @@ assertVisualization(
         && str_contains($adapter, "'ResetFalseAlarmPartitionWithCode'"),
     'Code-protected false-alarm resets must use the code-protected partition action.'
 );
+assertVisualization(
+    str_contains($html, 'id="inlineStopSignalGenerator"')
+        && str_contains($html, 'id="codepadStopSignalGenerator"')
+        && str_contains($javascript, 'StopSignalGeneratorWithCode')
+        && str_contains($module, "case 'StopSignalGeneratorWithCode':")
+        && str_contains($adapter, "'StopSignalGeneratorWithCode'"),
+    'Code-protected signal-generator stops must be available from both codepads.'
+);
 foreach ([
     'BypassSensorPartition',
     'RemoveSensorBypassPartition',

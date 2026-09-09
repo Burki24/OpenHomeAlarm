@@ -54,7 +54,7 @@ assertCodepad(str_contains($html, 'id="codepadClear"'), 'The popup codepad must 
 assertCodepad(str_contains($html, 'id="inlineCodepadClear"'), 'The inline codepad must provide a clear key.');
 assertCodepad(str_contains($html, 'id="codepadConfirm"'), 'The popup codepad must provide an explicit disarm button.');
 assertCodepad(str_contains($html, 'id="inlineCodepadConfirm"'), 'The inline codepad must provide an explicit disarm button.');
-assertCodepad(substr_count($html, 'data-code-confirm') === 2, 'Both codepad surfaces must provide an explicit disarm action.');
+assertCodepad(substr_count($html, 'data-code-confirm') === 4, 'Both codepad surfaces must provide disarm and signal-generator actions.');
 assertCodepad(substr_count($html, 'class="oha-code-dot"') === 16, 'Both code displays must support up to eight digits.');
 
 assertCodepad(
