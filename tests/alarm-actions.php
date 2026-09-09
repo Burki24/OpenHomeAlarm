@@ -125,6 +125,11 @@ class IPSModuleStrict
         $this->properties[$name] = $value;
     }
 
+    public function TestSetCurrentValue(string $ident, mixed $value): void
+    {
+        $this->currentValues[$ident] = $value;
+    }
+
     /** @return array<string,mixed> */
     public function TestWrittenValues(): array
     {
@@ -597,10 +602,11 @@ assertAlarmAction(
     && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, true, 2],
     'A due escalation step must execute all configured actions.'
 );
-// Runtime entries created before the signal-generator marker was persisted must
-// still be recognized from the current escalation configuration.
+// Runtime entries from before a SignalGenerator setting change must still be
+// recognized from their unchanged action identity.
 $legacyRuntime = json_decode($multiEscalation->TestAttributes()['AlarmEscalationRuntime'], true, 512, JSON_THROW_ON_ERROR);
 $legacyRuntime['ExecutedActions'][1]['SignalGenerator'] = false;
+$legacyRuntime['ExecutedActions'][1]['Key'] = 'legacy-signal-generator-key';
 $multiEscalation->TestSetAttributeString('AlarmEscalationRuntime', json_encode($legacyRuntime, JSON_THROW_ON_ERROR));
 $legacyState = json_decode($multiEscalation->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
@@ -804,6 +810,28 @@ assertAlarmAction(
     && ($dynamicCountdownAction['values'][0]['Name'] ?? null) === 'Configured action'
     && ($dynamicCountdownAction['values'][0]['Action'] ?? null) === $countdownAction,
     'GetConfigurationForm must migrate a previously configured optional action into its editable List.'
+);
+
+$lockedFormInstance = new OpenHomeAlarm();
+$lockedFormInstance->Create();
+$lockedFormInstance->TestSetCurrentValue('Mode', 2);
+$lockedFormInstance->TestSetCurrentValue('State', 2);
+$lockedForm = json_decode($lockedFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+foreach (['Partitions', 'ExitDelaySeconds', 'CountdownAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm'] as $fieldName) {
+    $field = findAlarmActionFormField($lockedForm['elements'] ?? [], $fieldName);
+    assertAlarmAction(
+        is_array($field) && ($field['enabled'] ?? null) === false,
+        'Every alarm configuration field must be disabled while an alarm partition is active.'
+    );
+}
+$lockedCountdown = findAlarmActionFormField($lockedForm['elements'] ?? [], 'CountdownAction');
+assertAlarmAction(
+    ($lockedCountdown['add'] ?? null) === false && ($lockedCountdown['delete'] ?? null) === false,
+    'Active alarm partitions must disable adding and deleting optional actions.'
+);
+assertAlarmAction(
+    str_contains((string) ($lockedForm['elements'][0]['caption'] ?? ''), 'instance configuration is locked'),
+    'The locked configuration form must explain that disarming is required before editing alarm settings.'
 );
 $optionalActionForm = $dynamicFormInstance->GetOptionalActionEditForm([
     'Action' => $countdownAction

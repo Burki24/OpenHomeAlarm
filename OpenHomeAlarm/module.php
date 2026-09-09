@@ -235,6 +235,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_PARTITION_RUNTIME = 'PartitionRuntime';
     private const ATTRIBUTE_PARTITION_ALARMS = 'PartitionAlarms';
     private const ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION = 'AppliedSecurityConfiguration';
+
+    private const SECURITY_CONFIGURATION_SNAPSHOT_PREFIX = 'v2:';
     private const ATTRIBUTE_IPSVIEW_TOKEN_1 = 'IPSViewToken1';
     private const ATTRIBUTE_IPSVIEW_TOKEN_2 = 'IPSViewToken2';
     private const ATTRIBUTE_IPSVIEW_TOKEN_3 = 'IPSViewToken3';
@@ -752,7 +754,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->InitializeRuntime();
         $this->WriteAttributeString(
             self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
-            $this->CurrentSecurityConfiguration()
+            $this->AppliedSecurityConfiguration()
         );
     }
 
@@ -765,15 +767,6 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         if (isset($form['elements']) && is_array($form['elements'])) {
             $this->PopulateConfigurationListValues($form['elements']);
-            if ($this->IsSecurityConfigurationLocked()) {
-                $this->LockSecurityConfigurationFields($form['elements']);
-                array_unshift($form['elements'], [
-                    'type'    => 'Label',
-                    'caption' => $this->Translate(
-                        'Security configuration is locked while an alarm partition is active. Disarm all partitions before changing partitions, sensors or fault inputs.'
-                    )
-                ]);
-            }
             $this->InsertIPSViewHTMLPageFormItems(
                 $form['elements'],
                 description: $this->Translate(
@@ -782,6 +775,15 @@ class OpenHomeAlarm extends IPSModuleStrict
             );
             $this->InsertIPSViewStyleFormItems($form['elements'], colorWidth: '220px');
             $this->InsertVisualizationThemeFormItems($form['elements'], colorWidth: '220px');
+            if ($this->IsSecurityConfigurationLocked()) {
+                $this->LockSecurityConfigurationFields($form['elements']);
+                array_unshift($form['elements'], [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate(
+                        'The instance configuration is locked while an alarm partition is active. Disarm all partitions before changing alarm settings.'
+                    )
+                ]);
+            }
         }
 
         return $this->EncodeConfigurationForm($form);
@@ -1169,7 +1171,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->InitializeRuntime();
             $this->WriteAttributeString(
                 self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
-                $this->CurrentSecurityConfiguration()
+                $this->AppliedSecurityConfiguration()
             );
 
             return;
@@ -3091,8 +3093,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Prevents edits to topology and detector assignments while any partition
-     * is armed, delayed or in alarm state.
+     * Prevents edits to the instance configuration while any partition is
+     * armed, delayed or in alarm state.
      *
      * @param list<array<string,mixed>> $elements
      */
@@ -3103,13 +3105,12 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
-            if (($element['type'] ?? null) === 'List'
-                && in_array(
-                    $element['name'] ?? null,
-                    [self::PROPERTY_PARTITIONS, self::PROPERTY_SENSORS, self::PROPERTY_FAULT_INPUTS],
-                    true
-                )) {
+            $type = $element['type'] ?? null;
+            if (is_string($type) && !in_array($type, ['Label', 'ExpansionPanel', 'RowLayout'], true)) {
                 $element['enabled'] = false;
+            }
+
+            if ($type === 'List') {
                 $element['add'] = false;
                 $element['delete'] = false;
             }
@@ -3128,20 +3129,20 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $appliedConfiguration = $this->ReadAttributeString(self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION);
-        if ($appliedConfiguration === '') {
-            // Establish a baseline when an existing active instance receives
-            // this protection for the first time during a module update.
+        if (!str_starts_with($appliedConfiguration, self::SECURITY_CONFIGURATION_SNAPSHOT_PREFIX)) {
+            // Establish a complete baseline when an existing active instance
+            // receives the broader form lock during a module update.
             $this->WriteAttributeString(
                 self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
-                $this->CurrentSecurityConfiguration()
+                $this->AppliedSecurityConfiguration()
             );
 
             return;
         }
 
-        if (!hash_equals($appliedConfiguration, $this->CurrentSecurityConfiguration())) {
+        if (!hash_equals($appliedConfiguration, $this->AppliedSecurityConfiguration())) {
             throw new RuntimeException($this->Translate(
-                'Partitions, sensors and fault inputs can only be changed while all alarm partitions are disarmed.'
+                'Alarm settings can only be changed while all alarm partitions are disarmed.'
             ));
         }
     }
@@ -3151,8 +3152,27 @@ class OpenHomeAlarm extends IPSModuleStrict
         return json_encode([
             self::PROPERTY_PARTITIONS   => $this->ReadPropertyString(self::PROPERTY_PARTITIONS),
             self::PROPERTY_SENSORS      => $this->ReadPropertyString(self::PROPERTY_SENSORS),
-            self::PROPERTY_FAULT_INPUTS => $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS)
+            self::PROPERTY_FAULT_INPUTS => $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS),
+            self::PROPERTY_EXIT_DELAY_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS),
+            self::PROPERTY_ENTRY_DELAY_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS),
+            self::PROPERTY_COUNTDOWN_ACTION => $this->ReadPropertyString(self::PROPERTY_COUNTDOWN_ACTION),
+            self::PROPERTY_ALARM_DURATION_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS),
+            self::PROPERTY_AUTO_REARM_AFTER_ALARM => $this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM),
+            self::PROPERTY_ALARM_ESCALATION_STEPS => $this->ReadPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS),
+            self::PROPERTY_FAULT_ACTION => $this->ReadPropertyString(self::PROPERTY_FAULT_ACTION),
+            self::PROPERTY_FAULT_CLEARED_ACTION => $this->ReadPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION),
+            self::PROPERTY_DISARM_CODE => $this->ReadPropertyString(self::PROPERTY_DISARM_CODE),
+            self::PROPERTY_DISARM_USERS => $this->ReadPropertyString(self::PROPERTY_DISARM_USERS),
+            self::PROPERTY_DISARM_MAX_ATTEMPTS => $this->ReadPropertyInteger(self::PROPERTY_DISARM_MAX_ATTEMPTS),
+            self::PROPERTY_DISARM_LOCKOUT_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_DISARM_LOCKOUT_SECONDS),
+            self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS),
+            self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES => $this->ReadPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES)
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    private function AppliedSecurityConfiguration(): string
+    {
+        return self::SECURITY_CONFIGURATION_SNAPSHOT_PREFIX . $this->CurrentSecurityConfiguration();
     }
 
     private function IsSecurityConfigurationLocked(): bool
@@ -6233,12 +6253,12 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        $signalGeneratorKeys = $signalGeneratorsOnly ? $this->ConfiguredSignalGeneratorActionKeys() : [];
+        $configuredSignalGenerators = $signalGeneratorsOnly ? $this->ConfiguredSignalGeneratorActions() : [];
         $resetAnyAction = false;
         foreach (array_reverse($runtime['ExecutedActions']) as $executedAction) {
             if ($signalGeneratorsOnly
                 && !$executedAction['SignalGenerator']
-                && !in_array($executedAction['Key'], $signalGeneratorKeys, true)) {
+                && !$this->IsConfiguredSignalGeneratorAction($executedAction, $configuredSignalGenerators)) {
                 continue;
             }
             if ($executedAction['ResetMode'] === 0 || in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
@@ -6295,10 +6315,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        $signalGeneratorKeys = $this->ConfiguredSignalGeneratorActionKeys();
+        $configuredSignalGenerators = $this->ConfiguredSignalGeneratorActions();
         foreach ($runtime['ExecutedActions'] as $executedAction) {
             if (($executedAction['SignalGenerator']
-                || in_array($executedAction['Key'], $signalGeneratorKeys, true))
+                || $this->IsConfiguredSignalGeneratorAction($executedAction, $configuredSignalGenerators))
                 && $executedAction['ResetMode'] !== 0
                 && !in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
                 return true;
@@ -6308,19 +6328,41 @@ class OpenHomeAlarm extends IPSModuleStrict
         return false;
     }
 
-    /** @return list<string> */
-    private function ConfiguredSignalGeneratorActionKeys(): array
+    /** @return list<array{Key:string,StepName:string,ActionName:string,Action:string}> */
+    private function ConfiguredSignalGeneratorActions(): array
     {
-        $keys = [];
+        $configuredActions = [];
         foreach ($this->ReadConfiguredAlarmEscalationSteps() as $stepIndex => $step) {
             foreach ($step['Actions'] as $actionIndex => $action) {
                 if ($action['Enabled'] && $action['SignalGenerator']) {
-                    $keys[] = AlarmEscalationPlan::actionKey($step, $stepIndex, $action, $actionIndex);
+                    $configuredActions[] = [
+                        'Key'        => AlarmEscalationPlan::actionKey($step, $stepIndex, $action, $actionIndex),
+                        'StepName'   => $step['Name'],
+                        'ActionName' => $action['Name'],
+                        'Action'     => $action['Action']
+                    ];
                 }
             }
         }
 
-        return $keys;
+        return $configuredActions;
+    }
+
+    /** @param array<string,mixed> $executedAction
+     *  @param list<array{Key:string,StepName:string,ActionName:string,Action:string}> $configuredSignalGenerators
+     */
+    private function IsConfiguredSignalGeneratorAction(array $executedAction, array $configuredSignalGenerators): bool
+    {
+        foreach ($configuredSignalGenerators as $configuredAction) {
+            if ($configuredAction['Key'] === $executedAction['Key']
+                || ($configuredAction['StepName'] === $executedAction['StepName']
+                    && $configuredAction['ActionName'] === $executedAction['ActionName']
+                    && $configuredAction['Action'] === $executedAction['Action'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

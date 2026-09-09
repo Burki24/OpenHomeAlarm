@@ -153,8 +153,8 @@ assertPartition(
     'Active alarm partitions must protect security configuration in the form and during ApplyChanges().'
 );
 assertPartition(
-    str_contains($moduleSource, '[self::PROPERTY_PARTITIONS, self::PROPERTY_SENSORS, self::PROPERTY_FAULT_INPUTS]'),
-    'The armed-state configuration lock must cover partitions, sensors and fault inputs.'
+    str_contains($moduleSource, "!in_array(\$type, ['Label', 'ExpansionPanel', 'RowLayout'], true)"),
+    'The armed-state configuration lock must disable every editable alarm form field.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm partition registry checks passed.\n");
