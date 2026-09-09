@@ -132,6 +132,16 @@ function ohaAvailablePartitions(state = ohaState) {
         : [];
 }
 
+function ohaPartitionName(partitionID, state = ohaState) {
+    if (typeof partitionID !== 'string' || partitionID === '') {
+        return '';
+    }
+
+    const partition = ohaAvailablePartitions(state).find((item) => item.ID === partitionID);
+
+    return partition?.Name || partitionID;
+}
+
 function ohaSelectedState(state = ohaState) {
     const partitions = ohaAvailablePartitions(state);
     if (partitions.length === 0) {
@@ -702,7 +712,7 @@ function ohaRenderDiagnostics(state) {
         const detail = document.createElement('span');
         detail.textContent = [
             ohaDiagnosticStatusCaption(item.Status),
-            item.PartitionID,
+            ohaPartitionName(item.PartitionID, state),
             ohaFormatEventTime(timestamp)
         ].filter(Boolean).join(' · ');
         copy.append(title, detail);

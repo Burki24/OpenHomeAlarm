@@ -238,6 +238,11 @@ assertVisualization(
     'History downloads must flow through the visualization action bridge into a browser Blob without server-side files.'
 );
 assertVisualization(
+    str_contains($javascript, 'function ohaPartitionName(partitionID, state = ohaState)')
+        && str_contains($javascript, 'ohaPartitionName(item.PartitionID, state)'),
+    'Diagnostic entries must show the user-defined alarm area name instead of its technical ID.'
+);
+assertVisualization(
     str_contains($css, '--oha-accent: var(--symc-accent);')
         && str_contains($css, '--oha-bg: var(--symc-background);')
         && str_contains($css, '--oha-heading: var(--symc-heading);')
