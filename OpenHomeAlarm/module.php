@@ -158,6 +158,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS = 'SensorIntegrityIntervalSeconds';
     private const PROPERTY_AUTOMATIC_ARMING_SCHEDULES = 'AutomaticArmingSchedules';
 
+    private const OPTIONAL_ACTION_PROPERTIES = [
+        self::PROPERTY_COUNTDOWN_ACTION,
+        self::PROPERTY_FAULT_ACTION,
+        self::PROPERTY_FAULT_CLEARED_ACTION
+    ];
+
     private const LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES = [
         'IPSViewPageColor'          => 'IPSViewPageColorValue',
         'IPSViewSurfaceColor'       => 'IPSViewSurfaceColorValue',
@@ -1959,7 +1965,18 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function GetAlarmEscalationEditForm(mixed $step): array
     {
         $resetMode = $this->ReadSensorEditInteger($step, 'ResetMode', 0);
+        $action = $this->ReadSensorEditString($step, 'Action', '');
         $resetAction = $this->ReadSensorEditString($step, 'ResetAction', '');
+
+        $actionSelector = [
+            'type'     => 'SelectAction',
+            'name'     => 'Action',
+            'caption'  => $this->Translate('Action'),
+            'targetID' => -2
+        ];
+        if ($action !== '') {
+            $actionSelector['value'] = $action;
+        }
 
         return [
             ['type' => 'CheckBox', 'name' => 'Enabled', 'caption' => $this->Translate('Enabled')],
@@ -1971,12 +1988,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'minimum' => 0,
                 'maximum' => AlarmEscalationPlan::MAX_DELAY_SECONDS
             ],
-            [
-                'type'     => 'SelectAction',
-                'name'     => 'Action',
-                'caption'  => $this->Translate('Action'),
-                'targetID' => -2
-            ],
+            $actionSelector,
             [
                 'type'    => 'CheckBox',
                 'name'    => 'SignalGenerator',
@@ -1999,6 +2011,35 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'type'    => 'Label',
                 'caption' => $this->Translate('Boolean values can be inverted automatically. For shutters, dimmers, scenes and other multi-value targets, select a custom reset action with the exact desired return value.')
             ]
+        ];
+    }
+
+    /**
+     * Builds the editor for one optional countdown or fault action. The action
+     * selector exists only in the List dialog, so an empty optional action never
+     * participates in validation of the surrounding configuration form.
+     *
+     * @param mixed $configuredAction Current List row supplied by the Symcon configuration form.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function GetOptionalActionEditForm(mixed $configuredAction): array
+    {
+        $action = $this->ReadSensorEditString($configuredAction, 'Action', '');
+        $actionSelector = [
+            'type'     => 'SelectAction',
+            'name'     => 'Action',
+            'caption'  => $this->Translate('Action'),
+            'targetID' => -2
+        ];
+        if ($action !== '') {
+            $actionSelector['value'] = $action;
+        }
+
+        return [
+            ['type' => 'CheckBox', 'name' => 'Enabled', 'caption' => $this->Translate('Enabled')],
+            ['type' => 'ValidationTextBox', 'name' => 'Name', 'caption' => $this->Translate('Name')],
+            $actionSelector
         ];
     }
 
@@ -2847,6 +2888,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                     );
                 } elseif (($element['name'] ?? null) === self::PROPERTY_ALARM_ESCALATION_STEPS) {
                     $element['values'] = $this->CreateAlarmEscalationListFormValues();
+                } elseif (in_array($element['name'] ?? null, self::OPTIONAL_ACTION_PROPERTIES, true)) {
+                    $element['values'] = $this->CreateOptionalActionListFormValues((string) $element['name']);
                 }
             }
 
@@ -2901,6 +2944,56 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'SignalGenerator' => $action['SignalGenerator']
                 ];
             }
+        }
+
+        return $values;
+    }
+
+    /** @return list<array{Enabled:bool,Name:string,Action:string}> */
+    private function CreateOptionalActionListFormValues(string $propertyName): array
+    {
+        $encodedActions = trim($this->ReadPropertyString($propertyName));
+        if (in_array($encodedActions, ['', '{}', 'false', 'null'], true)) {
+            return [];
+        }
+
+        try {
+            $configuredActions = json_decode($encodedActions, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        if (!is_array($configuredActions)) {
+            return [];
+        }
+
+        if (!array_is_list($configuredActions)) {
+            return [[
+                'Enabled' => true,
+                'Name'    => $this->Translate('Configured action'),
+                'Action'  => $encodedActions
+            ]];
+        }
+
+        $values = [];
+        foreach ($configuredActions as $index => $configuredAction) {
+            if (!is_array($configuredAction)) {
+                continue;
+            }
+
+            $action = $configuredAction['Action'] ?? '';
+            if (!is_string($action)) {
+                continue;
+            }
+            $enabled = $configuredAction['Enabled'] ?? true;
+            $name = $configuredAction['Name'] ?? '';
+            $values[] = [
+                'Enabled' => is_bool($enabled) ? $enabled : true,
+                'Name'    => is_string($name) && trim($name) !== ''
+                    ? trim($name)
+                    : sprintf('%s %d', $this->Translate('Action'), $index + 1),
+                'Action'  => $action
+            ];
         }
 
         return $values;
@@ -5864,9 +5957,46 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function RunConfiguredAction(string $propertyName): bool
     {
+        $encodedActions = trim($this->ReadPropertyString($propertyName));
+        if (in_array($encodedActions, ['', '{}', 'false', 'null'], true)) {
+            return true;
+        }
+
+        try {
+            $configuredActions = json_decode($encodedActions, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            $configuredActions = null;
+        }
+        if (is_array($configuredActions) && array_is_list($configuredActions)) {
+            $succeeded = true;
+            foreach ($configuredActions as $configuredAction) {
+                if (!is_array($configuredAction) || ($configuredAction['Enabled'] ?? true) !== true) {
+                    continue;
+                }
+                $action = $configuredAction['Action'] ?? '';
+                if (!is_string($action)) {
+                    $succeeded = false;
+                    $this->SendDebug(__FUNCTION__, 'Optional action has an invalid action value.', 0);
+
+                    continue;
+                }
+                $result = AlarmActionExecutor::execute(
+                    true,
+                    $action,
+                    static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
+                );
+                if ($result['Error'] !== null) {
+                    $succeeded = false;
+                    $this->SendDebug(__FUNCTION__, $result['Error'], 0);
+                }
+            }
+
+            return $succeeded;
+        }
+
         $result = AlarmActionExecutor::execute(
             true,
-            $this->ReadPropertyString($propertyName),
+            $encodedActions,
             static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
         );
         if ($result['Error'] !== null) {

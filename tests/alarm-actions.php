@@ -454,6 +454,21 @@ assertAlarmAction(
     'Entry-delay expiry must not execute removed global alarm actions.'
 );
 
+// Optional action Lists may contain multiple independently enabled native actions.
+$testActions = [];
+$listCountdownInstance = new OpenHomeAlarm();
+$listCountdownInstance->Create();
+$listCountdownInstance->TestSetPropertyString('CountdownAction', json_encode([
+    ['Enabled' => true, 'Name' => 'Countdown', 'Action' => $countdownAction],
+    ['Enabled' => false, 'Name' => 'Disabled', 'Action' => $alarmAction]
+], JSON_THROW_ON_ERROR));
+$runCountdownStep->invoke($listCountdownInstance, time() + 10, 10);
+assertAlarmAction(
+    count($testActions) === 1
+    && $testActions[0]['actionID'] === '{33333333-3333-3333-3333-333333333333}',
+    'Optional action Lists must execute every enabled action and ignore disabled rows.'
+);
+
 // A broken optional countdown action must never block the delay state machine.
 $testActions = [];
 $testValues[4001] = false;
@@ -709,14 +724,16 @@ foreach (['FaultAction', 'FaultClearedAction', 'CountdownAction'] as $actionName
     $action = findAlarmActionFormField($form['elements'] ?? [], $actionName);
     assertAlarmAction(
         is_array($action)
-        && ($action['type'] ?? null) === 'SelectAction'
-        && ($action['value'] ?? null) === false,
-        'Optional action ' . $actionName . ' must use the native no-action value.'
+        && ($action['type'] ?? null) === 'List'
+        && ($action['add'] ?? null) === true
+        && ($action['delete'] ?? null) === true,
+        'Optional action ' . $actionName . ' must be an empty-safe native action List.'
     );
 }
 
 $dynamicFormInstance = new OpenHomeAlarm();
 $dynamicFormInstance->Create();
+$dynamicFormInstance->TestSetPropertyString('CountdownAction', $countdownAction);
 $dynamicFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
     'Enabled'      => true,
     'Name'         => 'Legacy step',
@@ -773,10 +790,20 @@ $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 5
 $dynamicCountdownAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'CountdownAction');
 assertAlarmAction(
     is_array($dynamicCountdownAction)
-    && ($dynamicCountdownAction['type'] ?? null) === 'SelectAction'
-    && ($dynamicCountdownAction['targetID'] ?? null) === -2
-    && ($dynamicCountdownAction['value'] ?? null) === false,
-    'GetConfigurationForm must expose the native countdown action selector with its no-action value.'
+    && ($dynamicCountdownAction['type'] ?? null) === 'List'
+    && ($dynamicCountdownAction['values'][0]['Name'] ?? null) === 'Configured action'
+    && ($dynamicCountdownAction['values'][0]['Action'] ?? null) === $countdownAction,
+    'GetConfigurationForm must migrate a previously configured optional action into its editable List.'
+);
+$optionalActionForm = $dynamicFormInstance->GetOptionalActionEditForm([
+    'Action' => $countdownAction
+]);
+$optionalActionSelector = findAlarmActionFormField($optionalActionForm, 'Action');
+assertAlarmAction(
+    is_array($optionalActionSelector)
+    && ($optionalActionSelector['type'] ?? null) === 'SelectAction'
+    && ($optionalActionSelector['value'] ?? null) === $countdownAction,
+    'Optional action editing must retain the previously selected native action.'
 );
 
 $locale = json_decode(
@@ -789,12 +816,13 @@ $translations = $locale['translations']['de'] ?? [];
 foreach ([
     'Alarm escalation',
     'Countdown output',
-    'On countdown step',
-    'Optional: Runs once for every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. Leave the action empty when no countdown output is wanted. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API.',
-    'On new fault',
-    'On fault cleared',
-    'Optional: Runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. Leave the action empty when no notification is wanted.',
-    'Optional: Runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. Leave the action empty when no action is wanted.'
+    'Countdown actions',
+    'Actions on new fault',
+    'Actions on fault cleared',
+    'Configured action',
+    'Optional: Add an action for output on every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. An empty list runs no action. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API.',
+    'Optional: Add an action that runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. An empty list runs no action.',
+    'Optional: Add an action that runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action.'
 ] as $translationKey) {
     assertAlarmAction(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }

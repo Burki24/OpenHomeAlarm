@@ -141,16 +141,39 @@
                     "caption": "A value of 0 disables the corresponding delay."
                 },
                 {
-                    "type": "SelectAction",
+                    "type": "List",
                     "name": "CountdownAction",
-                    "caption": "On countdown step",
-                    "targetID": -2,
-                    "value": false,
-                    "width": "100%"
+                    "caption": "Countdown actions",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $CountdownAction);"
+                    ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Optional: Runs once for every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. Leave the action empty when no countdown output is wanted. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API."
+                    "caption": "Optional: Add an action for output on every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. An empty list runs no action. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API."
                 }
             ]
         },
@@ -500,28 +523,74 @@
                     "caption": "Configured sensor variables are checked periodically and immediately when Symcon reports their removal."
                 },
                 {
-                    "type": "SelectAction",
+                    "type": "List",
                     "name": "FaultAction",
-                    "caption": "On new fault",
-                    "targetID": -2,
-                    "value": false,
-                    "width": "100%"
+                    "caption": "Actions on new fault",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $FaultAction);"
+                    ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Optional: Runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. Leave the action empty when no notification is wanted."
+                    "caption": "Optional: Add an action that runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. An empty list runs no action."
                 },
                 {
-                    "type": "SelectAction",
+                    "type": "List",
                     "name": "FaultClearedAction",
-                    "caption": "On fault cleared",
-                    "targetID": -2,
-                    "value": false,
-                    "width": "100%"
+                    "caption": "Actions on fault cleared",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $FaultClearedAction);"
+                    ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Optional: Runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. Leave the action empty when no action is wanted."
+                    "caption": "Optional: Add an action that runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action."
                 },
                 {
                     "type": "List",
