@@ -151,7 +151,7 @@ assertVisualization(
     'Code-protected visualization disarming must target the selected partition.'
 );
 assertVisualization(
-    str_contains($javascript, "ResetFalseAlarmPartitionWithCode")
+    str_contains($javascript, 'ResetFalseAlarmPartitionWithCode')
         && str_contains($module, "case 'ResetFalseAlarmPartitionWithCode':")
         && str_contains($adapter, "'ResetFalseAlarmPartitionWithCode'"),
     'Code-protected false-alarm resets must use the code-protected partition action.'
