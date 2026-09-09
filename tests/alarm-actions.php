@@ -1057,6 +1057,46 @@ assertAlarmAction(
     && ($dynamicEscalationValues[0]['ResetAction'] ?? null) === '',
     'GetConfigurationForm must expose a legacy single action as one directly editable escalation row.'
 );
+$incompleteEscalationFormInstance = new OpenHomeAlarm();
+$incompleteEscalationFormInstance->Create();
+$incompleteEscalationFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    [
+        'Enabled'         => true,
+        'Name'            => 'Siren',
+        'DelaySeconds'    => 0,
+        'Action'          => $alarmAction,
+        'ResetMode'       => 0,
+        'ResetAction'     => '',
+        'SignalGenerator' => true
+    ],
+    [
+        'Enabled'         => true,
+        'Name'            => 'Light',
+        'DelaySeconds'    => 0,
+        'Action'          => $alarmAction,
+        'ResetMode'       => 2,
+        'ResetAction'     => '',
+        'SignalGenerator' => false
+    ]
+], JSON_THROW_ON_ERROR));
+$incompleteEscalationForm = json_decode(
+    $incompleteEscalationFormInstance->GetConfigurationForm(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$incompleteEscalationValues = findAlarmActionFormField(
+    $incompleteEscalationForm['elements'] ?? [],
+    'AlarmEscalationSteps'
+)['values'] ?? [];
+assertAlarmAction(
+    count($incompleteEscalationValues) === 2
+    && ($incompleteEscalationValues[0]['SignalGenerator'] ?? null) === true
+    && ($incompleteEscalationValues[0]['ResetMode'] ?? null) === 0
+    && ($incompleteEscalationValues[1]['ResetMode'] ?? null) === 2
+    && ($incompleteEscalationValues[1]['ResetAction'] ?? null) === '',
+    'Incomplete signal-generator and custom-reset rows must remain editable without breaking the configuration form.'
+);
 $automaticResetForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
     'ResetMode' => 1
 ]);

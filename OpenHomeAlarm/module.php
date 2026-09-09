@@ -3096,7 +3096,14 @@ class OpenHomeAlarm extends IPSModuleStrict
     /** @return list<array<string,mixed>> */
     private function CreateAlarmEscalationListFormValues(): array
     {
-        $steps = $this->ReadConfiguredAlarmEscalationSteps();
+        try {
+            $steps = $this->ReadConfiguredAlarmEscalationSteps();
+        } catch (UnexpectedValueException) {
+            // A native List persists its current edit row before its action or
+            // reset selector is complete. Keep that incomplete row editable
+            // instead of making the whole configuration form unavailable.
+            return $this->CreateIncompleteAlarmEscalationListFormValues();
+        }
         $values = [];
         foreach ($steps as $step) {
             if ($step['Actions'] === []) {
@@ -3125,6 +3132,76 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $values;
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function CreateIncompleteAlarmEscalationListFormValues(): array
+    {
+        try {
+            $configuredSteps = json_decode(
+                $this->ReadPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS),
+                true,
+                512,
+                JSON_THROW_ON_ERROR
+            );
+        } catch (JsonException) {
+            return [];
+        }
+        if (!is_array($configuredSteps) || !array_is_list($configuredSteps)) {
+            return [];
+        }
+
+        $values = [];
+        foreach ($configuredSteps as $index => $step) {
+            if (!is_array($step)) {
+                continue;
+            }
+            $actions = $step['Actions'] ?? null;
+            if (is_array($actions) && array_is_list($actions)) {
+                foreach ($actions as $action) {
+                    if (is_array($action)) {
+                        $values[] = $this->CreateIncompleteAlarmEscalationListRow($step, $action, $index);
+                    }
+                }
+                continue;
+            }
+            $values[] = $this->CreateIncompleteAlarmEscalationListRow($step, $step, $index);
+        }
+
+        return $values;
+    }
+
+    /** @param array<string,mixed> $step @param array<string,mixed> $action @return array<string,mixed> */
+    private function CreateIncompleteAlarmEscalationListRow(array $step, array $action, int $index): array
+    {
+        $actionValue = $action['Action'] ?? '';
+        $resetActionValue = $action['ResetAction'] ?? '';
+
+        return [
+            'Enabled'         => is_bool($action['Enabled'] ?? null)
+                ? $action['Enabled']
+                : (is_bool($step['Enabled'] ?? null) ? $step['Enabled'] : false),
+            'Name'            => is_string($action['Name'] ?? null)
+                ? $action['Name']
+                : (is_string($step['Name'] ?? null) ? $step['Name'] : sprintf('Action %d', $index + 1)),
+            'DelaySeconds'    => is_int($step['DelaySeconds'] ?? null) ? $step['DelaySeconds'] : 0,
+            'Action'          => $this->EncodeIncompleteAlarmEscalationAction($actionValue),
+            'ResetMode'       => is_int($action['ResetMode'] ?? null) ? $action['ResetMode'] : 0,
+            'ResetAction'     => $this->EncodeIncompleteAlarmEscalationAction($resetActionValue),
+            'SignalGenerator' => is_bool($action['SignalGenerator'] ?? null) ? $action['SignalGenerator'] : false
+        ];
+    }
+
+    private function EncodeIncompleteAlarmEscalationAction(mixed $action): string
+    {
+        if (is_string($action)) {
+            return $action;
+        }
+        if (is_array($action)) {
+            return json_encode($action, JSON_THROW_ON_ERROR);
+        }
+
+        return '';
     }
 
     /** @return list<array{Enabled:bool,Name:string,Action:string}> */
