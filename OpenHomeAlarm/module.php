@@ -3530,7 +3530,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             case 'DisarmPartitionWithCode':
                 if ($this->DisarmPartitionWithCode($Value['PartitionID'], $Value['Value'])) {
-                    return null;
+                    return ['Type' => 'disarm_code', 'Success' => true];
                 }
 
                 $codeProtection = $this->ReadDisarmCodeProtectionStatus();
@@ -3574,7 +3574,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             case 'ResetFalseAlarmPartitionWithCode':
                 if ($this->ResetFalseAlarmPartitionWithCode($Value['PartitionID'], $Value['Value'])) {
-                    return null;
+                    return ['Type' => 'disarm_code', 'Success' => true];
                 }
 
                 $codeProtection = $this->ReadDisarmCodeProtectionStatus();
@@ -3593,7 +3593,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             case 'StopSignalGeneratorWithCode':
                 if ($this->StopSignalGeneratorWithCode($Value)) {
-                    return null;
+                    return ['Type' => 'disarm_code', 'Success' => true];
                 }
 
                 $codeProtection = $this->ReadDisarmCodeProtectionStatus();
@@ -3617,7 +3617,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             case 'DisarmWithCode':
                 if ($this->DisarmWithCode($Value)) {
-                    return null;
+                    return ['Type' => 'disarm_code', 'Success' => true];
                 }
 
                 $codeProtection = $this->ReadDisarmCodeProtectionStatus();

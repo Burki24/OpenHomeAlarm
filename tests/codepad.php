@@ -62,6 +62,10 @@ assertCodepad(
     'The codepad must submit the entered code and selected partition through the HTML-SDK RequestAction channel.'
 );
 assertCodepad(
+    substr_count($module, "['Type' => 'disarm_code', 'Success' => true]") === 4,
+    'Every successful code-protected action must return an explicit success interaction to clear the codepad state.'
+);
+assertCodepad(
     str_contains($javascript, 'ohaCodeBuffer += digit;'),
     'Each accepted digit must be appended to the existing code buffer instead of replacing it.'
 );
