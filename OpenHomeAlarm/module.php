@@ -3150,23 +3150,23 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function CurrentSecurityConfiguration(): string
     {
         return json_encode([
-            self::PROPERTY_PARTITIONS   => $this->ReadPropertyString(self::PROPERTY_PARTITIONS),
-            self::PROPERTY_SENSORS      => $this->ReadPropertyString(self::PROPERTY_SENSORS),
-            self::PROPERTY_FAULT_INPUTS => $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS),
-            self::PROPERTY_EXIT_DELAY_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS),
-            self::PROPERTY_ENTRY_DELAY_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS),
-            self::PROPERTY_COUNTDOWN_ACTION => $this->ReadPropertyString(self::PROPERTY_COUNTDOWN_ACTION),
-            self::PROPERTY_ALARM_DURATION_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS),
-            self::PROPERTY_AUTO_REARM_AFTER_ALARM => $this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM),
-            self::PROPERTY_ALARM_ESCALATION_STEPS => $this->ReadPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS),
-            self::PROPERTY_FAULT_ACTION => $this->ReadPropertyString(self::PROPERTY_FAULT_ACTION),
-            self::PROPERTY_FAULT_CLEARED_ACTION => $this->ReadPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION),
-            self::PROPERTY_DISARM_CODE => $this->ReadPropertyString(self::PROPERTY_DISARM_CODE),
-            self::PROPERTY_DISARM_USERS => $this->ReadPropertyString(self::PROPERTY_DISARM_USERS),
-            self::PROPERTY_DISARM_MAX_ATTEMPTS => $this->ReadPropertyInteger(self::PROPERTY_DISARM_MAX_ATTEMPTS),
-            self::PROPERTY_DISARM_LOCKOUT_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_DISARM_LOCKOUT_SECONDS),
+            self::PROPERTY_PARTITIONS                        => $this->ReadPropertyString(self::PROPERTY_PARTITIONS),
+            self::PROPERTY_SENSORS                           => $this->ReadPropertyString(self::PROPERTY_SENSORS),
+            self::PROPERTY_FAULT_INPUTS                      => $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS),
+            self::PROPERTY_EXIT_DELAY_SECONDS                => $this->ReadPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS),
+            self::PROPERTY_ENTRY_DELAY_SECONDS               => $this->ReadPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS),
+            self::PROPERTY_COUNTDOWN_ACTION                  => $this->ReadPropertyString(self::PROPERTY_COUNTDOWN_ACTION),
+            self::PROPERTY_ALARM_DURATION_SECONDS            => $this->ReadPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS),
+            self::PROPERTY_AUTO_REARM_AFTER_ALARM            => $this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM),
+            self::PROPERTY_ALARM_ESCALATION_STEPS            => $this->ReadPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS),
+            self::PROPERTY_FAULT_ACTION                      => $this->ReadPropertyString(self::PROPERTY_FAULT_ACTION),
+            self::PROPERTY_FAULT_CLEARED_ACTION              => $this->ReadPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION),
+            self::PROPERTY_DISARM_CODE                       => $this->ReadPropertyString(self::PROPERTY_DISARM_CODE),
+            self::PROPERTY_DISARM_USERS                      => $this->ReadPropertyString(self::PROPERTY_DISARM_USERS),
+            self::PROPERTY_DISARM_MAX_ATTEMPTS               => $this->ReadPropertyInteger(self::PROPERTY_DISARM_MAX_ATTEMPTS),
+            self::PROPERTY_DISARM_LOCKOUT_SECONDS            => $this->ReadPropertyInteger(self::PROPERTY_DISARM_LOCKOUT_SECONDS),
             self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS),
-            self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES => $this->ReadPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES)
+            self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES        => $this->ReadPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES)
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
