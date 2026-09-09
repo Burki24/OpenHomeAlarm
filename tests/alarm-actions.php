@@ -22,6 +22,26 @@ $testValues = [
 /** @var list<array{actionID:string,parameters:array<string,mixed>}> */
 $testActions = [];
 
+$testPendingConfigurationChanges = false;
+$testResetConfigurationChanges = 0;
+
+function IPS_HasChanges(int $instanceID): bool
+{
+    global $testPendingConfigurationChanges;
+
+    return $testPendingConfigurationChanges;
+}
+
+function IPS_ResetChanges(int $instanceID): bool
+{
+    global $testPendingConfigurationChanges, $testResetConfigurationChanges;
+
+    $testPendingConfigurationChanges = false;
+    ++$testResetConfigurationChanges;
+
+    return true;
+}
+
 function IPS_VariableExists(int $variableID): bool
 {
     global $testVariables;
@@ -79,6 +99,8 @@ function IPS_RunAction(string $actionID, array $parameters): bool
 
 class IPSModuleStrict
 {
+    public int $InstanceID = 0;
+
     /** @var list<array{field:string,parameter:string,value:mixed}> */
     private array $formUpdates = [];
 
@@ -964,6 +986,34 @@ assertAlarmAction(
 assertAlarmAction(
     str_contains((string) ($lockedForm['elements'][0]['caption'] ?? ''), 'instance configuration is locked'),
     'The locked configuration form must explain that disarming is required before editing alarm settings.'
+);
+$reloadCountBeforeRejectedChange = count($lockedFormInstance->TestReloadedForms());
+$testPendingConfigurationChanges = true;
+$resetCountBeforeRejectedChange = $testResetConfigurationChanges;
+$lockedFormInstance->ApplyChanges();
+assertAlarmAction(
+    $testPendingConfigurationChanges === false
+        && $testResetConfigurationChanges === $resetCountBeforeRejectedChange + 1,
+    'ApplyChanges must discard pending configuration changes when an alarm partition became active.'
+);
+assertAlarmAction(
+    count($lockedFormInstance->TestReloadedForms()) === $reloadCountBeforeRejectedChange + 1,
+    'Rejecting a stale configuration form must reload it with the active-state lock.'
+);
+
+$lockTransitionInstance = new OpenHomeAlarm();
+$lockTransitionInstance->Create();
+$reloadCountBeforeArming = count($lockTransitionInstance->TestReloadedForms());
+assertAlarmAction($lockTransitionInstance->ArmAway(), 'The form-lock transition test must arm successfully.');
+assertAlarmAction(
+    count($lockTransitionInstance->TestReloadedForms()) === $reloadCountBeforeArming + 1,
+    'Arming must reload an already open configuration form so its fields become locked.'
+);
+$reloadCountBeforeDisarming = count($lockTransitionInstance->TestReloadedForms());
+assertAlarmAction($lockTransitionInstance->Disarm(), 'The form-lock transition test must disarm successfully.');
+assertAlarmAction(
+    count($lockTransitionInstance->TestReloadedForms()) === $reloadCountBeforeDisarming + 1,
+    'Disarming must reload an already open configuration form so its fields become editable again.'
 );
 $optionalActionForm = $dynamicFormInstance->GetOptionalActionEditForm([
     'Action' => $countdownAction

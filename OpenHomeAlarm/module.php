@@ -753,6 +753,10 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ApplyChanges(): void
     {
+        if ($this->DiscardPendingConfigurationChangesWhileLocked()) {
+            return;
+        }
+
         parent::ApplyChanges();
 
         $this->GuardSecurityConfigurationChanges();
@@ -2651,8 +2655,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     /** @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states */
     private function WritePartitionRuntime(array $states): void
     {
+        $wasConfigurationLocked = $this->IsSecurityConfigurationLocked();
         unset($states[$this->DefaultPartitionID()]);
         $this->WritePersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME, $states);
+        $this->ReloadConfigurationFormIfLockChanged($wasConfigurationLocked);
     }
 
     /** @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states */
@@ -3199,6 +3205,34 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'Alarm settings can only be changed while all alarm partitions are disarmed.'
             ));
         }
+    }
+
+    /**
+     * Rejects a stale, still editable configuration form before Symcon promotes
+     * its pending values to the active configuration.
+     */
+    private function DiscardPendingConfigurationChangesWhileLocked(): bool
+    {
+        if (
+            !$this->IsSecurityConfigurationLocked()
+            || !function_exists('IPS_HasChanges')
+            || !function_exists('IPS_ResetChanges')
+            || !IPS_HasChanges($this->InstanceID)
+        ) {
+            return false;
+        }
+
+        IPS_ResetChanges($this->InstanceID);
+        $this->SendDebug(
+            'Configuration change rejected',
+            $this->Translate('Alarm settings can only be changed while all alarm partitions are disarmed.'),
+            0
+        );
+        if (method_exists($this, 'ReloadForm')) {
+            $this->ReloadForm();
+        }
+
+        return true;
     }
 
     private function CurrentSecurityConfiguration(): string
@@ -6624,7 +6658,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             throw new InvalidArgumentException('Unsupported alarm mode.');
         }
 
+        $wasConfigurationLocked = $this->IsSecurityConfigurationLocked();
         $this->SetValue(self::IDENT_MODE, $mode);
+        $this->ReloadConfigurationFormIfLockChanged($wasConfigurationLocked);
     }
 
     private function SetAlarmState(int $state): void
@@ -6633,7 +6669,19 @@ class OpenHomeAlarm extends IPSModuleStrict
             throw new InvalidArgumentException('Unsupported alarm state.');
         }
 
+        $wasConfigurationLocked = $this->IsSecurityConfigurationLocked();
         $this->SetValue(self::IDENT_STATE, $state);
+        $this->ReloadConfigurationFormIfLockChanged($wasConfigurationLocked);
+    }
+
+    private function ReloadConfigurationFormIfLockChanged(bool $wasConfigurationLocked): void
+    {
+        if (
+            $wasConfigurationLocked !== $this->IsSecurityConfigurationLocked()
+            && method_exists($this, 'ReloadForm')
+        ) {
+            $this->ReloadForm();
+        }
     }
 
     private function SetDelayRemaining(int $seconds): void
