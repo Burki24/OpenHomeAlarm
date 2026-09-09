@@ -786,6 +786,11 @@ function ohaRenderInlineCodepad(state) {
     inlineStopSignalGenerator.hidden = !canStopSignalGenerator;
     inlineStopSignalGenerator.dataset.enabled = enabled && canStopSignalGenerator ? 'true' : 'false';
     document.getElementById('inlineStopSignalGeneratorLabel').textContent = ohaTranslate('Stop signal generator');
+    const canResetFalseAlarm = Boolean(state.Capabilities?.CanResetFalseAlarm);
+    const inlineResetFalseAlarm = document.getElementById('inlineResetFalseAlarm');
+    inlineResetFalseAlarm.hidden = !canResetFalseAlarm;
+    inlineResetFalseAlarm.dataset.enabled = enabled && canResetFalseAlarm ? 'true' : 'false';
+    document.getElementById('inlineResetFalseAlarmLabel').textContent = ohaTranslate('Reset false alarm');
     ohaUpdateCodepad();
 }
 
@@ -804,6 +809,7 @@ function ohaRenderDisarm(state) {
     const stopSignalGeneratorButton = document.getElementById('stopSignalGeneratorButton');
     const canStopSignalGenerator = Boolean(state.Capabilities?.CanStopSignalGenerator);
     const modalStopSignalGenerator = document.getElementById('codepadStopSignalGenerator');
+    const modalResetFalseAlarm = document.getElementById('codepadResetFalseAlarm');
 
     bar.hidden = !canDisarm;
     bar.dataset.codeRequired = codeRequired ? 'true' : 'false';
@@ -822,8 +828,10 @@ function ohaRenderDisarm(state) {
     resetAlarmOutputButton.hidden = !canResetAlarmOutput;
     resetAlarmOutputButton.dataset.enabled = canResetAlarmOutput ? 'true' : 'false';
     document.getElementById('resetAlarmOutputLabel').textContent = ohaTranslate('Reset alarm actions');
-    resetFalseAlarmButton.hidden = !canResetFalseAlarm;
+    resetFalseAlarmButton.hidden = !canResetFalseAlarm || codeRequired;
     resetFalseAlarmButton.dataset.enabled = canResetFalseAlarm ? 'true' : 'false';
+    modalResetFalseAlarm.hidden = !canResetFalseAlarm || !codeRequired;
+    modalResetFalseAlarm.dataset.enabled = canResetFalseAlarm && codeRequired && !codeLocked ? 'true' : 'false';
     document.getElementById('resetFalseAlarmLabel').textContent = ohaTranslate('Reset false alarm');
     codeHint.hidden = !codeRequired;
     codeHint.textContent = codeRequired
@@ -847,6 +855,8 @@ function ohaRenderStaticText() {
     document.getElementById('modalDisarmLabel').textContent = ohaTranslate('Deactivate');
     document.getElementById('codepadStopSignalGenerator').setAttribute('aria-label', ohaTranslate('Stop signal generator'));
     document.getElementById('modalStopSignalGeneratorLabel').textContent = ohaTranslate('Stop signal generator');
+    document.getElementById('codepadResetFalseAlarm').setAttribute('aria-label', ohaTranslate('Reset false alarm'));
+    document.getElementById('modalResetFalseAlarmLabel').textContent = ohaTranslate('Reset false alarm');
     document.getElementById('codepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('inlineCodepad').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('inlineCodepadDelete').setAttribute('aria-label', ohaTranslate('Delete last digit'));
