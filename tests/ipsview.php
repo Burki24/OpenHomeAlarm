@@ -252,7 +252,8 @@ assertIPSView(
     'The IPSView codepad column must scale with the configured font size without horizontal overflow.'
 );
 assertIPSView(
-    str_contains($form, '"caption": "Configure optional IPSView HTML output."')
+    str_contains($form, '"caption": "View"')
+        && str_contains($form, '"caption": "Configure optional IPSView HTML output."')
         && str_contains($form, '"caption": "Configure the shared IPSView style used by the standalone HTML page."')
         && !str_contains($form, '"name": "EnableIPSView"')
         && !str_contains($form, '"name": "IPSViewTheme"')
