@@ -146,13 +146,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_FAULT_INPUTS = 'FaultInputs';
     private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
-    private const PROPERTY_COUNTDOWN_ACTION_ENABLED = 'CountdownActionEnabled';
     private const PROPERTY_COUNTDOWN_ACTION = 'CountdownAction';
     private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
     private const PROPERTY_ALARM_ESCALATION_STEPS = 'AlarmEscalationSteps';
-    private const PROPERTY_FAULT_ACTION_ENABLED = 'FaultActionEnabled';
     private const PROPERTY_FAULT_ACTION = 'FaultAction';
-    private const PROPERTY_FAULT_CLEARED_ACTION_ENABLED = 'FaultClearedActionEnabled';
     private const PROPERTY_FAULT_CLEARED_ACTION = 'FaultClearedAction';
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
     private const PROPERTY_DISARM_USERS = 'DisarmUsers';
@@ -208,27 +205,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         ],
         'IPSViewDangerColorValue'        => [
             'IPSViewStyleCriticalColor'
-        ]
-    ];
-
-    private const OPTIONAL_ACTION_FIELDS = [
-        self::PROPERTY_COUNTDOWN_ACTION     => self::PROPERTY_COUNTDOWN_ACTION_ENABLED,
-        self::PROPERTY_FAULT_ACTION         => self::PROPERTY_FAULT_ACTION_ENABLED,
-        self::PROPERTY_FAULT_CLEARED_ACTION => self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED
-    ];
-
-    private const OPTIONAL_ACTION_FORM_FIELDS = [
-        self::PROPERTY_COUNTDOWN_ACTION_ENABLED => [
-            'name'    => self::PROPERTY_COUNTDOWN_ACTION,
-            'caption' => 'On countdown step'
-        ],
-        self::PROPERTY_FAULT_ACTION_ENABLED => [
-            'name'    => self::PROPERTY_FAULT_ACTION,
-            'caption' => 'On new fault'
-        ],
-        self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED => [
-            'name'    => self::PROPERTY_FAULT_CLEARED_ACTION,
-            'caption' => 'On fault cleared'
         ]
     ];
 
@@ -299,14 +275,11 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyString(self::PROPERTY_FAULT_INPUTS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
-        $this->RegisterPropertyInteger(self::PROPERTY_COUNTDOWN_ACTION_ENABLED, 0);
-        $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_ACTION, '');
+        $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_ACTION, 'false');
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS, '[]');
-        $this->RegisterPropertyInteger(self::PROPERTY_FAULT_ACTION_ENABLED, 0);
-        $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, '');
-        $this->RegisterPropertyInteger(self::PROPERTY_FAULT_CLEARED_ACTION_ENABLED, 0);
-        $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, '');
+        $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, 'false');
+        $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_USERS, '[]');
         $this->RegisterPropertyInteger(
@@ -781,7 +754,6 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         if (isset($form['elements']) && is_array($form['elements'])) {
             $this->PopulateConfigurationListValues($form['elements']);
-            $this->InjectEnabledOptionalActionFields($form['elements']);
             if ($this->IsSecurityConfigurationLocked()) {
                 $this->LockSecurityConfigurationFields($form['elements']);
                 array_unshift($form['elements'], [
@@ -802,27 +774,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $this->EncodeConfigurationForm($form);
-    }
-
-    /**
-     * Removes an already rendered optional action selector before its toggle is
-     * saved as "No action". The native selector represents an empty choice as
-     * Boolean false, whereas this module persists actions as strings. Normalize
-     * it first so the same Apply operation remains type-valid.
-     */
-    public function UpdateOptionalActionForm(string $propertyName, int $enabled): void
-    {
-        if (!in_array($propertyName, array_keys(self::OPTIONAL_ACTION_FIELDS), true)) {
-            throw new InvalidArgumentException('Unknown optional action property.');
-        }
-
-        if ($enabled !== 0) {
-            return;
-        }
-
-        $this->UpdateFormField($propertyName, 'value', '{}');
-        $this->UpdateFormField($propertyName, 'enabled', false);
-        $this->UpdateFormField($propertyName, 'visible', false);
     }
 
     /**
@@ -3034,60 +2985,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return false;
-    }
-
-    /**
-     * Adds native SelectAction controls only for explicitly enabled optional actions.
-     *
-     * SelectAction validates its selection when it is part of the elements area.
-     * Therefore a disabled optional action must not merely be hidden or disabled: it
-     * must be absent from the generated form altogether. This keeps unrelated
-     * configuration changes valid when no action has been configured.
-     *
-     * @param list<array<string,mixed>> $elements
-     */
-    private function InjectEnabledOptionalActionFields(array &$elements): void
-    {
-        $generated = [];
-
-        foreach ($elements as $element) {
-            if (!is_array($element)) {
-                continue;
-            }
-
-            if (isset($element['items']) && is_array($element['items'])) {
-                $this->InjectEnabledOptionalActionFields($element['items']);
-            }
-
-            $toggleName = $element['name'] ?? null;
-            $generated[] = $element;
-
-            if (
-                ($element['type'] ?? null) !== 'Select'
-                || !is_string($toggleName)
-                || !array_key_exists($toggleName, self::OPTIONAL_ACTION_FORM_FIELDS)
-                || !$this->IsOptionalActionFormEnabled($toggleName)
-            ) {
-                continue;
-            }
-
-            $definition = self::OPTIONAL_ACTION_FORM_FIELDS[$toggleName];
-            $generated[] = [
-                'type'     => 'SelectAction',
-                'name'     => $definition['name'],
-                'caption'  => $definition['caption'],
-                'targetID' => -2,
-                'value'    => $this->ReadPropertyString($definition['name']),
-                'width'    => '100%'
-            ];
-        }
-
-        $elements = $generated;
-    }
-
-    private function IsOptionalActionFormEnabled(string $toggleName): bool
-    {
-        return $this->ReadPropertyInteger($toggleName) === 1;
     }
 
     /**
@@ -5967,9 +5864,8 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function RunConfiguredAction(string $propertyName): bool
     {
-        $enabledProperty = self::OPTIONAL_ACTION_FIELDS[$propertyName] ?? null;
         $result = AlarmActionExecutor::execute(
-            $enabledProperty === null || $this->ReadPropertyInteger($enabledProperty) === 1,
+            true,
             $this->ReadPropertyString($propertyName),
             static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
         );
@@ -6184,10 +6080,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function RunCountdownActionStep(int $deadline, int $remainingSeconds): void
     {
-        if (
-            $remainingSeconds <= 0
-            || $this->ReadPropertyInteger(self::PROPERTY_COUNTDOWN_ACTION_ENABLED) !== 1
-        ) {
+        if ($remainingSeconds <= 0) {
             return;
         }
 

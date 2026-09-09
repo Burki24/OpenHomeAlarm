@@ -141,20 +141,12 @@
                     "caption": "A value of 0 disables the corresponding delay."
                 },
                 {
-                    "type": "Select",
-                    "name": "CountdownActionEnabled",
-                    "caption": "Countdown output",
-                    "onChange": "OHA_UpdateOptionalActionForm($id, 'CountdownAction', $CountdownActionEnabled);",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Configure action",
-                            "value": 1
-                        }
-                    ]
+                    "type": "SelectAction",
+                    "name": "CountdownAction",
+                    "caption": "On countdown step",
+                    "targetID": -2,
+                    "value": false,
+                    "width": "100%"
                 },
                 {
                     "type": "Label",
@@ -508,42 +500,20 @@
                     "caption": "Configured sensor variables are checked periodically and immediately when Symcon reports their removal."
                 },
                 {
-                    "type": "Label",
-                    "caption": "Optional fault actions are disabled by default. Enable one and apply once before selecting the Symcon action."
+                    "type": "SelectAction",
+                    "name": "FaultAction",
+                    "caption": "On new fault",
+                    "targetID": -2,
+                    "value": false,
+                    "width": "100%"
                 },
                 {
-                    "type": "Select",
-                    "name": "FaultActionEnabled",
-                    "caption": "New fault",
-                    "onChange": "OHA_UpdateOptionalActionForm($id, 'FaultAction', $FaultActionEnabled);",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Configure action",
-                            "value": 1
-                        }
-                    ],
-                    "width": "300px"
-                },
-                {
-                    "type": "Select",
-                    "name": "FaultClearedActionEnabled",
-                    "caption": "Fault cleared",
-                    "onChange": "OHA_UpdateOptionalActionForm($id, 'FaultClearedAction', $FaultClearedActionEnabled);",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Configure action",
-                            "value": 1
-                        }
-                    ],
-                    "width": "300px"
+                    "type": "SelectAction",
+                    "name": "FaultClearedAction",
+                    "caption": "On fault cleared",
+                    "targetID": -2,
+                    "value": false,
+                    "width": "100%"
                 },
                 {
                     "type": "List",

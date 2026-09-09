@@ -424,7 +424,6 @@ $delayedInstance = new OpenHomeAlarm();
 $delayedInstance->Create();
 $delayedInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $delayedInstance->TestSetPropertyInteger('EntryDelaySeconds', 10);
-$delayedInstance->TestSetPropertyInteger('CountdownActionEnabled', 1);
 $delayedInstance->TestSetPropertyString('CountdownAction', $countdownAction);
 $delayedInstance->TestSetPropertyString(
     'Sensors',
@@ -461,7 +460,6 @@ $testValues[4001] = false;
 $brokenCountdownInstance = new OpenHomeAlarm();
 $brokenCountdownInstance->Create();
 $brokenCountdownInstance->TestSetPropertyInteger('ExitDelaySeconds', 5);
-$brokenCountdownInstance->TestSetPropertyInteger('CountdownActionEnabled', 1);
 $brokenCountdownInstance->TestSetPropertyString('CountdownAction', '{invalid json');
 $brokenCountdownInstance->TestSetPropertyString(
     'Sensors',
@@ -696,9 +694,9 @@ assertAlarmAction(
     findAlarmActionFormField($form['elements'] ?? [], 'AlarmAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'AlarmResetAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmAction') === null
-    && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') === null
-    && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') === null
-    && findAlarmActionFormField($form['elements'] ?? [], 'CountdownAction') === null,
+    && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') !== null
+    && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') !== null
+    && findAlarmActionFormField($form['elements'] ?? [], 'CountdownAction') !== null,
     'Removed global alarm-action selectors must be absent from the configuration form.'
 );
 assertAlarmAction(
@@ -707,19 +705,13 @@ assertAlarmAction(
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmActionEnabled') === null,
     'Global alarm-action configuration must be removed completely.'
 );
-foreach (
-    [
-        'FaultActionEnabled',
-        'FaultClearedActionEnabled',
-        'CountdownActionEnabled'
-    ] as $toggleName
-) {
-    $toggle = findAlarmActionFormField($form['elements'] ?? [], $toggleName);
+foreach (['FaultAction', 'FaultClearedAction', 'CountdownAction'] as $actionName) {
+    $action = findAlarmActionFormField($form['elements'] ?? [], $actionName);
     assertAlarmAction(
-        is_array($toggle)
-        && ($toggle['type'] ?? null) === 'Select'
-        && str_contains((string) ($toggle['onChange'] ?? ''), 'OHA_UpdateOptionalActionForm'),
-        'Optional action toggle ' . $toggleName . ' must be present in static form.json.'
+        is_array($action)
+        && ($action['type'] ?? null) === 'SelectAction'
+        && ($action['value'] ?? null) === false,
+        'Optional action ' . $actionName . ' must use the native no-action value.'
     );
 }
 
@@ -772,37 +764,19 @@ assertAlarmAction(
     'A custom reset mode must expose its stored native Symcon reset action selector.'
 );
 
-$enableDynamicFormInstance = new OpenHomeAlarm();
-$enableDynamicFormInstance->Create();
-$enableDynamicFormInstance->UpdateOptionalActionForm('FaultAction', 1);
-assertAlarmAction(
-    $enableDynamicFormInstance->TestReloadedForms() === [],
-    'Enabling an optional action must wait for the normal Apply cycle instead of reloading the form.'
-);
-$disableDynamicFormInstance = new OpenHomeAlarm();
-$disableDynamicFormInstance->Create();
-$disableDynamicFormInstance->UpdateOptionalActionForm('CountdownAction', 0);
-assertAlarmAction(
-    $disableDynamicFormInstance->TestFormUpdates() === [
-        ['field' => 'CountdownAction', 'parameter' => 'value', 'value' => '{}'],
-        ['field' => 'CountdownAction', 'parameter' => 'enabled', 'value' => false],
-        ['field' => 'CountdownAction', 'parameter' => 'visible', 'value' => false]
-    ],
-    'Disabling an optional action must normalize and remove its native selector before it can reject an empty selection.'
-);
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,
     'Removed global alarm-reset selectors must never be injected.'
 );
 
-$dynamicFormInstance->TestSetPropertyInteger('CountdownActionEnabled', 1);
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
 $dynamicCountdownAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'CountdownAction');
 assertAlarmAction(
     is_array($dynamicCountdownAction)
     && ($dynamicCountdownAction['type'] ?? null) === 'SelectAction'
-    && ($dynamicCountdownAction['targetID'] ?? null) === -2,
-    'GetConfigurationForm must inject the countdown SelectAction only after it is enabled.'
+    && ($dynamicCountdownAction['targetID'] ?? null) === -2
+    && ($dynamicCountdownAction['value'] ?? null) === false,
+    'GetConfigurationForm must expose the native countdown action selector with its no-action value.'
 );
 
 $locale = json_decode(
