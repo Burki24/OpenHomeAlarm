@@ -300,6 +300,12 @@ assertVisualization(
         && str_contains($css, 'box-shadow: 0 0 0 14px var(--oha-bg);'),
     'Visualization must shield scrolled content below the sticky Symcon tile title.'
 );
+assertVisualization(
+    str_contains($css, 'html:not(.oha-ipsview) .oha-shell')
+        && str_contains($css, 'overscroll-behavior-y: contain;')
+        && str_contains($css, 'height: 100dvh;'),
+    'Native tiles must keep scrolling inside the tile instead of moving the host navigation.'
+);
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
 assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');
