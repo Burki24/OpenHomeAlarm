@@ -278,7 +278,7 @@ Eine vorhandene Zeile kann über das Zahnrad bearbeitet, über **Aktiv** vorübe
 
 #### Signalgeber separat stoppen
 
-Bei einem aktiven Alarm erscheint in der Kachel zusätzlich **Signalgeber stoppen**, sobald mindestens ein als Signalgeber gekennzeichneter Eintrag ausgeführt wurde. Die Schaltfläche führt ausschließlich dessen Rücksetzaktion aus. Der Alarmausgang, Alarmgedächtnis sowie andere Eskalationsaktionen wie Licht oder Rollläden bleiben unverändert aktiv. **Alarmaktionen zurücksetzen** bleibt die bewusste Gesamtaktion und setzt anschließend alle noch nicht zurückgesetzten Eskalationsaktionen zurück.
+Bei einem aktiven Alarm erscheint in der Kachel zusätzlich **Signalgeber stoppen**, sobald mindestens eine aktive Eskalationsaktion als Signalgeber gekennzeichnet ist. Die Schaltfläche führt ausschließlich die Rücksetzaktionen der Signalgeber aus. Das funktioniert auch dann, wenn nach einem Modulupdate kein vollständiger Laufzeitcache des laufenden Alarms mehr vorhanden ist. Noch nicht gestartete, verzögerte Signalgeber werden für den aktuellen Alarmzyklus unterdrückt. Bei einer erneuten Alarmauslösung beginnt ein neuer Alarmzyklus und die Signalgeber dürfen wieder starten. Der Alarmausgang, das Alarmgedächtnis sowie andere Eskalationsaktionen wie Licht oder Rollläden bleiben beim separaten Stoppen unverändert aktiv. **Alarmaktionen zurücksetzen** bleibt die bewusste Gesamtaktion und setzt anschließend alle noch nicht zurückgesetzten Eskalationsaktionen zurück.
 
 #### Rücksetzverhalten
 

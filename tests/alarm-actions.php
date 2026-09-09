@@ -634,6 +634,94 @@ assertAlarmAction(
     'Reset must preserve an already silenced signal generator and reset the remaining actions in reverse execution order.'
 );
 
+// A running alarm must retain its dedicated signal-generator control even when
+// an update or restored installation has lost the escalation runtime cache.
+$testActions = [];
+$testValues[4001] = false;
+$missingEscalationRuntime = new OpenHomeAlarm();
+$missingEscalationRuntime->Create();
+$missingEscalationRuntime->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$missingEscalationRuntime->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$missingEscalationRuntime->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Outputs',
+    'DelaySeconds' => 0,
+    'Actions'      => [[
+        'Enabled'         => true,
+        'Name'            => 'Siren',
+        'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+        'ResetEnabled'    => true,
+        'SignalGenerator' => true
+    ]]
+]], JSON_THROW_ON_ERROR));
+$missingEscalationRuntime->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($missingEscalationRuntime->ArmAway(), 'Missing-runtime signal-generator test must arm successfully.');
+$testValues[4001] = true;
+$missingEscalationRuntime->MessageSink(32, 4001, VM_UPDATE, [true, true, false]);
+$missingEscalationRuntime->TestSetAttributeString('AlarmEscalationRuntime', '[]');
+$missingRuntimeState = json_decode($missingEscalationRuntime->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $missingRuntimeState['Capabilities']['CanStopSignalGenerator'] === true,
+    'A configured signal generator must remain stoppable while the alarm output is active without a runtime cache.'
+);
+assertAlarmAction(
+    $missingEscalationRuntime->StopSignalGenerator()
+    && count($testActions) === 2
+    && $testActions[1]['actionID'] === '{SIREN}'
+    && $testActions[1]['parameters']['VALUE'] === false,
+    'Stopping without a runtime cache must execute the configured signal-generator reset action.'
+);
+$missingRuntimeState = json_decode($missingEscalationRuntime->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $missingRuntimeState['Capabilities']['CanStopSignalGenerator'] === false,
+    'The signal-generator control must disappear after the configured fallback reset was executed.'
+);
+
+// Silencing a delayed signal generator must prevent it from starting later in
+// the same alarm cycle.
+$testActions = [];
+$testValues[4001] = false;
+$pendingSignalGenerator = new OpenHomeAlarm();
+$pendingSignalGenerator->Create();
+$pendingSignalGenerator->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$pendingSignalGenerator->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$pendingSignalGenerator->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Delayed output',
+    'DelaySeconds' => 60,
+    'Actions'      => [[
+        'Enabled'         => true,
+        'Name'            => 'Delayed siren',
+        'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+        'ResetEnabled'    => true,
+        'SignalGenerator' => true
+    ]]
+]], JSON_THROW_ON_ERROR));
+$pendingSignalGenerator->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($pendingSignalGenerator->ArmAway(), 'Pending signal-generator test must arm successfully.');
+$testValues[4001] = true;
+$pendingSignalGenerator->MessageSink(32, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $pendingSignalGenerator->StopSignalGenerator()
+    && count($testActions) === 1
+    && $testActions[0]['parameters']['VALUE'] === false,
+    'A pending signal generator must be silenced through its configured reset action.'
+);
+$pendingRuntime = json_decode($pendingSignalGenerator->TestAttributes()['AlarmEscalationRuntime'], true, 512, JSON_THROW_ON_ERROR);
+$pendingRuntime['StartedAt'] = time() - 61;
+$pendingSignalGenerator->TestSetAttributeString('AlarmEscalationRuntime', json_encode($pendingRuntime, JSON_THROW_ON_ERROR));
+$pendingSignalGenerator->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($testActions) === 1,
+    'A signal generator silenced earlier in the alarm cycle must not start when its delay expires.'
+);
+
 // Disarming directly from Alarm must execute the same escalation reset actions.
 $testActions = [];
 $testValues[4001] = false;
