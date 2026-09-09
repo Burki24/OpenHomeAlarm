@@ -185,7 +185,7 @@ $newInstance->Create();
 
 $variables = $newInstance->TestRegisteredVariables();
 assertStateModel(
-    array_keys($variables) === ['Mode', 'State', 'DelayRemaining', 'DelaySource', 'AlarmOutputActive', 'ReadyToArm', 'ReadyHome', 'ReadyAway', 'ReadyNight', 'BlockingHomeSensors', 'BlockingAwaySensors', 'BlockingNightSensors', 'BypassedSensors', 'AlarmMemory', 'LastAlarmSource', 'LastAlarmTime', 'SystemFault', 'ActiveFaults', 'BlockingFaults', 'LastFaultSource', 'LastFaultTime'],
+    array_keys($variables) === ['Mode', 'State', 'DelayRemaining', 'DelaySource', 'AlarmOutputActive', 'SignalGeneratorActive', 'ReadyToArm', 'ReadyHome', 'ReadyAway', 'ReadyNight', 'BlockingHomeSensors', 'BlockingAwaySensors', 'BlockingNightSensors', 'BypassedSensors', 'AlarmMemory', 'LastAlarmSource', 'LastAlarmTime', 'SystemFault', 'ActiveFaults', 'BlockingFaults', 'LastFaultSource', 'LastFaultTime'],
     'Unexpected status variables.'
 );
 assertStateModel($variables['Mode']['type'] === 'integer', 'Mode must be an integer variable.');
@@ -193,6 +193,7 @@ assertStateModel($variables['State']['type'] === 'integer', 'State must be an in
 assertStateModel($variables['DelayRemaining']['type'] === 'integer', 'DelayRemaining must be an integer variable.');
 assertStateModel($variables['DelaySource']['type'] === 'string', 'DelaySource must be a string variable.');
 assertStateModel($variables['AlarmOutputActive']['type'] === 'boolean', 'AlarmOutputActive must be a boolean variable.');
+assertStateModel($variables['SignalGeneratorActive']['type'] === 'boolean', 'SignalGeneratorActive must be a boolean variable.');
 assertStateModel($variables['ReadyToArm']['type'] === 'boolean', 'ReadyToArm must be a boolean variable.');
 assertStateModel($variables['ReadyHome']['type'] === 'boolean', 'ReadyHome must be a boolean variable.');
 assertStateModel($variables['ReadyAway']['type'] === 'boolean', 'ReadyAway must be a boolean variable.');
@@ -214,6 +215,7 @@ assertStateModel($variables['State']['position'] === 20, 'State must use positio
 assertStateModel($variables['DelayRemaining']['position'] === 21, 'DelayRemaining must use position 21.');
 assertStateModel($variables['DelaySource']['position'] === 22, 'DelaySource must use position 22.');
 assertStateModel($variables['AlarmOutputActive']['position'] === 23, 'AlarmOutputActive must use position 23.');
+assertStateModel($variables['SignalGeneratorActive']['position'] === 24, 'SignalGeneratorActive must use position 24.');
 assertStateModel($variables['ReadyToArm']['position'] === 30, 'ReadyToArm must use position 30.');
 assertStateModel($variables['ReadyHome']['position'] === 31, 'ReadyHome must use position 31.');
 assertStateModel($variables['ReadyAway']['position'] === 32, 'ReadyAway must use position 32.');
@@ -239,6 +241,7 @@ assertStateModel(
         'DelayRemaining'       => 0,
         'DelaySource'          => '',
         'AlarmOutputActive'    => false,
+        'SignalGeneratorActive'=> false,
         'ReadyToArm'           => true,
         'ReadyHome'            => true,
         'ReadyAway'            => true,
@@ -263,6 +266,7 @@ $modePresentation = $variables['Mode']['presentation'];
 $statePresentation = $variables['State']['presentation'];
 $delayRemainingPresentation = $variables['DelayRemaining']['presentation'];
 $alarmOutputPresentation = $variables['AlarmOutputActive']['presentation'];
+$signalGeneratorPresentation = $variables['SignalGeneratorActive']['presentation'];
 $readyPresentation = $variables['ReadyToArm']['presentation'];
 $readyHomePresentation = $variables['ReadyHome']['presentation'];
 $readyAwayPresentation = $variables['ReadyAway']['presentation'];
@@ -288,6 +292,10 @@ assertStateModel(
     'AlarmOutputActive must use the native value presentation.'
 );
 assertStateModel(
+    ($signalGeneratorPresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+    'SignalGeneratorActive must use the native value presentation.'
+);
+assertStateModel(
     ($readyPresentation['PRESENTATION'] ?? null) === VARIABLE_PRESENTATION_VALUE_PRESENTATION,
     'ReadyToArm must use the native value presentation.'
 );
@@ -311,6 +319,7 @@ assertStateModel(($statePresentation['INTERVALS_ACTIVE'] ?? false) === true, 'St
 $modeIntervals = json_decode((string) $modePresentation['INTERVALS'], true, 512, JSON_THROW_ON_ERROR);
 $stateIntervals = json_decode((string) $statePresentation['INTERVALS'], true, 512, JSON_THROW_ON_ERROR);
 $alarmOutputOptions = json_decode((string) $alarmOutputPresentation['OPTIONS'], true, 512, JSON_THROW_ON_ERROR);
+$signalGeneratorOptions = json_decode((string) $signalGeneratorPresentation['OPTIONS'], true, 512, JSON_THROW_ON_ERROR);
 $readyOptions = json_decode((string) $readyPresentation['OPTIONS'], true, 512, JSON_THROW_ON_ERROR);
 $alarmMemoryOptions = json_decode((string) $alarmMemoryPresentation['OPTIONS'], true, 512, JSON_THROW_ON_ERROR);
 $systemFaultOptions = json_decode((string) $systemFaultPresentation['OPTIONS'], true, 512, JSON_THROW_ON_ERROR);
@@ -326,6 +335,10 @@ assertStateModel(
 assertStateModel(
     array_column($alarmOutputOptions, 'Caption') === ['Alarm output inactive', 'Alarm output active'],
     'AlarmOutputActive presentation captions are incomplete.'
+);
+assertStateModel(
+    array_column($signalGeneratorOptions, 'Caption') === ['Signal generator inactive', 'Signal generator active'],
+    'SignalGeneratorActive presentation captions are incomplete.'
 );
 assertStateModel(
     array_column($readyOptions, 'Caption') === ['Not ready', 'Ready'],
@@ -345,7 +358,7 @@ foreach ([...$modeIntervals, ...$stateIntervals] as $interval) {
         'Every value-presentation interval must contain ColorValue.'
     );
 }
-foreach ([...$alarmOutputOptions, ...$readyOptions, ...$alarmMemoryOptions, ...$systemFaultOptions] as $option) {
+foreach ([...$alarmOutputOptions, ...$signalGeneratorOptions, ...$readyOptions, ...$alarmMemoryOptions, ...$systemFaultOptions] as $option) {
     foreach (['Value', 'Caption', 'IconActive', 'IconValue', 'ColorActive', 'ColorValue'] as $requiredKey) {
         assertStateModel(
             array_key_exists($requiredKey, $option),
@@ -361,6 +374,7 @@ $existingInstance = new OpenHomeAlarm(
         'DelayRemaining'       => false,
         'DelaySource'          => false,
         'AlarmOutputActive'    => false,
+        'SignalGeneratorActive'=> false,
         'ReadyToArm'           => false,
         'ReadyHome'            => false,
         'ReadyAway'            => false,
@@ -399,6 +413,8 @@ foreach ([
     'Delay source',
     'Alarm output active',
     'Alarm output inactive',
+    'Signal generator active',
+    'Signal generator inactive',
     'Ready to arm',
     'Ready Home',
     'Ready Away',

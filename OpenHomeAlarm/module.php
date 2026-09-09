@@ -256,6 +256,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const IDENT_DELAY_REMAINING = 'DelayRemaining';
     private const IDENT_DELAY_SOURCE = 'DelaySource';
     private const IDENT_ALARM_OUTPUT_ACTIVE = 'AlarmOutputActive';
+    private const IDENT_SIGNAL_GENERATOR_ACTIVE = 'SignalGeneratorActive';
     private const IDENT_READY_TO_ARM = 'ReadyToArm';
     private const IDENT_READY_HOME = 'ReadyHome';
     private const IDENT_READY_AWAY = 'ReadyAway';
@@ -426,6 +427,29 @@ class OpenHomeAlarm extends IPSModuleStrict
             ]),
             23
         );
+        $signalGeneratorActiveCreated = $this->RegisterVariableBoolean(
+            self::IDENT_SIGNAL_GENERATOR_ACTIVE,
+            $this->Translate('Signal generator active'),
+            $this->OptionsPresentation([
+                [
+                    'Value'       => false,
+                    'Caption'     => $this->Translate('Signal generator inactive'),
+                    'IconActive'  => false,
+                    'IconValue'   => '',
+                    'ColorActive' => false,
+                    'ColorValue'  => -1
+                ],
+                [
+                    'Value'       => true,
+                    'Caption'     => $this->Translate('Signal generator active'),
+                    'IconActive'  => false,
+                    'IconValue'   => '',
+                    'ColorActive' => false,
+                    'ColorValue'  => -1
+                ]
+            ]),
+            24
+        );
         $readinessPresentation = $this->CreateReadinessPresentation();
         $readyCreated = $this->RegisterVariableBoolean(
             self::IDENT_READY_TO_ARM,
@@ -572,6 +596,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         if ($alarmOutputActiveCreated) {
             $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, false);
+        }
+        if ($signalGeneratorActiveCreated) {
+            $this->SetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE, false);
         }
         if ($readyCreated) {
             $this->SetReadyToArm(true);
@@ -847,6 +874,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $isDisarmed = $state === self::STATE_DISARMED;
         $alarmMemory = $this->GetValue(self::IDENT_ALARM_MEMORY) === true;
         $alarmOutputActive = $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true;
+        $signalGeneratorActive = $this->GetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE) === true;
         $codeProtection = $this->ReadDisarmCodeProtectionStatus();
         $identity = AlarmControlStateAdapter::identity($mode, $state);
 
@@ -859,7 +887,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->IsDisarmCodeProtectionEnabled(),
                 $alarmMemory,
                 $alarmOutputActive,
-                $this->HasStoppableSignalGenerator(),
+                $signalGeneratorActive,
                 $state === self::STATE_ALARM && $this->CanRearmPartition(
                     $defaultPartition['ID'],
                     ['Mode' => $mode, 'State' => $state]
@@ -875,10 +903,11 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'Source'    => (string) $this->GetValue(self::IDENT_DELAY_SOURCE)
             ],
             'Alarm' => [
-                'OutputActive' => $alarmOutputActive,
-                'MemoryActive' => $alarmMemory,
-                'LastSource'   => (string) $this->GetValue(self::IDENT_LAST_ALARM_SOURCE),
-                'LastTime'     => (string) $this->GetValue(self::IDENT_LAST_ALARM_TIME)
+                'OutputActive'          => $alarmOutputActive,
+                'SignalGeneratorActive' => $signalGeneratorActive,
+                'MemoryActive'          => $alarmMemory,
+                'LastSource'            => (string) $this->GetValue(self::IDENT_LAST_ALARM_SOURCE),
+                'LastTime'              => (string) $this->GetValue(self::IDENT_LAST_ALARM_TIME)
             ],
             'Faults' => [
                 'Active'      => $this->GetValue(self::IDENT_SYSTEM_FAULT) === true,
@@ -927,7 +956,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->IsDisarmCodeProtectionEnabled(),
                 $partitionAlarm['MemoryActive'],
                 $partitionAlarm['OutputActive'],
-                $this->HasStoppableSignalGenerator(),
+                $signalGeneratorActive,
                 $this->CanRearmPartition($partition['ID'], $runtime)
             );
             $current['Modes'] = [
@@ -940,10 +969,11 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'Source'    => $runtime['DelaySource']
             ];
             $current['Alarm'] = [
-                'OutputActive' => $partitionAlarm['OutputActive'],
-                'MemoryActive' => $partitionAlarm['MemoryActive'],
-                'LastSource'   => $partitionAlarm['LastSource'],
-                'LastTime'     => $partitionAlarm['LastTimestamp'] > 0
+                'OutputActive'          => $partitionAlarm['OutputActive'],
+                'SignalGeneratorActive' => $partitionAlarm['OutputActive'] && $signalGeneratorActive,
+                'MemoryActive'          => $partitionAlarm['MemoryActive'],
+                'LastSource'            => $partitionAlarm['LastSource'],
+                'LastTime'              => $partitionAlarm['LastTimestamp'] > 0
                     ? date('d.m.Y H:i:s', $this->PartitionAlarmTimestampSeconds($partitionAlarm['LastTimestamp']))
                     : ''
             ];
@@ -1656,6 +1686,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         if (!$stopped) {
             $this->WriteAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 0);
+        } else {
+            $this->SetSignalGeneratorActive(false);
         }
         $this->PublishVisualizationState();
 
@@ -1738,6 +1770,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $steps = $this->ReadConfiguredAlarmEscalationSteps();
+        $signalGeneratorStateChanged = false;
         foreach (AlarmEscalationPlan::dueSteps($steps, $runtime, time()) as $due) {
             // Persist first so action errors, ApplyChanges or a restart cannot repeat this action.
             $runtime['ExecutedStepKeys'][] = $due['Key'];
@@ -1772,6 +1805,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                     ),
                     0
                 );
+            } elseif ($due['Action']['SignalGenerator'] && $due['Action']['ResetMode'] !== 0) {
+                $this->SetSignalGeneratorActive(true);
+                $signalGeneratorStateChanged = true;
             }
         }
 
@@ -1780,6 +1816,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::TIMER_ALARM_ESCALATION,
             $deadline > 0 ? max(1, $deadline - time()) * 1000 : 0
         );
+        if ($signalGeneratorStateChanged) {
+            $this->PublishVisualizationState();
+        }
     }
 
     /**
@@ -2917,6 +2956,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         $this->RestoreAlarmDurationTimer();
         $this->RestoreAlarmEscalation();
+        $this->RestoreSignalGeneratorState();
         $this->PublishVisualizationState();
         $this->UpdateIPSViewHTML();
     }
@@ -6235,6 +6275,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->WriteAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 0);
+        $this->SetSignalGeneratorActive(false);
         $this->WritePersistentJsonCache(
             self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME,
             AlarmEscalationPlan::start(time())
@@ -6258,6 +6299,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
         $this->ClearPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
         $this->WriteAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 0);
+        $this->SetSignalGeneratorActive(false);
     }
 
     private function ResetExecutedAlarmEscalationActions(bool $signalGeneratorsOnly = false): bool
@@ -6269,12 +6311,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
-        $configuredSignalGenerators = $signalGeneratorsOnly ? $this->ConfiguredSignalGeneratorActions() : [];
         $resetAnyAction = false;
         foreach (array_reverse($runtime['ExecutedActions']) as $executedAction) {
-            if ($signalGeneratorsOnly
-                && !$executedAction['SignalGenerator']
-                && !$this->IsConfiguredSignalGeneratorAction($executedAction, $configuredSignalGenerators)) {
+            if ($signalGeneratorsOnly && !$executedAction['SignalGenerator']) {
                 continue;
             }
             if ($executedAction['ResetMode'] === 0 || in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
@@ -6322,30 +6361,33 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $resetAnyAction;
     }
 
-    private function HasStoppableSignalGenerator(): bool
+    private function RestoreSignalGeneratorState(): void
     {
-        if ($this->ReadAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED) === 1) {
-            return false;
+        if ($this->ReadAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED) === 1
+            || !AlarmPartitionAlarmRegistry::aggregate($this->ReadPartitionAlarmStates())['OutputActive']) {
+            $this->SetSignalGeneratorActive(false);
+
+            return;
         }
 
-        $configuredSignalGenerators = $this->ConfiguredSignalGeneratorActions();
         $runtime = AlarmEscalationPlan::runtime(
             $this->ReadPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME)
         );
         if ($runtime === null) {
-            return $configuredSignalGenerators !== [];
+            return;
         }
 
         foreach ($runtime['ExecutedActions'] as $executedAction) {
-            if (($executedAction['SignalGenerator']
-                || $this->IsConfiguredSignalGeneratorAction($executedAction, $configuredSignalGenerators))
+            if ($executedAction['SignalGenerator']
                 && $executedAction['ResetMode'] !== 0
                 && !in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
-                return true;
+                $this->SetSignalGeneratorActive(true);
+
+                return;
             }
         }
 
-        return $configuredSignalGenerators !== [];
+        $this->SetSignalGeneratorActive(false);
     }
 
     /** @return list<array{Key:string,StepName:string,ActionName:string,Action:string,ResetMode:int,ResetAction:string}> */
@@ -6368,23 +6410,6 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $configuredActions;
-    }
-
-    /** @param array<string,mixed> $executedAction
-     *  @param list<array{Key:string,StepName:string,ActionName:string,Action:string,ResetMode:int,ResetAction:string}> $configuredSignalGenerators
-     */
-    private function IsConfiguredSignalGeneratorAction(array $executedAction, array $configuredSignalGenerators): bool
-    {
-        foreach ($configuredSignalGenerators as $configuredAction) {
-            if ($configuredAction['Key'] === $executedAction['Key']
-                || ($configuredAction['StepName'] === $executedAction['StepName']
-                    && $configuredAction['ActionName'] === $executedAction['ActionName']
-                    && $configuredAction['Action'] === $executedAction['Action'])) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function ResetConfiguredSignalGeneratorActions(): bool
@@ -6625,6 +6650,13 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, $active ? 1 : 0);
         $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, $active);
+    }
+
+    private function SetSignalGeneratorActive(bool $active): void
+    {
+        if ($this->GetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE) !== $active) {
+            $this->SetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE, $active);
+        }
     }
 
     private function SetReadyToArm(bool $ready): void

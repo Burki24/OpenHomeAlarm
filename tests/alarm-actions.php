@@ -602,16 +602,11 @@ assertAlarmAction(
     && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, true, 2],
     'A due escalation step must execute all configured actions.'
 );
-// Runtime entries from before a SignalGenerator setting change must still be
-// recognized from their unchanged action identity.
-$legacyRuntime = json_decode($multiEscalation->TestAttributes()['AlarmEscalationRuntime'], true, 512, JSON_THROW_ON_ERROR);
-$legacyRuntime['ExecutedActions'][1]['SignalGenerator'] = false;
-$legacyRuntime['ExecutedActions'][1]['Key'] = 'legacy-signal-generator-key';
-$multiEscalation->TestSetAttributeString('AlarmEscalationRuntime', json_encode($legacyRuntime, JSON_THROW_ON_ERROR));
-$legacyState = json_decode($multiEscalation->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+$signalGeneratorState = json_decode($multiEscalation->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
-    $legacyState['Capabilities']['CanStopSignalGenerator'] === true,
-    'A signal generator must remain stoppable when its runtime entry lacks the marker.'
+    $signalGeneratorState['Alarm']['SignalGeneratorActive'] === true
+    && $signalGeneratorState['Capabilities']['CanStopSignalGenerator'] === true,
+    'A successfully executed signal generator must publish its active state and remain stoppable.'
 );
 assertAlarmAction($multiEscalation->StopSignalGenerator(), 'An active signal generator must be stoppable without resetting the alarm output.');
 assertAlarmAction(
@@ -623,6 +618,7 @@ assertAlarmAction(
 $multiEscalationState = json_decode($multiEscalation->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
     $multiEscalationState['Alarm']['OutputActive'] === true
+    && $multiEscalationState['Alarm']['SignalGeneratorActive'] === false
     && $multiEscalationState['Capabilities']['CanStopSignalGenerator'] === false,
     'Silencing a signal generator must retain the alarm output while hiding the already consumed silence control.'
 );
@@ -632,6 +628,52 @@ assertAlarmAction(
     && array_column(array_slice($testActions, 4), 'actionID') === ['{SHUTTER}', '{LIGHT}']
     && array_column(array_column(array_slice($testActions, 4), 'parameters'), 'VALUE') === [0, false],
     'Reset must preserve an already silenced signal generator and reset the remaining actions in reverse execution order.'
+);
+
+// The shared signal-generator state must only expose the stop control in an
+// area whose alarm output is active.
+$testActions = [];
+$testValues[4001] = false;
+$areaSignalGenerator = new OpenHomeAlarm();
+$areaSignalGenerator->Create();
+$areaSignalGenerator->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$areaSignalGenerator->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$areaSignalGenerator->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"Main area","Default":true},{"Enabled":true,"ID":"schuppen","Name":"Schuppen","Default":false}]'
+);
+$areaSignalGenerator->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Area output',
+    'DelaySeconds' => 0,
+    'Actions'      => [[
+        'Enabled'         => true,
+        'Name'            => 'Area siren',
+        'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+        'ResetEnabled'    => true,
+        'SignalGenerator' => true
+    ]]
+]], JSON_THROW_ON_ERROR));
+$areaSignalGenerator->TestSetPropertyString(
+    'Sensors',
+    json_encode([
+        array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'schuppen'])
+    ], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction(
+    $areaSignalGenerator->ArmPartition('main', 'away'),
+    'The area signal-generator test must arm all areas through main.'
+);
+$testValues[4001] = true;
+$areaSignalGenerator->MessageSink(33, 4001, VM_UPDATE, [true, true, false]);
+$areaSignalState = json_decode($areaSignalGenerator->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $areaSignalState['Alarm']['SignalGeneratorActive'] === true
+    && $areaSignalState['Partitions']['schuppen']['Alarm']['SignalGeneratorActive'] === true
+    && $areaSignalState['Partitions']['schuppen']['Capabilities']['CanStopSignalGenerator'] === true
+    && $areaSignalState['Partitions']['main']['Alarm']['SignalGeneratorActive'] === false
+    && $areaSignalState['Partitions']['main']['Capabilities']['CanStopSignalGenerator'] === false,
+    'The signal-generator control must follow the alarmed area instead of the currently selected area.'
 );
 
 // A running alarm must retain its dedicated signal-generator control even when
@@ -664,8 +706,9 @@ $missingEscalationRuntime->MessageSink(32, 4001, VM_UPDATE, [true, true, false])
 $missingEscalationRuntime->TestSetAttributeString('AlarmEscalationRuntime', '[]');
 $missingRuntimeState = json_decode($missingEscalationRuntime->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
-    $missingRuntimeState['Capabilities']['CanStopSignalGenerator'] === true,
-    'A configured signal generator must remain stoppable while the alarm output is active without a runtime cache.'
+    $missingRuntimeState['Alarm']['SignalGeneratorActive'] === true
+    && $missingRuntimeState['Capabilities']['CanStopSignalGenerator'] === true,
+    'The explicit signal-generator state must remain available when the escalation runtime cache is missing.'
 );
 assertAlarmAction(
     $missingEscalationRuntime->StopSignalGenerator()
@@ -676,7 +719,8 @@ assertAlarmAction(
 );
 $missingRuntimeState = json_decode($missingEscalationRuntime->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
-    $missingRuntimeState['Capabilities']['CanStopSignalGenerator'] === false,
+    $missingRuntimeState['Alarm']['SignalGeneratorActive'] === false
+    && $missingRuntimeState['Capabilities']['CanStopSignalGenerator'] === false,
     'The signal-generator control must disappear after the configured fallback reset was executed.'
 );
 

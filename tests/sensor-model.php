@@ -384,6 +384,7 @@ assertSensorModel(
         'DelayRemaining',
         'DelaySource',
         'AlarmOutputActive',
+        'SignalGeneratorActive',
         'ReadyToArm',
         'ReadyHome',
         'ReadyAway',

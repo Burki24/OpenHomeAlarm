@@ -147,7 +147,7 @@ Gültig sind beispielsweise `main`, `garage`, `erdgeschoss`, `bereich_1` und `au
 
 ##### Technischer Hintergrund
 
-Änderungen an Bereichen, Sensoren und Störungseingängen sind nur möglich, wenn alle Bereiche unscharf sind. Die Control API 2 veröffentlicht jeden aktiven Bereich mit eigenem Modus, Zustand, Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions`; `DefaultPartition` ist stets `main`. `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Bereichsmetadaten. Laufzeiten, Fristen und Alarmdaten werden neustartsicher gespeichert. Die bestehenden Instanzvariablen `AlarmOutputActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` fassen den Gesamtzustand aller Bereiche zusammen.
+Änderungen an Bereichen, Sensoren und Störungseingängen sind nur möglich, wenn alle Bereiche unscharf sind. Die Control API 2 veröffentlicht jeden aktiven Bereich mit eigenem Modus, Zustand, Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions`; `DefaultPartition` ist stets `main`. `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Bereichsmetadaten. Laufzeiten, Fristen und Alarmdaten werden neustartsicher gespeichert. Die Instanzvariablen `AlarmOutputActive`, `SignalGeneratorActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` fassen den Gesamtzustand aller Bereiche zusammen.
 
 ### 5. Statusvariablen und Darstellungen
 
@@ -160,6 +160,7 @@ OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
 | `DelayRemaining` | Verbleibende Sekunden einer laufenden Ein- oder Ausgangsverzögerung | 0 s |
 | `DelaySource` | Sensor, der die aktuelle Eingangsverzögerung gestartet hat; bei Ausgangsverzögerung leer | leer |
 | `AlarmOutputActive` | Zeigt, ob der Alarmausgang innerhalb eines aktiven Alarms noch aktiv ist | Alarmausgang inaktiv |
+| `SignalGeneratorActive` | Zeigt, ob mindestens eine als Signalgeber markierte Alarmaktion erfolgreich gestartet wurde und getrennt gestoppt werden kann | Signalgeber inaktiv |
 | `ReadyToArm` | Konservative Gesamtbereitschaft über alle überwachten Sensoren | Bereit |
 | `ReadyHome` | Scharfschaltbereitschaft für Zuhause | Bereit |
 | `ReadyAway` | Scharfschaltbereitschaft für Abwesend | Bereit |
@@ -278,7 +279,9 @@ Eine vorhandene Zeile kann über das Zahnrad bearbeitet, über **Aktiv** vorübe
 
 #### Signalgeber separat stoppen
 
-Bei einem aktiven Alarm erscheint in der Kachel zusätzlich **Signalgeber stoppen**, sobald mindestens eine aktive Eskalationsaktion als Signalgeber gekennzeichnet ist. Die Schaltfläche führt ausschließlich die Rücksetzaktionen der Signalgeber aus. Das funktioniert auch dann, wenn nach einem Modulupdate kein vollständiger Laufzeitcache des laufenden Alarms mehr vorhanden ist. Noch nicht gestartete, verzögerte Signalgeber werden für den aktuellen Alarmzyklus unterdrückt. Bei einer erneuten Alarmauslösung beginnt ein neuer Alarmzyklus und die Signalgeber dürfen wieder starten. Der Alarmausgang, das Alarmgedächtnis sowie andere Eskalationsaktionen wie Licht oder Rollläden bleiben beim separaten Stoppen unverändert aktiv. **Alarmaktionen zurücksetzen** bleibt die bewusste Gesamtaktion und setzt anschließend alle noch nicht zurückgesetzten Eskalationsaktionen zurück.
+Nach der erfolgreichen Ausführung einer als **Signalgeber** markierten Eskalationsaktion wechselt die Statusvariable `SignalGeneratorActive` auf **Signalgeber aktiv**. In jeder Area mit aktivem Alarm erscheint dann zusätzlich **Signalgeber stoppen**. Die Schaltfläche führt ausschließlich die Rücksetzaktionen der Signalgeber aus und setzt die Statusvariable wieder auf **Signalgeber inaktiv**. So lässt sich im Symcon-Objektbaum direkt unterscheiden, ob bereits die Aktion nicht gestartet wurde oder lediglich ihre Schaltfläche in einer Area fehlt.
+
+Noch nicht gestartete, verzögerte Signalgeber werden nach dem separaten Stoppen für den aktuellen Alarmzyklus unterdrückt. Bei einer erneuten Alarmauslösung beginnt ein neuer Alarmzyklus und die Signalgeber dürfen wieder starten. Der Alarmausgang, das Alarmgedächtnis sowie andere Eskalationsaktionen wie Licht oder Rollläden bleiben beim separaten Stoppen unverändert aktiv. **Alarmaktionen zurücksetzen** bleibt die bewusste Gesamtaktion und setzt anschließend alle noch nicht zurückgesetzten Eskalationsaktionen zurück.
 
 #### Rücksetzverhalten
 

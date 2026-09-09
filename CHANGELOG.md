@@ -9,6 +9,9 @@ beispielsweise `v1.109.0`.
 
 ### Fixed
 
+- Der Zustand ausgeführter Signalgeber wird über die sichtbare Boolean-Variable
+  `SignalGeneratorActive` geführt. Alarmierte Areas erhalten dadurch zuverlässig
+  die separate Aktion **Signalgeber stoppen**, ohne andere Alarmaktionen zurückzusetzen.
 - Ausgangsweg-Bewegungsmelder dürfen am Ende der Ausgangsverzögerung noch ihren
   nachlaufenden Auslösewert melden, ohne die Scharfschaltung abzubrechen; Kontakte,
   normale, fehlende oder unlesbare Sensoren und blockierende Störungen bleiben strikt.

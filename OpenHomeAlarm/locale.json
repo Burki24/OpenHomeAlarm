@@ -122,6 +122,8 @@
             "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored.": "24/7-Sensoren lösen unabhängig vom aktuellen Scharfmodus sofort aus; Moduszuordnungen sowie Ein-/Ausgangsverzögerung werden ignoriert.",
             "Alarm output active": "Alarmausgang aktiv",
             "Alarm output inactive": "Alarmausgang inaktiv",
+            "Signal generator active": "Signalgeber aktiv",
+            "Signal generator inactive": "Signalgeber inaktiv",
             "Alarm duration (seconds)": "Alarmdauer (Sekunden)",
             "Automatically re-arm after alarm duration": "Nach Ablauf der Alarmdauer automatisch wieder scharf schalten",
             "After the alarm duration ends, the affected area is re-armed in its previous mode only when every relevant sensor and blocking fault is ready.": "Nach Ablauf der Alarmdauer wird der betroffene Bereich nur dann wieder im vorherigen Modus scharf geschaltet, wenn alle relevanten Sensoren und blockierenden Störungen bereit sind.",
