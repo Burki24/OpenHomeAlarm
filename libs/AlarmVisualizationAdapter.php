@@ -19,6 +19,7 @@ final class AlarmVisualizationAdapter
         $normalizedValue = match ($action) {
             'ArmPartition'                                                                                                                            => self::partitionValue($value, true),
             'DisarmPartition', 'ClearSensorBypassesPartition', 'ClearAlarmMemoryPartition', 'ResetAlarmOutputPartition', 'ResetFalseAlarmPartition'   => self::partitionValue($value, false),
+            'ResetFalseAlarmPartitionWithCode'                                                                                                       => self::partitionValue($value, true),
             'DisarmPartitionWithCode'                                                                                                                 => self::partitionValue($value, true),
             'Arm'                                                                                                                                     => self::stringValue($value, 'Arm action requires a mode string.'),
             'DisarmWithCode'                                                                                                                          => self::stringValue($value, 'DisarmWithCode action requires a code string.'),

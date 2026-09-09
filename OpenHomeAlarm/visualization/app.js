@@ -16,6 +16,7 @@ let ohaState = ohaVisualization.state ?? null;
 let ohaSelectedPartitionID = '';
 let ohaCodeBuffer = '';
 let ohaCodeBusy = false;
+let ohaCodeAction = 'DisarmPartitionWithCode';
 let ohaCodeRequestTimer = null;
 let ohaCodeLockTimer = null;
 let ohaIPSViewPollTimer = null;
@@ -1008,6 +1009,7 @@ function ohaHandleDisarmButton() {
     }
 
     if (selectedState?.Capabilities?.CodeRequired) {
+        ohaCodeAction = 'DisarmPartitionWithCode';
         if (!ohaFocusInlineCodepad()) {
             ohaOpenCodepad();
         }
@@ -1015,6 +1017,19 @@ function ohaHandleDisarmButton() {
     }
 
     ohaRequestPartitionAction('DisarmPartition');
+}
+
+function ohaHandleFalseAlarmReset() {
+    const selectedState = ohaSelectedState();
+    if (selectedState?.Capabilities?.CodeRequired) {
+        ohaCodeAction = 'ResetFalseAlarmPartitionWithCode';
+        if (!ohaFocusInlineCodepad()) {
+            ohaOpenCodepad();
+        }
+        return;
+    }
+
+    ohaRequestPartitionAction('ResetFalseAlarmPartition');
 }
 
 function ohaClearCodeRequestTimer() {
@@ -1092,12 +1107,13 @@ function ohaResetCodeEntry() {
     ohaUpdateCodepad();
 }
 
-function ohaOpenCodepad() {
+function ohaOpenCodepad(action = 'DisarmPartitionWithCode') {
     if (!ohaCodeInputAllowed()) {
         return;
     }
 
     const overlay = document.getElementById('codepadOverlay');
+    ohaCodeAction = action;
     ohaResetCodeEntry();
     overlay.hidden = false;
     document.body.classList.add('oha-modal-open');
@@ -1156,7 +1172,11 @@ function ohaSubmitCode() {
     ohaCodeBusy = true;
     ohaSetCodeError('');
     ohaUpdateCodepad();
-    ohaRequestPartitionAction('DisarmPartitionWithCode', code);
+    if (ohaCodeAction === 'DisarmPartitionWithCode') {
+        ohaRequestPartitionAction('DisarmPartitionWithCode', code);
+    } else {
+        ohaRequestPartitionAction(ohaCodeAction, code);
+    }
 
     ohaClearCodeRequestTimer();
     ohaCodeRequestTimer = window.setTimeout(() => {
@@ -1326,7 +1346,7 @@ function ohaHandleInteractiveClick(event) {
         } else if (action === 'ResetAlarmOutput') {
             ohaRequestPartitionAction('ResetAlarmOutputPartition');
         } else if (action === 'ResetFalseAlarm') {
-            ohaRequestPartitionAction('ResetFalseAlarmPartition');
+            ohaHandleFalseAlarmReset();
         } else if (action === 'ClearSensorBypasses') {
             ohaRequestPartitionAction('ClearSensorBypassesPartition');
         } else {

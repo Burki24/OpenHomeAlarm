@@ -1670,6 +1670,16 @@ class OpenHomeAlarm extends IPSModuleStrict
         return true;
     }
 
+    /** Resets a false alarm in one area after validating the configured disarm code. */
+    public function ResetFalseAlarmPartitionWithCode(string $partitionID, string $code): bool
+    {
+        if ($this->AuthorizedDisarmUser($code) === false) {
+            return false;
+        }
+
+        return $this->ResetFalseAlarmPartition($partitionID);
+    }
+
     /**
      * Stops only the escalation actions marked as signal generators.
      *
@@ -3456,6 +3466,20 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->ResetFalseAlarmPartition($Value['PartitionID']);
 
                 return null;
+
+            case 'ResetFalseAlarmPartitionWithCode':
+                if ($this->ResetFalseAlarmPartitionWithCode($Value['PartitionID'], $Value['Value'])) {
+                    return null;
+                }
+
+                $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+
+                return [
+                    'Type'             => 'disarm_code',
+                    'Success'          => false,
+                    'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
+                    'LockoutRemaining' => $codeProtection['LockoutRemaining']
+                ];
 
             case 'StopSignalGenerator':
                 $this->StopSignalGenerator();

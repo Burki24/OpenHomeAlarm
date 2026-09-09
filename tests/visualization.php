@@ -16,6 +16,7 @@ $module = file_get_contents($root . '/OpenHomeAlarm/module.php');
 $html = file_get_contents($root . '/OpenHomeAlarm/visualization/index.html');
 $css = file_get_contents($root . '/OpenHomeAlarm/visualization/style.css');
 $javascript = file_get_contents($root . '/OpenHomeAlarm/visualization/app.js');
+$adapter = file_get_contents($root . '/libs/AlarmVisualizationAdapter.php');
 $locale = json_decode(
     (string) file_get_contents($root . '/OpenHomeAlarm/locale.json'),
     true,
@@ -24,6 +25,7 @@ $locale = json_decode(
 );
 
 assertVisualization(is_string($module), 'module.php must be readable.');
+assertVisualization(is_string($adapter), 'AlarmVisualizationAdapter.php must be readable.');
 assertVisualization(is_string($html) && $html !== '', 'Visualization HTML must be present.');
 assertVisualization(is_string($css) && $css !== '', 'Visualization CSS must be present.');
 assertVisualization(is_string($javascript) && $javascript !== '', 'Visualization JavaScript must be present.');
@@ -147,6 +149,12 @@ assertVisualization(
         && str_contains($module, "case 'DisarmPartitionWithCode':")
         && str_contains($module, '$this->DisarmPartitionWithCode($Value[\'PartitionID\'], $Value[\'Value\'])'),
     'Code-protected visualization disarming must target the selected partition.'
+);
+assertVisualization(
+    str_contains($javascript, "ResetFalseAlarmPartitionWithCode")
+        && str_contains($module, "case 'ResetFalseAlarmPartitionWithCode':")
+        && str_contains($adapter, "'ResetFalseAlarmPartitionWithCode'"),
+    'Code-protected false-alarm resets must use the code-protected partition action.'
 );
 foreach ([
     'BypassSensorPartition',
