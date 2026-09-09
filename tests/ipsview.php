@@ -66,6 +66,7 @@ assertIPSView(
         && str_contains($module, "case 'DisarmWithCode':")
         && str_contains($module, "case 'BypassSensor':")
         && str_contains($module, "case 'ResetAlarmOutput':")
+        && str_contains($module, "case 'ResetFalseAlarm':")
         && str_contains($module, "throw new InvalidArgumentException('Unknown visualization action.');"),
     'The WebHook must share the explicit visualization action whitelist.'
 );

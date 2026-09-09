@@ -429,7 +429,7 @@ assertAlarmDuration(
 $instance->CompleteAlarmDuration();
 assertAlarmDuration(
     ($instance->TestWrittenValues()['State'] ?? null) === 4,
-    'Automatic alarm-output reset must not disarm or clear the Alarm state.'
+    'An active triggering sensor must prevent automatic re-arming after the alarm duration.'
 );
 assertAlarmDuration(
     ($instance->TestWrittenValues()['AlarmOutputActive'] ?? null) === false,
@@ -445,7 +445,15 @@ $history = json_decode($instance->GetEventHistory(), true, 512, JSON_THROW_ON_ER
 assertAlarmDuration(
     ($history[0]['Event'] ?? null) === 'alarm_output_reset'
     && ($history[0]['State'] ?? null) === 4,
-    'Alarm-output reset must be recorded while the system remains in Alarm.'
+    'Alarm-output reset must be recorded when the area is not ready for automatic re-arming.'
+);
+
+// Once the sensor is ready again, the false-alarm control restores the old mode.
+$testValues[7001] = false;
+assertAlarmDuration($instance->ResetFalseAlarm() === true, 'A ready false alarm must be resettable into its previous mode.');
+assertAlarmDuration(
+    ($instance->TestWrittenValues()['State'] ?? null) === 2,
+    'Resetting a ready false alarm must restore Armed instead of disarming the area.'
 );
 
 $instance->CompleteAlarmDuration();
@@ -481,6 +489,30 @@ assertAlarmDuration(
 );
 assertAlarmDuration($testActions === [], 'Manual reset must not execute removed global actions.');
 
+// A marked sensor must restart an already active alarm cycle when it triggers again.
+$testValues[7001] = false;
+$retrigger = new OpenHomeAlarm();
+$retrigger->Create();
+$retrigger->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$retrigger->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$retrigger->TestSetPropertyInteger('AlarmDurationSeconds', 30);
+$retriggerSensor = alarmDurationSensor(7001);
+$retriggerSensor['RetriggerAlarm'] = true;
+$retrigger->TestSetPropertyString('Sensors', json_encode([$retriggerSensor], JSON_THROW_ON_ERROR));
+assertAlarmDuration($retrigger->ArmAway(), 'Retrigger test must arm successfully.');
+$testValues[7001] = true;
+$retrigger->MessageSink(3, 7001, VM_UPDATE, [true, true, false]);
+$testValues[7001] = false;
+$retrigger->MessageSink(3, 7001, VM_UPDATE, [false, false, true]);
+$testValues[7001] = true;
+$retrigger->MessageSink(3, 7001, VM_UPDATE, [true, true, false]);
+$retriggerHistory = json_decode($retrigger->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmDuration(
+    ($retriggerHistory[0]['Event'] ?? null) === 'alarm_retriggered'
+    && ($retrigger->TestTimers()['AlarmDuration']['interval'] ?? 0) > 0,
+    'A selected sensor must renew the alarm duration and record the re-trigger while Alarm is active.'
+);
+
 // Persisted deadlines restore the remaining timeout after ApplyChanges/restart.
 $testActions = [];
 $restart = new OpenHomeAlarm();
@@ -515,9 +547,9 @@ $expired->TestSetAttributeInteger('AlarmDurationDeadline', time() - 1);
 $expired->ApplyChanges();
 assertAlarmDuration($testActions === [], 'An expired alarm deadline must not execute removed global actions during restart recovery.');
 assertAlarmDuration(
-    $expired->TestGetCurrentValue('State') === 4
+    $expired->TestGetCurrentValue('State') === 2
     && ($expired->TestWrittenValues()['AlarmOutputActive'] ?? null) === false,
-    'Expired deadline recovery must keep Alarm latched but mark its output inactive.'
+    'Expired deadline recovery must automatically restore a ready area to Armed.'
 );
 
 $form = json_decode(
@@ -544,6 +576,10 @@ assertAlarmDuration(
     ($fields['AlarmDurationSeconds']['type'] ?? null) === 'NumberSpinner'
     && ($fields['AlarmDurationSeconds']['minimum'] ?? null) === 0,
     'Alarm escalation panel must offer a non-negative alarm duration.'
+);
+assertAlarmDuration(
+    ($fields['AutoRearmAfterAlarm']['type'] ?? null) === 'CheckBox',
+    'Alarm escalation panel must expose the enabled-by-default automatic re-arm option.'
 );
 
 $locale = json_decode(

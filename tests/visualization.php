@@ -154,6 +154,7 @@ foreach ([
     'ClearSensorBypasses',
     'ClearAlarmMemory',
     'ResetAlarmOutput',
+    'ResetFalseAlarm',
     'StopSignalGenerator'
 ] as $operation) {
     assertVisualization(

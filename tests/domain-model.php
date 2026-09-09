@@ -216,6 +216,7 @@ assertDomainSame(
         'CanDisarm'              => true,
         'CanManageBypasses'      => false,
         'CanResetAlarmOutput'    => true,
+        'CanResetFalseAlarm'     => false,
         'CanStopSignalGenerator' => false,
         'CanClearAlarmMemory'    => false
     ],
@@ -332,19 +333,20 @@ $sensors = AlarmConfigurationNormalizer::sensors(
 assertDomainSame(
     [
         [
-            'Enabled'      => true,
-            'PartitionID'  => '',
-            'PartitionIDs' => [],
-            'Name'         => 'Front door',
-            'VariableID'   => 1001,
-            'SensorType'   => 1,
-            'TriggerValue' => '1',
-            'ArmHome'      => true,
-            'ArmAway'      => true,
-            'ArmNight'     => false,
-            'AlwaysActive' => false,
-            'ExitDelay'    => false,
-            'EntryDelay'   => false
+            'Enabled'        => true,
+            'PartitionID'    => '',
+            'PartitionIDs'   => [],
+            'Name'           => 'Front door',
+            'VariableID'     => 1001,
+            'SensorType'     => 1,
+            'TriggerValue'   => '1',
+            'ArmHome'        => true,
+            'ArmAway'        => true,
+            'ArmNight'       => false,
+            'AlwaysActive'   => false,
+            'ExitDelay'      => false,
+            'EntryDelay'     => false,
+            'RetriggerAlarm' => false
         ]
     ],
     $sensors,

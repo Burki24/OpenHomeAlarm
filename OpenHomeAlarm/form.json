@@ -422,6 +422,15 @@
                     "caption": "A value of 0 keeps the alarm output active until it is reset manually or the system is disarmed."
                 },
                 {
+                    "type": "CheckBox",
+                    "name": "AutoRearmAfterAlarm",
+                    "caption": "Automatically re-arm after alarm duration"
+                },
+                {
+                    "type": "Label",
+                    "caption": "After the alarm duration ends, the affected area is re-armed in its previous mode only when every relevant sensor and blocking fault is ready."
+                },
+                {
                     "type": "Label",
                     "caption": "Add one row for each escalation action. Actions with the same delay run together. Use the gear button to select the Symcon action."
                 },

@@ -406,32 +406,34 @@ assertSensorModel(
 
 $configuredSensors = [
     [
-        'Enabled'      => true,
-        'PartitionID'  => 'main',
-        'Name'         => 'Haustür',
-        'VariableID'   => 12345,
-        'SensorType'   => 0,
-        'TriggerValue' => '1',
-        'ArmHome'      => true,
-        'ArmAway'      => true,
-        'ArmNight'     => true,
-        'AlwaysActive' => false,
-        'ExitDelay'    => true,
-        'EntryDelay'   => true
+        'Enabled'        => true,
+        'PartitionID'    => 'main',
+        'Name'           => 'Haustür',
+        'VariableID'     => 12345,
+        'SensorType'     => 0,
+        'TriggerValue'   => '1',
+        'ArmHome'        => true,
+        'ArmAway'        => true,
+        'ArmNight'       => true,
+        'AlwaysActive'   => false,
+        'ExitDelay'      => true,
+        'EntryDelay'     => true,
+        'RetriggerAlarm' => false
     ],
     [
-        'Enabled'      => true,
-        'PartitionID'  => 'main',
-        'Name'         => 'Flur Bewegung',
-        'VariableID'   => 23456,
-        'SensorType'   => 1,
-        'TriggerValue' => 'true',
-        'ArmHome'      => false,
-        'ArmAway'      => true,
-        'ArmNight'     => false,
-        'AlwaysActive' => false,
-        'ExitDelay'    => false,
-        'EntryDelay'   => false
+        'Enabled'        => true,
+        'PartitionID'    => 'main',
+        'Name'           => 'Flur Bewegung',
+        'VariableID'     => 23456,
+        'SensorType'     => 1,
+        'TriggerValue'   => 'true',
+        'ArmHome'        => false,
+        'ArmAway'        => true,
+        'ArmNight'       => false,
+        'AlwaysActive'   => false,
+        'ExitDelay'      => false,
+        'EntryDelay'     => false,
+        'RetriggerAlarm' => false
     ]
 ];
 $instance->TestSetPropertyString(
@@ -456,18 +458,19 @@ $minimalInstance->TestSetPropertyString(
 $minimalSensors = $readConfiguredSensors->invoke($minimalInstance);
 assertSensorModel(
     $minimalSensors === [[
-        'Enabled'      => true,
-        'PartitionID'  => 'main',
-        'Name'         => '',
-        'VariableID'   => 34567,
-        'SensorType'   => 0,
-        'TriggerValue' => '1',
-        'ArmHome'      => false,
-        'ArmAway'      => true,
-        'ArmNight'     => false,
-        'AlwaysActive' => false,
-        'ExitDelay'    => false,
-        'EntryDelay'   => false
+        'Enabled'        => true,
+        'PartitionID'    => 'main',
+        'Name'           => '',
+        'VariableID'     => 34567,
+        'SensorType'     => 0,
+        'TriggerValue'   => '1',
+        'ArmHome'        => false,
+        'ArmAway'        => true,
+        'ArmNight'       => false,
+        'AlwaysActive'   => false,
+        'ExitDelay'      => false,
+        'EntryDelay'     => false,
+        'RetriggerAlarm' => false
     ]],
     'Missing optional sensor fields must receive stable defaults.'
 );

@@ -73,7 +73,10 @@ function ohaEventCaption(eventName) {
         armed: 'System armed',
         entry_delay_started: 'Entry delay started',
         alarm: 'Alarm triggered',
+        alarm_retriggered: 'Alarm retriggered',
         alarm_output_reset: 'Alarm output reset',
+        alarm_rearmed: 'Alarm re-armed',
+        false_alarm_reset: 'False alarm reset',
         disarmed: 'System disarmed',
         disarm_code_rejected: 'Disarm code rejected',
         disarm_code_locked: 'Code entry locked',
@@ -790,6 +793,8 @@ function ohaRenderDisarm(state) {
     const canDisarm = ohaCanDisarm(state);
     const resetAlarmOutputButton = document.getElementById('resetAlarmOutputButton');
     const canResetAlarmOutput = Boolean(state.Capabilities?.CanResetAlarmOutput);
+    const resetFalseAlarmButton = document.getElementById('resetFalseAlarmButton');
+    const canResetFalseAlarm = Boolean(state.Capabilities?.CanResetFalseAlarm);
     const stopSignalGeneratorButton = document.getElementById('stopSignalGeneratorButton');
     const canStopSignalGenerator = Boolean(state.Capabilities?.CanStopSignalGenerator);
 
@@ -808,6 +813,9 @@ function ohaRenderDisarm(state) {
     resetAlarmOutputButton.hidden = !canResetAlarmOutput;
     resetAlarmOutputButton.dataset.enabled = canResetAlarmOutput ? 'true' : 'false';
     document.getElementById('resetAlarmOutputLabel').textContent = ohaTranslate('Reset alarm actions');
+    resetFalseAlarmButton.hidden = !canResetFalseAlarm;
+    resetFalseAlarmButton.dataset.enabled = canResetFalseAlarm ? 'true' : 'false';
+    document.getElementById('resetFalseAlarmLabel').textContent = ohaTranslate('Reset false alarm');
     codeHint.hidden = !codeRequired;
     codeHint.textContent = codeRequired
         ? ohaTranslate(codeLocked ? 'Code entry is temporarily locked.' : 'Code required for disarming')
@@ -1317,6 +1325,8 @@ function ohaHandleInteractiveClick(event) {
             ohaRequestAction('StopSignalGenerator', true);
         } else if (action === 'ResetAlarmOutput') {
             ohaRequestPartitionAction('ResetAlarmOutputPartition');
+        } else if (action === 'ResetFalseAlarm') {
+            ohaRequestPartitionAction('ResetFalseAlarmPartition');
         } else if (action === 'ClearSensorBypasses') {
             ohaRequestPartitionAction('ClearSensorBypassesPartition');
         } else {

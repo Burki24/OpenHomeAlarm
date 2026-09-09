@@ -104,7 +104,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_ARMED = 'armed';
     private const EVENT_ENTRY_DELAY_STARTED = 'entry_delay_started';
     private const EVENT_ALARM = 'alarm';
+    private const EVENT_ALARM_RETRIGGERED = 'alarm_retriggered';
     private const EVENT_ALARM_OUTPUT_RESET = 'alarm_output_reset';
+    private const EVENT_ALARM_REARMED = 'alarm_rearmed';
+    private const EVENT_FALSE_ALARM_RESET = 'false_alarm_reset';
     private const EVENT_DISARMED = 'disarmed';
     private const EVENT_DISARM_CODE_REJECTED = 'disarm_code_rejected';
     private const EVENT_DISARM_CODE_LOCKED = 'disarm_code_locked';
@@ -148,6 +151,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
     private const PROPERTY_COUNTDOWN_ACTION = 'CountdownAction';
     private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
+    private const PROPERTY_AUTO_REARM_AFTER_ALARM = 'AutoRearmAfterAlarm';
     private const PROPERTY_ALARM_ESCALATION_STEPS = 'AlarmEscalationSteps';
     private const PROPERTY_FAULT_ACTION = 'FaultAction';
     private const PROPERTY_FAULT_CLEARED_ACTION = 'FaultClearedAction';
@@ -283,6 +287,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
         $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_ACTION, 'false');
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
+        $this->RegisterBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM, true);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS, '[]');
         $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, 'false');
@@ -850,7 +855,11 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->IsDisarmCodeProtectionEnabled(),
                 $alarmMemory,
                 $alarmOutputActive,
-                $this->HasStoppableSignalGenerator()
+                $this->HasStoppableSignalGenerator(),
+                $state === self::STATE_ALARM && $this->CanRearmPartition(
+                    $defaultPartition['ID'],
+                    ['Mode' => $mode, 'State' => $state]
+                )
             ),
             'Modes' => [
                 'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs),
@@ -914,7 +923,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->IsDisarmCodeProtectionEnabled(),
                 $partitionAlarm['MemoryActive'],
                 $partitionAlarm['OutputActive'],
-                $this->HasStoppableSignalGenerator()
+                $this->HasStoppableSignalGenerator(),
+                $this->CanRearmPartition($partition['ID'], $runtime)
             );
             $current['Modes'] = [
                 'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $partitionReadiness['home'], $partitionIsDisarmed, $partitionSensors, $partitionFaults),
@@ -1207,7 +1217,18 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($isSensorVariable) {
             $this->HandleNonDefaultPartitionSensorUpdate($SenderID, $sensors);
         }
-        if ($this->ReadAlarmState() === self::STATE_ALARM || !$isSensorVariable) {
+        if ($this->ReadAlarmState() === self::STATE_ALARM) {
+            if ($isSensorVariable) {
+                $this->HandleDefaultPartitionAlarmRetrigger(
+                    $SenderID,
+                    $this->SensorsForPartition($sensors, $this->DefaultPartitionID())
+                );
+            }
+            $this->PublishVisualizationState();
+
+            return;
+        }
+        if (!$isSensorVariable) {
             $this->PublishVisualizationState();
 
             return;
@@ -1574,6 +1595,43 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $actionSucceeded;
     }
 
+    /** Resets a false alarm, clears its memory and re-arms the ready area. */
+    public function ResetFalseAlarm(): bool
+    {
+        return $this->ResetFalseAlarmPartition($this->DefaultPartitionID());
+    }
+
+    /** Resets a false alarm in one area without changing any other area. */
+    public function ResetFalseAlarmPartition(string $partitionID): bool
+    {
+        try {
+            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+        $runtime = $this->ReadPartitionRuntime();
+        if (!$this->CanRearmPartition($partitionID, $runtime[$partitionID] ?? null)) {
+            return false;
+        }
+
+        $this->ResetPartitionAlarmOutputInternal($partitionID);
+        $states = $this->ReadPartitionAlarmStates();
+        $states[$partitionID] = AlarmPartitionAlarmRegistry::clearMemory($states[$partitionID]);
+        $this->WritePartitionAlarmStates($states);
+        $this->SynchronizePartitionAlarmSummary($states);
+        $this->RearmPartitionAfterAlarm($partitionID, $runtime);
+        $this->AppendEvent(
+            self::EVENT_FALSE_ALARM_RESET,
+            '',
+            $runtime[$partitionID]['Mode'],
+            self::STATE_ARMED,
+            $partitionID
+        );
+        $this->PublishVisualizationState();
+
+        return true;
+    }
+
     /**
      * Stops only the escalation actions marked as signal generators.
      *
@@ -1594,7 +1652,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Completes the configured alarm duration and resets only the alarm output.
+     * Completes the configured alarm duration, resets its actions and optionally
+     * re-arms ready areas in their previous mode.
      */
     public function CompleteAlarmDuration(): void
     {
@@ -1637,6 +1696,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($before['OutputActive'] && !$after['OutputActive']) {
             $this->ResetExecutedAlarmEscalationActions();
             $this->StopAlarmEscalation();
+        }
+        if ($this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM)) {
+            $runtime = $this->ReadPartitionRuntime();
+            foreach ($expiredPartitionIDs as $partitionID) {
+                $this->RearmPartitionAfterAlarm($partitionID, $runtime);
+            }
         }
         $this->PublishVisualizationState();
     }
@@ -1942,6 +2007,15 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'type'    => 'CheckBox',
                 'name'    => 'EntryDelay',
                 'caption' => $this->Translate('Entry delay')
+            ],
+            [
+                'type'    => 'CheckBox',
+                'name'    => 'RetriggerAlarm',
+                'caption' => $this->Translate('Retrigger alarm while active')
+            ],
+            [
+                'type'    => 'Label',
+                'caption' => $this->Translate('Use this for motion detectors or other sensors that should restart the alarm duration and escalation actions when they trigger again during an active alarm.')
             ],
             [
                 'type'    => 'Label',
@@ -2624,6 +2698,23 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
+    /** Restarts the shared escalation plan and renews the affected output deadline. */
+    private function RetriggerPartitionAlarm(string $partitionID, string $source): void
+    {
+        $this->RecordPartitionAlarm($partitionID, $source);
+        $this->ResetExecutedAlarmEscalationActions();
+        $this->StopAlarmEscalation();
+        $this->StartAlarmEscalation();
+        $runtime = $this->ReadPartitionRuntime();
+        $this->AppendEvent(
+            self::EVENT_ALARM_RETRIGGERED,
+            $source,
+            $runtime[$partitionID]['Mode'],
+            $runtime[$partitionID]['State'],
+            $partitionID
+        );
+    }
+
     private function ResetPartitionAlarmOutputInternal(string $partitionID): bool
     {
         $states = $this->ReadPartitionAlarmStates();
@@ -3253,6 +3344,11 @@ class OpenHomeAlarm extends IPSModuleStrict
 
                 return null;
 
+            case 'ResetFalseAlarmPartition':
+                $this->ResetFalseAlarmPartition($Value['PartitionID']);
+
+                return null;
+
             case 'StopSignalGenerator':
                 $this->StopSignalGenerator();
 
@@ -3323,6 +3419,11 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             case 'ResetAlarmOutput':
                 $this->ResetAlarmOutput();
+
+                return null;
+
+            case 'ResetFalseAlarm':
+                $this->ResetFalseAlarm();
 
                 return null;
 
@@ -5159,6 +5260,55 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * A re-arm must be strict: no active exit-route sensor or blocking fault is
+     * accepted after an alarm, even when normal arming uses an exit delay.
+     *
+     * @param array{Mode:int,State:int}|null $runtime
+     */
+    private function CanRearmPartition(string $partitionID, ?array $runtime): bool
+    {
+        if ($runtime === null
+            || $runtime['State'] !== self::STATE_ALARM
+            || !AlarmStateMachine::isArmingMode($runtime['Mode'])) {
+            return false;
+        }
+        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
+        $faults = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $partitionID);
+        $readiness = $this->ApplyFaultBlockingToReadiness(
+            $this->EvaluateReadinessStatus($sensors, true, false)['readiness'],
+            $faults
+        );
+
+        return $this->IsModeReady($runtime['Mode'], $readiness);
+    }
+
+    /** @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}>|null $runtime */
+    private function RearmPartitionAfterAlarm(string $partitionID, ?array $runtime = null): bool
+    {
+        $runtime ??= $this->ReadPartitionRuntime();
+        if (!$this->CanRearmPartition($partitionID, $runtime[$partitionID] ?? null)) {
+            return false;
+        }
+        $mode = $runtime[$partitionID]['Mode'];
+        if ($partitionID === $this->DefaultPartitionID()) {
+            $this->CancelDelayTimers();
+            $this->SetAlarmState(self::STATE_ARMED);
+        } else {
+            $runtime[$partitionID] = AlarmPartitionRuntime::arm(
+                AlarmPartitionRuntime::disarm($runtime[$partitionID]),
+                $mode,
+                time(),
+                0
+            );
+            $this->WritePartitionRuntime($runtime);
+            $this->SchedulePartitionRuntimeTimer($runtime);
+        }
+        $this->AppendEvent(self::EVENT_ALARM_REARMED, '', $mode, self::STATE_ARMED, $partitionID);
+
+        return true;
+    }
+
+    /**
      * @param array{global:bool,home:bool,away:bool,night:bool} $readiness
      */
     private function IsModeReady(int $mode, array $readiness): bool
@@ -5634,13 +5784,22 @@ class OpenHomeAlarm extends IPSModuleStrict
         $states = $this->ReadPartitionRuntime();
         $changed = false;
         $newAlarms = [];
+        $retriggered = [];
         foreach ($sensors as $sensor) {
             $partitionID = $sensor['PartitionID'];
             if ($partitionID === $defaultID || $sensor['VariableID'] !== $variableID || !$sensor['Enabled']) {
                 continue;
             }
             $state = $states[$partitionID];
-            if ($state['State'] === self::STATE_ALARM || $this->GetSensorTriggerState($sensor) !== true) {
+            if ($this->GetSensorTriggerState($sensor) !== true) {
+                continue;
+            }
+            if ($state['State'] === self::STATE_ALARM) {
+                if ($sensor['RetriggerAlarm']
+                    && !$this->IsSensorBypassed($sensor)
+                    && ($sensor['AlwaysActive'] || $this->IsSensorRelevantForMode($sensor, $state['Mode']))) {
+                    $retriggered[$partitionID] = $this->ResolveSensorDisplayName($sensor);
+                }
                 continue;
             }
             if ($sensor['AlwaysActive']) {
@@ -5685,6 +5844,33 @@ class OpenHomeAlarm extends IPSModuleStrict
                     $partitionID
                 );
             }
+        }
+        foreach ($retriggered as $partitionID => $source) {
+            $this->RetriggerPartitionAlarm($partitionID, $source);
+        }
+    }
+
+    /**
+     * Re-triggers selected sensors in the main area while it is already in Alarm.
+     * This deliberately ignores entry delay: a repeated alarm is immediate.
+     *
+     * @param list<array<string,mixed>> $sensors
+     */
+    private function HandleDefaultPartitionAlarmRetrigger(int $variableID, array $sensors): void
+    {
+        $mode = $this->ReadAlarmMode();
+        foreach ($sensors as $sensor) {
+            if (!$sensor['Enabled']
+                || !$sensor['RetriggerAlarm']
+                || $sensor['VariableID'] !== $variableID
+                || $this->IsSensorBypassed($sensor)
+                || $this->GetSensorTriggerState($sensor) !== true
+                || (!$sensor['AlwaysActive'] && (!$this->IsSensorRelevantForMode($sensor, $mode)))) {
+                continue;
+            }
+            $this->RetriggerPartitionAlarm($this->DefaultPartitionID(), $this->ResolveSensorDisplayName($sensor));
+
+            return;
         }
     }
 
