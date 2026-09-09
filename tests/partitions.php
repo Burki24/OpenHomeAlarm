@@ -131,10 +131,13 @@ foreach ([$moduleReadme, $rootReadme] as $readme) {
     assertPartition(
         str_contains($readme, "OHA_ArmPartition(12345, 'garage', 'away')")
             && str_contains($readme, "OHA_DisarmPartition(12345, 'garage')")
+            && str_contains($readme, "['Partitions']['garage']")
+            && str_contains($readme, "['State']['Name']")
+            && str_contains($readme, "'exit_delay', 'armed', 'entry_delay', 'alarm'")
             && str_contains($readme, '1 bis 32')
             && str_contains($readme, '`garage`')
             && str_contains($readme, 'Gesamtanlage'),
-        'Both READMEs must document partition IDs, the fixed main area and independent operation.'
+        'Both READMEs must document partition IDs, the fixed main area, independent operation and partition status queries.'
     );
 }
 

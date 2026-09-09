@@ -60,6 +60,34 @@ Für alle aktiven Bereiche gemeinsam verwenden Sie `OHA_ArmHome()`,
 über den Hauptbereich wird nur ausgeführt, wenn jeder aktive Bereich bereit ist;
 bei einem Blocker bleibt kein Bereich teilweise scharfgeschaltet.
 
+### Status eines Alarmbereichs im Script abfragen
+
+Die Statusvariablen unter der Instanz beschreiben den Gesamtzustand. Für einen
+einzelnen Alarmbereich lesen Sie den öffentlichen JSON-Status mit
+`OHA_GetControlState()` aus. Im folgenden Beispiel wird geprüft, ob die Garage
+gerade überwacht wird:
+
+```php
+$state = json_decode(OHA_GetControlState(12345), true, 512, JSON_THROW_ON_ERROR);
+$garage = $state['Partitions']['garage'] ?? null;
+$garageState = $garage['State']['Name'] ?? 'disarmed';
+
+$garageIsArmed = in_array(
+    $garageState,
+    ['exit_delay', 'armed', 'entry_delay', 'alarm'],
+    true
+);
+
+if ($garageIsArmed) {
+    // Abhängigkeit einschalten, zum Beispiel Licht oder eine Anwesenheitssimulation.
+}
+```
+
+`Mode.Name` enthält den aktiven Modus (`home`, `away` oder `night`).
+`State.Name` ist einer der Werte `disarmed`, `exit_delay`, `armed`,
+`entry_delay` oder `alarm`. Die Bereichs-ID `garage` ersetzen Sie durch die ID
+Ihres eigenen Bereichs.
+
 **Aktiv** bedeutet nur, dass ein Bereich verwendet werden kann; es schaltet ihn
 nicht scharf. Kachel und IPSView bieten eine Auswahl aller aktiven Bereiche.
 

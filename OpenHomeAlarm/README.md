@@ -149,6 +149,30 @@ Gültig sind beispielsweise `main`, `garage`, `erdgeschoss`, `bereich_1` und `au
 
 Änderungen an Bereichen, Sensoren und Störungseingängen sind nur möglich, wenn alle Bereiche unscharf sind. Die Control API 2 veröffentlicht jeden aktiven Bereich mit eigenem Modus, Zustand, Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions`; `DefaultPartition` ist stets `main`. `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Bereichsmetadaten. Laufzeiten, Fristen und Alarmdaten werden neustartsicher gespeichert. Die Instanzvariablen `AlarmOutputActive`, `SignalGeneratorActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` fassen den Gesamtzustand aller Bereiche zusammen.
 
+##### Bereichsstatus in eigenen Skripten
+
+Für Abhängigkeiten wie Licht, Heizung oder Anwesenheitssimulation verwenden Sie
+`OHA_GetControlState($InstanzID)`. Die Variablen `Mode` und `State` unter der
+Instanz bilden keinen einzelnen Alarmbereich ab. Jeder aktive Bereich liegt
+unter `Partitions` und wird über seine Bereichs-ID angesprochen:
+
+```php
+$state = json_decode(OHA_GetControlState(12345), true, 512, JSON_THROW_ON_ERROR);
+$garage = $state['Partitions']['garage'] ?? null;
+$stateName = $garage['State']['Name'] ?? 'disarmed';
+
+$garageIsArmed = in_array(
+    $stateName,
+    ['exit_delay', 'armed', 'entry_delay', 'alarm'],
+    true
+);
+```
+
+`$garageIsArmed` ist damit auch während der Ein- und Ausgangsverzögerung sowie
+während eines Alarms `true`. Für den Scharfmodus steht zusätzlich
+`$garage['Mode']['Name']` mit `home`, `away` oder `night` bereit. Eine fehlende
+oder deaktivierte Bereichs-ID wird durch den Fallback als `disarmed` behandelt.
+
 ### 5. Statusvariablen und Darstellungen
 
 OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
@@ -369,7 +393,7 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 
 | PHP-Befehl | Rückgabe | Bedeutung |
 | --- | --- | --- |
-| `OHA_GetControlState($InstanzID)` | `string` | Liefert den versionierten, strukturierten Bedienzustand als JSON; vorgesehen als einzige Statusquelle der eigenen Visualisierung |
+| `OHA_GetControlState($InstanzID)` | `string` | Liefert den versionierten, strukturierten Bedienzustand als JSON; `Partitions[$BereichID]` enthält Modus, Zustand und Laufzeitdaten jedes aktiven Bereichs und ist die Statusquelle für eigene Skripte und Visualisierungen |
 | `OHA_GetPartitions($InstanzID)` | `string` | Liefert die konfigurierten Partitionsmetadaten als JSON |
 | `OHA_GetDiagnostics($InstanzID)` | `string` | Liefert einen rein lesenden Diagnose-Snapshot aller konfigurierten Sensoren und Störungseingänge als JSON |
 | `OHA_ExportDiagnostics($InstanzID, $Format)` | `string` | Exportiert den aktuellen Diagnose-Snapshot als `json` oder `csv` |
