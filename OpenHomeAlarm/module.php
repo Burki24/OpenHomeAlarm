@@ -6233,9 +6233,12 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
+        $signalGeneratorKeys = $signalGeneratorsOnly ? $this->ConfiguredSignalGeneratorActionKeys() : [];
         $resetAnyAction = false;
         foreach (array_reverse($runtime['ExecutedActions']) as $executedAction) {
-            if ($signalGeneratorsOnly && !$executedAction['SignalGenerator']) {
+            if ($signalGeneratorsOnly
+                && !$executedAction['SignalGenerator']
+                && !in_array($executedAction['Key'], $signalGeneratorKeys, true)) {
                 continue;
             }
             if ($executedAction['ResetMode'] === 0 || in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
@@ -6292,8 +6295,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             return false;
         }
 
+        $signalGeneratorKeys = $this->ConfiguredSignalGeneratorActionKeys();
         foreach ($runtime['ExecutedActions'] as $executedAction) {
-            if ($executedAction['SignalGenerator']
+            if (($executedAction['SignalGenerator']
+                || in_array($executedAction['Key'], $signalGeneratorKeys, true))
                 && $executedAction['ResetMode'] !== 0
                 && !in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
                 return true;
@@ -6301,6 +6306,21 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return false;
+    }
+
+    /** @return list<string> */
+    private function ConfiguredSignalGeneratorActionKeys(): array
+    {
+        $keys = [];
+        foreach ($this->ReadConfiguredAlarmEscalationSteps() as $stepIndex => $step) {
+            foreach ($step['Actions'] as $actionIndex => $action) {
+                if ($action['Enabled'] && $action['SignalGenerator']) {
+                    $keys[] = AlarmEscalationPlan::actionKey($step, $stepIndex, $action, $actionIndex);
+                }
+            }
+        }
+
+        return $keys;
     }
 
     /**

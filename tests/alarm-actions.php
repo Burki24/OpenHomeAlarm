@@ -597,6 +597,16 @@ assertAlarmAction(
     && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, true, 2],
     'A due escalation step must execute all configured actions.'
 );
+// Runtime entries created before the signal-generator marker was persisted must
+// still be recognized from the current escalation configuration.
+$legacyRuntime = json_decode($multiEscalation->TestAttributes()['AlarmEscalationRuntime'], true, 512, JSON_THROW_ON_ERROR);
+$legacyRuntime['ExecutedActions'][1]['SignalGenerator'] = false;
+$multiEscalation->TestSetAttributeString('AlarmEscalationRuntime', json_encode($legacyRuntime, JSON_THROW_ON_ERROR));
+$legacyState = json_decode($multiEscalation->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $legacyState['Capabilities']['CanStopSignalGenerator'] === true,
+    'A signal generator must remain stoppable when its runtime entry lacks the marker.'
+);
 assertAlarmAction($multiEscalation->StopSignalGenerator(), 'An active signal generator must be stoppable without resetting the alarm output.');
 assertAlarmAction(
     count($testActions) === 4
