@@ -301,17 +301,21 @@ assertVisualization(
     'Visualization must shield scrolled content below the sticky Symcon tile title.'
 );
 assertVisualization(
-    str_contains($css, 'html:not(.oha-ipsview) .oha-shell')
+    str_contains($html, 'id="tileScrollContent"')
+        && str_contains($css, '.oha-scroll-content {')
+        && str_contains($css, 'html:not(.oha-ipsview) .oha-shell')
         && str_contains($css, 'overscroll-behavior-y: contain;')
         && str_contains($css, 'height: 100dvh;'),
-    'Native tiles must keep scrolling inside the tile instead of moving the host navigation.'
+    'Native tiles must provide an internal scroll region instead of moving the host navigation.'
 );
 assertVisualization(
-    preg_match('/@media \(max-width: 620px\) \{.*?\.oha-topbar-actions \{\s+top: 11px;\s+box-shadow: 0 0 0 11px/s', $css) === 1
-        && preg_match('/@media \(max-width: 620px\) \{.*?\.oha-partition-nav \{\s+min-height: 68px;/s', $css) === 1
+    preg_match('/@media \(max-width: 620px\) \{.*?html:not\(\.oha-ipsview\) \.oha-shell \{.*?overflow: hidden;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-topbar-actions \{\s+position: static;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-scroll-content \{.*?overflow-y: auto;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-nav \{\s+min-height: 68px;/s', $css) === 1
         && str_contains($css, 'min-height: 46px;')
         && str_contains($css, 'scroll-padding-inline: 4px;'),
-    'Mobile tiles must keep the header and area navigation from covering each other.'
+    'Mobile tiles must keep the fixed title outside the content scroll region and reserve space for area navigation.'
 );
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');

@@ -147,6 +147,10 @@ button:focus-visible {
     background: var(--oha-bg);
 }
 
+.oha-scroll-content {
+    display: contents;
+}
+
 html:not(.oha-ipsview) .oha-shell {
     height: 100vh;
     height: 100dvh;
@@ -1346,12 +1350,33 @@ html:not(.oha-ipsview) .oha-shell {
         padding: 11px;
     }
 
-    .oha-topbar-actions {
-        top: 11px;
-        box-shadow: 0 0 0 11px var(--oha-bg);
+    html:not(.oha-ipsview) .oha-shell {
+        grid-template-rows: 38px minmax(0, 1fr);
+        gap: 0;
+        overflow: hidden;
     }
 
-    .oha-partition-nav {
+    html:not(.oha-ipsview) .oha-topbar-actions {
+        position: static;
+        top: auto;
+        z-index: auto;
+        box-shadow: none;
+    }
+
+    html:not(.oha-ipsview) .oha-scroll-content {
+        display: grid;
+        min-height: 0;
+        align-content: start;
+        gap: 11px;
+        padding-top: 11px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-y;
+    }
+
+    html:not(.oha-ipsview) .oha-partition-nav {
         min-height: 68px;
         align-items: stretch;
         flex-direction: column;
@@ -1359,7 +1384,7 @@ html:not(.oha-ipsview) .oha-shell {
         padding: 0;
     }
 
-    .oha-partition-tabs {
+    html:not(.oha-ipsview) .oha-partition-tabs {
         width: 100%;
         min-height: 46px;
         padding: 6px 4px;
