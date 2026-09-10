@@ -326,6 +326,13 @@ assertVisualization(
         && preg_match('/\.oha-shell\[data-state="exit_delay"\] \.oha-hero-meta.*?grid-column: 3;.*?grid-row: 1;/s', $css) === 1,
     'Mobile countdown states must keep responsive status text and the remaining time together in the visible hero row.'
 );
+assertVisualization(
+    str_contains($javascript, 'function ohaSchedulePartitionNavHeight()')
+        && str_contains($javascript, 'child.getBoundingClientRect().bottom')
+        && str_contains($javascript, 'nav.style.height = `${measuredHeight}px`;')
+        && str_contains($javascript, "window.addEventListener('resize', ohaSchedulePartitionNavHeight"),
+    'Mobile partition navigation must use its rendered rows to keep following content below the controls in WebViews.'
+);
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
 assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');

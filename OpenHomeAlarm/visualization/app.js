@@ -21,6 +21,7 @@ let ohaCodeRequestTimer = null;
 let ohaCodeLockTimer = null;
 let ohaIPSViewPollTimer = null;
 let ohaIPSViewPendingRequests = 0;
+let ohaPartitionLayoutFrame = null;
 
 function ohaTranslate(text) {
     if (typeof translate === 'function') {
@@ -182,6 +183,32 @@ function ohaSelectedState(state = ohaState) {
     };
 }
 
+function ohaSchedulePartitionNavHeight() {
+    if (ohaPartitionLayoutFrame !== null) {
+        window.cancelAnimationFrame(ohaPartitionLayoutFrame);
+    }
+
+    ohaPartitionLayoutFrame = window.requestAnimationFrame(() => {
+        ohaPartitionLayoutFrame = null;
+        const nav = document.getElementById('partitionNav');
+        const tabs = document.getElementById('partitionTabs');
+        nav.style.removeProperty('height');
+
+        if (nav.hidden || document.documentElement.classList.contains('oha-ipsview')
+            || !window.matchMedia('(max-width: 620px)').matches) {
+            return;
+        }
+
+        const navTop = nav.getBoundingClientRect().top;
+        const renderedBottom = Array.from(tabs.children).reduce(
+            (bottom, child) => Math.max(bottom, child.getBoundingClientRect().bottom),
+            tabs.getBoundingClientRect().bottom
+        );
+        const measuredHeight = Math.max(68, Math.ceil(renderedBottom - navTop + 6));
+        nav.style.height = `${measuredHeight}px`;
+    });
+}
+
 function ohaRenderPartitions(state) {
     const nav = document.getElementById('partitionNav');
     const tabs = document.getElementById('partitionTabs');
@@ -190,6 +217,7 @@ function ohaRenderPartitions(state) {
     document.getElementById('ohaRoot').dataset.partitionSelectorVisible = nav.hidden ? 'false' : 'true';
     tabs.replaceChildren();
     if (nav.hidden) {
+        ohaSchedulePartitionNavHeight();
         return;
     }
 
@@ -249,6 +277,7 @@ function ohaRenderPartitions(state) {
         button.append(indicator, label, badges);
         tabs.appendChild(button);
     }
+    ohaSchedulePartitionNavHeight();
 }
 
 function ohaRequestPartitionAction(action, value = null) {
@@ -1494,6 +1523,11 @@ if (typeof ohaDesktopCodepadQuery.addEventListener === 'function') {
             ohaCloseCodepad();
         }
     });
+}
+
+window.addEventListener('resize', ohaSchedulePartitionNavHeight, { passive: true });
+if (document.fonts?.ready) {
+    document.fonts.ready.then(ohaSchedulePartitionNavHeight);
 }
 
 if (ohaIPSViewConfig) {
