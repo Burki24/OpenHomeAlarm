@@ -1347,8 +1347,22 @@ html:not(.oha-ipsview) .oha-shell {
     }
 
     .oha-topbar-actions {
-        top: 11px;
-        box-shadow: 0 0 0 11px var(--oha-bg);
+        position: static;
+        box-shadow: none;
+    }
+
+    .oha-partition-nav {
+        min-height: 0;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 3px;
+        padding: 0;
+    }
+
+    .oha-partition-tabs {
+        width: 100%;
+        padding: 6px 4px;
+        scroll-padding-inline: 4px;
     }
 
     .oha-section-hint {

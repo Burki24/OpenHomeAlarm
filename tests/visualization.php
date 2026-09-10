@@ -306,6 +306,12 @@ assertVisualization(
         && str_contains($css, 'height: 100dvh;'),
     'Native tiles must keep scrolling inside the tile instead of moving the host navigation.'
 );
+assertVisualization(
+    preg_match('/@media \(max-width: 620px\) \{.*?\.oha-topbar-actions \{\s+position: static;/s', $css) === 1
+        && preg_match('/@media \(max-width: 620px\) \{.*?\.oha-partition-nav \{\s+min-height: 0;/s', $css) === 1
+        && str_contains($css, 'scroll-padding-inline: 4px;'),
+    'Mobile tiles must keep the header and area navigation from covering each other.'
+);
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
 assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');
