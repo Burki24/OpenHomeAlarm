@@ -1399,8 +1399,8 @@ html:not(.oha-ipsview) .oha-shell {
         grid-template-columns: 1fr 1fr;
     }
 
-    .oha-hero {
-        min-height: 0;
+    html:not(.oha-ipsview) .oha-hero {
+        min-height: 154px;
         padding: 16px;
     }
 

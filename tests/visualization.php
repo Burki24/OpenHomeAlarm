@@ -313,9 +313,10 @@ assertVisualization(
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-topbar-actions \{\s+position: static;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-scroll-content \{.*?overflow-y: auto;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-nav \{\s+min-height: 68px;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-hero \{\s+min-height: 154px;/s', $css) === 1
         && str_contains($css, 'min-height: 46px;')
         && str_contains($css, 'scroll-padding-inline: 4px;'),
-    'Mobile tiles must keep the fixed title outside the content scroll region and reserve space for area navigation.'
+    'Mobile tiles must keep the fixed title outside the content scroll region and reserve space for area navigation and security status.'
 );
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
