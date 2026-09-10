@@ -169,9 +169,15 @@ assertCodepad(str_contains($css, '.oha-code-grid'), 'The numeric code grid must 
 assertCodepad(str_contains($css, '@media (max-width: 420px)'), 'The codepad must have a mobile layout.');
 assertCodepad(
     str_contains($css, 'touch-action: pan-y;')
-        && str_contains($css, 'max-height: 100vh;')
-        && str_contains($css, 'max-height: 100dvh;'),
+        && str_contains($css, 'max-height: calc(100vh - 24px);')
+        && str_contains($css, 'max-height: calc(100dvh - 24px);'),
     'The mobile codepad must stay scrollable and constrained to the visible viewport.'
+);
+assertCodepad(
+    str_contains($css, '--oha-popup-background: var(--symc-background);')
+        && str_contains($css, 'place-items: center;')
+        && !str_contains($css, 'place-items: end stretch;'),
+    'The mobile codepad must use an opaque theme surface and be centered in the viewport.'
 );
 
 $translations = $locale['translations']['de'] ?? [];

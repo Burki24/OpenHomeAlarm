@@ -26,7 +26,7 @@
     --oha-danger-soft: var(--symc-danger-soft);
     --oha-danger-contrast: #ffffff;
     --oha-control-inactive: var(--symc-surface);
-    --oha-popup-background: var(--symc-surface-raised);
+    --oha-popup-background: var(--symc-background);
     --oha-popup-border: var(--symc-border);
     --oha-popup-shadow: none;
     --oha-disabled-opacity: 0.48;
@@ -1459,8 +1459,8 @@ html:not(.oha-ipsview) .oha-shell {
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
-    background: rgba(8, 13, 24, 0.58);
-    backdrop-filter: blur(5px);
+    background: rgba(8, 13, 24, 0.42);
+    backdrop-filter: blur(4px);
 }
 
 .oha-codepad {
@@ -1749,21 +1749,18 @@ html:not(.oha-ipsview) .oha-shell {
 
 @media (max-width: 420px) {
     .oha-codepad-overlay {
-        align-items: end;
-        place-items: end stretch;
-        padding: 0;
+        place-items: center;
+        padding: 12px;
     }
 
     .oha-codepad {
-        width: 100%;
-        max-height: 100vh;
-        max-height: 100dvh;
+        width: min(100%, 360px);
+        max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
         margin: 0;
-        padding: 16px 16px max(16px, env(safe-area-inset-bottom));
-        border-right: 0;
-        border-bottom: 0;
-        border-left: 0;
-        border-radius: 20px 20px 0 0;
+        padding: 16px;
+        border-radius: 20px;
+        box-shadow: 0 12px 32px rgba(8, 13, 24, 0.2);
     }
 
     .oha-code-key {
