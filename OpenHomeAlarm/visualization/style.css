@@ -1347,12 +1347,12 @@ html:not(.oha-ipsview) .oha-shell {
     }
 
     .oha-topbar-actions {
-        position: static;
-        box-shadow: none;
+        top: 11px;
+        box-shadow: 0 0 0 11px var(--oha-bg);
     }
 
     .oha-partition-nav {
-        min-height: 0;
+        min-height: 68px;
         align-items: stretch;
         flex-direction: column;
         gap: 3px;
@@ -1361,6 +1361,7 @@ html:not(.oha-ipsview) .oha-shell {
 
     .oha-partition-tabs {
         width: 100%;
+        min-height: 46px;
         padding: 6px 4px;
         scroll-padding-inline: 4px;
     }

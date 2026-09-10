@@ -307,8 +307,9 @@ assertVisualization(
     'Native tiles must keep scrolling inside the tile instead of moving the host navigation.'
 );
 assertVisualization(
-    preg_match('/@media \(max-width: 620px\) \{.*?\.oha-topbar-actions \{\s+position: static;/s', $css) === 1
-        && preg_match('/@media \(max-width: 620px\) \{.*?\.oha-partition-nav \{\s+min-height: 0;/s', $css) === 1
+    preg_match('/@media \(max-width: 620px\) \{.*?\.oha-topbar-actions \{\s+top: 11px;\s+box-shadow: 0 0 0 11px/s', $css) === 1
+        && preg_match('/@media \(max-width: 620px\) \{.*?\.oha-partition-nav \{\s+min-height: 68px;/s', $css) === 1
+        && str_contains($css, 'min-height: 46px;')
         && str_contains($css, 'scroll-padding-inline: 4px;'),
     'Mobile tiles must keep the header and area navigation from covering each other.'
 );
