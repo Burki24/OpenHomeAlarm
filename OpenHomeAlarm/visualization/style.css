@@ -1387,8 +1387,15 @@ html:not(.oha-ipsview) .oha-shell {
     html:not(.oha-ipsview) .oha-partition-tabs {
         width: 100%;
         min-height: 46px;
+        flex-wrap: wrap;
         padding: 6px 4px;
+        overflow: visible;
         scroll-padding-inline: 4px;
+    }
+
+    html:not(.oha-ipsview) .oha-partition-tab {
+        max-width: 100%;
+        white-space: normal;
     }
 
     .oha-section-hint {
