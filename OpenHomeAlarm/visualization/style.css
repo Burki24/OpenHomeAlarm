@@ -1386,18 +1386,23 @@ html:not(.oha-ipsview) .oha-shell {
     }
 
     html:not(.oha-ipsview) .oha-partition-tabs {
+        display: grid;
         width: 100%;
         min-height: 46px;
         flex: 0 0 auto;
-        flex-wrap: wrap;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        grid-auto-rows: minmax(34px, auto);
         align-content: flex-start;
+        row-gap: 9px;
         padding: 6px 4px;
         overflow: visible;
         scroll-padding-inline: 4px;
     }
 
     html:not(.oha-ipsview) .oha-partition-tab {
+        width: 100%;
         max-width: 100%;
+        justify-content: flex-start;
         white-space: normal;
     }
 

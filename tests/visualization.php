@@ -313,8 +313,8 @@ assertVisualization(
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-topbar-actions \{\s+position: static;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-scroll-content \{.*?overflow-y: auto;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-nav \{\s+height: auto;\s+min-height: 68px;/s', $css) === 1
-        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tabs \{.*?flex: 0 0 auto;.*?flex-wrap: wrap;.*?overflow: visible;/s', $css) === 1
-        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tab \{.*?max-width: 100%;.*?white-space: normal;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tabs \{.*?display: grid;.*?grid-template-columns: repeat\(auto-fit, minmax\(130px, 1fr\)\);.*?grid-auto-rows: minmax\(34px, auto\);.*?overflow: visible;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tab \{.*?width: 100%;.*?max-width: 100%;.*?white-space: normal;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-hero \{\s+min-height: 154px;/s', $css) === 1
         && str_contains($css, 'min-height: 46px;')
         && str_contains($css, 'scroll-padding-inline: 4px;'),
