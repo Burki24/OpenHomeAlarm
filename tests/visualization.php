@@ -312,13 +312,13 @@ assertVisualization(
     preg_match('/@media \(max-width: 620px\) \{.*?html:not\(\.oha-ipsview\) \.oha-shell \{.*?overflow: hidden;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-topbar-actions \{\s+position: static;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-scroll-content \{.*?overflow-y: auto;/s', $css) === 1
-        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-nav \{\s+min-height: 68px;/s', $css) === 1
-        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tabs \{.*?flex-wrap: wrap;.*?overflow: visible;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-nav \{\s+height: auto;\s+min-height: 68px;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tabs \{.*?flex: 0 0 auto;.*?flex-wrap: wrap;.*?overflow: visible;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tab \{.*?max-width: 100%;.*?white-space: normal;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-hero \{\s+min-height: 154px;/s', $css) === 1
         && str_contains($css, 'min-height: 46px;')
         && str_contains($css, 'scroll-padding-inline: 4px;'),
-    'Mobile tiles must keep the fixed title outside the content scroll region, wrap area controls and reserve space for security status.'
+    'Mobile tiles must keep the fixed title outside the content scroll region, grow wrapped area controls dynamically and reserve space for security status.'
 );
 assertVisualization(
     preg_match('/@media \(max-width: 620px\) \{.*?\.oha-shell\[data-state="exit_delay"\] \.oha-hero.*?grid-template-columns: 42px minmax\(0, 1fr\) auto;/s', $css) === 1

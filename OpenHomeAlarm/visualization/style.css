@@ -1377,6 +1377,7 @@ html:not(.oha-ipsview) .oha-shell {
     }
 
     html:not(.oha-ipsview) .oha-partition-nav {
+        height: auto;
         min-height: 68px;
         align-items: stretch;
         flex-direction: column;
@@ -1387,7 +1388,9 @@ html:not(.oha-ipsview) .oha-shell {
     html:not(.oha-ipsview) .oha-partition-tabs {
         width: 100%;
         min-height: 46px;
+        flex: 0 0 auto;
         flex-wrap: wrap;
+        align-content: flex-start;
         padding: 6px 4px;
         overflow: visible;
         scroll-padding-inline: 4px;
