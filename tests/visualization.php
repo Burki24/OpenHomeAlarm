@@ -318,6 +318,12 @@ assertVisualization(
         && str_contains($css, 'scroll-padding-inline: 4px;'),
     'Mobile tiles must keep the fixed title outside the content scroll region and reserve space for area navigation and security status.'
 );
+assertVisualization(
+    preg_match('/@media \(max-width: 620px\) \{.*?\.oha-shell\[data-state="exit_delay"\] \.oha-hero.*?grid-template-columns: 42px minmax\(0, 1fr\) auto;/s', $css) === 1
+        && str_contains($css, 'font-size: clamp(1.1rem, 5.5cqi, 1.55rem);')
+        && preg_match('/\.oha-shell\[data-state="exit_delay"\] \.oha-hero-meta.*?grid-column: 3;.*?grid-row: 1;/s', $css) === 1,
+    'Mobile countdown states must keep responsive status text and the remaining time together in the visible hero row.'
+);
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
 assertVisualization(!str_contains($html, 'oha-notice'), 'Legacy permanently sized notice panels must not remain in the dashboard.');

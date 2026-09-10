@@ -1404,6 +1404,66 @@ html:not(.oha-ipsview) .oha-shell {
         padding: 16px;
     }
 
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-hero,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-hero {
+        grid-template-columns: 42px minmax(0, 1fr) auto;
+        gap: 10px;
+        min-height: 132px;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-hero-icon,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-hero-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        font-size: 1.15rem;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-state,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-state {
+        font-size: clamp(1.1rem, 5.5cqi, 1.55rem);
+        line-height: 1.08;
+        overflow-wrap: anywhere;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-hero-message,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-hero-message {
+        margin-top: 4px;
+        font-size: clamp(0.68rem, 3.2cqi, 0.8rem);
+        line-height: 1.3;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-hero-meta,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-hero-meta {
+        grid-column: 3;
+        grid-row: 1;
+        display: grid;
+        width: auto;
+        align-self: center;
+        justify-items: end;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-mode-pill,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-mode-pill {
+        display: none;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-countdown,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-countdown {
+        margin-left: 0;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-countdown strong,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-countdown strong {
+        font-size: clamp(1.75rem, 10cqi, 2.5rem);
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-countdown span,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-countdown span {
+        margin-top: 3px;
+        font-size: 0.62rem;
+    }
+
     .oha-hero-icon {
         width: 48px;
         height: 48px;
