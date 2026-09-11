@@ -297,8 +297,9 @@ assertVisualization(
 assertVisualization(
     str_contains($css, '.oha-topbar-actions {')
         && str_contains($css, 'position: sticky;')
-        && str_contains($css, 'box-shadow: 0 0 0 14px var(--oha-bg);'),
-    'Visualization must shield scrolled content below the sticky Symcon tile title.'
+        && str_contains($css, 'box-shadow: 0 -14px 0 14px var(--oha-bg);')
+        && !str_contains($css, 'box-shadow: 0 0 0 14px var(--oha-bg);'),
+    'Visualization must shield the sticky Symcon tile title without covering the following desktop content.'
 );
 assertVisualization(
     str_contains($html, 'id="tileScrollContent"')

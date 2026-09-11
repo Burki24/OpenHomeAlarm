@@ -241,7 +241,7 @@ html:not(.oha-ipsview) .oha-shell {
     justify-content: flex-end;
     min-height: 38px;
     background: var(--oha-bg);
-    box-shadow: 0 0 0 14px var(--oha-bg);
+    box-shadow: 0 -14px 0 14px var(--oha-bg);
 }
 
 .oha-partition-nav {
