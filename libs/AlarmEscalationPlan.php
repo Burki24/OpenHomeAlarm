@@ -75,22 +75,23 @@ final class AlarmEscalationPlan
         return $normalized;
     }
 
-    /** @return array{StartedAt:int,PushNotificationSent:bool,ExecutedStepKeys:list<string>,ResetActionKeys:list<string>,ExecutedActions:list<array<string,mixed>>} */
+    /** @return array{StartedAt:int,PushNotificationSent:bool,PushoverNotificationSent:bool,ExecutedStepKeys:list<string>,ResetActionKeys:list<string>,ExecutedActions:list<array<string,mixed>>} */
     public static function start(int $timestamp): array
     {
         return [
-            'StartedAt'            => max(1, $timestamp),
-            'PushNotificationSent' => false,
-            'ExecutedStepKeys'     => [],
-            'ResetActionKeys'      => [],
-            'ExecutedActions'      => []
+            'StartedAt'                  => max(1, $timestamp),
+            'PushNotificationSent'       => false,
+            'PushoverNotificationSent'   => false,
+            'ExecutedStepKeys'           => [],
+            'ResetActionKeys'            => [],
+            'ExecutedActions'            => []
         ];
     }
 
     /**
      * @param array<array-key,mixed> $stored
      *
-     * @return array{StartedAt:int,PushNotificationSent:bool,ExecutedStepKeys:list<string>,ResetActionKeys:list<string>,ExecutedActions:list<array<string,mixed>>}|null
+     * @return array{StartedAt:int,PushNotificationSent:bool,PushoverNotificationSent:bool,ExecutedStepKeys:list<string>,ResetActionKeys:list<string>,ExecutedActions:list<array<string,mixed>>}|null
      */
     public static function runtime(array $stored): ?array
     {
@@ -99,8 +100,15 @@ final class AlarmEscalationPlan
         }
         $startedAt = $stored['StartedAt'] ?? null;
         $pushNotificationSent = $stored['PushNotificationSent'] ?? false;
+        $pushoverNotificationSent = $stored['PushoverNotificationSent'] ?? false;
         $executedStepKeys = $stored['ExecutedStepKeys'] ?? null;
-        if (!is_int($startedAt) || $startedAt <= 0 || !is_bool($pushNotificationSent) || !is_array($executedStepKeys)) {
+        if (
+            !is_int($startedAt)
+            || $startedAt <= 0
+            || !is_bool($pushNotificationSent)
+            || !is_bool($pushoverNotificationSent)
+            || !is_array($executedStepKeys)
+        ) {
             throw new UnexpectedValueException('Invalid alarm escalation runtime state.');
         }
 
@@ -141,11 +149,12 @@ final class AlarmEscalationPlan
         }
 
         return [
-            'StartedAt'            => $startedAt,
-            'PushNotificationSent' => $pushNotificationSent,
-            'ExecutedStepKeys'     => $normalizedKeys,
-            'ResetActionKeys'      => $resetActionKeys,
-            'ExecutedActions'      => $executedActions
+            'StartedAt'                  => $startedAt,
+            'PushNotificationSent'       => $pushNotificationSent,
+            'PushoverNotificationSent'   => $pushoverNotificationSent,
+            'ExecutedStepKeys'           => $normalizedKeys,
+            'ResetActionKeys'            => $resetActionKeys,
+            'ExecutedActions'            => $executedActions
         ];
     }
 

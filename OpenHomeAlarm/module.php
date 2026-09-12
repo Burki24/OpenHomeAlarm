@@ -72,6 +72,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const CONTROL_API_VERSION = 2;
     private const STATUS_INVALID_PARTITIONS = 201;
     private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area"}]';
+    private const PUSHOVER_MESSAGES_URL = 'https://api.pushover.net/1/messages.json';
+    private const PUSHOVER_RECEIPTS_URL = 'https://api.pushover.net/1/receipts';
 
     private const MODE_NONE = AlarmStateMachine::MODE_NONE;
     private const MODE_HOME = AlarmStateMachine::MODE_HOME;
@@ -156,6 +158,15 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_PUSH_NOTIFICATION_MODE = 'PushNotificationMode';
     private const PROPERTY_PUSH_NOTIFICATION_TILE_ID = 'PushNotificationTileID';
     private const PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS = 'PushNotificationDelaySeconds';
+    private const PROPERTY_PUSHOVER_NOTIFICATION_MODE = 'PushoverNotificationMode';
+    private const PROPERTY_PUSHOVER_APPLICATION_TOKEN = 'PushoverApplicationToken';
+    private const PROPERTY_PUSHOVER_USER_KEY = 'PushoverUserKey';
+    private const PROPERTY_PUSHOVER_DEVICE = 'PushoverDevice';
+    private const PROPERTY_PUSHOVER_PRIORITY = 'PushoverPriority';
+    private const PROPERTY_PUSHOVER_SOUND = 'PushoverSound';
+    private const PROPERTY_PUSHOVER_DELAY_SECONDS = 'PushoverDelaySeconds';
+    private const PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS = 'PushoverEmergencyRetrySeconds';
+    private const PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS = 'PushoverEmergencyExpireSeconds';
     private const PROPERTY_FAULT_ACTION = 'FaultAction';
     private const PROPERTY_FAULT_CLEARED_ACTION = 'FaultClearedAction';
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
@@ -236,6 +247,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS = 'AutomaticArmingExecutions';
     private const ATTRIBUTE_ALARM_ESCALATION_RUNTIME = 'AlarmEscalationRuntime';
     private const ATTRIBUTE_SIGNAL_GENERATORS_SILENCED = 'SignalGeneratorsSilenced';
+    private const ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT = 'PushoverEmergencyReceipt';
     private const ATTRIBUTE_PARTITION_RUNTIME = 'PartitionRuntime';
     private const ATTRIBUTE_PARTITION_ALARMS = 'PartitionAlarms';
     private const ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION = 'AppliedSecurityConfiguration';
@@ -299,6 +311,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE, 0);
         $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID, 0);
         $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS, 30);
+        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_NOTIFICATION_MODE, 0);
+        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN, '');
+        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_USER_KEY, '');
+        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_DEVICE, '');
+        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_PRIORITY, 1);
+        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_SOUND, '');
+        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_DELAY_SECONDS, 30);
+        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS, 60);
+        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS, 1800);
         $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
@@ -332,6 +353,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 0);
+        $this->RegisterAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
         $this->RegisterAttributeString(self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION, '');
@@ -1021,6 +1043,30 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->ReadConfiguredPartitions(),
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         );
+    }
+
+    /** Sends a normal-priority test message through the configured direct Pushover connection. */
+    public function TestPushover(): bool
+    {
+        if (!$this->HasValidPushoverCredentials()) {
+            $this->SendDebug(__FUNCTION__, 'Pushover application token or user/group key is invalid.', 0);
+
+            return false;
+        }
+
+        try {
+            $this->SendPushoverMessage(
+                $this->Translate('OpenHomeAlarm test'),
+                $this->Translate('The direct Pushover connection works.'),
+                0
+            );
+        } catch (Throwable $exception) {
+            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -1806,6 +1852,12 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
             $this->PostConfiguredAlarmNotification();
         }
+        if ($this->IsConfiguredPushoverNotificationDue($runtime, time())) {
+            // Persist first so a restart or transport error cannot send the same alarm twice.
+            $runtime['PushoverNotificationSent'] = true;
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
+            $this->PostConfiguredPushoverNotification();
+        }
         $signalGeneratorStateChanged = false;
         foreach (AlarmEscalationPlan::dueSteps($steps, $runtime, time()) as $due) {
             // Persist first so action errors, ApplyChanges or a restart cannot repeat this action.
@@ -1848,8 +1900,11 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $deadline = $this->EarlierDeadline(
-            AlarmEscalationPlan::nextDeadline($steps, $runtime),
-            $this->ConfiguredPushNotificationDeadline($runtime)
+            $this->EarlierDeadline(
+                AlarmEscalationPlan::nextDeadline($steps, $runtime),
+                $this->ConfiguredPushNotificationDeadline($runtime)
+            ),
+            $this->ConfiguredPushoverNotificationDeadline($runtime)
         );
         $this->SetTimerInterval(
             self::TIMER_ALARM_ESCALATION,
@@ -2464,6 +2519,46 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
             $this->OutputIPSViewResponse(['Error' => 'Action failed.'], 500);
         }
+    }
+
+    /** @param array<string,string|int> $parameters */
+    protected function PerformPushoverRequest(string $url, array $parameters): string
+    {
+        if (!function_exists('curl_init')) {
+            throw new RuntimeException('The PHP cURL extension required for Pushover is unavailable.');
+        }
+
+        $handle = curl_init($url);
+        if ($handle === false) {
+            throw new RuntimeException('The Pushover HTTPS request could not be initialized.');
+        }
+        $configured = curl_setopt_array($handle, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => http_build_query($parameters, '', '&', PHP_QUERY_RFC3986),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_USERAGENT      => 'OpenHomeAlarm'
+        ]);
+        if (!$configured) {
+            curl_close($handle);
+            throw new RuntimeException('The Pushover HTTPS request could not be configured.');
+        }
+
+        $response = curl_exec($handle);
+        $error = curl_error($handle);
+        $status = (int) curl_getinfo($handle, CURLINFO_HTTP_CODE);
+        curl_close($handle);
+        if ($response === false) {
+            throw new RuntimeException($error !== '' ? 'Pushover transport error: ' . $error : 'Pushover transport error.');
+        }
+        if ($status < 200 || $status >= 300) {
+            throw new RuntimeException(sprintf('Pushover returned HTTP status %d.', $status));
+        }
+
+        return $response;
     }
 
     /** Disarms a resolved non-default partition and records an optional user name. */
@@ -3362,6 +3457,15 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::PROPERTY_PUSH_NOTIFICATION_MODE            => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE),
             self::PROPERTY_PUSH_NOTIFICATION_TILE_ID         => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
             self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS   => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS),
+            self::PROPERTY_PUSHOVER_NOTIFICATION_MODE        => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_NOTIFICATION_MODE),
+            self::PROPERTY_PUSHOVER_APPLICATION_TOKEN        => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN),
+            self::PROPERTY_PUSHOVER_USER_KEY                 => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_USER_KEY),
+            self::PROPERTY_PUSHOVER_DEVICE                   => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_DEVICE),
+            self::PROPERTY_PUSHOVER_PRIORITY                 => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_PRIORITY),
+            self::PROPERTY_PUSHOVER_SOUND                    => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_SOUND),
+            self::PROPERTY_PUSHOVER_DELAY_SECONDS            => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_DELAY_SECONDS),
+            self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS  => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS),
+            self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS),
             self::PROPERTY_FAULT_ACTION                      => $this->ReadPropertyString(self::PROPERTY_FAULT_ACTION),
             self::PROPERTY_FAULT_CLEARED_ACTION              => $this->ReadPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION),
             self::PROPERTY_DISARM_CODE                       => $this->ReadPropertyString(self::PROPERTY_DISARM_CODE),
@@ -6445,7 +6549,11 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function StartAlarmEscalation(): void
     {
-        if ($this->ReadConfiguredAlarmEscalationSteps() === [] && !$this->IsConfiguredPushNotificationEnabled()) {
+        if (
+            $this->ReadConfiguredAlarmEscalationSteps() === []
+            && !$this->IsConfiguredPushNotificationEnabled()
+            && !$this->IsConfiguredPushoverNotificationEnabled()
+        ) {
             $this->StopAlarmEscalation();
 
             return;
@@ -6464,6 +6572,18 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         return in_array($this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE), [1, 2], true)
             && $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID) > 0;
+    }
+
+    private function IsConfiguredPushoverNotificationEnabled(): bool
+    {
+        return in_array($this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_NOTIFICATION_MODE), [1, 2], true)
+            && $this->HasValidPushoverCredentials();
+    }
+
+    private function HasValidPushoverCredentials(): bool
+    {
+        return preg_match('/^[A-Za-z0-9]{30}$/', trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN))) === 1
+            && preg_match('/^[A-Za-z0-9]{30}$/', trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_USER_KEY))) === 1;
     }
 
     /** @param array{StartedAt:int,PushNotificationSent:bool} $runtime */
@@ -6488,6 +6608,28 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $deadline > 0 && $deadline <= $timestamp;
     }
 
+    /** @param array{StartedAt:int,PushoverNotificationSent:bool} $runtime */
+    private function ConfiguredPushoverNotificationDeadline(array $runtime): int
+    {
+        if (!$this->IsConfiguredPushoverNotificationEnabled() || $runtime['PushoverNotificationSent']) {
+            return 0;
+        }
+
+        $delaySeconds = $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_NOTIFICATION_MODE) === 2
+            ? min(AlarmEscalationPlan::MAX_DELAY_SECONDS, max(0, $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_DELAY_SECONDS)))
+            : 0;
+
+        return $runtime['StartedAt'] + $delaySeconds;
+    }
+
+    /** @param array{StartedAt:int,PushoverNotificationSent:bool} $runtime */
+    private function IsConfiguredPushoverNotificationDue(array $runtime, int $timestamp): bool
+    {
+        $deadline = $this->ConfiguredPushoverNotificationDeadline($runtime);
+
+        return $deadline > 0 && $deadline <= $timestamp;
+    }
+
     private function EarlierDeadline(int $first, int $second): int
     {
         if ($first === 0) {
@@ -6508,6 +6650,23 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
+        [$title, $message] = $this->BuildAlarmNotificationText();
+        $notificationID = VISU_PostNotificationEx(
+            $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
+            $title,
+            $message,
+            'Alert',
+            'siren',
+            $this->InstanceID
+        );
+        if ($notificationID === false) {
+            $this->SendDebug(__FUNCTION__, 'The configured push notification could not be sent.', 0);
+        }
+    }
+
+    /** @return array{0:string,1:string} */
+    private function BuildAlarmNotificationText(): array
+    {
         $states = $this->ReadPartitionAlarmStates();
         $latestPartitionID = $this->DefaultPartitionID();
         $latestTimestamp = -1;
@@ -6533,16 +6692,107 @@ class OpenHomeAlarm extends IPSModuleStrict
         $sourceName = $sourceName !== '' ? $sourceName : $this->Translate('Unknown trigger');
         $title = $this->ShortenPushNotificationText(sprintf($this->Translate('Intrusion alarm %s!'), $areaName), 32);
         $message = $this->ShortenPushNotificationText(sprintf($this->Translate('Sensor %s triggered.'), $sourceName), 256);
-        $notificationID = VISU_PostNotificationEx(
-            $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
-            $title,
-            $message,
-            'Alert',
-            'siren',
-            $this->InstanceID
+
+        return [$title, $message];
+    }
+
+    private function PostConfiguredPushoverNotification(): void
+    {
+        [$title, $message] = $this->BuildAlarmNotificationText();
+        try {
+            $receipt = $this->SendPushoverMessage($title, $message, $this->ConfiguredPushoverPriority());
+            if ($receipt !== '') {
+                $this->WriteAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, $receipt);
+            }
+        } catch (Throwable $exception) {
+            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
+        }
+    }
+
+    private function ConfiguredPushoverPriority(): int
+    {
+        $priority = $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_PRIORITY);
+
+        return in_array($priority, [0, 1, 2], true) ? $priority : 1;
+    }
+
+    private function SendPushoverMessage(string $title, string $message, int $priority): string
+    {
+        $parameters = [
+            'token'    => trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN)),
+            'user'     => trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_USER_KEY)),
+            'title'    => $title,
+            'message'  => $message,
+            'priority' => $priority
+        ];
+        $device = trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_DEVICE));
+        if ($device !== '') {
+            $parameters['device'] = $device;
+        }
+        $sound = trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_SOUND));
+        if ($sound !== '') {
+            $parameters['sound'] = $sound;
+        }
+        if ($priority === 2) {
+            $retry = min(10800, max(30, $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS)));
+            $expire = min(10800, max($retry, $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS)));
+            $parameters['retry'] = $retry;
+            $parameters['expire'] = $expire;
+        }
+
+        $response = $this->ParsePushoverResponse(
+            $this->PerformPushoverRequest(self::PUSHOVER_MESSAGES_URL, $parameters)
         );
-        if ($notificationID === false) {
-            $this->SendDebug(__FUNCTION__, 'The configured push notification could not be sent.', 0);
+        $receipt = $response['receipt'] ?? '';
+        if ($priority === 2 && (!is_string($receipt) || trim($receipt) === '')) {
+            throw new RuntimeException('Pushover accepted the emergency notification without returning a receipt.');
+        }
+
+        return is_string($receipt) ? trim($receipt) : '';
+    }
+
+    /** @return array<string,mixed> */
+    private function ParsePushoverResponse(string $response): array
+    {
+        try {
+            $payload = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new RuntimeException('Pushover returned an invalid JSON response.', 0, $exception);
+        }
+        if (!is_array($payload)) {
+            throw new RuntimeException('Pushover returned an invalid response.');
+        }
+        if (($payload['status'] ?? null) !== 1) {
+            $errors = $payload['errors'] ?? [];
+            $details = is_array($errors)
+                ? implode(' ', array_values(array_filter($errors, 'is_string')))
+                : '';
+            throw new RuntimeException($details !== '' ? 'Pushover rejected the request: ' . $details : 'Pushover rejected the request.');
+        }
+
+        return $payload;
+    }
+
+    private function CancelConfiguredPushoverEmergencyNotification(): void
+    {
+        $receipt = trim($this->ReadAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT));
+        if ($receipt === '') {
+            return;
+        }
+        if (!$this->HasValidPushoverCredentials()) {
+            $this->SendDebug(__FUNCTION__, 'The Pushover emergency receipt cannot be cancelled without valid credentials.', 0);
+
+            return;
+        }
+
+        try {
+            $this->ParsePushoverResponse($this->PerformPushoverRequest(
+                self::PUSHOVER_RECEIPTS_URL . '/' . rawurlencode($receipt) . '/cancel.json',
+                ['token' => trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN))]
+            ));
+            $this->WriteAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
+        } catch (Throwable $exception) {
+            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
         }
     }
 
@@ -6570,6 +6820,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function StopAlarmEscalation(): void
     {
+        $this->CancelConfiguredPushoverEmergencyNotification();
         $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
         $this->ClearPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
         $this->WriteAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 0);

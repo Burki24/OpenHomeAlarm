@@ -21,6 +21,10 @@ beispielsweise `v1.109.0`.
 
 ### Added
 
+- Direkter Pushover-Versand ohne zusätzliches Symcon-Modul mit optionalem
+  Empfängergerät, Sound, Priorität und verzögerter Alarm-Eskalation. Notfall-
+  Wiederholungen werden beim Ende des Alarmausgangs über den gespeicherten
+  Pushover-Beleg beendet.
 - Eskalationsaktionen unterstützen neben der automatischen Boolean-Umkehrung
   eine explizite native Rücksetzaktion für Rollläden, Dimmer, Szenen und andere
   mehrwertige Ziele.
@@ -63,7 +67,8 @@ beispielsweise `v1.109.0`.
 ### Security
 
 - Konfigurationssicherungen sind ausdrücklich als vertraulich gekennzeichnet,
-  weil sie Unscharfschaltcodes und IPSView-Zugriffstoken enthalten können.
+  weil sie Unscharfschaltcodes, Pushover-Zugangsdaten und IPSView-Zugriffstoken
+  enthalten können.
 - Wiederherstellungen sind nur bei vollständig unscharfer Anlage zulässig und
   weisen fremde, unbekannte oder typwidrige Sicherungsdaten ab.
 

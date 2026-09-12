@@ -568,6 +568,112 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Pushover (direct)",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Send alarm notifications directly through the Pushover HTTPS API. No additional Symcon module is required."
+                },
+                {
+                    "type": "Select",
+                    "name": "PushoverNotificationMode",
+                    "caption": "Pushover notification",
+                    "options": [
+                        {
+                            "caption": "Disabled",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Immediately when alarm starts",
+                            "value": 1
+                        },
+                        {
+                            "caption": "As delayed escalation step",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "type": "PasswordTextBox",
+                    "name": "PushoverApplicationToken",
+                    "caption": "Application API token",
+                    "width": "350px"
+                },
+                {
+                    "type": "PasswordTextBox",
+                    "name": "PushoverUserKey",
+                    "caption": "User or group key",
+                    "width": "350px"
+                },
+                {
+                    "type": "ValidationTextBox",
+                    "name": "PushoverDevice",
+                    "caption": "Device name (optional)",
+                    "width": "350px"
+                },
+                {
+                    "type": "Select",
+                    "name": "PushoverPriority",
+                    "caption": "Priority",
+                    "options": [
+                        {
+                            "caption": "Normal",
+                            "value": 0
+                        },
+                        {
+                            "caption": "High",
+                            "value": 1
+                        },
+                        {
+                            "caption": "Emergency with acknowledgement",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "type": "ValidationTextBox",
+                    "name": "PushoverSound",
+                    "caption": "Sound name (optional)",
+                    "width": "350px"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PushoverDelaySeconds",
+                    "caption": "Pushover delay (seconds)",
+                    "minimum": 0,
+                    "maximum": 86400,
+                    "width": "250px"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PushoverEmergencyRetrySeconds",
+                    "caption": "Emergency retry interval (seconds)",
+                    "minimum": 30,
+                    "maximum": 10800,
+                    "width": "250px"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PushoverEmergencyExpireSeconds",
+                    "caption": "Emergency retry duration (seconds)",
+                    "minimum": 30,
+                    "maximum": 10800,
+                    "width": "250px"
+                },
+                {
+                    "type": "Label",
+                    "caption": "The delay is used only in delayed mode. Emergency priority repeats until acknowledged or expired; OpenHomeAlarm cancels an active emergency retry when the alarm output ends. Apply changes before testing."
+                },
+                {
+                    "type": "Button",
+                    "caption": "Send Pushover test message",
+                    "onClick": "if (OHA_TestPushover($id)) { echo 'Pushover test message sent.'; } else { echo 'Pushover test failed. Check configuration and debug log.'; }"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "System monitoring",
             "expanded": true,
             "items": [

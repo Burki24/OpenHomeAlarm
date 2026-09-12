@@ -405,6 +405,48 @@ function assertAlarmAction(bool $condition, string $message): void
 
 require_once dirname(__DIR__) . '/OpenHomeAlarm/module.php';
 
+final class TestablePushoverOpenHomeAlarm extends OpenHomeAlarm
+{
+    /** @var list<array{url:string,parameters:array<string,string|int>}> */
+    private array $pushoverRequests = [];
+
+    /** @var list<string> */
+    private array $pushoverResponses = [];
+
+    public function TestQueuePushoverResponse(string $response): void
+    {
+        $this->pushoverResponses[] = $response;
+    }
+
+    /** @return list<array{url:string,parameters:array<string,string|int>}> */
+    public function TestPushoverRequests(): array
+    {
+        return $this->pushoverRequests;
+    }
+
+    /** @param array<string,string|int> $parameters */
+    protected function PerformPushoverRequest(string $url, array $parameters): string
+    {
+        $this->pushoverRequests[] = ['url' => $url, 'parameters' => $parameters];
+        if ($this->pushoverResponses === []) {
+            throw new RuntimeException('Missing queued Pushover response.');
+        }
+
+        return array_shift($this->pushoverResponses);
+    }
+
+    /** @return array<string,mixed> */
+    protected function LoadConfigurationForm(): array
+    {
+        return json_decode(
+            (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+    }
+}
+
 /** @return array<string,mixed> */
 function alarmActionSensor(int $variableID, bool $entryDelay): array
 {
@@ -670,6 +712,130 @@ assertAlarmAction(
     && $testPushNotifications[0]['tileID'] === 23456
     && $testPushNotifications[0]['message'] === 'Sensor Test 4001 triggered.',
     'An elapsed native push delay must send the notification through the escalation timer.'
+);
+
+// Pushover is sent directly without requiring a third-party Symcon module.
+$testValues[4001] = false;
+$invalidPushoverConnection = new TestablePushoverOpenHomeAlarm();
+$invalidPushoverConnection->Create();
+assertAlarmAction(
+    !$invalidPushoverConnection->TestPushover()
+        && $invalidPushoverConnection->TestPushoverRequests() === [],
+    'The Pushover connection test must reject missing credentials without starting a network request.'
+);
+
+$pushoverConnectionTest = new TestablePushoverOpenHomeAlarm();
+$pushoverConnectionTest->Create();
+$pushoverConnectionTest->TestSetPropertyString('PushoverApplicationToken', str_repeat('T', 30));
+$pushoverConnectionTest->TestSetPropertyString('PushoverUserKey', str_repeat('K', 30));
+$pushoverConnectionTest->TestQueuePushoverResponse('{"status":1,"request":"connection-test"}');
+assertAlarmAction(
+    $pushoverConnectionTest->TestPushover()
+        && ($pushoverConnectionTest->TestPushoverRequests()[0]['parameters']['priority'] ?? null) === 0
+        && ($pushoverConnectionTest->TestPushoverRequests()[0]['parameters']['title'] ?? null) === 'OpenHomeAlarm test',
+    'The public Pushover connection test must send a harmless normal-priority message.'
+);
+
+$pushover = new TestablePushoverOpenHomeAlarm();
+$pushover->Create();
+$pushover->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$pushover->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$pushover->TestSetPropertyInteger('PushoverNotificationMode', 1);
+$pushover->TestSetPropertyString('PushoverApplicationToken', str_repeat('A', 30));
+$pushover->TestSetPropertyString('PushoverUserKey', str_repeat('U', 30));
+$pushover->TestSetPropertyString('PushoverDevice', 'iphone');
+$pushover->TestSetPropertyInteger('PushoverPriority', 1);
+$pushover->TestSetPropertyString('PushoverSound', 'siren');
+$pushover->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+$pushover->TestQueuePushoverResponse('{"status":1,"request":"test-request"}');
+assertAlarmAction($pushover->ArmAway(), 'Pushover test must arm successfully.');
+$testValues[4001] = true;
+$pushover->MessageSink(36, 4001, VM_UPDATE, [true, true, false]);
+$pushoverRequests = $pushover->TestPushoverRequests();
+assertAlarmAction(
+    $pushoverRequests === [[
+        'url'        => 'https://api.pushover.net/1/messages.json',
+        'parameters' => [
+            'token'    => str_repeat('A', 30),
+            'user'     => str_repeat('U', 30),
+            'title'    => 'Intrusion alarm Main area!',
+            'message'  => 'Sensor Test 4001 triggered.',
+            'priority' => 1,
+            'device'   => 'iphone',
+            'sound'    => 'siren'
+        ]
+    ]],
+    'A direct Pushover alarm must include credentials, alarm context, priority and optional routing fields.'
+);
+$pushover->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($pushover->TestPushoverRequests()) === 1,
+    'A direct Pushover notification must be attempted only once per alarm cycle.'
+);
+
+$testValues[4001] = false;
+$rejectedPushover = new TestablePushoverOpenHomeAlarm();
+$rejectedPushover->Create();
+$rejectedPushover->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$rejectedPushover->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$rejectedPushover->TestSetPropertyInteger('PushoverNotificationMode', 1);
+$rejectedPushover->TestSetPropertyString('PushoverApplicationToken', str_repeat('R', 30));
+$rejectedPushover->TestSetPropertyString('PushoverUserKey', str_repeat('S', 30));
+$rejectedPushover->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+$rejectedPushover->TestQueuePushoverResponse('{"status":0,"errors":["application token is invalid"]}');
+assertAlarmAction($rejectedPushover->ArmAway(), 'Rejected-Pushover test must arm successfully.');
+$testValues[4001] = true;
+$rejectedPushover->MessageSink(38, 4001, VM_UPDATE, [true, true, false]);
+$rejectedPushoverState = json_decode($rejectedPushover->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    ($rejectedPushoverState['Alarm']['OutputActive'] ?? false) === true
+        && count($rejectedPushover->TestPushoverRequests()) === 1,
+    'A rejected Pushover request must not interrupt the alarm state or create uncontrolled retries.'
+);
+
+// Emergency Pushover retries are cancelled when the alarm is disarmed.
+$testValues[4001] = false;
+$emergencyPushover = new TestablePushoverOpenHomeAlarm();
+$emergencyPushover->Create();
+$emergencyPushover->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$emergencyPushover->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$emergencyPushover->TestSetPropertyInteger('PushoverNotificationMode', 1);
+$emergencyPushover->TestSetPropertyString('PushoverApplicationToken', str_repeat('B', 30));
+$emergencyPushover->TestSetPropertyString('PushoverUserKey', str_repeat('V', 30));
+$emergencyPushover->TestSetPropertyInteger('PushoverPriority', 2);
+$emergencyPushover->TestSetPropertyInteger('PushoverEmergencyRetrySeconds', 60);
+$emergencyPushover->TestSetPropertyInteger('PushoverEmergencyExpireSeconds', 1800);
+$emergencyPushover->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+$emergencyPushover->TestQueuePushoverResponse('{"status":1,"request":"alarm-request","receipt":"receipt-123"}');
+$emergencyPushover->TestQueuePushoverResponse('{"status":1,"request":"cancel-request"}');
+assertAlarmAction($emergencyPushover->ArmAway(), 'Emergency Pushover test must arm successfully.');
+$testValues[4001] = true;
+$emergencyPushover->MessageSink(37, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    ($emergencyPushover->TestPushoverRequests()[0]['parameters']['retry'] ?? null) === 60
+        && ($emergencyPushover->TestPushoverRequests()[0]['parameters']['expire'] ?? null) === 1800
+        && ($emergencyPushover->TestAttributes()['PushoverEmergencyReceipt'] ?? '') === 'receipt-123',
+    'Emergency Pushover notifications must persist their receipt and configured retry window.'
+);
+assertAlarmAction($emergencyPushover->Disarm(), 'Disarming after an emergency Pushover alarm must succeed.');
+$emergencyRequests = $emergencyPushover->TestPushoverRequests();
+assertAlarmAction(
+    count($emergencyRequests) === 2
+        && $emergencyRequests[1] === [
+            'url'        => 'https://api.pushover.net/1/receipts/receipt-123/cancel.json',
+            'parameters' => ['token' => str_repeat('B', 30)]
+        ]
+        && ($emergencyPushover->TestAttributes()['PushoverEmergencyReceipt'] ?? 'missing') === '',
+    'Disarming must cancel Pushover emergency retries and clear the persisted receipt after success.'
 );
 
 // Symcon persists each row of the current escalation form as one flat action.
@@ -1137,6 +1303,30 @@ assertAlarmAction(
 );
 
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+foreach ([
+    'PushoverNotificationMode',
+    'PushoverApplicationToken',
+    'PushoverUserKey',
+    'PushoverDevice',
+    'PushoverPriority',
+    'PushoverSound',
+    'PushoverDelaySeconds',
+    'PushoverEmergencyRetrySeconds',
+    'PushoverEmergencyExpireSeconds'
+] as $pushoverFieldName) {
+    assertAlarmAction(
+        findAlarmActionFormField($dynamicForm['elements'] ?? [], $pushoverFieldName) !== null,
+        'The configuration form must expose every direct Pushover setting.'
+    );
+}
+$moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
+assertAlarmAction(
+    str_contains($moduleReadme, '#### Pushover direkt verwenden')
+        && str_contains($moduleReadme, 'OHA_TestPushover($InstanzID)')
+        && str_contains($moduleReadme, 'Notfall mit Quittierung (`2`)')
+        && str_contains($moduleReadme, 'Konfigurationssicherung enthält sie'),
+    'The module README must document direct Pushover setup, priorities, testing and credential handling.'
+);
 $dynamicCountdownAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'CountdownAction');
 assertAlarmAction(
     is_array($dynamicCountdownAction)
@@ -1151,7 +1341,7 @@ $lockedFormInstance->Create();
 $lockedFormInstance->TestSetCurrentValue('Mode', 2);
 $lockedFormInstance->TestSetCurrentValue('State', 2);
 $lockedForm = json_decode($lockedFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
-foreach (['Partitions', 'ExitDelaySeconds', 'CountdownAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm'] as $fieldName) {
+foreach (['Partitions', 'ExitDelaySeconds', 'CountdownAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushoverNotificationMode'] as $fieldName) {
     $field = findAlarmActionFormField($lockedForm['elements'] ?? [], $fieldName);
     assertAlarmAction(
         is_array($field) && ($field['enabled'] ?? null) === false,

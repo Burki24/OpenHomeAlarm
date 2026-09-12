@@ -345,6 +345,47 @@ Sie enthält automatisch den zuletzt alarmierenden Bereich und Sensor, beispiels
 
 Das vorhandene Beispielskript [push-alarm-notification.php](../docs/examples/push-alarm-notification.php) bleibt für individuell angepasste Texte, andere Ziele oder das klassische WebFront verfügbar.
 
+#### Pushover direkt verwenden
+
+OpenHomeAlarm kann Alarmmeldungen ohne zusätzliches Symcon-Modul direkt über
+die Pushover-HTTPS-API versenden. Benötigt werden ein Pushover-Konto, der
+**Application API Token** einer bei Pushover angelegten Anwendung und der
+**User Key** beziehungsweise **Group Key** des Empfängers.
+
+1. Öffnen Sie in der Instanzkonfiguration **Pushover (direkt)**.
+2. Tragen Sie **Anwendungs-API-Token** und **Benutzer- oder Gruppen-Key** ein.
+3. Optional kann mit **Gerätename** auf ein bestimmtes Pushover-Gerät begrenzt
+   und mit **Sound-Name** ein Pushover-Sound ausgewählt werden. Leere Felder
+   verwenden die Vorgaben des Pushover-Kontos.
+4. Wählen Sie **Sofort bei Alarmauslösung** oder **Als verzögerte
+   Eskalationsstufe**. Die Verzögerung wird nur im zweiten Modus ausgewertet.
+5. Wählen Sie die Priorität und übernehmen Sie die Konfiguration.
+6. Prüfen Sie die Zugangsdaten mit **Pushover-Testnachricht senden**. Die
+   Testnachricht verwendet unabhängig von der Alarmkonfiguration die normale
+   Priorität und löst keine Wiederholungen aus.
+
+Die Alarmmeldung enthält automatisch den zuletzt alarmierenden Bereich und den
+auslösenden Sensor. Pro Alarmzyklus wird genau ein Versandversuch ausgeführt.
+Die Prioritäten entsprechen Pushover:
+
+- **Normal (`0`)** verwendet die üblichen Geräte- und Ruhezeiteinstellungen.
+- **Hoch (`1`)** übergeht Pushover-Ruhezeiten und wiederholt die Meldung nicht.
+- **Notfall mit Quittierung (`2`)** wiederholt die Meldung im konfigurierten
+  Intervall bis zur Quittierung oder bis zum Ablauf der Wiederholungsdauer.
+
+Für die Notfall-Priorität muss das Wiederholungsintervall mindestens 30 Sekunden
+betragen; die Wiederholungsdauer ist auf drei Stunden begrenzt. OpenHomeAlarm
+speichert den von Pushover gelieferten Beleg wiederanlaufsicher und beendet eine
+laufende Notfall-Wiederholung, sobald der letzte Alarmausgang zurückgesetzt oder
+die Anlage unscharf geschaltet wird. Schlägt dieser HTTPS-Aufruf fehl, wird der
+Fehler im Debug-Protokoll erfasst und beim nächsten Wiederherstellen der Instanz
+erneut versucht.
+
+Anwendungs-Token und Benutzer-/Gruppen-Key sind vertrauliche Zugangsdaten. Sie
+werden nicht in Diagnose- oder Ereignisexporten ausgegeben. Die vollständige
+Konfigurationssicherung enthält sie jedoch ebenso wie Unscharfschaltcodes und
+muss deshalb geschützt gespeichert werden.
+
 #### Signalgeber separat stoppen
 
 Nach der erfolgreichen Ausführung einer als **Signalgeber** markierten Eskalationsaktion wechselt die Statusvariable `SignalGeneratorActive` auf **Signalgeber aktiv**. In jeder Area mit aktivem Alarm erscheint dann zusätzlich **Signalgeber stoppen**. Die Schaltfläche führt ausschließlich die Rücksetzaktionen der Signalgeber aus und setzt die Statusvariable wieder auf **Signalgeber inaktiv**. So lässt sich im Symcon-Objektbaum direkt unterscheiden, ob bereits die Aktion nicht gestartet wurde oder lediglich ihre Schaltfläche in einer Area fehlt.
@@ -429,8 +470,9 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_GetPartitions($InstanzID)` | `string` | Liefert die konfigurierten Partitionsmetadaten als JSON |
 | `OHA_GetDiagnostics($InstanzID)` | `string` | Liefert einen rein lesenden Diagnose-Snapshot aller konfigurierten Sensoren und Störungseingänge als JSON |
 | `OHA_ExportDiagnostics($InstanzID, $Format)` | `string` | Exportiert den aktuellen Diagnose-Snapshot als `json` oder `csv` |
-| `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert sämtliche Moduleinstellungen als versioniertes JSON; das Ergebnis kann Unscharfschalt- und Benutzercodes enthalten und muss vertraulich gespeichert werden |
+| `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert sämtliche Moduleinstellungen als versioniertes JSON; das Ergebnis kann Unscharfschaltcodes und Pushover-Zugangsdaten enthalten und muss vertraulich gespeichert werden |
 | `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
+| `OHA_TestPushover($InstanzID)` | `bool` | Sendet über die eingetragenen direkten Pushover-Zugangsdaten eine normale Testnachricht ohne Notfall-Wiederholung |
 | `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; bei `main` werden alle aktiven Bereiche gemeinsam geschaltet |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich unscharf; bei `main` werden alle aktiven Bereiche gemeinsam unscharf geschaltet |
 | `OHA_Arm($InstanzID, $Modus, $Verzögerung)` | `bool` | Schaltet alle aktiven Bereiche über die stabile Bedien-API mit `home`, `away` oder `night` scharf; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
