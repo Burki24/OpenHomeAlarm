@@ -7,6 +7,8 @@ namespace Burki24\OpenHomeAlarm;
 use JsonException;
 use UnexpectedValueException;
 
+require_once __DIR__ . '/AlarmPartitionAssignmentException.php';
+
 /** Normalizes independently addressable alarm partitions. */
 final class AlarmPartitionRegistry
 {
@@ -108,13 +110,15 @@ final class AlarmPartitionRegistry
                 continue;
             }
             if (!$partition['Enabled']) {
-                throw new UnexpectedValueException(sprintf('%s must reference an enabled partition.', $context));
+                throw new AlarmPartitionAssignmentException(
+                    sprintf('%s must reference an enabled partition.', $context)
+                );
             }
 
             return $partitionID;
         }
 
-        throw new UnexpectedValueException(sprintf('%s references an unknown partition.', $context));
+        throw new AlarmPartitionAssignmentException(sprintf('%s references an unknown partition.', $context));
     }
 
     /**

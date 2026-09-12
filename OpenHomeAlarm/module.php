@@ -16,6 +16,7 @@ use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmEventHistoryExporter;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmPartitionAlarmRegistry;
+use Burki24\OpenHomeAlarm\AlarmPartitionAssignmentException;
 use Burki24\OpenHomeAlarm\AlarmPartitionRegistry;
 use Burki24\OpenHomeAlarm\AlarmPartitionRuntime;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
@@ -71,6 +72,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private const CONTROL_API_VERSION = 2;
     private const STATUS_INVALID_PARTITIONS = 201;
+    private const STATUS_INVALID_CONFIGURATION = 202;
     private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area"}]';
     private const PUSHOVER_MESSAGES_URL = 'https://api.pushover.net/1/messages.json';
     private const PUSHOVER_RECEIPTS_URL = 'https://api.pushover.net/1/receipts';
@@ -678,9 +680,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
-    /**
-     * Migrates legacy IPSView palette properties to the universal shared style.
-     */
+    /** Migrates persisted security settings and legacy IPSView palette properties. */
     public function Migrate(string $JSONData): string
     {
         parent::Migrate($JSONData);
@@ -700,7 +700,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $configuration = &$persistence['configuration'];
-        $changed = false;
+        $changed = $this->RecoverLastAppliedSecurityConfiguration($persistence);
 
         foreach (self::LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES as $legacyProperty => $integerProperty) {
             if (!array_key_exists($legacyProperty, $configuration)) {
@@ -812,7 +812,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        $this->InitializeRuntime();
+        if (!$this->InitializeRuntimeSafely()) {
+            return;
+        }
         $this->WriteAttributeString(
             self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
             $this->AppliedSecurityConfiguration()
@@ -1256,7 +1258,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
         if ($SenderID === 0 && $Message === IPS_KERNELSTARTED) {
-            $this->InitializeRuntime();
+            if (!$this->InitializeRuntimeSafely()) {
+                return;
+            }
             $this->WriteAttributeString(
                 self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
                 $this->AppliedSecurityConfiguration()
@@ -2029,17 +2033,42 @@ class OpenHomeAlarm extends IPSModuleStrict
         $variableID = $this->ReadSensorEditInteger($sensor, 'VariableID', 0);
         $triggerValue = $this->ReadSensorEditString($sensor, 'TriggerValue', '1');
         $partitions = $this->ReadConfiguredPartitions();
-        $legacyPartitionID = AlarmPartitionRegistry::assignedPartitionID(
-            $this->ReadSensorEditString($sensor, 'PartitionID', ''),
-            $partitions,
-            'Sensor partition'
-        );
+        $legacyPartitionID = strtolower(trim($this->ReadSensorEditString($sensor, 'PartitionID', '')));
+        if ($legacyPartitionID === '') {
+            $legacyPartitionID = AlarmPartitionRegistry::defaultPartition($partitions)['ID'];
+        }
         $hasExplicitAssignments = false;
         foreach ($partitions as $partition) {
             if ($this->SensorEditHasKey($sensor, 'Partition_' . $partition['ID'])) {
                 $hasExplicitAssignments = true;
                 break;
             }
+        }
+        $knownPartitionIDs = array_column($partitions, 'ID');
+        if (!in_array($legacyPartitionID, $knownPartitionIDs, true)) {
+            $hasExplicitAssignments = $hasExplicitAssignments
+                || $this->SensorEditHasKey($sensor, 'Partition_' . $legacyPartitionID);
+            if (preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $legacyPartitionID) === 1) {
+                $partitions[] = [
+                    'Enabled' => true,
+                    'ID'      => $legacyPartitionID,
+                    'Name'    => sprintf($this->Translate('Missing alarm partition: %s'), $legacyPartitionID),
+                    'Default' => false
+                ];
+            }
+        }
+        $partitionFields = [];
+        foreach ($partitions as $partition) {
+            $selected = $hasExplicitAssignments
+                ? $this->ReadSensorEditBoolean($sensor, 'Partition_' . $partition['ID'], false)
+                : $partition['ID'] === $legacyPartitionID;
+            $partitionFields[] = [
+                'type'    => 'CheckBox',
+                'name'    => 'Partition_' . $partition['ID'],
+                'caption' => $partition['Name'],
+                'value'   => $selected,
+                'enabled' => $partition['Enabled'] || $selected
+            ];
         }
         $hasVariable = $this->IsExistingVariable($variableID);
         $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
@@ -2069,18 +2098,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'type'    => 'Label',
                 'caption' => $this->Translate('Select every alarm partition that should monitor this sensor.')
             ],
-            ...array_map(
-                fn (array $partition): array => [
-                    'type'    => 'CheckBox',
-                    'name'    => 'Partition_' . $partition['ID'],
-                    'caption' => $partition['Name'],
-                    'value'   => $hasExplicitAssignments
-                        ? $this->ReadSensorEditBoolean($sensor, 'Partition_' . $partition['ID'], false)
-                        : $partition['ID'] === $legacyPartitionID,
-                    'enabled' => $partition['Enabled']
-                ],
-                $partitions
-            ),
+            ...$partitionFields,
             [
                 'type'     => 'SelectVariable',
                 'name'     => 'VariableID',
@@ -2332,11 +2350,17 @@ class OpenHomeAlarm extends IPSModuleStrict
         $variableID = $this->ReadSensorEditInteger($faultInput, 'VariableID', 0);
         $triggerValue = $this->ReadSensorEditString($faultInput, 'TriggerValue', '1');
         $partitions = $this->ReadConfiguredPartitions();
-        $partitionID = AlarmPartitionRegistry::assignedPartitionID(
-            $this->ReadSensorEditString($faultInput, 'PartitionID', ''),
-            $partitions,
-            'Fault input partition'
-        );
+        $partitionID = strtolower(trim($this->ReadSensorEditString($faultInput, 'PartitionID', '')));
+        if ($partitionID === '') {
+            $partitionID = AlarmPartitionRegistry::defaultPartition($partitions)['ID'];
+        }
+        $partitionOptions = $this->CreatePartitionOptions($partitions);
+        if (!in_array($partitionID, array_column($partitionOptions, 'value'), true)) {
+            array_unshift($partitionOptions, [
+                'caption' => sprintf($this->Translate('Missing or disabled alarm partition: %s'), $partitionID),
+                'value'   => $partitionID
+            ]);
+        }
         $hasVariable = $this->IsExistingVariable($variableID);
         $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
         $hasTriggerOptions = $triggerOptions !== [];
@@ -2359,7 +2383,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'type'    => 'Select',
                 'name'    => 'PartitionID',
                 'caption' => $this->Translate('Alarm partition'),
-                'options' => $this->CreatePartitionOptions($partitions),
+                'options' => $partitionOptions,
                 'value'   => $partitionID
             ],
             [
@@ -2559,6 +2583,133 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $response;
+    }
+
+    /**
+     * Restores the last successfully applied security settings when an update receives
+     * a partially reset configuration whose remaining sensors reference missing areas.
+     *
+     * @param array<string,mixed> $persistence
+     */
+    private function RecoverLastAppliedSecurityConfiguration(array &$persistence): bool
+    {
+        $configuration = $persistence['configuration'] ?? null;
+        if (!is_array($configuration)) {
+            return false;
+        }
+
+        try {
+            $this->ValidatePersistedSecurityConfiguration($configuration);
+
+            return false;
+        } catch (AlarmPartitionAssignmentException) {
+            // Only a concrete missing/disabled area reference justifies an automatic rollback.
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+
+        $attributes = $persistence['attributes'] ?? null;
+        $snapshot = is_array($attributes)
+            ? ($attributes[self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION] ?? null)
+            : null;
+        if (!is_string($snapshot) || !str_starts_with($snapshot, self::SECURITY_CONFIGURATION_SNAPSHOT_PREFIX)) {
+            return false;
+        }
+
+        try {
+            $lastApplied = json_decode(
+                substr($snapshot, strlen(self::SECURITY_CONFIGURATION_SNAPSHOT_PREFIX)),
+                true,
+                512,
+                JSON_THROW_ON_ERROR
+            );
+        } catch (JsonException) {
+            return false;
+        }
+        if (!is_array($lastApplied)) {
+            return false;
+        }
+
+        $recovered = $configuration;
+        foreach ($lastApplied as $propertyName => $value) {
+            if (!is_string($propertyName) || !array_key_exists($propertyName, $recovered)) {
+                continue;
+            }
+            if (gettype($value) !== gettype($recovered[$propertyName])) {
+                return false;
+            }
+            $recovered[$propertyName] = $value;
+        }
+
+        try {
+            $this->ValidatePersistedSecurityConfiguration($recovered);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+
+        $persistence['configuration'] = $recovered;
+
+        return true;
+    }
+
+    /** @param array<string,mixed> $configuration */
+    private function ValidatePersistedSecurityConfiguration(array $configuration): void
+    {
+        $partitions = AlarmPartitionRegistry::partitions($this->PersistedStringConfigurationValue(
+            $configuration,
+            self::PROPERTY_PARTITIONS,
+            self::DEFAULT_PARTITIONS_JSON
+        ));
+        $sensors = AlarmConfigurationNormalizer::sensors(
+            $this->PersistedStringConfigurationValue($configuration, self::PROPERTY_SENSORS, '[]'),
+            self::VALID_SENSOR_TYPES,
+            self::SENSOR_TYPE_OPENING
+        );
+        foreach ($sensors as $sensor) {
+            AlarmPartitionRegistry::assignedPartitionIDs(
+                $sensor['PartitionIDs'],
+                $partitions,
+                'Sensor partition'
+            );
+        }
+
+        $faultInputs = AlarmConfigurationNormalizer::faultInputs(
+            $this->PersistedStringConfigurationValue($configuration, self::PROPERTY_FAULT_INPUTS, '[]'),
+            self::VALID_FAULT_TYPES,
+            self::FAULT_TYPE_TAMPER
+        );
+        foreach ($faultInputs as $faultInput) {
+            AlarmPartitionRegistry::assignedPartitionID(
+                $faultInput['PartitionID'],
+                $partitions,
+                'Fault input partition'
+            );
+        }
+
+        AlarmEscalationPlan::steps($this->PersistedStringConfigurationValue(
+            $configuration,
+            self::PROPERTY_ALARM_ESCALATION_STEPS,
+            '[]'
+        ));
+        AlarmArmingSchedule::schedules($this->PersistedStringConfigurationValue(
+            $configuration,
+            self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES,
+            '[]'
+        ));
+    }
+
+    /** @param array<string,mixed> $configuration */
+    private function PersistedStringConfigurationValue(
+        array $configuration,
+        string $propertyName,
+        string $default
+    ): string {
+        $value = $configuration[$propertyName] ?? $default;
+        if (!is_string($value)) {
+            throw new UnexpectedValueException(sprintf('Configuration property %s must be a string.', $propertyName));
+        }
+
+        return $value;
     }
 
     /** Disarms a resolved non-default partition and records an optional user name. */
@@ -3095,6 +3246,20 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RestoreSignalGeneratorState();
         $this->PublishVisualizationState();
         $this->UpdateIPSViewHTML();
+    }
+
+    private function InitializeRuntimeSafely(): bool
+    {
+        try {
+            $this->InitializeRuntime();
+        } catch (AlarmPartitionAssignmentException $exception) {
+            $this->SendDebug('Invalid alarm configuration', $exception->getMessage(), 0);
+            $this->SetStatus(self::STATUS_INVALID_CONFIGURATION);
+
+            return false;
+        }
+
+        return true;
     }
 
     private function ExecuteAutomaticArmingAt(int $timestamp): void
@@ -4610,11 +4775,15 @@ class OpenHomeAlarm extends IPSModuleStrict
                 : $this->DefaultPartitionID()];
         }
 
-        $names = [];
+        $partitionNames = [];
         foreach ($this->ReadConfiguredPartitions() as $partition) {
-            if (in_array($partition['ID'], $selectedIDs, true)) {
-                $names[] = $partition['Name'];
-            }
+            $partitionNames[$partition['ID']] = $partition['Name'];
+        }
+
+        $names = [];
+        foreach ($selectedIDs as $selectedID) {
+            $names[] = $partitionNames[$selectedID]
+                ?? sprintf($this->Translate('Missing alarm partition: %s'), $selectedID);
         }
 
         return implode(', ', $names);

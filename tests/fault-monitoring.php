@@ -531,6 +531,23 @@ assertFaultMonitoring(
     && ($partitionSelection['value'] ?? null) === 'main',
     'Fault input editor must resolve empty assignments to the default partition.'
 );
+
+$orphanedFaultEditForm = $instance->GetFaultInputEditForm(array_merge(
+    faultInput(9002, 'Funkverbindung', 2, 'FAULT', true, false),
+    ['PartitionID' => 'schuppen']
+));
+$orphanedPartitionSelection = null;
+foreach ($orphanedFaultEditForm as $field) {
+    if (($field['name'] ?? null) === 'PartitionID') {
+        $orphanedPartitionSelection = $field;
+        break;
+    }
+}
+assertFaultMonitoring(
+    ($orphanedPartitionSelection['value'] ?? null) === 'schuppen'
+        && in_array('schuppen', array_column($orphanedPartitionSelection['options'] ?? [], 'value'), true),
+    'Fault input editor must keep an orphaned partition visible until the user selects a valid area.'
+);
 assertFaultMonitoring(($selection['value'] ?? null) === 'FAULT', 'The stored fault value must be restored when editing.');
 assertFaultMonitoring(
     array_column($selection['options'] ?? [], 'caption') === ['Online', 'Offline'],

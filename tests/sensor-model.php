@@ -670,6 +670,26 @@ assertSensorModel(
     && ($editFields['Partition_main']['value'] ?? null) === true,
     'Sensor editor must select the default area and persist its assignment with a checkbox.'
 );
+
+$orphanedEditForm = $instance->GetSensorEditForm(new IPSList([
+    'PartitionID'               => 'schuppen',
+    'Partition_main'            => false,
+    'Partition_schuppen'        => true,
+    'VariableID'                => 12345,
+    'TriggerValue'              => 'true'
+]));
+$orphanedEditFields = [];
+foreach ($orphanedEditForm as $field) {
+    if (isset($field['name'])) {
+        $orphanedEditFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($orphanedEditFields['Partition_schuppen']['type'] ?? null) === 'CheckBox'
+        && ($orphanedEditFields['Partition_schuppen']['value'] ?? null) === true
+        && ($orphanedEditFields['Partition_schuppen']['enabled'] ?? false) === true,
+    'Sensor editor must expose an orphaned partition assignment so the user can remove it.'
+);
 assertSensorModel(
     ($editFields['AlwaysActive']['type'] ?? null) === 'CheckBox',
     'Sensor editor must expose 24/7 monitoring as a checkbox.'

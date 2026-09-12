@@ -106,6 +106,12 @@ assertPartition(
         && str_contains($form['status'][0]['caption'] ?? '', 'The main area must exist and be enabled'),
     'Invalid partition configurations must have a user-facing Symcon status instead of producing an uncaught exception.'
 );
+assertPartition(
+    ($form['status'][1]['code'] ?? null) === 202
+        && ($form['status'][1]['icon'] ?? null) === 'error'
+        && str_contains($form['status'][1]['caption'] ?? '', 'missing or disabled alarm partition'),
+    'Invalid sensor and fault assignments must have a user-facing Symcon status instead of producing an uncaught exception.'
+);
 
 $mainPartitions = AlarmPartitionRegistry::partitions(json_encode([
     ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main area', 'Default' => false],

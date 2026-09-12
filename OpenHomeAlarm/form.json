@@ -4,6 +4,11 @@
             "code": 201,
             "icon": "error",
             "caption": "Invalid alarm partition configuration. The main area must exist and be enabled."
+        },
+        {
+            "code": 202,
+            "icon": "error",
+            "caption": "Invalid sensor or fault configuration. At least one entry references a missing or disabled alarm partition. Recreate that area or assign the entry to an existing enabled area."
         }
     ],
     "elements": [

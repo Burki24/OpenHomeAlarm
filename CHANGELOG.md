@@ -9,6 +9,13 @@ beispielsweise `v1.109.0`.
 
 ### Fixed
 
+- Verwaiste Sensor- oder Störungszuordnungen zu einem fehlenden bzw. deaktivierten
+  Alarmbereich führen beim Anwenden oder Neustart nicht mehr zu einem PHP-Fatal.
+  Die Instanz meldet stattdessen einen verständlichen Konfigurationsstatus, und
+  betroffene Einträge bleiben im Editor sichtbar und korrigierbar. Erkennt ein
+  späteres Modulupdate gleichzeitig eine solche Teilrücksetzung, stellt es die
+  zuletzt erfolgreich angewendeten Sicherheitsdaten einschließlich Alarmbereichen
+  und Eskalationsstufen wieder her; neu hinzugekommene Einstellungen bleiben erhalten.
 - Der Zustand ausgeführter Signalgeber wird über die sichtbare Boolean-Variable
   `SignalGeneratorActive` geführt. Alarmierte Areas erhalten dadurch zuverlässig
   die separate Aktion **Signalgeber stoppen**, ohne andere Alarmaktionen zurückzusetzen.

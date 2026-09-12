@@ -105,4 +105,62 @@ assertIPSViewMigration(
     'Already migrated persistence must not be rewritten.'
 );
 
+$lastGoodPartitions = '[{"Enabled":true,"ID":"main","Name":"Main area"},{"Enabled":true,"ID":"schuppen","Name":"Schuppen"}]';
+$lastGoodSensors = '[{"Enabled":true,"PartitionID":"schuppen","VariableID":12345,"SensorType":0}]';
+$lastGoodEscalation = json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Sirene',
+    'DelaySeconds' => 0,
+    'Action'       => ['actionID' => '{NOTIFY}', 'parameters' => ['TEXT' => 'Alarm']]
+]], JSON_THROW_ON_ERROR);
+$lastGoodSecurityConfiguration = [
+    'Partitions'           => $lastGoodPartitions,
+    'Sensors'              => $lastGoodSensors,
+    'FaultInputs'          => '[]',
+    'AlarmEscalationSteps' => $lastGoodEscalation
+];
+$partiallyResetPersistence = json_encode([
+    'configuration' => [
+        'Partitions'               => '[{"Enabled":true,"ID":"main","Name":"Main area"}]',
+        'Sensors'                  => $lastGoodSensors,
+        'FaultInputs'              => '[]',
+        'AlarmEscalationSteps'     => '[]',
+        'PushoverNotificationMode' => 2
+    ],
+    'attributes' => [
+        'AppliedSecurityConfiguration' => 'v2:' . json_encode(
+            $lastGoodSecurityConfiguration,
+            JSON_THROW_ON_ERROR
+        )
+    ]
+], JSON_THROW_ON_ERROR);
+$recoveredJSON = $instance->Migrate($partiallyResetPersistence);
+assertIPSViewMigration(
+    $recoveredJSON !== '',
+    'A partial configuration reset with an invalid partition assignment must trigger recovery.'
+);
+$recoveredPersistence = json_decode($recoveredJSON, true, 512, JSON_THROW_ON_ERROR);
+$recoveredConfiguration = $recoveredPersistence['configuration'] ?? [];
+assertIPSViewMigration(
+    ($recoveredConfiguration['Partitions'] ?? null) === $lastGoodPartitions
+        && ($recoveredConfiguration['AlarmEscalationSteps'] ?? null) === $lastGoodEscalation
+        && ($recoveredConfiguration['PushoverNotificationMode'] ?? null) === 2,
+    'Recovery must restore the last valid areas and escalation steps while preserving newer settings.'
+);
+
+$validCurrentPersistence = json_decode($partiallyResetPersistence, true, 512, JSON_THROW_ON_ERROR);
+$validCurrentPersistence['configuration']['Partitions'] = $lastGoodPartitions;
+$validCurrentPersistence['configuration']['AlarmEscalationSteps'] = '[]';
+assertIPSViewMigration(
+    $instance->Migrate(json_encode($validCurrentPersistence, JSON_THROW_ON_ERROR)) === '',
+    'A valid intentional configuration must not be replaced by an older security snapshot.'
+);
+
+$missingSnapshotPersistence = json_decode($partiallyResetPersistence, true, 512, JSON_THROW_ON_ERROR);
+$missingSnapshotPersistence['attributes'] = [];
+assertIPSViewMigration(
+    $instance->Migrate(json_encode($missingSnapshotPersistence, JSON_THROW_ON_ERROR)) === '',
+    'An invalid configuration without a verified last-applied snapshot must not be rewritten automatically.'
+);
+
 fwrite(STDOUT, "OpenHomeAlarm IPSView style migration checks passed.\n");
