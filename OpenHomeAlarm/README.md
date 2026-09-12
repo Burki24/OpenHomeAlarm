@@ -110,13 +110,45 @@ Für die Gesamtanlage verwenden Sie `main` beziehungsweise die bestehenden Befeh
 
 ```php
 // Alle aktiven Bereiche im Abwesend-Modus scharfschalten
-OHA_ArmAway(12345);
+OHA_ArmAway(12345, null);
 
 // Alle aktiven Bereiche unscharf schalten
 OHA_Disarm(12345);
 ```
 
+Bei `OHA_ArmHome()`, `OHA_ArmAway()` und `OHA_ArmNight()` muss der Parameter für
+die Ausgangsverzögerung im von Symcon erzeugten `OHA_*`-Befehl immer angegeben
+werden. `null` verwendet die in der Instanz konfigurierte Ausgangsverzögerung,
+`0` schaltet ohne Verzögerung scharf und eine positive Zahl überschreibt die
+Verzögerung für diesen einzelnen Aufruf. Für den allgemeinen Befehl gilt
+entsprechend zum Beispiel `OHA_Arm(12345, 'away', null)`.
+
 Vor dem Scharfschalten prüft OpenHomeAlarm alle aktiven Bereiche. Blockiert ein Sensor oder Störungseingang einen Bereich, bleibt die gesamte Anlage unverändert unscharf.
+
+##### Beispiel: Hotelschalter oder Kartenleser
+
+Liefert eine Integer-Variable beim Einstecken der Karte den Wert `16` und ohne
+Karte den Wert `0`, kann sie über ein Ereignis **Bei Änderung** mit folgendem
+Aktionsskript angebunden werden:
+
+```php
+<?php
+
+$alarmInstanzID = 12345;
+
+if ((int) $_IPS['VALUE'] === 16) {
+    // Karte eingesteckt: Abwesend ohne Ausgangsverzögerung scharfschalten
+    OHA_ArmAway($alarmInstanzID, 0);
+} elseif ((int) $_IPS['VALUE'] === 0) {
+    // Keine Karte: Gesamtanlage unscharf schalten
+    OHA_Disarm($alarmInstanzID);
+}
+```
+
+`12345` wieder durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen. Soll beim
+Einstecken der Karte die konfigurierte Ausgangsverzögerung laufen, im Aufruf
+`OHA_ArmAway($alarmInstanzID, null)` statt `0` verwenden. Die Werte `16` und `0`
+müssen zu den tatsächlichen Werten der verwendeten Variable passen.
 
 **4. Nur die Garage unscharf schalten**
 
@@ -401,10 +433,10 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
 | `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; bei `main` werden alle aktiven Bereiche gemeinsam geschaltet |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich unscharf; bei `main` werden alle aktiven Bereiche gemeinsam unscharf geschaltet |
-| `OHA_Arm($InstanzID, $Modus, $Verzögerung = null)` | `bool` | Schaltet alle aktiven Bereiche über die stabile Bedien-API mit `home`, `away` oder `night` scharf; eine optionale Verzögerung überschreibt die konfigurierte Ausgangsverzögerung für diesen Aufruf |
-| `OHA_ArmHome($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
-| `OHA_ArmAway($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Abwesend** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
-| `OHA_ArmNight($InstanzID, $Verzögerung = null)` | `bool` | Komfortbefehl für **Nacht** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_Arm($InstanzID, $Modus, $Verzögerung)` | `bool` | Schaltet alle aktiven Bereiche über die stabile Bedien-API mit `home`, `away` oder `night` scharf; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_ArmHome($InstanzID, $Verzögerung)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_ArmAway($InstanzID, $Verzögerung)` | `bool` | Komfortbefehl für **Abwesend** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_ArmNight($InstanzID, $Verzögerung)` | `bool` | Komfortbefehl für **Nacht** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
 | `OHA_BypassSensor($InstanzID, $VariableID)` | `bool` | Überbrückt einen normalen konfigurierten Scharfsensor temporär; nur im Zustand **Unscharf** möglich |
 | `OHA_RemoveSensorBypass($InstanzID, $VariableID)` | `bool` | Entfernt eine einzelne temporäre Sensorüberbrückung; nur im Zustand **Unscharf** möglich |
 | `OHA_BypassSensorPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Überbrückt einen Sensor ausschließlich im angegebenen unscharfen Alarmbereich |
@@ -425,4 +457,12 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_ClearEventHistory($InstanzID)` | `bool` | Leert das persistente Sicherheits-Ereignisprotokoll |
 | `OHA_CheckSensorIntegrity($InstanzID)` | `void` | Prüft konfigurierte Sensor- und Störungsvariablen sofort auf Verfügbarkeit und aktualisiert Systemstörung sowie Scharfschaltbereitschaft |
 
-Die Scharfschaltbefehle liefern `false`, wenn das System nicht **Unscharf** ist oder mindestens ein für den Zielmodus relevanter Sensor bzw. eine blockierende Systemstörung die Scharfschaltung verhindert. In diesem Fall bleiben `Mode` und `State` unverändert. Für neue benutzerseitige Oberflächen ist `OHA_Arm()` die bevorzugte Schnittstelle; die drei modusspezifischen Befehle bleiben kompatibel erhalten.
+Die von Symcon erzeugten `OHA_*`-Wrapper verlangen alle in der Tabelle gezeigten
+Parameter. Deshalb muss bei den vier Scharfschaltbefehlen die Verzögerung auch
+dann explizit als `null` übergeben werden, wenn die konfigurierte
+Ausgangsverzögerung gelten soll. Die Scharfschaltbefehle liefern `false`, wenn
+das System nicht **Unscharf** ist oder mindestens ein für den Zielmodus
+relevanter Sensor bzw. eine blockierende Systemstörung die Scharfschaltung
+verhindert. In diesem Fall bleiben `Mode` und `State` unverändert. Für neue
+benutzerseitige Oberflächen ist `OHA_Arm()` die bevorzugte Schnittstelle; die
+drei modusspezifischen Befehle bleiben kompatibel erhalten.

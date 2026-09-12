@@ -55,10 +55,15 @@ OHA_DisarmPartition(12345, 'garage');
 sind `home`, `away` und `night`. Andere Alarmbereiche werden durch diese Befehle
 nicht verändert.
 
-Für alle aktiven Bereiche gemeinsam verwenden Sie `OHA_ArmHome()`,
-`OHA_ArmAway()`, `OHA_ArmNight()` oder `OHA_Disarm()`. Ein Scharfschaltversuch
-über den Hauptbereich wird nur ausgeführt, wenn jeder aktive Bereich bereit ist;
-bei einem Blocker bleibt kein Bereich teilweise scharfgeschaltet.
+Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
+`OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,
+`OHA_ArmNight(12345, null)` oder `OHA_Disarm(12345)`. Bei den drei
+Scharfschaltbefehlen muss der zweite Parameter im von Symcon erzeugten
+`OHA_*`-Befehl immer angegeben werden: `null` verwendet die konfigurierte
+Ausgangsverzögerung, `0` schaltet ohne Verzögerung scharf und eine positive Zahl
+überschreibt die Verzögerung für diesen Aufruf. Ein Scharfschaltversuch über den
+Hauptbereich wird nur ausgeführt, wenn jeder aktive Bereich bereit ist; bei
+einem Blocker bleibt kein Bereich teilweise scharfgeschaltet.
 
 ### Status eines Alarmbereichs im Script abfragen
 
