@@ -649,7 +649,7 @@ foreach ($form['elements'] ?? [] as $element) {
     }
 }
 assertDelay(is_array($delayPanel), 'Configuration form must contain a dedicated Delays section.');
-assertDelay(($delayPanel['expanded'] ?? false) === true, 'Delays section must be expanded by default.');
+assertDelay(($delayPanel['expanded'] ?? true) === false, 'Delays section must be collapsed by default.');
 
 $delayFields = [];
 foreach ($delayPanel['items'] ?? [] as $item) {

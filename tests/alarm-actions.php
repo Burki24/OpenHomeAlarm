@@ -490,6 +490,29 @@ function findAlarmActionFormField(array $elements, string $name): ?array
     return null;
 }
 
+/**
+ * @param list<array<string,mixed>> $elements
+ *
+ * @return list<array<string,mixed>>
+ */
+function collectAlarmActionExpansionPanels(array $elements): array
+{
+    $panels = [];
+    foreach ($elements as $element) {
+        if (!is_array($element)) {
+            continue;
+        }
+        if (($element['type'] ?? null) === 'ExpansionPanel') {
+            $panels[] = $element;
+        }
+        if (isset($element['items']) && is_array($element['items'])) {
+            array_push($panels, ...collectAlarmActionExpansionPanels($element['items']));
+        }
+    }
+
+    return $panels;
+}
+
 $alarmAction = json_encode([
     'actionID'   => '{11111111-1111-1111-1111-111111111111}',
     'parameters' => [
@@ -1303,6 +1326,27 @@ assertAlarmAction(
 );
 
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+$expansionPanels = collectAlarmActionExpansionPanels($dynamicForm['elements'] ?? []);
+assertAlarmAction(
+    $expansionPanels !== []
+        && array_filter($expansionPanels, static fn (array $panel): bool => ($panel['expanded'] ?? false) !== false) === [],
+    'Every configuration expansion panel must be collapsed initially.'
+);
+$alarmNotificationPanels = array_values(array_filter(
+    $expansionPanels,
+    static fn (array $panel): bool => ($panel['caption'] ?? null) === 'Alarm notifications'
+));
+assertAlarmAction(
+    count($alarmNotificationPanels) === 1
+        && array_map(
+            static fn (array $panel): mixed => $panel['caption'] ?? null,
+            array_values(array_filter(
+                $alarmNotificationPanels[0]['items'] ?? [],
+                static fn (mixed $item): bool => is_array($item) && ($item['type'] ?? null) === 'ExpansionPanel'
+            ))
+        ) === ['Symcon push notifications', 'Pushover (direct)'],
+    'Alarm notifications must group the native Symcon push and direct Pushover settings as separate topics.'
+);
 foreach ([
     'PushoverNotificationMode',
     'PushoverApplicationToken',
@@ -1405,6 +1449,8 @@ $locale = json_decode(
 $translations = $locale['translations']['de'] ?? [];
 foreach ([
     'Alarm escalation',
+    'Alarm notifications',
+    'Symcon push notifications',
     'Countdown output',
     'Countdown actions',
     'Actions on new fault',
