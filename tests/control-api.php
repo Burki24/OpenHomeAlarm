@@ -654,6 +654,65 @@ assertControlApi(
     'Each visualization partition must expose only its own recent events.'
 );
 
+$partitionDelayInstance = new OpenHomeAlarm();
+$partitionDelayInstance->Create();
+$partitionDelayInstance->TestSetPropertyInteger('ExitDelaySeconds', 60);
+$partitionDelayInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
+);
+$testValues[2001] = false;
+$testValues[2002] = false;
+$partitionDelayInstance->TestSetPropertyString('Sensors', json_encode([
+    array_merge(controlSensor(2001, 'true', true, false, true), ['PartitionID' => 'main']),
+    array_merge(controlSensor(2002, 'true', true, false, true), ['PartitionID' => 'garage'])
+], JSON_THROW_ON_ERROR));
+$partitionDelayInstance->ApplyChanges();
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('garage', 'away', 0),
+    'A partition API call must accept an explicit zero exit delay.'
+);
+$partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'A zero partition exit delay must arm the selected partition immediately.'
+);
+assertControlApi($partitionDelayInstance->DisarmPartition('garage'), 'The partition delay test must disarm the selected partition.');
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('garage', 'away', 15),
+    'A partition API call must accept a positive exit-delay override.'
+);
+$partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'exit_delay',
+    'A positive partition exit-delay override must start the exit delay for the selected partition.'
+);
+assertControlApi($partitionDelayInstance->DisarmPartition('garage'), 'The overridden partition delay must be cancellable by disarming.');
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('garage', 'away', null),
+    'A partition API call must accept the configured exit delay through null.'
+);
+$partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'exit_delay',
+    'A null partition exit delay must use the configured exit delay.'
+);
+assertControlApi($partitionDelayInstance->DisarmPartition('garage'), 'The configured partition delay must be cancellable by disarming.');
+assertControlApi(
+    !$partitionDelayInstance->ArmPartition('garage', 'away', -1),
+    'Negative partition exit-delay values must be rejected.'
+);
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('main', 'away', 0),
+    'The main partition must forward its exit-delay override to every enabled partition.'
+);
+$partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayState['Partitions']['main']['State']['Name'] ?? null) === 'armed'
+        && ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'A zero exit-delay override through main must arm every enabled partition immediately.'
+);
+
 $sharedSensorInstance = new OpenHomeAlarm();
 $sharedSensorInstance->Create();
 $sharedSensorInstance->TestSetPropertyString(

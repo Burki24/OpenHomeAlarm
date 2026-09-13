@@ -1158,18 +1158,23 @@ class OpenHomeAlarm extends IPSModuleStrict
      * Arms one enabled alarm partition. The configured main/default partition
      * represents the complete system and therefore arms every enabled area.
      */
-    public function ArmPartition(string $partitionID, string $mode): bool
+    public function ArmPartition(string $partitionID, string $mode, ?int $delaySeconds = null): bool
     {
+        if ($delaySeconds !== null && $delaySeconds < 0) {
+            $this->PublishVisualizationState();
+
+            return false;
+        }
         try {
             $partitionID = $this->ResolveEnabledPartitionID($partitionID);
         } catch (UnexpectedValueException) {
             return false;
         }
         if ($partitionID === $this->DefaultPartitionID()) {
-            return $this->Arm($mode);
+            return $this->Arm($mode, $delaySeconds);
         }
 
-        return $this->ArmSinglePartition($partitionID, $mode);
+        return $this->ArmSinglePartition($partitionID, $mode, $delaySeconds);
     }
 
     /**
@@ -5704,21 +5709,21 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /** Arms one non-default area after validating only that area's readiness. */
-    private function ArmSinglePartition(string $partitionID, string $mode): bool
+    private function ArmSinglePartition(string $partitionID, string $mode, ?int $delaySeconds = null): bool
     {
         $modeValue = AlarmStateMachine::armingModeFromName($mode);
         if ($modeValue === null) {
             return false;
         }
         $states = $this->ReadPartitionRuntime();
-        if (!$this->CanArmPartition($states, $partitionID, $modeValue)) {
+        if (!$this->CanArmPartition($states, $partitionID, $modeValue, $delaySeconds)) {
             return false;
         }
         $states[$partitionID] = AlarmPartitionRuntime::arm(
             $states[$partitionID],
             $modeValue,
             time(),
-            $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS)
+            $delaySeconds ?? $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS)
         );
         $this->WritePartitionRuntime($states);
         $this->SchedulePartitionRuntimeTimer($states);

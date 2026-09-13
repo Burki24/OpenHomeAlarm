@@ -45,7 +45,7 @@ Beispiel: Eine Garage soll unabhängig vom Hauptbereich geschaltet werden.
 
 ```php
 // Nur die Garage im Abwesend-Modus scharfschalten
-OHA_ArmPartition(12345, 'garage', 'away');
+OHA_ArmPartition(12345, 'garage', 'away', null);
 
 // Nur die Garage unscharf schalten
 OHA_DisarmPartition(12345, 'garage');
@@ -53,7 +53,9 @@ OHA_DisarmPartition(12345, 'garage');
 
 `12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen. Zulässige Modi
 sind `home`, `away` und `night`. Andere Alarmbereiche werden durch diese Befehle
-nicht verändert.
+nicht verändert. Bei `OHA_ArmPartition()` ist der vierte Parameter die
+Ausgangsverzögerung: `null` verwendet die konfigurierte Verzögerung, `0`
+schaltet sofort scharf und eine positive Zahl überschreibt sie einmalig.
 
 Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
 `OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,

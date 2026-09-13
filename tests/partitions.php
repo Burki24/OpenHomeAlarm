@@ -135,7 +135,7 @@ $moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/RE
 $rootReadme = (string) file_get_contents(dirname(__DIR__) . '/README.md');
 foreach ([$moduleReadme, $rootReadme] as $readme) {
     assertPartition(
-        str_contains($readme, "OHA_ArmPartition(12345, 'garage', 'away')")
+        str_contains($readme, "OHA_ArmPartition(12345, 'garage', 'away', null)")
             && str_contains($readme, "OHA_DisarmPartition(12345, 'garage')")
             && str_contains($readme, "['Partitions']['garage']")
             && str_contains($readme, "['State']['Name']")

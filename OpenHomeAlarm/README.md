@@ -98,12 +98,15 @@ Temporäre Überbrückungen gelten immer nur für den aktuell ausgewählten Bere
 Ein Symcon-Skript anlegen und folgenden Befehl verwenden:
 
 ```php
-OHA_ArmPartition(12345, 'garage', 'away');
+OHA_ArmPartition(12345, 'garage', 'away', null);
 ```
 
 - `12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen.
 - `garage` ist die zuvor eingetragene Bereichs-ID.
 - `away` ist der Scharfmodus. Zulässig sind `home`, `away` und `night`.
+- `null` verwendet die konfigurierte Ausgangsverzögerung. `0` schaltet ohne
+  Verzögerung scharf; eine positive Zahl überschreibt die Verzögerung für
+  diesen einzelnen Aufruf.
 - Der Befehl verändert keinen anderen Alarmbereich.
 
 Für die Gesamtanlage verwenden Sie `main` beziehungsweise die bestehenden Befehle ohne Bereichs-ID:
@@ -116,12 +119,12 @@ OHA_ArmAway(12345, null);
 OHA_Disarm(12345);
 ```
 
-Bei `OHA_ArmHome()`, `OHA_ArmAway()` und `OHA_ArmNight()` muss der Parameter für
-die Ausgangsverzögerung im von Symcon erzeugten `OHA_*`-Befehl immer angegeben
-werden. `null` verwendet die in der Instanz konfigurierte Ausgangsverzögerung,
-`0` schaltet ohne Verzögerung scharf und eine positive Zahl überschreibt die
-Verzögerung für diesen einzelnen Aufruf. Für den allgemeinen Befehl gilt
-entsprechend zum Beispiel `OHA_Arm(12345, 'away', null)`.
+Bei `OHA_ArmPartition()`, `OHA_ArmHome()`, `OHA_ArmAway()` und `OHA_ArmNight()`
+muss der Parameter für die Ausgangsverzögerung im von Symcon erzeugten
+`OHA_*`-Befehl immer angegeben werden. `null` verwendet die in der Instanz
+konfigurierte Ausgangsverzögerung, `0` schaltet ohne Verzögerung scharf und eine
+positive Zahl überschreibt die Verzögerung für diesen einzelnen Aufruf. Für den
+allgemeinen Befehl gilt entsprechend zum Beispiel `OHA_Arm(12345, 'away', null)`.
 
 Vor dem Scharfschalten prüft OpenHomeAlarm alle aktiven Bereiche. Blockiert ein Sensor oder Störungseingang einen Bereich, bleibt die gesamte Anlage unverändert unscharf.
 
@@ -473,7 +476,7 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert sämtliche Moduleinstellungen als versioniertes JSON; das Ergebnis kann Unscharfschaltcodes und Pushover-Zugangsdaten enthalten und muss vertraulich gespeichert werden |
 | `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
 | `OHA_TestPushover($InstanzID)` | `bool` | Sendet über die eingetragenen direkten Pushover-Zugangsdaten eine normale Testnachricht ohne Notfall-Wiederholung |
-| `OHA_ArmPartition($InstanzID, $BereichID, $Modus)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; bei `main` werden alle aktiven Bereiche gemeinsam geschaltet |
+| `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung; bei `main` werden alle aktiven Bereiche gemeinsam geschaltet |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich unscharf; bei `main` werden alle aktiven Bereiche gemeinsam unscharf geschaltet |
 | `OHA_Arm($InstanzID, $Modus, $Verzögerung)` | `bool` | Schaltet alle aktiven Bereiche über die stabile Bedien-API mit `home`, `away` oder `night` scharf; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
 | `OHA_ArmHome($InstanzID, $Verzögerung)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
