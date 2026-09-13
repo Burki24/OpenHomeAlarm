@@ -643,13 +643,13 @@ $form = json_decode(
 );
 $delayPanel = null;
 foreach ($form['elements'] ?? [] as $element) {
-    if (($element['type'] ?? null) === 'ExpansionPanel' && ($element['caption'] ?? null) === 'Delays') {
+    if (($element['type'] ?? null) === 'ExpansionPanel' && ($element['caption'] ?? null) === 'Arming delays') {
         $delayPanel = $element;
         break;
     }
 }
-assertDelay(is_array($delayPanel), 'Configuration form must contain a dedicated Delays section.');
-assertDelay(($delayPanel['expanded'] ?? true) === false, 'Delays section must be collapsed by default.');
+assertDelay(is_array($delayPanel), 'Configuration form must contain a dedicated Arming delays section.');
+assertDelay(($delayPanel['expanded'] ?? true) === false, 'Arming delays section must be collapsed by default.');
 
 $delayFields = [];
 foreach ($delayPanel['items'] ?? [] as $item) {
@@ -664,7 +664,7 @@ foreach ($delayPanel['items'] ?? [] as $item) {
 }
 assertDelay(
     $delayFields === ['ExitDelaySeconds', 'EntryDelaySeconds'],
-    'Delays section must contain both configured delay fields.'
+    'Arming delays section must contain both configured delay fields.'
 );
 
 $locale = json_decode(
@@ -674,8 +674,8 @@ $locale = json_decode(
     JSON_THROW_ON_ERROR
 );
 assertDelay(
-    ($locale['translations']['de']['Delays'] ?? null) === 'Verzögerungen',
-    'Delays section must have a German translation.'
+    ($locale['translations']['de']['Arming delays'] ?? null) === 'Einschaltverzögerungen',
+    'Arming delays section must have a German translation.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm delay checks passed.\n");
