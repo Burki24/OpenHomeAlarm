@@ -1200,6 +1200,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         $states = $this->ReadPartitionRuntime();
         $now = time();
         $newAlarms = [];
+        $armedPartitions = [];
+        $cancelledArming = [];
         foreach ($states as $partitionID => $state) {
             if ($partitionID !== $this->DefaultPartitionID()) {
                 if ($state['State'] === self::STATE_EXIT_DELAY && $state['Deadline'] > 0 && $state['Deadline'] <= $now) {
@@ -1211,10 +1213,17 @@ class OpenHomeAlarm extends IPSModuleStrict
                     );
                     if (!$this->IsModeReady($state['Mode'], $readiness)) {
                         $states[$partitionID] = AlarmPartitionRuntime::disarm($state);
+                        $cancelledArming[$partitionID] = [
+                            'Mode'   => $state['Mode'],
+                            'Source' => $this->ResolveArmingBlockersForMode($state['Mode'], $sensors, $faults, true, true, true)
+                        ];
                         continue;
                     }
                 }
                 $advanced = AlarmPartitionRuntime::advance($state, $now);
+                if ($state['State'] === self::STATE_EXIT_DELAY && $advanced['State'] === self::STATE_ARMED) {
+                    $armedPartitions[$partitionID] = $advanced['Mode'];
+                }
                 if ($state['State'] === self::STATE_ENTRY_DELAY && $advanced['State'] === self::STATE_ALARM) {
                     $newAlarms[$partitionID] = $state['DelaySource'] !== ''
                         ? $state['DelaySource']
@@ -1225,6 +1234,19 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         $this->WritePartitionRuntime($states);
         $this->SchedulePartitionRuntimeTimer($states);
+        foreach ($cancelledArming as $partitionID => $cancellation) {
+            $this->AppendEvent(
+                self::EVENT_ARM_CANCELLED,
+                $cancellation['Source'],
+                $cancellation['Mode'],
+                self::STATE_EXIT_DELAY,
+                $partitionID
+            );
+            $this->AppendEvent(self::EVENT_DISARMED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
+        }
+        foreach ($armedPartitions as $partitionID => $mode) {
+            $this->AppendEvent(self::EVENT_ARMED, '', $mode, self::STATE_ARMED, $partitionID);
+        }
         foreach ($newAlarms as $partitionID => $source) {
             $this->RecordPartitionAlarm($partitionID, $source);
             $this->AppendEvent(self::EVENT_ALARM, $source, $states[$partitionID]['Mode'], self::STATE_ALARM, $partitionID);
@@ -5717,6 +5739,26 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         $states = $this->ReadPartitionRuntime();
         if (!$this->CanArmPartition($states, $partitionID, $modeValue, $delaySeconds)) {
+            if (AlarmStateMachine::canArm($states[$partitionID]['State'], $modeValue)) {
+                $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
+                $faults = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $partitionID);
+                $exitDelaySeconds = $delaySeconds ?? $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS);
+                $strictReadiness = $exitDelaySeconds === 0;
+                $this->AppendEvent(
+                    self::EVENT_ARM_REJECTED,
+                    $this->ResolveArmingBlockersForMode(
+                        $modeValue,
+                        $sensors,
+                        $faults,
+                        $strictReadiness,
+                        !$strictReadiness
+                    ),
+                    $modeValue,
+                    $states[$partitionID]['State'],
+                    $partitionID
+                );
+            }
+
             return false;
         }
         $states[$partitionID] = AlarmPartitionRuntime::arm(
@@ -5727,6 +5769,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
         $this->WritePartitionRuntime($states);
         $this->SchedulePartitionRuntimeTimer($states);
+        $this->AppendEvent(
+            $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
+                ? self::EVENT_EXIT_DELAY_STARTED
+                : self::EVENT_ARMED,
+            '',
+            $modeValue,
+            $states[$partitionID]['State'],
+            $partitionID
+        );
         $this->PublishVisualizationState();
 
         return true;
@@ -5764,6 +5815,17 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         $this->WritePartitionRuntime($states);
         $this->SchedulePartitionRuntimeTimer($states);
+        foreach ($this->EnabledNonDefaultPartitionIDs() as $partitionID) {
+            $this->AppendEvent(
+                $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
+                    ? self::EVENT_EXIT_DELAY_STARTED
+                    : self::EVENT_ARMED,
+                '',
+                $mode,
+                $states[$partitionID]['State'],
+                $partitionID
+            );
+        }
 
         return true;
     }
@@ -6313,6 +6375,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $states = $this->ReadPartitionRuntime();
         $changed = false;
         $newAlarms = [];
+        $entryDelays = [];
         $retriggered = [];
         foreach ($sensors as $sensor) {
             $partitionID = $sensor['PartitionID'];
@@ -6356,6 +6419,12 @@ class OpenHomeAlarm extends IPSModuleStrict
                 );
                 if ($states[$partitionID]['State'] === self::STATE_ALARM) {
                     $newAlarms[$partitionID] = $this->ResolveSensorDisplayName($sensor);
+                } elseif ($state['State'] !== self::STATE_ENTRY_DELAY
+                    && $states[$partitionID]['State'] === self::STATE_ENTRY_DELAY) {
+                    $entryDelays[$partitionID] = [
+                        'Mode'   => $states[$partitionID]['Mode'],
+                        'Source' => $this->ResolveSensorDisplayName($sensor)
+                    ];
                 }
             }
             $changed = true;
@@ -6363,6 +6432,15 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($changed) {
             $this->WritePartitionRuntime($states);
             $this->SchedulePartitionRuntimeTimer($states);
+            foreach ($entryDelays as $partitionID => $entryDelay) {
+                $this->AppendEvent(
+                    self::EVENT_ENTRY_DELAY_STARTED,
+                    $entryDelay['Source'],
+                    $entryDelay['Mode'],
+                    self::STATE_ENTRY_DELAY,
+                    $partitionID
+                );
+            }
             foreach ($newAlarms as $partitionID => $source) {
                 $this->RecordPartitionAlarm($partitionID, $source);
                 $this->AppendEvent(
