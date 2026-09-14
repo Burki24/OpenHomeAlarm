@@ -333,6 +333,12 @@ assertControlApi(
     $invalidAssignmentInstance->TestStatus() === 202,
     'ApplyChanges must report an unknown sensor partition through a controlled instance status.'
 );
+$invalidAssignmentInstance->TestSetPropertyString('Sensors', '[]');
+$invalidAssignmentInstance->ApplyChanges();
+assertControlApi(
+    $invalidAssignmentInstance->TestStatus() === 102,
+    'A corrected sensor partition assignment must restore the active instance status.'
+);
 
 /** @return array<string,mixed> */
 function controlSensor(

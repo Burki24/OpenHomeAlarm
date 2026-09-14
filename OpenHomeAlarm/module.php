@@ -71,6 +71,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     use \Burki24\SymconModuleHelper\VisualizationThemeConfigurationHelper;
 
     private const CONTROL_API_VERSION = 2;
+    private const STATUS_ACTIVE = 102;
     private const STATUS_INVALID_PARTITIONS = 201;
     private const STATUS_INVALID_CONFIGURATION = 202;
     private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area"}]';
@@ -3284,6 +3285,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->SetStatus(self::STATUS_INVALID_CONFIGURATION);
 
             return false;
+        }
+
+        if (method_exists($this, 'SetStatus')) {
+            $this->SetStatus(self::STATUS_ACTIVE);
         }
 
         return true;
