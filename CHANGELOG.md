@@ -1,5 +1,6 @@
 # Changelog
 
+- Die erweiterten IPSView-Farbeinstellungen blenden die ausschließlich für native Kalendersteuerungen vorgesehene Farbfamilie in OpenHomeAlarm aus.
 - Der zentrale `IPSViewHTMLPageHelper` stellt nun auch in OpenHomeAlarm den Button zur manuellen IPSView-HTML-Neugenerierung bereit und verarbeitet gemeinsame IPSView-Formularaktionen.
 
 Alle wesentlichen Änderungen an OpenHomeAlarm werden in diesem Dokument

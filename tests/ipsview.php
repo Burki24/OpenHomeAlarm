@@ -262,6 +262,8 @@ assertIPSView(
         && !str_contains($form, '"name": "IPSViewFontScale"')
         && str_contains($module, '$this->InsertIPSViewHTMLPageFormItems(')
         && str_contains($module, '$this->HandleIPSViewHTMLPageAction($Ident, $Value)')
+        && str_contains($module, 'protected function IPSViewStyleNativeFamilyNames(): array')
+        && str_contains($module, 'IPSViewControlThemeHelper::FAMILY_CALENDAR')
         && str_contains($htmlPageHelper, "private const IPSVIEW_HTML_REGENERATE_ACTION = 'IPSViewHTMLRegenerateVariables';")
         && str_contains($htmlPageHelper, "'action.regenerate_variables'    => 'Regenerate IPSView HTML'")
         && str_contains($htmlPageHelper, 'protected function RegenerateIPSViewHTMLPages(): bool'),
