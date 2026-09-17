@@ -883,6 +883,10 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function RequestAction(string $Ident, mixed $Value): void
     {
+        if ($this->HandleIPSViewHTMLPageAction($Ident, $Value)) {
+            return;
+        }
+
         $interaction = $this->ExecuteVisualizationAction($Ident, $Value);
         if ($Ident === 'RefreshVisualization' || $interaction !== null) {
             $this->PublishVisualizationState($interaction);

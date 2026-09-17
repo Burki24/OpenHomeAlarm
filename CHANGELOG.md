@@ -1,5 +1,7 @@
 # Changelog
 
+- Der zentrale `IPSViewHTMLPageHelper` stellt nun auch in OpenHomeAlarm den Button zur manuellen IPSView-HTML-Neugenerierung bereit und verarbeitet gemeinsame IPSView-Formularaktionen.
+
 Alle wesentlichen Änderungen an OpenHomeAlarm werden in diesem Dokument
 festgehalten. Die Library-Version folgt dem Format `Hauptversion.Nebenstand`
 aus `library.json`; der dazugehörige Git-Tag ergänzt für SemVer eine Patchstelle,

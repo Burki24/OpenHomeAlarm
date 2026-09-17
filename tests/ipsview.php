@@ -260,7 +260,11 @@ assertIPSView(
         && !str_contains($form, '"name": "IPSViewTheme"')
         && !str_contains($form, '"name": "IPSViewTransparent"')
         && !str_contains($form, '"name": "IPSViewFontScale"')
-        && str_contains($module, '$this->InsertIPSViewHTMLPageFormItems('),
+        && str_contains($module, '$this->InsertIPSViewHTMLPageFormItems(')
+        && str_contains($module, '$this->HandleIPSViewHTMLPageAction($Ident, $Value)')
+        && str_contains($htmlPageHelper, "private const IPSVIEW_HTML_REGENERATE_ACTION = 'IPSViewHTMLRegenerateVariables';")
+        && str_contains($htmlPageHelper, "'action.regenerate_variables'    => 'Regenerate IPSView HTML'")
+        && str_contains($htmlPageHelper, 'protected function RegenerateIPSViewHTMLPages(): bool'),
     'The static form must delegate optional output and all common style controls to the central helpers.'
 );
 assertIPSView(
