@@ -854,19 +854,6 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Hides native IPSView control families that are unrelated to the alarm dashboard.
-     *
-     * @return list<string>
-     */
-    protected function IPSViewStyleNativeFamilyNames(): array
-    {
-        return array_values(array_diff(
-            array_keys(\Burki24\SymconModuleHelper\IPSViewControlThemeHelper::families()),
-            [\Burki24\SymconModuleHelper\IPSViewControlThemeHelper::FAMILY_CALENDAR]
-        ));
-    }
-
-    /**
      * Returns the initial HTML-SDK visualization tile.
      *
      * Static HTML, CSS and JavaScript live in the module's visualization
@@ -2529,6 +2516,19 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function SetFaultTriggerValue(string $triggerValue): void
     {
         $this->UpdateFormField('TriggerValue', 'value', $triggerValue);
+    }
+
+    /**
+     * Hides native IPSView control families that are unrelated to the alarm dashboard.
+     *
+     * @return list<string>
+     */
+    protected function IPSViewStyleNativeFamilyNames(): array
+    {
+        return array_values(array_diff(
+            array_keys(\Burki24\SymconModuleHelper\IPSViewControlThemeHelper::families()),
+            [\Burki24\SymconModuleHelper\IPSViewControlThemeHelper::FAMILY_CALENDAR]
+        ));
     }
 
     /**
