@@ -14,7 +14,7 @@ Die Dateien in diesem Verzeichnis stammen aus dem gemeinsamen Repository
 | `IPSViewControlThemeHelper.php` | 1.0.3 | `7be5f3300ebf0562f818b050a53cfa67d7631a30e3d62f1ab41525501604fac6` |
 | `IPSViewFontCatalogHelper.php` | 1.0.0 | `8f352af086f4ac98b57e5768d15f538301c54cb41e5f8d1d41c62330592bc660` |
 | `IPSViewStyleProfileHelper.php` | 1.0.1 | `eca6aa486d60b0db11cc7db0b486dc5b1723c49e26c23fe72465a33cf73f453d` |
-| `IPSViewStyleHelper.php` | 1.6.7 | `67ff6608658f2a5c61d56ba4c74673f92af988babf705fe598f0ab4e313288ad` |
+| `IPSViewStyleHelper.php` | 1.6.8 | `f84a860fa2b64b6ab3474e997af7097b4ef8e0c9e529adbc4e7fb1497a80cda5` |
 | `PersistentJsonCacheHelper.php` | 1.0.0 | `adbc7680abe814dc6c15a9cda1312cc30023073595052006662716bc0d65f2a4` |
 | `VariablePresentationHelper.php` | 2.0.0 | `ce620078e72bcbffed1adfdd02e8f64baf5f2b2e8e1531e3bb1ae7b32b390fb8` |
 | `VisualizationThemeConfigurationHelper.php` | 1.0.1 | `117b0f8f8a4d9c829115eabf15cf957d5c9e26cedf2954c996cbb1a36e115f01` |
