@@ -354,7 +354,7 @@
             "version": "2.0.0",
             "sha256": "ce620078e72bcbffed1adfdd02e8f64baf5f2b2e8e1531e3bb1ae7b32b390fb8",
             "path": "libs/helper/VariablePresentationHelper.php",
-            "source_sha": "39f8a3f9502ca75beb35c7f1016b1c52b4f774a5"
+            "source_sha": "2b37799d66a2c3395ddc5c8998c3b6859c2367e5"
         },
         "VisualizationAssetHelper": {
             "version": "1.0.0",
