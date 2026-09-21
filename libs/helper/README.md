@@ -6,7 +6,7 @@ Die Dateien in diesem Verzeichnis stammen aus dem gemeinsamen Repository
 | Datei | Upstream-Version | SHA-256 |
 | --- | --- | --- |
 | `ConfigurationFormHelper.php` | 1.0.0 | `fa87dd4c67f43a3838fe87110387e4c1a1b98685c13403eeb52c189246045678` |
-| `IPSViewHTMLPageHelper.php` | 1.4.1 | `c0baf0f6f8b71a9c0e1d3b7497f69d64a17f4b1e516a605f093ade5c1aa34929` |
+| `IPSViewHTMLPageHelper.php` | 1.5.0 | `755bb013107369d1b2253ec9cafdce89f5fff76383afc35248a7aedd294914b6` |
 | `HelperTranslationHelper.php` | 1.0.0 | `d3deee581eca9f8eb11e9adce060170227a2dc836ee898bd134f93d27604f639` |
 | `VisualizationAssetHelper.php` | 1.0.0 | `1693b2399bcf95d270a6d9a01df6534caad906497bd4ba9489916a951abaffcc` |
 | `IPSViewStyleConfigurationHelper.php` | 1.1.0 | `e6f558a0dee301d251d2f5845ebdedb765dc07ca5352427d1e08792d940629b7` |
