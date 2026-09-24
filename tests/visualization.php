@@ -124,6 +124,12 @@ assertVisualization(
     'Alarm response must use a clickable switch instead of a native select in both embedded views.'
 );
 assertVisualization(
+    preg_match('/<div class="oha-arming-controls">\s*<div class="oha-arm-delivery"[\s\S]*?<div class="oha-mode-grid">/', $html) === 1
+        && str_contains($css, '.oha-arming-controls {')
+        && str_contains($css, 'html.oha-ipsview .oha-arming-controls {'),
+    'Alarm response and arming-mode cards must share one styled control group in tile and IPSView.'
+);
+assertVisualization(
     str_contains($javascript, "control.matches('[data-delivery-switch]')")
         && str_contains($javascript, 'delivery.dataset.selection')
         && str_contains($javascript, "control.getAttribute('aria-checked') !== 'true'")

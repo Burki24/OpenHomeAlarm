@@ -696,18 +696,24 @@ html:not(.oha-ipsview) .oha-shell {
     gap: 10px;
 }
 
+.oha-arming-controls {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: var(--symc-radius-medium);
+    background: color-mix(in srgb, var(--oha-surface) 35%, var(--oha-bg));
+}
+
 .oha-arm-delivery {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 8px 12px;
-    min-height: 48px;
-    padding: 8px 12px;
-    border: var(--oha-border-width) solid var(--oha-border);
-    border-radius: var(--symc-radius-small);
-    background: var(--oha-page);
-    box-shadow: var(--oha-shadow);
+    min-height: 40px;
+    padding: 0 2px 10px;
+    border-bottom: var(--oha-line-width) solid var(--oha-line);
 }
 
 .oha-arm-delivery-copy {
@@ -2081,6 +2087,12 @@ html.oha-ipsview .oha-mode-grid {
     gap: 8px;
 }
 
+html.oha-ipsview .oha-arming-controls {
+    gap: 8px;
+    padding: 8px;
+    background: var(--oha-page);
+}
+
 html.oha-ipsview .oha-mode-button {
     min-height: 68px;
     gap: 8px;
@@ -2091,11 +2103,9 @@ html.oha-ipsview .oha-mode-button {
 html.oha-ipsview .oha-arm-delivery {
     --oha-text: var(--oha-panel-text);
     --oha-border: var(--oha-panel-border);
-    min-height: 44px;
-    padding: 6px 9px;
-    border-color: var(--oha-panel-border);
-    background: var(--oha-page);
-    box-shadow: var(--oha-shadow);
+    min-height: 38px;
+    padding: 0 1px 8px;
+    border-bottom-color: var(--oha-panel-border);
     text-shadow: none;
 }
 

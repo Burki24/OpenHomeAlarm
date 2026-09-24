@@ -10,6 +10,9 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Alarmierungsart und Scharfmodus-Karten bilden in Kachel und IPSView eine
+  gemeinsame, optisch abgegrenzte Bediengruppe.
+
 - 24/7-Sensoren lösen nun stets einen normalen Alarm aus, auch in still
   geschalteten Bereichen. Scharfmodus- und Verzögerungsfelder werden bei 24/7
   deaktiviert; vorhandene Werte dafür bleiben ohne Wirkung.
