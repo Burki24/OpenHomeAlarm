@@ -282,7 +282,14 @@ function ohaRenderPartitions(state) {
 
 function ohaRequestPartitionAction(action, value = null) {
     const partitionID = ohaSelectedState()?.ID ?? ohaState?.DefaultPartition ?? '';
-    ohaRequestAction(action, JSON.stringify({ PartitionID: partitionID, Value: value }));
+    const payload = { PartitionID: partitionID, Value: value };
+    if (action === 'ArmPartition') {
+        const selection = document.getElementById('armDeliveryMode')?.value ?? 'default';
+        if (selection !== 'default') {
+            payload.Silent = selection === 'silent';
+        }
+    }
+    ohaRequestAction(action, JSON.stringify(payload));
 }
 
 function ohaAllModesReady(state) {
@@ -431,7 +438,21 @@ function ohaRenderArming(state) {
     document.getElementById('armingTitle').textContent = ohaTranslate(isDisarmed ? 'Select security mode' : 'Security zones');
     document.getElementById('armingHint').textContent = isDisarmed
         ? ohaTranslate('Select a ready mode to arm')
-        : `${ohaTranslate('Active mode')}: ${ohaModeCaption(activeMode)}`;
+        : `${ohaTranslate('Active mode')}: ${ohaModeCaption(activeMode)} · ${ohaTranslate(state.Silent ? 'Silent alarm' : 'Normal alarm')}`;
+
+    const delivery = document.getElementById('armDeliveryMode');
+    if (delivery.dataset.partitionId !== state.ID || (isDisarmed && delivery.disabled)) {
+        delivery.value = 'default';
+    }
+    delivery.dataset.partitionId = state.ID;
+    delivery.disabled = !isDisarmed;
+    if (!isDisarmed) {
+        delivery.value = state.Silent ? 'silent' : 'normal';
+    }
+    document.getElementById('armDeliveryLabel').textContent = ohaTranslate('Alarm response');
+    delivery.options[0].textContent = `${ohaTranslate('Area default')} (${ohaTranslate(state.SilentByDefault ? 'Silent' : 'Normal')})`;
+    delivery.options[1].textContent = ohaTranslate('Normal');
+    delivery.options[2].textContent = ohaTranslate('Silent');
 
     for (const modeName of ['home', 'away', 'night']) {
         const button = document.querySelector(`.oha-mode-button[data-mode="${modeName}"]`);

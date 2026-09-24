@@ -13,7 +13,7 @@ final class AlarmPartitionRuntime
     public static function initial(): array
     {
         return ['Mode' => AlarmStateMachine::MODE_NONE, 'State' => AlarmStateMachine::STATE_DISARMED,
-            'Deadline' => 0, 'DelaySource' => '', 'PendingSourceID' => 0];
+            'Deadline' => 0, 'DelaySource' => '', 'PendingSourceID' => 0, 'Silent' => false];
     }
 
     /** @param list<array{Enabled:bool,ID:string,Name:string,Default:bool}> $partitions
@@ -32,13 +32,14 @@ final class AlarmPartitionRuntime
     }
 
     /** @param array<string,mixed> $state */
-    public static function arm(array $state, int $mode, int $now, int $delaySeconds): array
+    public static function arm(array $state, int $mode, int $now, int $delaySeconds, bool $silent = false): array
     {
         $state = self::normalize($state);
         if (!AlarmStateMachine::canArm($state['State'], $mode)) {
             throw new InvalidArgumentException('Alarm partition cannot be armed in its current state.');
         }
         $state['Mode'] = $mode;
+        $state['Silent'] = $silent;
         $state['State'] = $delaySeconds > 0 ? AlarmStateMachine::STATE_EXIT_DELAY : AlarmStateMachine::STATE_ARMED;
         $state['Deadline'] = $delaySeconds > 0 ? $now + $delaySeconds : 0;
         return $state;
@@ -101,6 +102,7 @@ final class AlarmPartitionRuntime
         return ['Mode'        => $mode, 'State' => $alarmState,
             'Deadline'        => max(0, is_int($state['Deadline'] ?? null) ? $state['Deadline'] : 0),
             'DelaySource'     => is_string($state['DelaySource'] ?? null) ? $state['DelaySource'] : '',
-            'PendingSourceID' => max(0, is_int($state['PendingSourceID'] ?? null) ? $state['PendingSourceID'] : 0)];
+            'PendingSourceID' => max(0, is_int($state['PendingSourceID'] ?? null) ? $state['PendingSourceID'] : 0),
+            'Silent'          => is_bool($state['Silent'] ?? null) ? $state['Silent'] : false];
     }
 }

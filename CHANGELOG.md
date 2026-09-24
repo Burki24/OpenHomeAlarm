@@ -10,6 +10,11 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Stiller Alarm je Bereich: konfigurierbare Vorgabe und einmalige Auswahl beim
+  Scharfschalten per API, Kachel oder IPSView. Eskalationsaktionen können für
+  normale, stille oder beide Alarmierungsarten ausgeführt werden; Signalgeber
+  bleiben bei ausschließlich stillen Alarmbereichen aus.
+
 ### Fixed
 
 - Verwaiste Sensor- oder Störungszuordnungen zu einem fehlenden bzw. deaktivierten

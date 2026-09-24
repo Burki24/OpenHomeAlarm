@@ -696,6 +696,25 @@ html:not(.oha-ipsview) .oha-shell {
     gap: 10px;
 }
 
+.oha-arm-delivery {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 0 0 12px;
+    color: var(--oha-muted);
+    font-size: 0.78rem;
+}
+
+.oha-arm-delivery select {
+    max-width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--oha-border);
+    border-radius: 8px;
+    color: var(--oha-text);
+    background: var(--oha-surface-strong);
+}
+
 .oha-mode-button {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto auto;

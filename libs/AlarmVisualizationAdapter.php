@@ -17,7 +17,7 @@ final class AlarmVisualizationAdapter
     public static function command(string $action, mixed $value): array
     {
         $normalizedValue = match ($action) {
-            'ArmPartition'                                                                                                                             => self::partitionValue($value, true),
+            'ArmPartition'                                                                                                                             => self::armPartitionValue($value),
             'DisarmPartition', 'ClearSensorBypassesPartition', 'ClearAlarmMemoryPartition', 'ResetAlarmOutputPartition', 'ResetFalseAlarmPartition'    => self::partitionValue($value, false),
             'ResetFalseAlarmPartitionWithCode'                                                                                                         => self::partitionValue($value, true),
             'DisarmPartitionWithCode'                                                                                                                  => self::partitionValue($value, true),
@@ -62,6 +62,18 @@ final class AlarmVisualizationAdapter
             'PartitionID' => $partitionID,
             'Value'       => $requiresValue ? $value['Value'] : null
         ];
+    }
+
+    /** @return array{PartitionID:string,Value:string,Silent:?bool} */
+    private static function armPartitionValue(mixed $value): array
+    {
+        $decoded = is_string($value) ? json_decode($value, true) : $value;
+        $partition = self::partitionValue($value, true);
+        if (array_key_exists('Silent', $decoded) && !is_bool($decoded['Silent'])) {
+            throw new InvalidArgumentException('Silent arming option must be a Boolean.');
+        }
+
+        return $partition + ['Silent' => $decoded['Silent'] ?? null];
     }
 
     private static function stringValue(mixed $value, string $error): string

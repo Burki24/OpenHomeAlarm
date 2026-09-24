@@ -264,10 +264,21 @@ assertDomainSame(
     'Visualization diagnostics exports must normalize their selected format.'
 );
 assertDomainSame(
-    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night']],
+    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => null]],
     AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"Garage","Value":"night"}'),
     'Partition visualization commands must decode scalar JSON transport, normalize their partition ID and preserve their action value.'
 );
+assertDomainSame(
+    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => true]],
+    AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"Garage","Value":"night","Silent":true}'),
+    'The visualization must preserve an explicit silent arming override.'
+);
+try {
+    AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"garage","Value":"night","Silent":"yes"}');
+    throw new RuntimeException('An invalid silent arming override must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Silent arming option must be a Boolean.', $exception->getMessage(), 'Silent arming must have a strict transport contract.');
+}
 assertDomainSame(
     ['Action' => 'DisarmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => null]],
     AlarmVisualizationAdapter::command('DisarmPartition', ['PartitionID' => 'garage']),

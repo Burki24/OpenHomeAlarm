@@ -1463,4 +1463,146 @@ foreach ([
     assertAlarmAction(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }
 
+// A silent area keeps alarm state and notifications while selecting only silent
+// and shared actions. A later normal area may start its own eligible actions.
+$testActions = [];
+$testPushNotifications = [];
+$testValues[4001] = false;
+$testValues[4002] = false;
+$silentAreas = new OpenHomeAlarm();
+$silentAreas->Create();
+$silentAreas->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$silentAreas->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$silentAreas->TestSetPropertyInteger('PushNotificationMode', 1);
+$silentAreas->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$silentAreas->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true],
+    ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+], JSON_THROW_ON_ERROR));
+$silentAreas->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'garage']),
+    array_merge(alarmActionSensor(4002, false), ['PartitionID' => 'shed'])
+], JSON_THROW_ON_ERROR));
+$silentAreas->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Siren', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'SignalGenerator' => true],
+    ['Enabled' => true, 'Name' => 'Quiet', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{QUIET}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'silent'],
+    ['Enabled' => true, 'Name' => 'Normal', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{NORMAL}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'normal'],
+    ['Enabled' => true, 'Name' => 'Shared', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SHARED}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'always']
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($silentAreas->ArmPartition('garage', 'away', 0), 'A silent-by-default area must arm.');
+$silentState = json_decode($silentAreas->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $silentState['Partitions']['garage']['Silent'] === true
+    && $silentState['Partitions']['garage']['SilentByDefault'] === true,
+    'The selected silent response must be visible in the area control state.'
+);
+$testValues[4001] = true;
+$silentAreas->MessageSink(50, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{QUIET}', '{SHARED}']
+    && count($testPushNotifications) === 1,
+    'A silent alarm must run quiet and shared actions plus push, without starting the siren.'
+);
+$silentAreas->ProcessAlarmEscalation();
+assertAlarmAction(count($testActions) === 2, 'A silent alarm must not repeat actions during timer processing.');
+$silentAreas->ApplyChanges();
+$restoredSilentState = json_decode($silentAreas->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $restoredSilentState['Partitions']['garage']['Silent'] === true
+    && count($testActions) === 2,
+    'ApplyChanges must preserve the silent response and must not start or repeat alarm actions.'
+);
+assertAlarmAction($silentAreas->ArmPartition('shed', 'away', 0), 'A second, normal area must arm independently.');
+$testValues[4002] = true;
+$silentAreas->MessageSink(51, 4002, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column(array_slice($testActions, 2), 'actionID') === ['{SIREN}', '{NORMAL}'],
+    'A normal area joining an active silent alarm must start the newly applicable actions exactly once.'
+);
+$silentAreas->ResetAlarmOutputPartition('shed');
+assertAlarmAction(
+    array_column(array_slice($testActions, 4), 'actionID') === ['{NORMAL}', '{SIREN}']
+    && array_column(array_column(array_slice($testActions, 4), 'parameters'), 'VALUE') === [false, false],
+    'When only the silent area remains, reversible normal actions and the siren must stop.'
+);
+$remainingState = json_decode($silentAreas->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $remainingState['Alarm']['OutputActive'] === true
+    && $remainingState['Alarm']['SignalGeneratorActive'] === false,
+    'The silent alarm must remain active after the normal area output ends.'
+);
+
+$testActions = [];
+$testValues[4001] = false;
+$normalOverride = new OpenHomeAlarm();
+$normalOverride->Create();
+$normalOverride->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$normalOverride->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$normalOverride->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true]
+], JSON_THROW_ON_ERROR));
+$normalOverride->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'garage'])
+], JSON_THROW_ON_ERROR));
+$normalOverride->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'   => true, 'Name' => 'Siren', 'DelaySeconds' => 0,
+    'Action'    => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+    'ResetMode' => 1, 'SignalGenerator' => true
+]], JSON_THROW_ON_ERROR));
+assertAlarmAction($normalOverride->ArmPartition('garage', 'away', 0, false), 'A command must override the silent area default.');
+$testValues[4001] = true;
+$normalOverride->MessageSink(52, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{SIREN}']
+    && json_decode($normalOverride->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['garage']['Silent'] === false,
+    'The normal override must enable the siren and remain visible in control state.'
+);
+
+$globalSilentDefaults = new OpenHomeAlarm();
+$globalSilentDefaults->Create();
+$globalSilentDefaults->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$globalSilentDefaults->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main', 'SilentByDefault' => true],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => false]
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($globalSilentDefaults->ArmAway(0), 'Global arming with mixed area defaults must succeed.');
+$mixedDefaultsState = json_decode($globalSilentDefaults->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $mixedDefaultsState['Partitions']['main']['Silent'] === true
+    && $mixedDefaultsState['Partitions']['garage']['Silent'] === false,
+    'Global arming without an override must respect each area default.'
+);
+assertAlarmAction($globalSilentDefaults->Disarm(), 'Global disarming before an override must succeed.');
+assertAlarmAction($globalSilentDefaults->ArmAway(0, true), 'Global silent override must arm.');
+$globalOverrideState = json_decode($globalSilentDefaults->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $globalOverrideState['Partitions']['main']['Silent'] === true
+    && $globalOverrideState['Partitions']['garage']['Silent'] === true,
+    'A global explicit silent override must apply to every area.'
+);
+
+$testActions = [];
+$testValues[4001] = false;
+$silentAroundClock = new OpenHomeAlarm();
+$silentAroundClock->Create();
+$silentAroundClock->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main', 'SilentByDefault' => true]
+], JSON_THROW_ON_ERROR));
+$silentAroundClock->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['AlwaysActive' => true])
+], JSON_THROW_ON_ERROR));
+$silentAroundClock->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Siren', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'SignalGenerator' => true],
+    ['Enabled' => true, 'Name' => 'Quiet', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{QUIET}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'silent']
+], JSON_THROW_ON_ERROR));
+$testValues[4001] = true;
+$silentAroundClock->MessageSink(53, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{QUIET}']
+    && json_decode($silentAroundClock->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['main']['Silent'] === true,
+    'A disarmed 24/7 sensor must use the silent area default without starting a siren.'
+);
+
 fwrite(STDOUT, "OpenHomeAlarm alarm action checks passed.\n");

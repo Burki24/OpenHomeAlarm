@@ -108,6 +108,8 @@ OHA_ArmPartition(12345, 'garage', 'away', null);
   Verzögerung scharf; eine positive Zahl überschreibt die Verzögerung für
   diesen einzelnen Aufruf.
 - Der Befehl verändert keinen anderen Alarmbereich.
+- Ein optionaler fünfter Parameter wählt die Alarmierungsart: `true` für still,
+  `false` für normal und ohne Angabe die Bereichsvorgabe.
 
 Für die Gesamtanlage verwenden Sie `main` beziehungsweise die bestehenden Befehle ohne Bereichs-ID:
 
@@ -125,6 +127,12 @@ muss der Parameter für die Ausgangsverzögerung im von Symcon erzeugten
 konfigurierte Ausgangsverzögerung, `0` schaltet ohne Verzögerung scharf und eine
 positive Zahl überschreibt die Verzögerung für diesen einzelnen Aufruf. Für den
 allgemeinen Befehl gilt entsprechend zum Beispiel `OHA_Arm(12345, 'away', null)`.
+Als letzter optionaler Parameter kann bei allen Scharfbefehlen `true` (still)
+oder `false` (normal) übergeben werden, beispielsweise
+`OHA_ArmPartition(12345, 'garage', 'away', null, true)`. Ohne diesen Parameter
+verwendet jeder Bereich seine eigene Vorgabe **Standardmäßig stiller Alarm**.
+Bei einer Gesamtschaltung überschreibt ein ausdrücklich angegebener Wert die
+Vorgabe aller Bereiche nur für diesen Scharfschaltzyklus.
 
 Vor dem Scharfschalten prüft OpenHomeAlarm alle aktiven Bereiche. Blockiert ein Sensor oder Störungseingang einen Bereich, bleibt die gesamte Anlage unverändert unscharf.
 
@@ -170,6 +178,13 @@ Auch dieser Befehl verändert keinen anderen Alarmbereich.
 | Scharfgeschaltet | Laufzeitzustand eines Bereichs; seine zugeordneten Sensoren werden entsprechend dem gewählten Modus überwacht |
 
 Die HTML-SDK-Kachel und die IPSView-Seite zeigen oberhalb des Sicherheitsstatus eine Bereichsauswahl. Scharf-/Unscharfschaltung, Bereitschaft, Diagnose, Alarmgedächtnis und Sensorüberbrückungen beziehen sich auf den dort gewählten Bereich. Die öffentlichen PHP-Funktionen stehen zusätzlich für Automationen zur Verfügung.
+
+Vor dem Scharfschalten kann in Kachel und IPSView zwischen Bereichsvorgabe,
+normalem und stillem Alarm gewählt werden. Ein stiller Alarm behält den
+Alarmzustand, das Alarmgedächtnis und die Benachrichtigungen bei, unterdrückt
+aber als **Signalgeber** markierte Aktionen. Die gewählte Alarmierungsart wird
+im Bedienzustand (`Silent`) je Bereich angezeigt und auch nach einem Neustart
+beibehalten.
 
 ##### Regeln für die Bereichs-ID
 
@@ -315,6 +330,17 @@ Jeder Zeitplan wird innerhalb derselben Minute höchstens einmal ausgeführt. De
 
 OpenHomeAlarm verwendet für externe Reaktionen ausschließlich **Alarm-Eskalationsaktionen**. Jede Tabellenzeile entspricht einer Aktion. Mehrere Aktionen mit derselben Verzögerung werden gemeinsam fällig und bilden damit eine Eskalationsstufe. Die Verzögerung wird ab dem Beginn des gemeinsamen Alarmausgangs gemessen; jede aktive Aktion wird in der konfigurierten Reihenfolge genau einmal ausgeführt.
 
+Mit **Ausführen bei Alarm** wird je Aktion festgelegt, ob sie nur bei normalem,
+nur bei stillem oder bei beiden Alarmen läuft. Bestehende Signalgeber-Aktionen
+gelten weiterhin nur für normale Alarme; bestehende andere Aktionen gelten
+weiterhin für beide. Eine als **Signalgeber** markierte Aktion kann nicht nur
+für stille Alarme konfiguriert werden. Sind mehrere Bereiche gleichzeitig im
+Alarm, wird eine Aktion fällig, sobald mindestens ein aktiver Bereich ihre
+Alarmierungsart erfüllt. Signalgeber laufen nur, solange mindestens ein normal
+alarmierender Bereich aktiv ist. Endet dessen Alarmausgang, werden reversible
+normale Aktionen zurückgesetzt, während stille Aktionen aktiv bleiben. Jede
+Aktion läuft pro gemeinsamem Alarmzyklus höchstens einmal.
+
 Die **Alarmdauer** legt fest, nach wie vielen Sekunden der jeweilige Bereichsausgang automatisch zurückgesetzt wird. Standard ist `0`; der Alarmausgang bleibt dann aktiv, bis er manuell zurückgesetzt oder der betreffende Bereich unscharf geschaltet wird. Mehrere gleichzeitig ausgelöste Bereiche besitzen getrennte Ablaufzeitpunkte. Die zusammengefasste Instanzausgabe bleibt aktiv, solange mindestens ein Bereichsausgang aktiv ist. Die Rücksetzung beendet den jeweiligen Alarmausgang, lässt jedoch Alarmgedächtnis und Bereichszustand erhalten. Die Alarmdauer ist wiederanlaufsicher.
 
 Da die Zielauswahl Bestandteil der nativen Symcon-Aktion ist, können einzelne Gerätevariablen, Skripte, Ablaufpläne und andere Symcon-Aktionsziele verwendet werden. Eine fehlerhafte Aktion verhindert weder den Alarmzustand noch das Unscharfschalten.
@@ -329,8 +355,9 @@ Da die Zielauswahl Bestandteil der nativen Symcon-Aktion ist, können einzelne G
 6. Wählen Sie unter **Rücksetzverhalten** eine der drei Möglichkeiten: **Keine Rücksetzung**, **Boolean automatisch umkehren** oder **Eigene Rücksetzaktion verwenden**.
 7. Nur bei **Eigene Rücksetzaktion verwenden** erscheint das Feld **Eigene Rücksetzaktion**. Wählen Sie dort das gewünschte Ziel und den exakten Rückgabewert, beispielsweise `Auf` für einen zuvor auf `Zu` gefahrenen Rollladen. Bei **Keine Rücksetzung** und **Boolean automatisch umkehren** ist dieses Aktionsfeld nicht vorhanden und muss daher auch nicht ausgefüllt werden.
 8. Kennzeichnen Sie eine Sirene oder einen anderen akustischen Alarmgeber zusätzlich als **Signalgeber**. Ein Signalgeber benötigt zwingend eine automatische Boolean-Rücksetzung oder eine eigene Rücksetzaktion.
-9. Bestätigen Sie den Bearbeitungsdialog. Weitere Aktionen werden jeweils als eigene Tabellenzeile hinzugefügt.
-10. Übernehmen Sie abschließend die Änderungen der Instanzkonfiguration.
+9. Wählen Sie unter **Ausführen bei Alarm** zwischen **Normal**, **Still** und **Immer**. Für eine stille Eskalation legen Sie eine eigene Aktion mit **Still** an. Signalgeber können nicht **Still** zugeordnet werden.
+10. Bestätigen Sie den Bearbeitungsdialog. Weitere Aktionen werden jeweils als eigene Tabellenzeile hinzugefügt.
+11. Übernehmen Sie abschließend die Änderungen der Instanzkonfiguration.
 
 Eine Eskalationsstufe entsteht durch die eingetragene Verzögerung: Alle aktiven Zeilen mit derselben Verzögerung gehören funktional zur gleichen Stufe und werden beim Erreichen dieses Zeitpunkts nacheinander ausgeführt. Beispielsweise können drei Zeilen mit `0` Sekunden gleichzeitig Licht, Innensirene und Außensirene einschalten. Eine weitere Zeile mit `60` Sekunden kann nach einer Minute eine zusätzliche Benachrichtigung auslösen. Für mehrere Aktionen derselben Stufe muss deshalb keine Unterliste geöffnet werden.
 
@@ -476,12 +503,12 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert sämtliche Moduleinstellungen als versioniertes JSON; das Ergebnis kann Unscharfschaltcodes und Pushover-Zugangsdaten enthalten und muss vertraulich gespeichert werden |
 | `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
 | `OHA_TestPushover($InstanzID)` | `bool` | Sendet über die eingetragenen direkten Pushover-Zugangsdaten eine normale Testnachricht ohne Notfall-Wiederholung |
-| `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung; bei `main` werden alle aktiven Bereiche gemeinsam geschaltet |
+| `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung, $Still = null)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; `null` als Verzögerung verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung; `$Still` wählt `true`, `false` oder die Bereichsvorgabe; bei `main` werden alle aktiven Bereiche gemeinsam geschaltet |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich unscharf; bei `main` werden alle aktiven Bereiche gemeinsam unscharf geschaltet |
-| `OHA_Arm($InstanzID, $Modus, $Verzögerung)` | `bool` | Schaltet alle aktiven Bereiche über die stabile Bedien-API mit `home`, `away` oder `night` scharf; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
-| `OHA_ArmHome($InstanzID, $Verzögerung)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
-| `OHA_ArmAway($InstanzID, $Verzögerung)` | `bool` | Komfortbefehl für **Abwesend** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
-| `OHA_ArmNight($InstanzID, $Verzögerung)` | `bool` | Komfortbefehl für **Nacht** für alle aktiven Bereiche; `null` verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung |
+| `OHA_Arm($InstanzID, $Modus, $Verzögerung, $Still = null)` | `bool` | Schaltet alle aktiven Bereiche mit `home`, `away` oder `night` scharf; `$Still` überschreibt optional die Alarmierungsart aller Bereiche für diesen Scharfschaltzyklus |
+| `OHA_ArmHome($InstanzID, $Verzögerung, $Still = null)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche; `$Still` überschreibt optional die Alarmierungsart |
+| `OHA_ArmAway($InstanzID, $Verzögerung, $Still = null)` | `bool` | Komfortbefehl für **Abwesend** für alle aktiven Bereiche; `$Still` überschreibt optional die Alarmierungsart |
+| `OHA_ArmNight($InstanzID, $Verzögerung, $Still = null)` | `bool` | Komfortbefehl für **Nacht** für alle aktiven Bereiche; `$Still` überschreibt optional die Alarmierungsart |
 | `OHA_BypassSensor($InstanzID, $VariableID)` | `bool` | Überbrückt einen normalen konfigurierten Scharfsensor temporär; nur im Zustand **Unscharf** möglich |
 | `OHA_RemoveSensorBypass($InstanzID, $VariableID)` | `bool` | Entfernt eine einzelne temporäre Sensorüberbrückung; nur im Zustand **Unscharf** möglich |
 | `OHA_BypassSensorPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Überbrückt einen Sensor ausschließlich im angegebenen unscharfen Alarmbereich |

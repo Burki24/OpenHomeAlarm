@@ -23,9 +23,13 @@ $partitions = [
 $states = AlarmPartitionRuntime::synchronize($partitions, []);
 assertPartitionRuntime(array_keys($states) === ['house', 'garage'], 'Only enabled partitions need runtime state.');
 $states['house'] = AlarmPartitionRuntime::arm($states['house'], AlarmStateMachine::MODE_HOME, 100, 10);
-$states['garage'] = AlarmPartitionRuntime::arm($states['garage'], AlarmStateMachine::MODE_AWAY, 100, 0);
+$states['garage'] = AlarmPartitionRuntime::arm($states['garage'], AlarmStateMachine::MODE_AWAY, 100, 0, true);
 assertPartitionRuntime($states['house']['State'] === AlarmStateMachine::STATE_EXIT_DELAY, 'House needs its own exit delay.');
 assertPartitionRuntime($states['garage']['State'] === AlarmStateMachine::STATE_ARMED, 'Garage must arm independently.');
+assertPartitionRuntime(
+    AlarmPartitionRuntime::synchronize($partitions, $states)['garage']['Silent'] === true,
+    'The silent arming selection must survive persisted runtime normalization.'
+);
 $states['house'] = AlarmPartitionRuntime::advance($states['house'], 110);
 assertPartitionRuntime($states['house']['State'] === AlarmStateMachine::STATE_ARMED, 'Expired exit delay must arm its partition.');
 $states['garage'] = AlarmPartitionRuntime::startEntryDelay($states['garage'], 120, 5, 'Garage door', 42);

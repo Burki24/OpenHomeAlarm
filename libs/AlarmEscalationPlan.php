@@ -55,6 +55,7 @@ final class AlarmEscalationPlan
                 $step['ResetMode'] ?? null,
                 $step['ResetAction'] ?? '',
                 $step['SignalGenerator'] ?? false,
+                $step['ApplicableTo'] ?? null,
                 $index,
                 $enabled,
                 $name
@@ -167,6 +168,11 @@ final class AlarmEscalationPlan
     /** @param array<string,mixed> $action */
     public static function actionKey(array $step, int $stepIndex, array $action, int $actionIndex): string
     {
+        $legacyDefault = ($action['SignalGenerator'] ?? false) ? 'normal' : 'always';
+        if (($action['ApplicableTo'] ?? $legacyDefault) === $legacyDefault) {
+            unset($action['ApplicableTo']);
+        }
+
         return hash('sha256', json_encode([$stepIndex, $step['Name'], $step['DelaySeconds'], $actionIndex, $action], JSON_THROW_ON_ERROR));
     }
 
@@ -176,7 +182,7 @@ final class AlarmEscalationPlan
      *
      * @return list<array{Key:string,Step:array<string,mixed>,Action:array<string,mixed>}>
      */
-    public static function dueSteps(array $steps, array $runtime, int $timestamp): array
+    public static function dueSteps(array $steps, array $runtime, int $timestamp, array $activeModes = ['normal']): array
     {
         $due = [];
         foreach ($steps as $index => $step) {
@@ -184,7 +190,7 @@ final class AlarmEscalationPlan
                 continue;
             }
             foreach ($step['Actions'] as $actionIndex => $action) {
-                if (!$action['Enabled']) {
+                if (!$action['Enabled'] || !self::appliesTo($action, $activeModes)) {
                     continue;
                 }
                 $key = self::actionKey($step, $index, $action, $actionIndex);
@@ -201,7 +207,7 @@ final class AlarmEscalationPlan
      * @param list<array<string,mixed>> $steps
      * @param array<string,mixed>       $runtime
      */
-    public static function nextDeadline(array $steps, array $runtime): int
+    public static function nextDeadline(array $steps, array $runtime, array $activeModes = ['normal']): int
     {
         $deadline = 0;
         foreach ($steps as $index => $step) {
@@ -210,7 +216,8 @@ final class AlarmEscalationPlan
             }
             $pending = false;
             foreach ($step['Actions'] as $actionIndex => $action) {
-                if ($action['Enabled'] && !in_array(self::actionKey($step, $index, $action, $actionIndex), $runtime['ExecutedStepKeys'], true)) {
+                if ($action['Enabled'] && self::appliesTo($action, $activeModes)
+                    && !in_array(self::actionKey($step, $index, $action, $actionIndex), $runtime['ExecutedStepKeys'], true)) {
                     $pending = true;
                     break;
                 }
@@ -225,6 +232,19 @@ final class AlarmEscalationPlan
         }
 
         return $deadline;
+    }
+
+    /** @param array<string,mixed> $action @param list<string> $activeModes */
+    public static function appliesTo(array $action, array $activeModes): bool
+    {
+        if (($action['SignalGenerator'] ?? false) && !in_array('normal', $activeModes, true)) {
+            return false;
+        }
+
+        $applicableTo = $action['ApplicableTo'] ?? (($action['SignalGenerator'] ?? false) ? 'normal' : 'always');
+
+        return $applicableTo === 'always'
+            || in_array($applicableTo, $activeModes, true);
     }
 
     public static function inverseAction(string $encodedAction): string
@@ -257,6 +277,7 @@ final class AlarmEscalationPlan
         mixed $flatResetMode,
         mixed $flatResetAction,
         mixed $flatSignalGenerator,
+        mixed $flatApplicableTo,
         int $stepIndex,
         bool $stepEnabled,
         string $stepName
@@ -276,7 +297,8 @@ final class AlarmEscalationPlan
                 'ResetEnabled'    => $flatLegacyResetEnabled,
                 'ResetMode'       => $flatResetMode ?? ($flatLegacyResetEnabled ? 1 : 0),
                 'ResetAction'     => $flatResetAction,
-                'SignalGenerator' => $flatSignalGenerator
+                'SignalGenerator' => $flatSignalGenerator,
+                'ApplicableTo'    => $flatApplicableTo
             ]];
         }
         if (is_string($configured)) {
@@ -299,11 +321,18 @@ final class AlarmEscalationPlan
             $legacyResetEnabled = $entry['ResetEnabled'] ?? false;
             $resetMode = $entry['ResetMode'] ?? ($legacyResetEnabled ? 1 : 0);
             $signalGenerator = $entry['SignalGenerator'] ?? false;
-            if (!is_bool($enabled) || !is_string($name) || !is_bool($legacyResetEnabled) || !is_int($resetMode) || !is_bool($signalGenerator)) {
+            $applicableTo = $entry['ApplicableTo'] ?? ($signalGenerator ? 'normal' : 'always');
+            if (!is_bool($enabled) || !is_string($name) || !is_bool($legacyResetEnabled) || !is_int($resetMode) || !is_bool($signalGenerator) || !is_string($applicableTo)) {
                 throw new UnexpectedValueException('Invalid alarm escalation action field type.');
             }
             if (!in_array($resetMode, [0, 1, 2], true)) {
                 throw new UnexpectedValueException('Unsupported alarm escalation reset mode.');
+            }
+            if (!in_array($applicableTo, ['normal', 'silent', 'always'], true)) {
+                throw new UnexpectedValueException('Unsupported alarm escalation applicability.');
+            }
+            if ($signalGenerator && $applicableTo === 'silent') {
+                throw new UnexpectedValueException('Signal generators cannot run in silent alarms.');
             }
             $action = self::normalizeAction($entry['Action'] ?? '');
             $resetAction = self::normalizeAction($entry['ResetAction'] ?? '');
@@ -327,7 +356,8 @@ final class AlarmEscalationPlan
                 'Action'          => $action,
                 'ResetMode'       => $resetMode,
                 'ResetAction'     => $resetAction,
-                'SignalGenerator' => $signalGenerator
+                'SignalGenerator' => $signalGenerator,
+                'ApplicableTo'    => $applicableTo
             ];
         }
         return $actions;

@@ -21,6 +21,11 @@ $partitions = AlarmPartitionRegistry::partitions(json_encode([
 assertPartition($partitions[0]['ID'] === 'main', 'Partition IDs must be normalized to lowercase.');
 assertPartition($partitions[0]['Name'] === 'Home', 'Partition names must be trimmed.');
 assertPartition($partitions[2]['Name'] === 'Partition 3', 'Empty partition names need a stable fallback.');
+assertPartition($partitions[0]['SilentByDefault'] === false, 'Existing areas must default to normal alarm response.');
+assertPartition(
+    AlarmPartitionRegistry::partitions('[{"Enabled":true,"ID":"main","Name":"Home","SilentByDefault":true}]')[0]['SilentByDefault'] === true,
+    'A silent default must survive area normalization.'
+);
 assertPartition(
     AlarmPartitionRegistry::defaultPartition($partitions)['ID'] === 'main',
     'The fixed main partition must be resolved.'
@@ -56,7 +61,8 @@ foreach ([
     '[{"Enabled":true,"ID":"home","Name":"Home","Default":true},{"Enabled":true,"ID":"HOME","Name":"Other","Default":false}]',
     '[{"Enabled":true,"ID":"home","Name":"Home","Default":false}]',
     '[{"Enabled":true,"ID":"main","Name":"Main","Default":false},{"Enabled":true,"ID":"MAIN","Name":"Other","Default":true}]',
-    '[{"Enabled":false,"ID":"main","Name":"Main","Default":true}]'
+    '[{"Enabled":false,"ID":"main","Name":"Main","Default":true}]',
+    '[{"Enabled":true,"ID":"main","Name":"Main","SilentByDefault":"yes"}]'
 ] as $invalidConfiguration) {
     try {
         AlarmPartitionRegistry::partitions($invalidConfiguration);
@@ -84,13 +90,13 @@ assertPartition(
     'Alarm partitions must be configurable as a list.'
 );
 assertPartition(
-    array_column($partitionList['columns'] ?? [], 'name') === ['Enabled', 'ID', 'Name'],
+    array_column($partitionList['columns'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'SilentByDefault'],
     'The partition form must expose stable identity without a selectable default area.'
 );
 assertPartition(
     ($partitionList['add'] ?? false) === true
         && ($partitionList['delete'] ?? false) === true
-        && array_column($partitionList['form'] ?? [], 'name') === ['Enabled', 'ID', 'Name'],
+        && array_column($partitionList['form'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'SilentByDefault'],
     'Alarm partitions must provide explicit add, edit and delete controls.'
 );
 $formJSON = json_encode($form, JSON_THROW_ON_ERROR);

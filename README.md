@@ -56,6 +56,9 @@ sind `home`, `away` und `night`. Andere Alarmbereiche werden durch diese Befehle
 nicht verändert. Bei `OHA_ArmPartition()` ist der vierte Parameter die
 Ausgangsverzögerung: `null` verwendet die konfigurierte Verzögerung, `0`
 schaltet sofort scharf und eine positive Zahl überschreibt sie einmalig.
+Mit dem optionalen fünften Parameter `true` wird die Garage für diesen
+Scharfschaltzyklus still, mit `false` ausdrücklich normal geschaltet. Ohne ihn
+gilt die Einstellung **Standardmäßig stiller Alarm** des Bereichs.
 
 Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
 `OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,

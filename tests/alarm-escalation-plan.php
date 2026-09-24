@@ -36,6 +36,16 @@ assertEscalationPlan(AlarmEscalationPlan::steps('') === [], 'An empty configurat
 $runtime = AlarmEscalationPlan::start(1000);
 $firstKey = AlarmEscalationPlan::actionKey($steps[0], 0, $steps[0]['Actions'][0], 0);
 assertEscalationPlan(
+    $firstKey === hash('sha256', json_encode([
+        0,
+        $steps[0]['Name'],
+        $steps[0]['DelaySeconds'],
+        0,
+        array_diff_key($steps[0]['Actions'][0], ['ApplicableTo' => true])
+    ], JSON_THROW_ON_ERROR)),
+    'Legacy action keys must stay stable across an update during an active alarm.'
+);
+assertEscalationPlan(
     $runtime === [
         'StartedAt'                  => 1000,
         'PushNotificationSent'       => false,
@@ -186,12 +196,13 @@ foreach ($form['elements'] ?? [] as $element) {
 }
 assertEscalationPlan(is_array($list) && ($list['type'] ?? null) === 'List', 'Escalation steps must be configurable as a list.');
 assertEscalationPlan(
-    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ResetMode', 'SignalGenerator'],
+    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ResetMode', 'SignalGenerator', 'ApplicableTo'],
     'The escalation list must expose one understandable row per action without rendering native action payloads.'
 );
 assertEscalationPlan(
     (($list['columns'] ?? [])[3]['add'] ?? null) === 0
-        && (($list['columns'] ?? [])[4]['add'] ?? null) === false,
+        && (($list['columns'] ?? [])[4]['add'] ?? null) === false
+        && (($list['columns'] ?? [])[5]['add'] ?? null) === 'always',
     'Every visible escalation column needs a default value so Symcon can add a row.'
 );
 assertEscalationPlan(

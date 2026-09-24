@@ -14,7 +14,7 @@ final class AlarmPartitionRegistry
 {
     private const MAIN_PARTITION_ID = 'main';
 
-    /** @return list<array{Enabled:bool,ID:string,Name:string,Default:bool}> */
+    /** @return list<array{Enabled:bool,ID:string,Name:string,Default:bool,SilentByDefault:bool}> */
     public static function partitions(string $encodedPartitions): array
     {
         try {
@@ -37,7 +37,8 @@ final class AlarmPartitionRegistry
             $enabled = $partition['Enabled'] ?? true;
             $id = $partition['ID'] ?? '';
             $name = $partition['Name'] ?? '';
-            if (!is_bool($enabled) || !is_string($id) || !is_string($name)) {
+            $silentByDefault = $partition['SilentByDefault'] ?? false;
+            if (!is_bool($enabled) || !is_string($id) || !is_string($name) || !is_bool($silentByDefault)) {
                 throw new UnexpectedValueException('Invalid partition field type.');
             }
 
@@ -54,10 +55,11 @@ final class AlarmPartitionRegistry
                 $mainPartitionIndex = $index;
             }
             $normalized[] = [
-                'Enabled' => $enabled,
-                'ID'      => $id,
-                'Name'    => $name !== '' ? $name : sprintf('Partition %d', $index + 1),
-                'Default' => false
+                'Enabled'         => $enabled,
+                'ID'              => $id,
+                'Name'            => $name !== '' ? $name : sprintf('Partition %d', $index + 1),
+                'Default'         => false,
+                'SilentByDefault' => $silentByDefault
             ];
         }
 

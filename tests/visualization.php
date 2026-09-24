@@ -117,7 +117,8 @@ assertVisualization(
 assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'"), 'Visualization must arm the selected partition through RequestAction.');
 assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'"), 'Visualization must disarm the selected partition through RequestAction.');
 assertVisualization(
-    str_contains($javascript, 'JSON.stringify({ PartitionID: partitionID, Value: value })'),
+    str_contains($javascript, 'JSON.stringify(payload)')
+        && str_contains($javascript, 'PartitionID: partitionID, Value: value'),
     'Partition visualization commands must cross the native RequestAction boundary as scalar JSON strings.'
 );
 assertVisualization(
