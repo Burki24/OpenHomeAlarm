@@ -10,8 +10,9 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
-- Alarmierungsart und Scharfmodus-Karten bilden in Kachel und IPSView eine
-  gemeinsame, optisch abgegrenzte Bediengruppe.
+- Die Kachel- und IPSView-Oberfläche zeigen den Sicherheitsstatus zuerst. Die
+  Bereichsauswahl erhält einen eigenen Rahmen; Scharfmodi-Überschrift,
+  Alarmierungsart und Moduskarten stehen gemeinsam in einem zweiten Rahmen.
 
 - 24/7-Sensoren lösen nun stets einen normalen Alarm aus, auch in still
   geschalteten Bereichen. Scharfmodus- und Verzögerungsfelder werden bei 24/7

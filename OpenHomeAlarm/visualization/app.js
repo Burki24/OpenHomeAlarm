@@ -191,7 +191,6 @@ function ohaSchedulePartitionNavHeight() {
     ohaPartitionLayoutFrame = window.requestAnimationFrame(() => {
         ohaPartitionLayoutFrame = null;
         const nav = document.getElementById('partitionNav');
-        const tabs = document.getElementById('partitionTabs');
         nav.style.removeProperty('height');
 
         if (nav.hidden || document.documentElement.classList.contains('oha-ipsview')
@@ -199,12 +198,7 @@ function ohaSchedulePartitionNavHeight() {
             return;
         }
 
-        const navTop = nav.getBoundingClientRect().top;
-        const renderedBottom = Array.from(tabs.children).reduce(
-            (bottom, child) => Math.max(bottom, child.getBoundingClientRect().bottom),
-            tabs.getBoundingClientRect().bottom
-        );
-        const measuredHeight = Math.max(68, Math.ceil(renderedBottom - navTop + 6));
+        const measuredHeight = Math.max(68, Math.ceil(nav.scrollHeight));
         nav.style.height = `${measuredHeight}px`;
     });
 }
@@ -221,6 +215,7 @@ function ohaRenderPartitions(state) {
         return;
     }
 
+    document.getElementById('partitionKicker').textContent = ohaTranslate('Alarm partition');
     document.getElementById('partitionLabel').textContent = ohaTranslate('Select alarm partition');
     for (const partition of partitions) {
         const button = document.createElement('button');

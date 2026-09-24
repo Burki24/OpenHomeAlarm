@@ -245,21 +245,34 @@ html:not(.oha-ipsview) .oha-shell {
 }
 
 .oha-partition-nav {
-    display: flex;
+    display: grid;
     min-height: 54px;
     min-width: 0;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 0;
+    gap: 7px;
+    padding: 10px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: var(--symc-radius-medium);
+    background: color-mix(in srgb, var(--oha-surface) 35%, var(--oha-bg));
 }
 
-.oha-partition-label {
-    flex: 0 0 auto;
+.oha-partition-heading {
+    display: grid;
+    gap: 2px;
+    padding: 0 2px;
+}
+
+.oha-partition-kicker {
     color: var(--oha-label);
-    font-size: 0.72rem;
+    font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.035em;
     text-transform: uppercase;
+}
+
+.oha-partition-title {
+    margin: 0;
+    color: var(--oha-heading);
+    font-size: 1.05rem;
 }
 
 .oha-partition-tabs {
@@ -712,8 +725,10 @@ html:not(.oha-ipsview) .oha-shell {
     flex-wrap: wrap;
     gap: 8px 12px;
     min-height: 40px;
-    padding: 0 2px 10px;
-    border-bottom: var(--oha-line-width) solid var(--oha-line);
+    padding: 8px 10px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: var(--symc-radius-small);
+    background: var(--oha-surface-soft);
 }
 
 .oha-arm-delivery-copy {
@@ -1378,7 +1393,7 @@ html:not(.oha-ipsview) .oha-shell {
     }
 
     .oha-partition-nav {
-        grid-column: 1 / -1;
+        grid-column: 1;
     }
 
     .oha-inline-codepad {
@@ -1394,10 +1409,6 @@ html:not(.oha-ipsview) .oha-shell {
         border-radius: 18px;
         background: var(--oha-surface);
         box-shadow: var(--oha-shadow);
-    }
-
-    .oha-shell[data-partition-selector-visible="true"] .oha-inline-codepad {
-        grid-row: 3 / span 6;
     }
 
 }
@@ -1487,10 +1498,8 @@ html:not(.oha-ipsview) .oha-shell {
     html:not(.oha-ipsview) .oha-partition-nav {
         height: auto;
         min-height: 68px;
-        align-items: stretch;
-        flex-direction: column;
-        gap: 3px;
-        padding: 0;
+        gap: 5px;
+        padding: 10px;
     }
 
     html:not(.oha-ipsview) .oha-partition-tabs {
@@ -1981,12 +1990,23 @@ html.oha-ipsview .oha-topbar-actions {
 html.oha-ipsview .oha-partition-nav {
     min-height: 54px;
     gap: 8px;
-    padding: 5px 0;
+    padding: 8px;
+    --oha-text: var(--oha-panel-text);
+    --oha-muted: var(--oha-panel-muted);
+    --oha-border: var(--oha-panel-border);
+    border-color: var(--oha-border);
+    background: var(--oha-page);
+    box-shadow: var(--oha-shadow);
 }
 
-html.oha-ipsview .oha-partition-label {
+html.oha-ipsview .oha-partition-kicker {
     color: var(--oha-page-label-muted);
     font-size: 0.62rem;
+}
+
+html.oha-ipsview .oha-partition-title {
+    color: var(--oha-panel-text);
+    font-size: 0.92rem;
 }
 
 html.oha-ipsview .oha-partition-tab {
@@ -2104,8 +2124,8 @@ html.oha-ipsview .oha-arm-delivery {
     --oha-text: var(--oha-panel-text);
     --oha-border: var(--oha-panel-border);
     min-height: 38px;
-    padding: 0 1px 8px;
-    border-bottom-color: var(--oha-panel-border);
+    padding: 7px 9px;
+    border-color: var(--oha-panel-border);
     text-shadow: none;
 }
 
@@ -2402,6 +2422,18 @@ html.oha-ipsview .oha-section-heading .oha-section-hint {
     opacity: 1;
 }
 
+html.oha-ipsview .oha-arming-controls > .oha-section-heading {
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    color: var(--oha-panel-text);
+}
+
+html.oha-ipsview .oha-arming-controls > .oha-section-heading .oha-section-kicker,
+html.oha-ipsview .oha-arming-controls > .oha-section-heading .oha-section-hint {
+    color: var(--oha-panel-muted);
+}
+
 html.oha-ipsview .oha-operation-head,
 html.oha-ipsview .oha-operation-row,
 html.oha-ipsview .oha-history-row {
@@ -2458,8 +2490,8 @@ html.oha-ipsview .oha-shell {
     html.oha-ipsview .oha-shell[data-partition-selector-visible="true"] {
         grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr);
         grid-template-areas:
-            "partitions codepad"
             "hero codepad"
+            "partitions codepad"
             "arming codepad"
             "control codepad"
             "status codepad"
@@ -2469,8 +2501,8 @@ html.oha-ipsview .oha-shell {
 
     html.oha-ipsview .oha-shell[data-codepad-visible="false"][data-partition-selector-visible="true"] {
         grid-template-areas:
-            "partitions"
             "hero"
+            "partitions"
             "arming"
             "control"
             "status"

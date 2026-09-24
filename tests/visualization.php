@@ -124,10 +124,10 @@ assertVisualization(
     'Alarm response must use a clickable switch instead of a native select in both embedded views.'
 );
 assertVisualization(
-    preg_match('/<div class="oha-arming-controls">\s*<div class="oha-arm-delivery"[\s\S]*?<div class="oha-mode-grid">/', $html) === 1
+    preg_match('/<div class="oha-arming-controls">\s*<div class="oha-section-heading oha-section-heading-compact">[\s\S]*?<div class="oha-arm-delivery"[\s\S]*?<div class="oha-mode-grid">/', $html) === 1
         && str_contains($css, '.oha-arming-controls {')
         && str_contains($css, 'html.oha-ipsview .oha-arming-controls {'),
-    'Alarm response and arming-mode cards must share one styled control group in tile and IPSView.'
+    'Arming heading, alarm response and mode cards must share one styled control group in tile and IPSView.'
 );
 assertVisualization(
     str_contains($javascript, "control.matches('[data-delivery-switch]')")
@@ -240,10 +240,22 @@ assertVisualization(
     'Arming modes must be rendered as direct full-width controls through the shared click dispatcher and without native disabled buttons.'
 );
 assertVisualization(
-    strpos($html, 'id="statusHero"') < strpos($html, 'id="armingSection"')
+    strpos($html, 'id="statusHero"') < strpos($html, 'id="partitionNav"')
+        && strpos($html, 'id="partitionNav"') < strpos($html, 'id="armingSection"')
         && strpos($html, 'id="armingSection"') < strpos($html, 'id="controlBar"')
         && strpos($html, 'id="controlBar"') < strpos($html, 'id="statusGrid"'),
-    'Arming-mode controls and the disarm control must sit directly below the security-status hero and before secondary status information.'
+    'Security status must precede the framed area selector and arming controls, followed by secondary status information.'
+);
+assertVisualization(
+    str_contains($html, 'class="oha-partition-heading"')
+        && str_contains($html, 'id="partitionKicker"')
+        && str_contains($html, 'class="oha-partition-title" id="partitionLabel"')
+        && preg_match('/\.oha-partition-nav \{[^}]*border: var\(--oha-border-width\) solid var\(--oha-border\);/s', $css) === 1
+        && preg_match('/\.oha-arming-controls \{[^}]*border: var\(--oha-border-width\) solid var\(--oha-border\);/s', $css) === 1
+        && str_contains($css, 'html.oha-ipsview .oha-partition-nav {')
+        && str_contains($css, 'html.oha-ipsview .oha-arming-controls > .oha-section-heading {')
+        && preg_match('/"hero codepad"\s*"partitions codepad"\s*"arming codepad"/', $css) === 1,
+    'Both views must frame the area selector and group the arming heading with its controls in status-first order.'
 );
 assertVisualization(str_contains($html, 'id="statusGrid"'), 'Visualization must provide a compact always-visible system overview.');
 assertVisualization(str_contains($html, 'id="sensorManagementPanel"'), 'Visualization must provide contextual sensor management.');
@@ -357,10 +369,10 @@ assertVisualization(
 );
 assertVisualization(
     str_contains($javascript, 'function ohaSchedulePartitionNavHeight()')
-        && str_contains($javascript, 'child.getBoundingClientRect().bottom')
+        && str_contains($javascript, 'Math.ceil(nav.scrollHeight)')
         && str_contains($javascript, 'nav.style.height = `${measuredHeight}px`;')
         && str_contains($javascript, "window.addEventListener('resize', ohaSchedulePartitionNavHeight"),
-    'Mobile partition navigation must use its rendered rows to keep following content below the controls in WebViews.'
+    'Mobile partition navigation must measure the whole framed selector to keep following content below it in WebViews.'
 );
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
