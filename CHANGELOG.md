@@ -13,6 +13,8 @@ beispielsweise `v1.109.0`.
 - Die Kachel- und IPSView-Oberfläche zeigen den Sicherheitsstatus zuerst. Die
   Bereichsauswahl erhält einen eigenen Rahmen; Scharfmodi-Überschrift,
   Alarmierungsart und Moduskarten stehen gemeinsam in einem zweiten Rahmen.
+  Kacheln bemessen die Rasterzeilen nach Inhalt, damit sich die Rahmen nicht
+  überlappen.
 
 - 24/7-Sensoren lösen nun stets einen normalen Alarm aus, auch in still
   geschalteten Bereichen. Scharfmodus- und Verzögerungsfelder werden bei 24/7

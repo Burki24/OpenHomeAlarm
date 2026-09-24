@@ -350,6 +350,10 @@ assertVisualization(
     'Native tiles must provide an internal scroll region instead of moving the host navigation.'
 );
 assertVisualization(
+    preg_match('/html:not\(\.oha-ipsview\) \.oha-shell \{[^}]*grid-auto-rows: max-content;/s', $css) === 1,
+    'Scrollable native tiles must size each dashboard row to its content so framed area controls cannot overlap the arming section.'
+);
+assertVisualization(
     preg_match('/@media \(max-width: 620px\) \{.*?html:not\(\.oha-ipsview\) \.oha-shell \{.*?overflow: hidden;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-topbar-actions \{\s+position: static;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-scroll-content \{.*?overflow-y: auto;/s', $css) === 1

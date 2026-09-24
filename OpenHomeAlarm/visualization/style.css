@@ -155,6 +155,7 @@ html:not(.oha-ipsview) .oha-shell {
     height: 100vh;
     height: 100dvh;
     min-height: 0;
+    grid-auto-rows: max-content;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior-y: contain;
