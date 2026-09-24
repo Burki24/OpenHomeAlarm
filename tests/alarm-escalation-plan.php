@@ -33,6 +33,21 @@ assertEscalationPlan($steps[1]['Name'] === 'Step 2', 'Unnamed steps need a stabl
 assertEscalationPlan($steps[1]['Actions'] === [], 'Disabled steps may remain unconfigured.');
 assertEscalationPlan(AlarmEscalationPlan::steps('') === [], 'An empty configuration must disable escalation.');
 
+$legacyAlwaysSignal = AlarmEscalationPlan::steps(json_encode([[
+    'Enabled'         => true,
+    'Name'            => 'Legacy siren',
+    'DelaySeconds'    => 0,
+    'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+    'ResetMode'       => 1,
+    'SignalGenerator' => true,
+    'ApplicableTo'    => 'always'
+]], JSON_THROW_ON_ERROR));
+assertEscalationPlan(
+    AlarmEscalationPlan::dueSteps($legacyAlwaysSignal, AlarmEscalationPlan::start(1000), 1000, ['silent']) === []
+    && count(AlarmEscalationPlan::dueSteps($legacyAlwaysSignal, AlarmEscalationPlan::start(1000), 1000, ['normal'])) === 1,
+    'Existing signal generators set to Always must remain restricted to normal alarms.'
+);
+
 $runtime = AlarmEscalationPlan::start(1000);
 $firstKey = AlarmEscalationPlan::actionKey($steps[0], 0, $steps[0]['Actions'][0], 0);
 assertEscalationPlan(
@@ -204,6 +219,12 @@ assertEscalationPlan(
         && (($list['columns'] ?? [])[4]['add'] ?? null) === false
         && (($list['columns'] ?? [])[5]['add'] ?? null) === 'always',
     'Every visible escalation column needs a default value so Symcon can add a row.'
+);
+assertEscalationPlan(
+    array_column(($list['columns'] ?? [])[5]['edit']['options'] ?? [], 'caption') === [
+        'Normal only', 'Silent only', 'Normal and silent'
+    ],
+    'Alarm response options must describe their actual applicability without the ambiguous Always label.'
 );
 assertEscalationPlan(
     ($list['form'][0] ?? null) === 'return OHA_GetAlarmEscalationEditForm($id, $AlarmEscalationSteps);',

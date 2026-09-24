@@ -2261,6 +2261,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $resetMode = $this->ReadSensorEditInteger($step, 'ResetMode', 0);
         $action = $this->ReadSensorEditString($step, 'Action', '');
         $resetAction = $this->ReadSensorEditString($step, 'ResetAction', '');
+        $signalGenerator = $this->ReadSensorEditBoolean($step, 'SignalGenerator', false);
 
         $actionSelector = [
             'type'     => 'SelectAction',
@@ -2284,20 +2285,30 @@ class OpenHomeAlarm extends IPSModuleStrict
             ],
             $actionSelector,
             [
-                'type'    => 'CheckBox',
-                'name'    => 'SignalGenerator',
-                'caption' => $this->Translate('Signal generator')
+                'type'     => 'CheckBox',
+                'name'     => 'SignalGenerator',
+                'caption'  => $this->Translate('Signal generator'),
+                'onChange' => 'OHA_UpdateAlarmEscalationApplicabilityForm($id, $SignalGenerator);'
             ],
             [
                 'type'    => 'Select',
                 'name'    => 'ApplicableTo',
-                'caption' => $this->Translate('Run for alarm'),
+                'caption' => $this->Translate('Run for alarm response'),
                 'options' => [
-                    ['caption' => $this->Translate('Normal'), 'value' => 'normal'],
-                    ['caption' => $this->Translate('Silent'), 'value' => 'silent'],
-                    ['caption' => $this->Translate('Always'), 'value' => 'always']
+                    ['caption' => $this->Translate('Normal only'), 'value' => 'normal'],
+                    ['caption' => $this->Translate('Silent only'), 'value' => 'silent'],
+                    ['caption' => $this->Translate('Normal and silent'), 'value' => 'always']
                 ],
-                'value'   => $this->ReadSensorEditString($step, 'ApplicableTo', 'always')
+                'value'   => $signalGenerator
+                    ? 'normal'
+                    : $this->ReadSensorEditString($step, 'ApplicableTo', 'always'),
+                'visible' => !$signalGenerator
+            ],
+            [
+                'type'    => 'Label',
+                'name'    => 'SignalGeneratorApplicabilityHint',
+                'caption' => $this->Translate('Signal generators run only during normal alarms.'),
+                'visible' => $signalGenerator
             ],
             [
                 'type'     => 'Select',
@@ -2356,6 +2367,16 @@ class OpenHomeAlarm extends IPSModuleStrict
             'items',
             json_encode($this->CustomResetActionFormItems($resetMode), JSON_THROW_ON_ERROR)
         );
+    }
+
+    /** Keeps the action applicability consistent with the signal-generator switch. */
+    public function UpdateAlarmEscalationApplicabilityForm(bool $signalGenerator): void
+    {
+        if ($signalGenerator) {
+            $this->UpdateFormField('ApplicableTo', 'value', 'normal');
+        }
+        $this->UpdateFormField('ApplicableTo', 'visible', !$signalGenerator);
+        $this->UpdateFormField('SignalGeneratorApplicabilityHint', 'visible', $signalGenerator);
     }
 
     /**
@@ -3520,7 +3541,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'ResetMode'       => $action['ResetMode'],
                     'ResetAction'     => $action['ResetAction'],
                     'SignalGenerator' => $action['SignalGenerator'],
-                    'ApplicableTo'    => $action['ApplicableTo']
+                    'ApplicableTo'    => $action['SignalGenerator'] ? 'normal' : $action['ApplicableTo']
                 ];
             }
         }
@@ -3570,6 +3591,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $actionValue = $action['Action'] ?? '';
         $resetActionValue = $action['ResetAction'] ?? '';
+        $signalGenerator = is_bool($action['SignalGenerator'] ?? null) ? $action['SignalGenerator'] : false;
+        $applicableTo = is_string($action['ApplicableTo'] ?? null) ? $action['ApplicableTo'] : 'always';
 
         return [
             'Enabled'         => is_bool($action['Enabled'] ?? null)
@@ -3582,10 +3605,8 @@ class OpenHomeAlarm extends IPSModuleStrict
             'Action'          => $this->EncodeIncompleteAlarmEscalationAction($actionValue),
             'ResetMode'       => is_int($action['ResetMode'] ?? null) ? $action['ResetMode'] : 0,
             'ResetAction'     => $this->EncodeIncompleteAlarmEscalationAction($resetActionValue),
-            'SignalGenerator' => is_bool($action['SignalGenerator'] ?? null) ? $action['SignalGenerator'] : false,
-            'ApplicableTo'    => is_string($action['ApplicableTo'] ?? null)
-                ? $action['ApplicableTo']
-                : (($action['SignalGenerator'] ?? false) ? 'normal' : 'always')
+            'SignalGenerator' => $signalGenerator,
+            'ApplicableTo'    => $signalGenerator ? 'normal' : $applicableTo
         ];
     }
 

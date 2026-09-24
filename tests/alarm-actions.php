@@ -1251,8 +1251,25 @@ assertAlarmAction(
     && ($dynamicEscalationValues[0]['Name'] ?? null) === 'Legacy step'
     && ($dynamicEscalationValues[0]['Action'] ?? null) === $alarmAction
     && ($dynamicEscalationValues[0]['ResetMode'] ?? null) === 0
-    && ($dynamicEscalationValues[0]['ResetAction'] ?? null) === '',
+    && ($dynamicEscalationValues[0]['ResetAction'] ?? null) === ''
+    && ($dynamicEscalationValues[0]['ApplicableTo'] ?? null) === 'always',
     'GetConfigurationForm must expose a legacy single action as one directly editable escalation row.'
+);
+$legacySignalFormInstance = new OpenHomeAlarm();
+$legacySignalFormInstance->Create();
+$legacySignalFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'         => true,
+    'Name'            => 'Legacy siren',
+    'DelaySeconds'    => 0,
+    'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+    'ResetMode'       => 1,
+    'SignalGenerator' => true,
+    'ApplicableTo'    => 'always'
+]], JSON_THROW_ON_ERROR));
+$legacySignalForm = json_decode($legacySignalFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    (findAlarmActionFormField($legacySignalForm['elements'] ?? [], 'AlarmEscalationSteps')['values'][0]['ApplicableTo'] ?? null) === 'normal',
+    'Existing signal generators set to Always must display their effective normal-only behavior.'
 );
 $incompleteEscalationFormInstance = new OpenHomeAlarm();
 $incompleteEscalationFormInstance->Create();
@@ -1264,7 +1281,8 @@ $incompleteEscalationFormInstance->TestSetPropertyString('AlarmEscalationSteps',
         'Action'          => $alarmAction,
         'ResetMode'       => 0,
         'ResetAction'     => '',
-        'SignalGenerator' => true
+        'SignalGenerator' => true,
+        'ApplicableTo'    => 'always'
     ],
     [
         'Enabled'         => true,
@@ -1289,6 +1307,7 @@ $incompleteEscalationValues = findAlarmActionFormField(
 assertAlarmAction(
     count($incompleteEscalationValues) === 2
     && ($incompleteEscalationValues[0]['SignalGenerator'] ?? null) === true
+    && ($incompleteEscalationValues[0]['ApplicableTo'] ?? null) === 'normal'
     && ($incompleteEscalationValues[0]['ResetMode'] ?? null) === 0
     && ($incompleteEscalationValues[1]['ResetMode'] ?? null) === 2
     && ($incompleteEscalationValues[1]['ResetAction'] ?? null) === '',
@@ -1300,6 +1319,49 @@ $automaticResetForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
 assertAlarmAction(
     findAlarmActionFormField($automaticResetForm, 'ResetAction') === null,
     'Boolean automatic reset must omit the custom SelectAction so an empty action cannot fail validation.'
+);
+$normalActionForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
+    'SignalGenerator' => false,
+    'ApplicableTo'    => 'silent'
+]);
+$normalApplicability = findAlarmActionFormField($normalActionForm, 'ApplicableTo');
+assertAlarmAction(
+    ($normalApplicability['visible'] ?? null) === true
+    && ($normalApplicability['value'] ?? null) === 'silent'
+    && array_column($normalApplicability['options'] ?? [], 'caption') === [
+        'Normal only', 'Silent only', 'Normal and silent'
+    ]
+    && (findAlarmActionFormField($normalActionForm, 'SignalGeneratorApplicabilityHint')['visible'] ?? null) === false,
+    'Non-signal actions must offer explicit normal, silent and shared applicability choices.'
+);
+$signalActionForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
+    'SignalGenerator' => true,
+    'ApplicableTo'    => 'always'
+]);
+assertAlarmAction(
+    (findAlarmActionFormField($signalActionForm, 'ApplicableTo')['visible'] ?? null) === false
+    && (findAlarmActionFormField($signalActionForm, 'ApplicableTo')['value'] ?? null) === 'normal'
+    && (findAlarmActionFormField($signalActionForm, 'SignalGeneratorApplicabilityHint')['visible'] ?? null) === true
+    && (findAlarmActionFormField($signalActionForm, 'SignalGenerator')['onChange'] ?? null)
+        === 'OHA_UpdateAlarmEscalationApplicabilityForm($id, $SignalGenerator);',
+    'Signal generators must hide the redundant choice and explain their fixed normal-alarm behavior.'
+);
+$dynamicFormInstance->UpdateAlarmEscalationApplicabilityForm(true);
+assertAlarmAction(
+    array_slice($dynamicFormInstance->TestFormUpdates(), -3) === [
+        ['field' => 'ApplicableTo', 'parameter' => 'value', 'value' => 'normal'],
+        ['field' => 'ApplicableTo', 'parameter' => 'visible', 'value' => false],
+        ['field' => 'SignalGeneratorApplicabilityHint', 'parameter' => 'visible', 'value' => true]
+    ],
+    'Enabling the signal-generator switch must immediately force normal applicability and hide the choice.'
+);
+$dynamicFormInstance->UpdateAlarmEscalationApplicabilityForm(false);
+assertAlarmAction(
+    array_slice($dynamicFormInstance->TestFormUpdates(), -2) === [
+        ['field' => 'ApplicableTo', 'parameter' => 'visible', 'value' => true],
+        ['field' => 'SignalGeneratorApplicabilityHint', 'parameter' => 'visible', 'value' => false]
+    ],
+    'Disabling the signal-generator switch must restore the applicability choice.'
 );
 $customResetForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
     'ResetMode'   => 2,

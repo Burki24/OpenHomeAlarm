@@ -10,6 +10,11 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Eskalationsmaske benennt die Alarmierungsarten eindeutig als **Nur normal**,
+  **Nur still** und **Normal und still**. Bei Signalgebern wird die redundante
+  Auswahl ausgeblendet und ihre Beschränkung auf normale Alarme erklärt;
+  bestehende Einstellungen bleiben wirksam.
+
 - Die Alarmierungsart wird in Kachel und IPSView über einen gestalteten Switch
   statt über ein im eingebetteten Browser unzuverlässiges Dropdown gewählt.
 

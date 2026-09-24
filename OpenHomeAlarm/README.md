@@ -332,11 +332,13 @@ Jeder Zeitplan wird innerhalb derselben Minute höchstens einmal ausgeführt. De
 
 OpenHomeAlarm verwendet für externe Reaktionen ausschließlich **Alarm-Eskalationsaktionen**. Jede Tabellenzeile entspricht einer Aktion. Mehrere Aktionen mit derselben Verzögerung werden gemeinsam fällig und bilden damit eine Eskalationsstufe. Die Verzögerung wird ab dem Beginn des gemeinsamen Alarmausgangs gemessen; jede aktive Aktion wird in der konfigurierten Reihenfolge genau einmal ausgeführt.
 
-Mit **Ausführen bei Alarm** wird je Aktion festgelegt, ob sie nur bei normalem,
-nur bei stillem oder bei beiden Alarmen läuft. Bestehende Signalgeber-Aktionen
-gelten weiterhin nur für normale Alarme; bestehende andere Aktionen gelten
-weiterhin für beide. Eine als **Signalgeber** markierte Aktion kann nicht nur
-für stille Alarme konfiguriert werden. Sind mehrere Bereiche gleichzeitig im
+Mit **Ausführen bei Alarmierungsart** wird für eine gewöhnliche Aktion zwischen
+**Nur normal**, **Nur still** und **Normal und still** gewählt. Bei einer als
+**Signalgeber** markierten Aktion entfällt diese Auswahl: Sie läuft aus
+Sicherheitsgründen ausschließlich bei normalem Alarm. Bestehende
+Signalgeber-Aktionen behalten diese Wirkung auch dann, wenn zuvor **Immer**
+gespeichert war; bestehende andere Aktionen gelten weiterhin für beide
+Alarmierungsarten. Sind mehrere Bereiche gleichzeitig im
 Alarm, wird eine Aktion fällig, sobald mindestens ein aktiver Bereich ihre
 Alarmierungsart erfüllt. Signalgeber laufen nur, solange mindestens ein normal
 alarmierender Bereich aktiv ist. Endet dessen Alarmausgang, werden reversible
@@ -357,7 +359,7 @@ Da die Zielauswahl Bestandteil der nativen Symcon-Aktion ist, können einzelne G
 6. Wählen Sie unter **Rücksetzverhalten** eine der drei Möglichkeiten: **Keine Rücksetzung**, **Boolean automatisch umkehren** oder **Eigene Rücksetzaktion verwenden**.
 7. Nur bei **Eigene Rücksetzaktion verwenden** erscheint das Feld **Eigene Rücksetzaktion**. Wählen Sie dort das gewünschte Ziel und den exakten Rückgabewert, beispielsweise `Auf` für einen zuvor auf `Zu` gefahrenen Rollladen. Bei **Keine Rücksetzung** und **Boolean automatisch umkehren** ist dieses Aktionsfeld nicht vorhanden und muss daher auch nicht ausgefüllt werden.
 8. Kennzeichnen Sie eine Sirene oder einen anderen akustischen Alarmgeber zusätzlich als **Signalgeber**. Ein Signalgeber benötigt zwingend eine automatische Boolean-Rücksetzung oder eine eigene Rücksetzaktion.
-9. Wählen Sie unter **Ausführen bei Alarm** zwischen **Normal**, **Still** und **Immer**. Für eine stille Eskalation legen Sie eine eigene Aktion mit **Still** an. Signalgeber können nicht **Still** zugeordnet werden.
+9. Wählen Sie bei gewöhnlichen Aktionen unter **Ausführen bei Alarmierungsart** zwischen **Nur normal**, **Nur still** und **Normal und still**. Für eine stille Eskalation legen Sie eine eigene Aktion mit **Nur still** an. Bei einem aktivierten **Signalgeber** erscheint stattdessen der Hinweis, dass er nur bei normalem Alarm läuft.
 10. Bestätigen Sie den Bearbeitungsdialog. Weitere Aktionen werden jeweils als eigene Tabellenzeile hinzugefügt.
 11. Übernehmen Sie abschließend die Änderungen der Instanzkonfiguration.
 

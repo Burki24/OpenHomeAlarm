@@ -530,23 +530,23 @@
                             }
                         },
                         {
-                            "caption": "Run for alarm",
+                            "caption": "Run for alarm response",
                             "name": "ApplicableTo",
-                            "width": "150px",
+                            "width": "175px",
                             "add": "always",
                             "edit": {
                                 "type": "Select",
                                 "options": [
                                     {
-                                        "caption": "Normal",
+                                        "caption": "Normal only",
                                         "value": "normal"
                                     },
                                     {
-                                        "caption": "Silent",
+                                        "caption": "Silent only",
                                         "value": "silent"
                                     },
                                     {
-                                        "caption": "Always",
+                                        "caption": "Normal and silent",
                                         "value": "always"
                                     }
                                 ]
