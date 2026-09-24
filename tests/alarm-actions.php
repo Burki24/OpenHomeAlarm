@@ -1411,6 +1411,7 @@ assertAlarmAction(
 );
 foreach ([
     'PushoverNotificationMode',
+    'PushoverNotificationApplicableTo',
     'PushoverApplicationToken',
     'PushoverUserKey',
     'PushoverDevice',
@@ -1423,6 +1424,14 @@ foreach ([
     assertAlarmAction(
         findAlarmActionFormField($dynamicForm['elements'] ?? [], $pushoverFieldName) !== null,
         'The configuration form must expose every direct Pushover setting.'
+    );
+}
+foreach (['PushNotificationApplicableTo', 'PushoverNotificationApplicableTo'] as $applicabilityFieldName) {
+    $field = findAlarmActionFormField($dynamicForm['elements'] ?? [], $applicabilityFieldName);
+    assertAlarmAction(
+        ($field['type'] ?? null) === 'Select'
+        && array_column($field['options'] ?? [], 'value') === ['normal', 'silent', 'always'],
+        'Each notification channel must independently offer normal, silent and combined alarm responses.'
     );
 }
 $moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
@@ -1447,7 +1456,7 @@ $lockedFormInstance->Create();
 $lockedFormInstance->TestSetCurrentValue('Mode', 2);
 $lockedFormInstance->TestSetCurrentValue('State', 2);
 $lockedForm = json_decode($lockedFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
-foreach (['Partitions', 'ExitDelaySeconds', 'CountdownAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushoverNotificationMode'] as $fieldName) {
+foreach (['Partitions', 'ExitDelaySeconds', 'CountdownAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushNotificationApplicableTo', 'PushoverNotificationMode', 'PushoverNotificationApplicableTo'] as $fieldName) {
     $field = findAlarmActionFormField($lockedForm['elements'] ?? [], $fieldName);
     assertAlarmAction(
         is_array($field) && ($field['enabled'] ?? null) === false,
@@ -1513,6 +1522,7 @@ foreach ([
     'Alarm escalation',
     'Alarm notifications',
     'Symcon push notifications',
+    'Notify for alarm response',
     'Countdown output',
     'Countdown actions',
     'Actions on new fault',
@@ -1593,6 +1603,111 @@ assertAlarmAction(
     $remainingState['Alarm']['OutputActive'] === true
     && $remainingState['Alarm']['SignalGeneratorActive'] === false,
     'The silent alarm must remain active after the normal area output ends.'
+);
+
+$testPushNotifications = [];
+$testValues[4001] = false;
+$testValues[4002] = false;
+$routedNotifications = new TestablePushoverOpenHomeAlarm();
+$routedNotifications->Create();
+$routedNotifications->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$routedNotifications->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$routedNotifications->TestSetPropertyInteger('PushNotificationMode', 1);
+$routedNotifications->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$routedNotifications->TestSetPropertyString('PushNotificationApplicableTo', 'normal');
+$routedNotifications->TestSetPropertyInteger('PushoverNotificationMode', 1);
+$routedNotifications->TestSetPropertyString('PushoverNotificationApplicableTo', 'silent');
+$routedNotifications->TestSetPropertyString('PushoverApplicationToken', str_repeat('N', 30));
+$routedNotifications->TestSetPropertyString('PushoverUserKey', str_repeat('U', 30));
+$routedNotifications->TestSetPropertyInteger('PushoverPriority', 2);
+$routedNotifications->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true],
+    ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+], JSON_THROW_ON_ERROR));
+$routedNotifications->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'garage']),
+    array_merge(alarmActionSensor(4002, false), ['PartitionID' => 'shed'])
+], JSON_THROW_ON_ERROR));
+$routedNotifications->TestQueuePushoverResponse('{"status":1,"request":"silent-request","receipt":"silent-receipt"}');
+$routedNotifications->TestQueuePushoverResponse('{"status":1,"request":"cancel-request"}');
+assertAlarmAction($routedNotifications->ArmPartition('garage', 'away', 0), 'Routed-notification test must arm the silent area.');
+$testValues[4001] = true;
+$routedNotifications->MessageSink(53, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $testPushNotifications === []
+    && count($routedNotifications->TestPushoverRequests()) === 1
+    && ($routedNotifications->TestPushoverRequests()[0]['parameters']['title'] ?? null) === 'Intrusion alarm Garage!',
+    'A silent alarm must send only the silent Pushover notification with the matching area.'
+);
+assertAlarmAction($routedNotifications->ArmPartition('shed', 'away', 0), 'Routed-notification test must arm the normal area.');
+$testValues[4002] = true;
+$routedNotifications->MessageSink(54, 4002, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    count($testPushNotifications) === 1
+    && $testPushNotifications[0]['title'] === 'Intrusion alarm Shed!'
+    && count($routedNotifications->TestPushoverRequests()) === 1,
+    'A later normal alarm must send only the normal push notification and not repeat Pushover.'
+);
+$routedNotifications->ResetAlarmOutputPartition('garage');
+assertAlarmAction(
+    count($routedNotifications->TestPushoverRequests()) === 2
+    && $routedNotifications->TestPushoverRequests()[1]['url'] === 'https://api.pushover.net/1/receipts/silent-receipt/cancel.json'
+    && ($routedNotifications->TestAttributes()['PushoverEmergencyReceipt'] ?? 'missing') === '',
+    'Emergency Pushover retries must stop when no matching alarm area remains active.'
+);
+
+$testPushNotifications = [];
+$testValues[4001] = false;
+$testValues[4002] = false;
+$delayedRoutedPush = new OpenHomeAlarm();
+$delayedRoutedPush->Create();
+$delayedRoutedPush->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$delayedRoutedPush->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$delayedRoutedPush->TestSetPropertyInteger('PushNotificationMode', 2);
+$delayedRoutedPush->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$delayedRoutedPush->TestSetPropertyInteger('PushNotificationDelaySeconds', 60);
+$delayedRoutedPush->TestSetPropertyString('PushNotificationApplicableTo', 'normal');
+$delayedRoutedPush->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true],
+    ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+], JSON_THROW_ON_ERROR));
+$delayedRoutedPush->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'garage']),
+    array_merge(alarmActionSensor(4002, false), ['PartitionID' => 'shed'])
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($delayedRoutedPush->ArmPartition('garage', 'away', 0), 'Delayed routing test must arm the silent area.');
+$testValues[4001] = true;
+$delayedRoutedPush->MessageSink(55, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $testPushNotifications === []
+    && ($delayedRoutedPush->TestTimers()['AlarmEscalation']['interval'] ?? -1) === 0,
+    'A non-matching silent alarm must not schedule a normal-only push notification.'
+);
+assertAlarmAction($delayedRoutedPush->ArmPartition('shed', 'away', 0), 'Delayed routing test must arm the normal area.');
+$testValues[4002] = true;
+$delayedRoutedPush->MessageSink(56, 4002, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    ($delayedRoutedPush->TestTimers()['AlarmEscalation']['interval'] ?? 0) > 0,
+    'A matching area joining the alarm must schedule its delayed push notification.'
+);
+$delayedRoutedPushRuntime = json_decode(
+    (string) $delayedRoutedPush->TestAttributes()['AlarmEscalationRuntime'],
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$delayedRoutedPushRuntime['StartedAt'] = time() - 120;
+$delayedRoutedPush->TestSetAttributeString(
+    'AlarmEscalationRuntime',
+    json_encode($delayedRoutedPushRuntime, JSON_THROW_ON_ERROR)
+);
+$delayedRoutedPush->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($testPushNotifications) === 1
+    && $testPushNotifications[0]['title'] === 'Intrusion alarm Shed!',
+    'An elapsed normal-only push delay must name the matching normal area, not the silent area.'
 );
 
 $testActions = [];

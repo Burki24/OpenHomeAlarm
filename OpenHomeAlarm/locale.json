@@ -102,6 +102,7 @@
             "Silent only": "Nur still",
             "Normal and silent": "Normal und still",
             "Run for alarm response": "Ausführen bei Alarmierungsart",
+            "Notify for alarm response": "Benachrichtigen bei Alarmierungsart",
             "Signal generators run only during normal alarms.": "Signalgeber werden nur bei normalem Alarm eingeschaltet.",
             "Silent alarm": "Stiller Alarm",
             "Normal alarm": "Normaler Alarm",

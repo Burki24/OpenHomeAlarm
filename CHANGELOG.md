@@ -10,6 +10,10 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Symcon-Push und Pushover können unabhängig voneinander nur bei normalen,
+  nur bei stillen oder bei beiden Alarmierungsarten benachrichtigen. Bestehende
+  Konfigurationen bleiben bei beiden Arten aktiv.
+
 - Die Eskalationsmaske benennt die Alarmierungsarten eindeutig als **Nur normal**,
   **Nur still** und **Normal und still**. Bei Signalgebern wird die redundante
   Auswahl ausgeblendet und ihre Beschränkung auf normale Alarme erklärt;

@@ -369,7 +369,7 @@ Eine vorhandene Zeile kann über das Zahnrad bearbeitet, über **Aktiv** vorübe
 
 #### Push-Nachricht mit Area und Sensor
 
-Für eine native Symcon-Push-Nachricht ist kein Skript erforderlich. Öffnen Sie in der Instanzkonfiguration den Abschnitt **Push-Benachrichtigungen**, wählen Sie **Sofort bei Alarmauslösung** oder **Als verzögerte Eskalationsstufe** und tragen Sie nur die ID Ihrer Kachel-Visualisierung ein. Im verzögerten Modus bestimmen Sie zusätzlich die Verzögerung in Sekunden. Die Nachricht wird pro Alarmzyklus genau einmal versendet und öffnet beim Antippen diese OpenHomeAlarm-Instanz in der ausgewählten Kachel-Visualisierung.
+Für eine native Symcon-Push-Nachricht ist kein Skript erforderlich. Öffnen Sie in der Instanzkonfiguration den Abschnitt **Push-Benachrichtigungen**, wählen Sie **Sofort bei Alarmauslösung** oder **Als verzögerte Eskalationsstufe** und tragen Sie nur die ID Ihrer Kachel-Visualisierung ein. Unter **Benachrichtigen bei Alarmierungsart** wählen Sie **Nur normal**, **Nur still** oder **Normal und still** (Vorgabe). Im verzögerten Modus bestimmen Sie zusätzlich die Verzögerung in Sekunden. Die Nachricht wird pro Alarmzyklus genau einmal versendet und öffnet beim Antippen diese OpenHomeAlarm-Instanz in der ausgewählten Kachel-Visualisierung.
 
 Sie enthält automatisch den zuletzt alarmierenden Bereich und Sensor, beispielsweise:
 
@@ -392,14 +392,19 @@ die Pushover-HTTPS-API versenden. Benötigt werden ein Pushover-Konto, der
    und mit **Sound-Name** ein Pushover-Sound ausgewählt werden. Leere Felder
    verwenden die Vorgaben des Pushover-Kontos.
 4. Wählen Sie **Sofort bei Alarmauslösung** oder **Als verzögerte
-   Eskalationsstufe**. Die Verzögerung wird nur im zweiten Modus ausgewertet.
+   Eskalationsstufe** sowie unter **Benachrichtigen bei Alarmierungsart**
+   **Nur normal**, **Nur still** oder **Normal und still** (Vorgabe).
+   Die Verzögerung wird nur im zweiten Modus ausgewertet.
 5. Wählen Sie die Priorität und übernehmen Sie die Konfiguration.
 6. Prüfen Sie die Zugangsdaten mit **Pushover-Testnachricht senden**. Die
    Testnachricht verwendet unabhängig von der Alarmkonfiguration die normale
    Priorität und löst keine Wiederholungen aus.
 
-Die Alarmmeldung enthält automatisch den zuletzt alarmierenden Bereich und den
-auslösenden Sensor. Pro Alarmzyklus wird genau ein Versandversuch ausgeführt.
+Die Alarmmeldung enthält automatisch den zuletzt alarmierenden passenden Bereich
+und den auslösenden Sensor. Pro Alarmzyklus wird je Kanal genau ein Versandversuch
+ausgeführt. Löst zunächst nur ein nicht passender Bereich aus, bleibt die Meldung
+aus; kommt ein passender Bereich hinzu, wird sie unter Berücksichtigung der seit
+Beginn des Alarmzyklus verstrichenen Verzögerung gesendet.
 Die Prioritäten entsprechen Pushover:
 
 - **Normal (`0`)** verwendet die üblichen Geräte- und Ruhezeiteinstellungen.
@@ -410,8 +415,8 @@ Die Prioritäten entsprechen Pushover:
 Für die Notfall-Priorität muss das Wiederholungsintervall mindestens 30 Sekunden
 betragen; die Wiederholungsdauer ist auf drei Stunden begrenzt. OpenHomeAlarm
 speichert den von Pushover gelieferten Beleg wiederanlaufsicher und beendet eine
-laufende Notfall-Wiederholung, sobald der letzte Alarmausgang zurückgesetzt oder
-die Anlage unscharf geschaltet wird. Schlägt dieser HTTPS-Aufruf fehl, wird der
+laufende Notfall-Wiederholung, sobald kein zur gewählten Alarmierungsart passender
+Alarmausgang mehr aktiv ist oder die Anlage unscharf geschaltet wird. Schlägt dieser HTTPS-Aufruf fehl, wird der
 Fehler im Debug-Protokoll erfasst und beim nächsten Wiederherstellen der Instanz
 erneut versucht.
 

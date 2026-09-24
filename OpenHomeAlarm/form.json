@@ -593,6 +593,25 @@
                             ]
                         },
                         {
+                            "type": "Select",
+                            "name": "PushNotificationApplicableTo",
+                            "caption": "Notify for alarm response",
+                            "options": [
+                                {
+                                    "caption": "Normal only",
+                                    "value": "normal"
+                                },
+                                {
+                                    "caption": "Silent only",
+                                    "value": "silent"
+                                },
+                                {
+                                    "caption": "Normal and silent",
+                                    "value": "always"
+                                }
+                            ]
+                        },
+                        {
                             "type": "NumberSpinner",
                             "name": "PushNotificationTileID",
                             "caption": "Tile visualization ID",
@@ -638,6 +657,25 @@
                                 {
                                     "caption": "As delayed escalation step",
                                     "value": 2
+                                }
+                            ]
+                        },
+                        {
+                            "type": "Select",
+                            "name": "PushoverNotificationApplicableTo",
+                            "caption": "Notify for alarm response",
+                            "options": [
+                                {
+                                    "caption": "Normal only",
+                                    "value": "normal"
+                                },
+                                {
+                                    "caption": "Silent only",
+                                    "value": "silent"
+                                },
+                                {
+                                    "caption": "Normal and silent",
+                                    "value": "always"
                                 }
                             ]
                         },

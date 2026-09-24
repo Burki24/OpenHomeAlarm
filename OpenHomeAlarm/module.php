@@ -159,9 +159,11 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_AUTO_REARM_AFTER_ALARM = 'AutoRearmAfterAlarm';
     private const PROPERTY_ALARM_ESCALATION_STEPS = 'AlarmEscalationSteps';
     private const PROPERTY_PUSH_NOTIFICATION_MODE = 'PushNotificationMode';
+    private const PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO = 'PushNotificationApplicableTo';
     private const PROPERTY_PUSH_NOTIFICATION_TILE_ID = 'PushNotificationTileID';
     private const PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS = 'PushNotificationDelaySeconds';
     private const PROPERTY_PUSHOVER_NOTIFICATION_MODE = 'PushoverNotificationMode';
+    private const PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO = 'PushoverNotificationApplicableTo';
     private const PROPERTY_PUSHOVER_APPLICATION_TOKEN = 'PushoverApplicationToken';
     private const PROPERTY_PUSHOVER_USER_KEY = 'PushoverUserKey';
     private const PROPERTY_PUSHOVER_DEVICE = 'PushoverDevice';
@@ -313,9 +315,11 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM, true);
         $this->RegisterPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE, 0);
+        $this->RegisterPropertyString(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO, 'always');
         $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID, 0);
         $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_NOTIFICATION_MODE, 0);
+        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO, 'always');
         $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN, '');
         $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_USER_KEY, '');
         $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_DEVICE, '');
@@ -1902,17 +1906,21 @@ class OpenHomeAlarm extends IPSModuleStrict
 
         $steps = $this->ReadConfiguredAlarmEscalationSteps();
         $activeModes = $this->ActiveAlarmModes($states);
-        if ($this->IsConfiguredPushNotificationDue($runtime, time())) {
+        if ($this->IsConfiguredPushNotificationDue($runtime, time(), $activeModes)) {
             // Persist first so a restart or transport error cannot send the same alarm twice.
             $runtime['PushNotificationSent'] = true;
             $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-            $this->PostConfiguredAlarmNotification();
+            $this->PostConfiguredAlarmNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO));
         }
-        if ($this->IsConfiguredPushoverNotificationDue($runtime, time())) {
+        if ($runtime['PushoverNotificationSent']
+            && !$this->ConfiguredNotificationAppliesTo(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO, $activeModes)) {
+            $this->CancelConfiguredPushoverEmergencyNotification();
+        }
+        if ($this->IsConfiguredPushoverNotificationDue($runtime, time(), $activeModes)) {
             // Persist first so a restart or transport error cannot send the same alarm twice.
             $runtime['PushoverNotificationSent'] = true;
             $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-            $this->PostConfiguredPushoverNotification();
+            $this->PostConfiguredPushoverNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO));
         }
         $signalGeneratorStateChanged = false;
         foreach (AlarmEscalationPlan::dueSteps($steps, $runtime, time(), $activeModes) as $due) {
@@ -1959,9 +1967,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         $deadline = $this->EarlierDeadline(
             $this->EarlierDeadline(
                 AlarmEscalationPlan::nextDeadline($steps, $runtime, $activeModes),
-                $this->ConfiguredPushNotificationDeadline($runtime)
+                $this->ConfiguredPushNotificationDeadline($runtime, $activeModes)
             ),
-            $this->ConfiguredPushoverNotificationDeadline($runtime)
+            $this->ConfiguredPushoverNotificationDeadline($runtime, $activeModes)
         );
         $this->SetTimerInterval(
             self::TIMER_ALARM_ESCALATION,
@@ -3007,13 +3015,20 @@ class OpenHomeAlarm extends IPSModuleStrict
             if (!$alarmState['OutputActive']) {
                 continue;
             }
-            $silent = ($runtime[$partitionID]['Mode'] ?? self::MODE_NONE) === self::MODE_NONE
-                ? $this->SilentByDefaultForPartition($partitionID)
-                : ($runtime[$partitionID]['Silent'] ?? false);
-            $modes[$silent ? 'silent' : 'normal'] = true;
+            $modes[$this->AlarmResponseForPartition($partitionID, $runtime)] = true;
         }
 
         return array_keys($modes);
+    }
+
+    /** @param array<string,array<string,mixed>> $runtime */
+    private function AlarmResponseForPartition(string $partitionID, array $runtime): string
+    {
+        $silent = ($runtime[$partitionID]['Mode'] ?? self::MODE_NONE) === self::MODE_NONE
+            ? $this->SilentByDefaultForPartition($partitionID)
+            : ($runtime[$partitionID]['Silent'] ?? false);
+
+        return $silent ? 'silent' : 'normal';
     }
 
     private function ResolveEnabledPartitionID(string $partitionID): string
@@ -3758,35 +3773,37 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function CurrentSecurityConfiguration(): string
     {
         return json_encode([
-            self::PROPERTY_PARTITIONS                        => $this->ReadPropertyString(self::PROPERTY_PARTITIONS),
-            self::PROPERTY_SENSORS                           => $this->ReadPropertyString(self::PROPERTY_SENSORS),
-            self::PROPERTY_FAULT_INPUTS                      => $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS),
-            self::PROPERTY_EXIT_DELAY_SECONDS                => $this->ReadPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS),
-            self::PROPERTY_ENTRY_DELAY_SECONDS               => $this->ReadPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS),
-            self::PROPERTY_COUNTDOWN_ACTION                  => $this->ReadPropertyString(self::PROPERTY_COUNTDOWN_ACTION),
-            self::PROPERTY_ALARM_DURATION_SECONDS            => $this->ReadPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS),
-            self::PROPERTY_AUTO_REARM_AFTER_ALARM            => $this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM),
-            self::PROPERTY_ALARM_ESCALATION_STEPS            => $this->ReadPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS),
-            self::PROPERTY_PUSH_NOTIFICATION_MODE            => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE),
-            self::PROPERTY_PUSH_NOTIFICATION_TILE_ID         => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
-            self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS   => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS),
-            self::PROPERTY_PUSHOVER_NOTIFICATION_MODE        => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_NOTIFICATION_MODE),
-            self::PROPERTY_PUSHOVER_APPLICATION_TOKEN        => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN),
-            self::PROPERTY_PUSHOVER_USER_KEY                 => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_USER_KEY),
-            self::PROPERTY_PUSHOVER_DEVICE                   => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_DEVICE),
-            self::PROPERTY_PUSHOVER_PRIORITY                 => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_PRIORITY),
-            self::PROPERTY_PUSHOVER_SOUND                    => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_SOUND),
-            self::PROPERTY_PUSHOVER_DELAY_SECONDS            => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_DELAY_SECONDS),
-            self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS  => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS),
-            self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS),
-            self::PROPERTY_FAULT_ACTION                      => $this->ReadPropertyString(self::PROPERTY_FAULT_ACTION),
-            self::PROPERTY_FAULT_CLEARED_ACTION              => $this->ReadPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION),
-            self::PROPERTY_DISARM_CODE                       => $this->ReadPropertyString(self::PROPERTY_DISARM_CODE),
-            self::PROPERTY_DISARM_USERS                      => $this->ReadPropertyString(self::PROPERTY_DISARM_USERS),
-            self::PROPERTY_DISARM_MAX_ATTEMPTS               => $this->ReadPropertyInteger(self::PROPERTY_DISARM_MAX_ATTEMPTS),
-            self::PROPERTY_DISARM_LOCKOUT_SECONDS            => $this->ReadPropertyInteger(self::PROPERTY_DISARM_LOCKOUT_SECONDS),
-            self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS => $this->ReadPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS),
-            self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES        => $this->ReadPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES)
+            self::PROPERTY_PARTITIONS                          => $this->ReadPropertyString(self::PROPERTY_PARTITIONS),
+            self::PROPERTY_SENSORS                             => $this->ReadPropertyString(self::PROPERTY_SENSORS),
+            self::PROPERTY_FAULT_INPUTS                        => $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS),
+            self::PROPERTY_EXIT_DELAY_SECONDS                  => $this->ReadPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS),
+            self::PROPERTY_ENTRY_DELAY_SECONDS                 => $this->ReadPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS),
+            self::PROPERTY_COUNTDOWN_ACTION                    => $this->ReadPropertyString(self::PROPERTY_COUNTDOWN_ACTION),
+            self::PROPERTY_ALARM_DURATION_SECONDS              => $this->ReadPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS),
+            self::PROPERTY_AUTO_REARM_AFTER_ALARM              => $this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM),
+            self::PROPERTY_ALARM_ESCALATION_STEPS              => $this->ReadPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS),
+            self::PROPERTY_PUSH_NOTIFICATION_MODE              => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE),
+            self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO     => $this->ReadPropertyString(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO),
+            self::PROPERTY_PUSH_NOTIFICATION_TILE_ID           => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
+            self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS     => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS),
+            self::PROPERTY_PUSHOVER_NOTIFICATION_MODE          => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_NOTIFICATION_MODE),
+            self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO),
+            self::PROPERTY_PUSHOVER_APPLICATION_TOKEN          => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN),
+            self::PROPERTY_PUSHOVER_USER_KEY                   => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_USER_KEY),
+            self::PROPERTY_PUSHOVER_DEVICE                     => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_DEVICE),
+            self::PROPERTY_PUSHOVER_PRIORITY                   => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_PRIORITY),
+            self::PROPERTY_PUSHOVER_SOUND                      => $this->ReadPropertyString(self::PROPERTY_PUSHOVER_SOUND),
+            self::PROPERTY_PUSHOVER_DELAY_SECONDS              => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_DELAY_SECONDS),
+            self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS    => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS),
+            self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS   => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS),
+            self::PROPERTY_FAULT_ACTION                        => $this->ReadPropertyString(self::PROPERTY_FAULT_ACTION),
+            self::PROPERTY_FAULT_CLEARED_ACTION                => $this->ReadPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION),
+            self::PROPERTY_DISARM_CODE                         => $this->ReadPropertyString(self::PROPERTY_DISARM_CODE),
+            self::PROPERTY_DISARM_USERS                        => $this->ReadPropertyString(self::PROPERTY_DISARM_USERS),
+            self::PROPERTY_DISARM_MAX_ATTEMPTS                 => $this->ReadPropertyInteger(self::PROPERTY_DISARM_MAX_ATTEMPTS),
+            self::PROPERTY_DISARM_LOCKOUT_SECONDS              => $this->ReadPropertyInteger(self::PROPERTY_DISARM_LOCKOUT_SECONDS),
+            self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS   => $this->ReadPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS),
+            self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES          => $this->ReadPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES)
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
@@ -6966,10 +6983,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             && preg_match('/^[A-Za-z0-9]{30}$/', trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_USER_KEY))) === 1;
     }
 
-    /** @param array{StartedAt:int,PushNotificationSent:bool} $runtime */
-    private function ConfiguredPushNotificationDeadline(array $runtime): int
+    /** @param array{StartedAt:int,PushNotificationSent:bool} $runtime @param list<string> $activeModes */
+    private function ConfiguredPushNotificationDeadline(array $runtime, array $activeModes): int
     {
-        if (!$this->IsConfiguredPushNotificationEnabled() || $runtime['PushNotificationSent']) {
+        if (!$this->IsConfiguredPushNotificationEnabled() || $runtime['PushNotificationSent']
+            || !$this->ConfiguredNotificationAppliesTo(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO, $activeModes)) {
             return 0;
         }
 
@@ -6980,18 +6998,19 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $runtime['StartedAt'] + $delaySeconds;
     }
 
-    /** @param array{StartedAt:int,PushNotificationSent:bool} $runtime */
-    private function IsConfiguredPushNotificationDue(array $runtime, int $timestamp): bool
+    /** @param array{StartedAt:int,PushNotificationSent:bool} $runtime @param list<string> $activeModes */
+    private function IsConfiguredPushNotificationDue(array $runtime, int $timestamp, array $activeModes): bool
     {
-        $deadline = $this->ConfiguredPushNotificationDeadline($runtime);
+        $deadline = $this->ConfiguredPushNotificationDeadline($runtime, $activeModes);
 
         return $deadline > 0 && $deadline <= $timestamp;
     }
 
-    /** @param array{StartedAt:int,PushoverNotificationSent:bool} $runtime */
-    private function ConfiguredPushoverNotificationDeadline(array $runtime): int
+    /** @param array{StartedAt:int,PushoverNotificationSent:bool} $runtime @param list<string> $activeModes */
+    private function ConfiguredPushoverNotificationDeadline(array $runtime, array $activeModes): int
     {
-        if (!$this->IsConfiguredPushoverNotificationEnabled() || $runtime['PushoverNotificationSent']) {
+        if (!$this->IsConfiguredPushoverNotificationEnabled() || $runtime['PushoverNotificationSent']
+            || !$this->ConfiguredNotificationAppliesTo(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO, $activeModes)) {
             return 0;
         }
 
@@ -7002,12 +7021,28 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $runtime['StartedAt'] + $delaySeconds;
     }
 
-    /** @param array{StartedAt:int,PushoverNotificationSent:bool} $runtime */
-    private function IsConfiguredPushoverNotificationDue(array $runtime, int $timestamp): bool
+    /** @param array{StartedAt:int,PushoverNotificationSent:bool} $runtime @param list<string> $activeModes */
+    private function IsConfiguredPushoverNotificationDue(array $runtime, int $timestamp, array $activeModes): bool
     {
-        $deadline = $this->ConfiguredPushoverNotificationDeadline($runtime);
+        $deadline = $this->ConfiguredPushoverNotificationDeadline($runtime, $activeModes);
 
         return $deadline > 0 && $deadline <= $timestamp;
+    }
+
+    private function ConfiguredNotificationApplicability(string $property): string
+    {
+        $applicability = $this->ReadPropertyString($property);
+
+        return in_array($applicability, ['normal', 'silent', 'always'], true) ? $applicability : 'always';
+    }
+
+    /** @param list<string> $activeModes */
+    private function ConfiguredNotificationAppliesTo(string $property, array $activeModes): bool
+    {
+        return $activeModes !== [] && AlarmEscalationPlan::appliesTo(
+            ['ApplicableTo' => $this->ConfiguredNotificationApplicability($property)],
+            $activeModes
+        );
     }
 
     private function EarlierDeadline(int $first, int $second): int
@@ -7022,7 +7057,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         return min($first, $second);
     }
 
-    private function PostConfiguredAlarmNotification(): void
+    private function PostConfiguredAlarmNotification(string $applicability): void
     {
         if (!function_exists('VISU_PostNotificationEx')) {
             $this->SendDebug(__FUNCTION__, 'Tile visualization push notifications are not available.', 0);
@@ -7030,7 +7065,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             return;
         }
 
-        [$title, $message] = $this->BuildAlarmNotificationText();
+        [$title, $message] = $this->BuildAlarmNotificationText($applicability);
         $notificationID = VISU_PostNotificationEx(
             $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
             $title,
@@ -7045,13 +7080,16 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /** @return array{0:string,1:string} */
-    private function BuildAlarmNotificationText(): array
+    private function BuildAlarmNotificationText(string $applicability): array
     {
         $states = $this->ReadPartitionAlarmStates();
+        $runtime = $this->ReadPartitionRuntime();
         $latestPartitionID = $this->DefaultPartitionID();
         $latestTimestamp = -1;
         foreach ($states as $partitionID => $state) {
-            if (!($state['OutputActive'] ?? false) || ($state['LastTimestamp'] ?? 0) < $latestTimestamp) {
+            if (!($state['OutputActive'] ?? false)
+                || ($applicability !== 'always' && $this->AlarmResponseForPartition($partitionID, $runtime) !== $applicability)
+                || ($state['LastTimestamp'] ?? 0) < $latestTimestamp) {
                 continue;
             }
             $latestPartitionID = $partitionID;
@@ -7076,9 +7114,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         return [$title, $message];
     }
 
-    private function PostConfiguredPushoverNotification(): void
+    private function PostConfiguredPushoverNotification(string $applicability): void
     {
-        [$title, $message] = $this->BuildAlarmNotificationText();
+        [$title, $message] = $this->BuildAlarmNotificationText($applicability);
         try {
             $receipt = $this->SendPushoverMessage($title, $message, $this->ConfiguredPushoverPriority());
             if ($receipt !== '') {
