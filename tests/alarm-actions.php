@@ -1777,9 +1777,74 @@ $silentAroundClock->TestSetPropertyString('AlarmEscalationSteps', json_encode([
 $testValues[4001] = true;
 $silentAroundClock->MessageSink(53, 4001, VM_UPDATE, [true, true, false]);
 assertAlarmAction(
-    array_column($testActions, 'actionID') === ['{QUIET}']
-    && json_decode($silentAroundClock->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['main']['Silent'] === true,
-    'A disarmed 24/7 sensor must use the silent area default without starting a siren.'
+    array_column($testActions, 'actionID') === ['{SIREN}']
+    && json_decode($silentAroundClock->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['main']['Silent'] === false,
+    'A disarmed 24/7 sensor must always start a normal alarm, even in an area configured silent by default.'
+);
+
+$testActions = [];
+$testPushNotifications = [];
+$testValues[4001] = false;
+$testValues[4002] = false;
+$safetyOverridesSilent = new OpenHomeAlarm();
+$safetyOverridesSilent->Create();
+$safetyOverridesSilent->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$safetyOverridesSilent->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$safetyOverridesSilent->TestSetPropertyInteger('PushNotificationMode', 1);
+$safetyOverridesSilent->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$safetyOverridesSilent->TestSetPropertyString('PushNotificationApplicableTo', 'normal');
+$safetyOverridesSilent->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main', 'SilentByDefault' => true]
+], JSON_THROW_ON_ERROR));
+$safetyOverridesSilent->TestSetPropertyString('Sensors', json_encode([
+    alarmActionSensor(4001, false),
+    array_merge(alarmActionSensor(4002, false), ['AlwaysActive' => true])
+], JSON_THROW_ON_ERROR));
+$safetyOverridesSilent->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Siren', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'SignalGenerator' => true],
+    ['Enabled' => true, 'Name' => 'Quiet', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{QUIET}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'silent']
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($safetyOverridesSilent->ArmAway(0, true), 'A silent area with a 24/7 safety sensor must arm.');
+$testValues[4001] = true;
+$safetyOverridesSilent->MessageSink(54, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{QUIET}'] && $testPushNotifications === [],
+    'A regular sensor in the silent area must still trigger only silent actions and notifications.'
+);
+$testValues[4002] = true;
+$safetyOverridesSilent->MessageSink(55, 4002, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{QUIET}', '{QUIET}', '{SIREN}']
+    && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, false, true]
+    && count($testPushNotifications) === 1
+    && $testPushNotifications[0]['message'] === 'Sensor Test 4002 triggered.'
+    && json_decode($safetyOverridesSilent->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['main']['Silent'] === false,
+    'A 24/7 safety sensor must promote an active silent alarm to normal and notify the normal-only channel.'
+);
+
+$testActions = [];
+$testValues[4001] = false;
+$safetyInSeparateArea = new OpenHomeAlarm();
+$safetyInSeparateArea->Create();
+$safetyInSeparateArea->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true]
+], JSON_THROW_ON_ERROR));
+$safetyInSeparateArea->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), [
+        'PartitionID' => 'garage', 'AlwaysActive' => true,
+        'ArmHome'     => false, 'ArmAway' => false, 'ArmNight' => false
+    ])
+], JSON_THROW_ON_ERROR));
+$safetyInSeparateArea->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Siren', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'SignalGenerator' => true]
+], JSON_THROW_ON_ERROR));
+$testValues[4001] = true;
+$safetyInSeparateArea->MessageSink(56, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{SIREN}']
+    && json_decode($safetyInSeparateArea->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['garage']['Silent'] === false,
+    'A 24/7 sensor in a separate silent-default area must still cause a normal alarm without arming.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm alarm action checks passed.\n");

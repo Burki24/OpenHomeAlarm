@@ -10,6 +10,10 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- 24/7-Sensoren lösen nun stets einen normalen Alarm aus, auch in still
+  geschalteten Bereichen. Scharfmodus- und Verzögerungsfelder werden bei 24/7
+  deaktiviert; vorhandene Werte dafür bleiben ohne Wirkung.
+
 - Symcon-Push und Pushover können unabhängig voneinander nur bei normalen,
   nur bei stillen oder bei beiden Alarmierungsarten benachrichtigen. Bestehende
   Konfigurationen bleiben bei beiden Arten aktiv.

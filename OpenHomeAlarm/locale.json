@@ -166,6 +166,7 @@
             "Exit-route motion detectors may remain active through the end of a configured exit delay; all other sensors must be ready.": "Bewegungsmelder des Ausgangswegs dürfen bis zum Ende einer konfigurierten Ausgangsverzögerung aktiv bleiben; alle anderen Sensoren müssen bereit sein.",
             "24/7 sensors trigger immediately in every system state; mode assignments and entry/exit delay are ignored.": "24/7-Sensoren lösen in jedem Systemzustand sofort aus; Moduszuordnungen sowie Ein-/Ausgangsverzögerung werden ignoriert.",
             "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored.": "24/7-Sensoren lösen unabhängig vom aktuellen Scharfmodus sofort aus; Moduszuordnungen sowie Ein-/Ausgangsverzögerung werden ignoriert.",
+            "24/7 sensors trigger immediately as normal alarms in every system state. Arming modes and entry/exit delays do not apply.": "24/7-Sensoren lösen in jedem Systemzustand sofort einen normalen Alarm aus. Scharfmodi und Ein-/Ausgangsverzögerungen gelten für sie nicht.",
             "Alarm output active": "Alarmausgang aktiv",
             "Alarm output inactive": "Alarmausgang inaktiv",
             "Signal generator active": "Signalgeber aktiv",

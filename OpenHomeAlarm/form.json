@@ -1150,7 +1150,7 @@
         },
         {
             "type": "Label",
-            "caption": "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored."
+            "caption": "24/7 sensors trigger immediately as normal alarms in every system state. Arming modes and entry/exit delays do not apply."
         }
     ],
     "actions": []

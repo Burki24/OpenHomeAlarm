@@ -79,6 +79,12 @@ final class AlarmConfigurationNormalizer
                 $partitionIDs[] = $legacyPartitionID;
             }
 
+            $alwaysActive = self::booleanField($sensor, 'AlwaysActive', false, 'Sensor');
+            $armHome = self::booleanField($sensor, 'ArmHome', false, 'Sensor');
+            $armAway = self::booleanField($sensor, 'ArmAway', true, 'Sensor');
+            $armNight = self::booleanField($sensor, 'ArmNight', false, 'Sensor');
+            $exitDelay = self::booleanField($sensor, 'ExitDelay', false, 'Sensor');
+            $entryDelay = self::booleanField($sensor, 'EntryDelay', false, 'Sensor');
             $normalizedSensors[] = [
                 'Enabled'        => self::booleanField($sensor, 'Enabled', true, 'Sensor'),
                 'PartitionID'    => $legacyPartitionID,
@@ -87,12 +93,12 @@ final class AlarmConfigurationNormalizer
                 'VariableID'     => $variableID,
                 'SensorType'     => $sensorType,
                 'TriggerValue'   => self::stringField($sensor, 'TriggerValue', '1', 'Sensor'),
-                'ArmHome'        => self::booleanField($sensor, 'ArmHome', false, 'Sensor'),
-                'ArmAway'        => self::booleanField($sensor, 'ArmAway', true, 'Sensor'),
-                'ArmNight'       => self::booleanField($sensor, 'ArmNight', false, 'Sensor'),
-                'AlwaysActive'   => self::booleanField($sensor, 'AlwaysActive', false, 'Sensor'),
-                'ExitDelay'      => self::booleanField($sensor, 'ExitDelay', false, 'Sensor'),
-                'EntryDelay'     => self::booleanField($sensor, 'EntryDelay', false, 'Sensor'),
+                'ArmHome'        => !$alwaysActive && $armHome,
+                'ArmAway'        => !$alwaysActive && $armAway,
+                'ArmNight'       => !$alwaysActive && $armNight,
+                'AlwaysActive'   => $alwaysActive,
+                'ExitDelay'      => !$alwaysActive && $exitDelay,
+                'EntryDelay'     => !$alwaysActive && $entryDelay,
                 'RetriggerAlarm' => self::booleanField($sensor, 'RetriggerAlarm', false, 'Sensor')
             ];
         }

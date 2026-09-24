@@ -445,6 +445,21 @@ $instance->TestSetPropertyString(
 $readConfiguredSensors = new ReflectionMethod(OpenHomeAlarm::class, 'ReadConfiguredSensors');
 $normalizedSensors = $readConfiguredSensors->invoke($instance);
 assertSensorModel($normalizedSensors === $configuredSensors, 'Valid sensor configuration must round-trip unchanged.');
+$alwaysActiveConfiguration = new OpenHomeAlarm();
+$alwaysActiveConfiguration->Create();
+$alwaysActiveConfiguration->TestSetPropertyString('Sensors', json_encode([array_merge($configuredSensors[0], [
+    'AlwaysActive' => true
+])], JSON_THROW_ON_ERROR));
+$normalizedAlwaysActive = $readConfiguredSensors->invoke($alwaysActiveConfiguration)[0];
+assertSensorModel(
+    $normalizedAlwaysActive['AlwaysActive'] === true
+    && $normalizedAlwaysActive['ArmHome'] === false
+    && $normalizedAlwaysActive['ArmAway'] === false
+    && $normalizedAlwaysActive['ArmNight'] === false
+    && $normalizedAlwaysActive['ExitDelay'] === false
+    && $normalizedAlwaysActive['EntryDelay'] === false,
+    'Legacy 24/7 sensors must ignore saved arming-mode and delay values.'
+);
 
 $minimalInstance = new OpenHomeAlarm();
 $minimalInstance->Create();
@@ -693,6 +708,40 @@ assertSensorModel(
 assertSensorModel(
     ($editFields['AlwaysActive']['type'] ?? null) === 'CheckBox',
     'Sensor editor must expose 24/7 monitoring as a checkbox.'
+);
+assertSensorModel(
+    ($editFields['AlwaysActive']['onChange'] ?? null) === 'OHA_UpdateSensorAlwaysActiveForm($id, $AlwaysActive);',
+    'Changing the 24/7 setting must update the arming-mode and delay choices immediately.'
+);
+$alwaysActiveEditForm = $instance->GetSensorEditForm(new IPSList([
+    'VariableID'   => 12345,
+    'AlwaysActive' => true,
+    'ArmHome'      => true,
+    'ArmAway'      => true,
+    'ArmNight'     => true,
+    'ExitDelay'    => true,
+    'EntryDelay'   => true
+]));
+$alwaysActiveEditFields = [];
+foreach ($alwaysActiveEditForm as $field) {
+    if (isset($field['name'])) {
+        $alwaysActiveEditFields[$field['name']] = $field;
+    }
+}
+foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay'] as $fieldName) {
+    assertSensorModel(
+        ($alwaysActiveEditFields[$fieldName]['enabled'] ?? true) === false
+        && ($alwaysActiveEditFields[$fieldName]['value'] ?? true) === false,
+        '24/7 sensors must disable and clear every irrelevant arming-mode and delay field.'
+    );
+}
+$instance->TestClearFormUpdates();
+$instance->UpdateSensorAlwaysActiveForm(true);
+assertSensorModel(
+    count($instance->TestFormUpdates()) === 10
+    && array_column($instance->TestFormUpdates(), 'field') === ['ArmHome', 'ArmHome', 'ArmAway', 'ArmAway', 'ArmNight', 'ArmNight', 'ExitDelay', 'ExitDelay', 'EntryDelay', 'EntryDelay']
+    && array_column($instance->TestFormUpdates(), 'value') === array_fill(0, 10, false),
+    'Switching a sensor to 24/7 must immediately clear and disable every arming-mode and delay choice.'
 );
 assertSensorModel(
     ($editFields['ExitDelay']['type'] ?? null) === 'CheckBox',

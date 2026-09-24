@@ -38,10 +38,18 @@ $restored = AlarmPartitionAlarmRegistry::synchronize($partitions, [
 assertPartitionAlarm(
     $restored['garage']['OutputActive']
         && $restored['garage']['OutputDeadline'] === 150
+        && $restored['garage']['ForceNormal'] === false
         && $restored['garage']['LastSource'] === 'Garage door'
         && !array_key_exists('shed', $restored),
     'Enabled partition alarm state must survive synchronization while disabled partitions are removed.'
 );
+
+$forcedNormal = AlarmPartitionAlarmRegistry::alarm($states['house'], 'Smoke detector', 100, 30, null, true);
+assertPartitionAlarm($forcedNormal['ForceNormal'] === true, 'A 24/7 alarm must persist its normal response.');
+$forcedNormal = AlarmPartitionAlarmRegistry::alarm($forcedNormal, 'Another sensor', 101);
+assertPartitionAlarm($forcedNormal['ForceNormal'] === true, 'Other triggers must not downgrade an active 24/7 alarm.');
+$forcedNormal = AlarmPartitionAlarmRegistry::resetOutput($forcedNormal);
+assertPartitionAlarm($forcedNormal['ForceNormal'] === false, 'Resetting the alarm output must clear its 24/7 normal override.');
 
 $states['house'] = AlarmPartitionAlarmRegistry::alarm($states['house'], 'Front door', 100, 30);
 $states['garage'] = AlarmPartitionAlarmRegistry::alarm($states['garage'], 'Garage door', 110, 10);

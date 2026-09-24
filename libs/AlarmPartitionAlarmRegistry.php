@@ -10,11 +10,12 @@ namespace Burki24\OpenHomeAlarm;
  */
 final class AlarmPartitionAlarmRegistry
 {
-    /** @return array{OutputActive:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int} */
+    /** @return array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int} */
     public static function initial(): array
     {
         return [
             'OutputActive'   => false,
+            'ForceNormal'    => false,
             'OutputDeadline' => 0,
             'MemoryActive'   => false,
             'LastSource'     => '',
@@ -26,7 +27,7 @@ final class AlarmPartitionAlarmRegistry
      * @param list<array{Enabled:bool,ID:string,Name:string,Default:bool}> $partitions
      * @param array<string,mixed>                                        $stored
      *
-     * @return array<string,array{OutputActive:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}>
+     * @return array<string,array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}>
      */
     public static function synchronize(array $partitions, array $stored): array
     {
@@ -48,10 +49,12 @@ final class AlarmPartitionAlarmRegistry
         string $source,
         int $timestamp,
         int $durationSeconds = 0,
-        ?int $outputStartedAt = null
+        ?int $outputStartedAt = null,
+        bool $forceNormal = false
     ): array {
         $state = self::normalize($state);
         $state['OutputActive'] = true;
+        $state['ForceNormal'] = $state['ForceNormal'] || $forceNormal;
         $state['OutputDeadline'] = $durationSeconds > 0
             ? max(0, $outputStartedAt ?? $timestamp) + $durationSeconds
             : 0;
@@ -67,6 +70,7 @@ final class AlarmPartitionAlarmRegistry
     {
         $state = self::normalize($state);
         $state['OutputActive'] = false;
+        $state['ForceNormal'] = false;
         $state['OutputDeadline'] = 0;
 
         return $state;
@@ -87,7 +91,7 @@ final class AlarmPartitionAlarmRegistry
     }
 
     /**
-     * @param array<string,array{OutputActive:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $states
+     * @param array<string,array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $states
      *
      * @return array{
      *     OutputActive:bool,
@@ -134,7 +138,7 @@ final class AlarmPartitionAlarmRegistry
     }
 
     /**
-     * @param array<string,array{OutputActive:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $states
+     * @param array<string,array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $states
      *
      * @return list<string>
      */
@@ -154,12 +158,13 @@ final class AlarmPartitionAlarmRegistry
     /**
      * @param array<string,mixed> $state
      *
-     * @return array{OutputActive:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}
+     * @return array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}
      */
     private static function normalize(array $state): array
     {
         return [
             'OutputActive'   => is_bool($state['OutputActive'] ?? null) ? $state['OutputActive'] : false,
+            'ForceNormal'    => is_bool($state['ForceNormal'] ?? null) ? $state['ForceNormal'] : false,
             'OutputDeadline' => max(0, is_int($state['OutputDeadline'] ?? null) ? $state['OutputDeadline'] : 0),
             'MemoryActive'   => is_bool($state['MemoryActive'] ?? null) ? $state['MemoryActive'] : false,
             'LastSource'     => is_string($state['LastSource'] ?? null) ? trim($state['LastSource']) : '',
