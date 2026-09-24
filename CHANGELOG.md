@@ -10,6 +10,9 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Alarmierungsart wird in Kachel und IPSView über einen gestalteten Switch
+  statt über ein im eingebetteten Browser unzuverlässiges Dropdown gewählt.
+
 - Stiller Alarm je Bereich: konfigurierbare Vorgabe und einmalige Auswahl beim
   Scharfschalten per API, Kachel oder IPSView. Eskalationsaktionen können für
   normale, stille oder beide Alarmierungsarten ausgeführt werden; Signalgeber

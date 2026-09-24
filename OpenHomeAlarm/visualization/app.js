@@ -284,7 +284,7 @@ function ohaRequestPartitionAction(action, value = null) {
     const partitionID = ohaSelectedState()?.ID ?? ohaState?.DefaultPartition ?? '';
     const payload = { PartitionID: partitionID, Value: value };
     if (action === 'ArmPartition') {
-        const selection = document.getElementById('armDeliveryMode')?.value ?? 'default';
+        const selection = document.getElementById('armDelivery')?.dataset.selection ?? 'default';
         if (selection !== 'default') {
             payload.Silent = selection === 'silent';
         }
@@ -440,19 +440,23 @@ function ohaRenderArming(state) {
         ? ohaTranslate('Select a ready mode to arm')
         : `${ohaTranslate('Active mode')}: ${ohaModeCaption(activeMode)} · ${ohaTranslate(state.Silent ? 'Silent alarm' : 'Normal alarm')}`;
 
-    const delivery = document.getElementById('armDeliveryMode');
-    if (delivery.dataset.partitionId !== state.ID || (isDisarmed && delivery.disabled)) {
-        delivery.value = 'default';
+    const delivery = document.getElementById('armDelivery');
+    if (delivery.dataset.partitionId !== state.ID || (isDisarmed && delivery.dataset.wasDisarmed === 'false')) {
+        delivery.dataset.selection = 'default';
     }
     delivery.dataset.partitionId = state.ID;
-    delivery.disabled = !isDisarmed;
-    if (!isDisarmed) {
-        delivery.value = state.Silent ? 'silent' : 'normal';
-    }
+    delivery.dataset.wasDisarmed = isDisarmed ? 'true' : 'false';
+    delivery.hidden = !isDisarmed;
     document.getElementById('armDeliveryLabel').textContent = ohaTranslate('Alarm response');
-    delivery.options[0].textContent = `${ohaTranslate('Area default')} (${ohaTranslate(state.SilentByDefault ? 'Silent' : 'Normal')})`;
-    delivery.options[1].textContent = ohaTranslate('Normal');
-    delivery.options[2].textContent = ohaTranslate('Silent');
+    document.getElementById('armDeliveryDefault').textContent = `${ohaTranslate('Area default')}: ${ohaTranslate(state.SilentByDefault ? 'Silent' : 'Normal')}`;
+    const selectedSilent = (delivery.dataset.selection ?? 'default') === 'default'
+        ? Boolean(state.SilentByDefault)
+        : delivery.dataset.selection === 'silent';
+    const deliverySwitch = delivery.querySelector('[data-delivery-switch]');
+    deliverySwitch.setAttribute('aria-label', ohaTranslate('Silent alarm'));
+    deliverySwitch.setAttribute('aria-checked', selectedSilent ? 'true' : 'false');
+    deliverySwitch.disabled = !isDisarmed;
+    document.getElementById('armDeliveryValue').textContent = ohaTranslate(selectedSilent ? 'Silent' : 'Normal');
 
     for (const modeName of ['home', 'away', 'night']) {
         const button = document.querySelector(`.oha-mode-button[data-mode="${modeName}"]`);
@@ -1345,7 +1349,7 @@ function ohaFindInteractiveControl(event) {
 
     return target.closest(
         '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm], '
-        + '[data-partition-id], [data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
+        + '[data-partition-id], [data-delivery-switch], [data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
     );
 }
 
@@ -1393,6 +1397,19 @@ function ohaHandleInteractiveClick(event) {
 
     if (control.matches('[data-action="arm"]')) {
         ohaHandleModeButton(control);
+        return;
+    }
+
+    if (control.matches('[data-delivery-switch]')) {
+        const state = ohaSelectedState();
+        if (state?.State?.Name === 'disarmed') {
+            const nextSilent = control.getAttribute('aria-checked') !== 'true';
+            const delivery = document.getElementById('armDelivery');
+            delivery.dataset.selection = nextSilent === Boolean(state.SilentByDefault)
+                ? 'default'
+                : (nextSilent ? 'silent' : 'normal');
+            ohaRenderArming(state);
+        }
         return;
     }
 

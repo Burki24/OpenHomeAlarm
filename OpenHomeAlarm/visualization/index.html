@@ -50,14 +50,16 @@
                 <span class="oha-section-hint" id="armingHint"></span>
             </div>
 
-            <label class="oha-arm-delivery" for="armDeliveryMode">
-                <span id="armDeliveryLabel"></span>
-                <select id="armDeliveryMode">
-                    <option value="default"></option>
-                    <option value="normal"></option>
-                    <option value="silent"></option>
-                </select>
-            </label>
+            <div class="oha-arm-delivery" id="armDelivery">
+                <div class="oha-arm-delivery-copy">
+                    <strong class="oha-arm-delivery-label" id="armDeliveryLabel"></strong>
+                    <span class="oha-arm-delivery-default" id="armDeliveryDefault"></span>
+                </div>
+                <button class="oha-delivery-switch" data-delivery-switch type="button" role="switch" aria-checked="false" aria-describedby="armDeliveryDefault">
+                    <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
+                    <span class="oha-delivery-switch-value" id="armDeliveryValue"></span>
+                </button>
+            </div>
 
             <div class="oha-mode-grid">
                 <button class="oha-mode-button" data-action="arm" data-mode="home" type="button">

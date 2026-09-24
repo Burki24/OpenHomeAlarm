@@ -179,8 +179,10 @@ Auch dieser Befehl verändert keinen anderen Alarmbereich.
 
 Die HTML-SDK-Kachel und die IPSView-Seite zeigen oberhalb des Sicherheitsstatus eine Bereichsauswahl. Scharf-/Unscharfschaltung, Bereitschaft, Diagnose, Alarmgedächtnis und Sensorüberbrückungen beziehen sich auf den dort gewählten Bereich. Die öffentlichen PHP-Funktionen stehen zusätzlich für Automationen zur Verfügung.
 
-Vor dem Scharfschalten kann in Kachel und IPSView zwischen Bereichsvorgabe,
-normalem und stillem Alarm gewählt werden. Ein stiller Alarm behält den
+Vor dem Scharfschalten zeigt ein Switch in Kachel und IPSView zunächst die
+Bereichsvorgabe für normalen oder stillen Alarm. Ein Klick wechselt die
+Alarmierungsart für diesen Scharfschaltzyklus; ein weiterer Klick kehrt zur
+Bereichsvorgabe zurück. Ein stiller Alarm behält den
 Alarmzustand, das Alarmgedächtnis und die Benachrichtigungen bei, unterdrückt
 aber als **Signalgeber** markierte Aktionen. Die gewählte Alarmierungsart wird
 im Bedienzustand (`Silent`) je Bereich angezeigt und auch nach einem Neustart

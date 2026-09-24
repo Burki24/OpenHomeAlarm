@@ -699,20 +699,102 @@ html:not(.oha-ipsview) .oha-shell {
 .oha-arm-delivery {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    margin: 0 0 12px;
-    color: var(--oha-muted);
-    font-size: 0.78rem;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    min-height: 48px;
+    padding: 8px 12px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: var(--symc-radius-small);
+    background: var(--oha-page);
+    box-shadow: var(--oha-shadow);
 }
 
-.oha-arm-delivery select {
-    max-width: 100%;
-    padding: 6px 10px;
-    border: 1px solid var(--oha-border);
-    border-radius: 8px;
+.oha-arm-delivery-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.oha-arm-delivery-label {
+    color: var(--oha-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+.oha-arm-delivery-default {
+    color: var(--oha-muted);
+    font-size: 0.71rem;
+}
+
+.oha-delivery-switch {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    gap: 9px;
+    padding: 4px 11px 4px 6px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: 999px;
+    background: var(--oha-surface);
     color: var(--oha-text);
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 700;
+    touch-action: manipulation;
+}
+
+.oha-delivery-switch:hover:not(:disabled) {
+    border-color: var(--oha-accent);
+    background: var(--oha-accent-soft);
+}
+
+.oha-delivery-switch[aria-checked="true"] {
+    border-color: var(--oha-accent);
     background: var(--oha-surface-strong);
+    color: var(--oha-text-active);
+}
+
+.oha-delivery-switch-track {
+    display: flex;
+    width: 38px;
+    height: 22px;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 2px;
+    border: 1px solid var(--oha-border);
+    border-radius: 999px;
+    background: var(--oha-control-inactive);
+    transition: background 140ms ease, border-color 140ms ease;
+}
+
+.oha-delivery-switch-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--oha-text-inactive);
+    transition: transform 140ms ease, background 140ms ease;
+}
+
+.oha-delivery-switch[aria-checked="true"] .oha-delivery-switch-track {
+    border-color: var(--oha-accent);
+    background: var(--oha-accent);
+}
+
+.oha-delivery-switch[aria-checked="true"] .oha-delivery-switch-thumb {
+    transform: translateX(16px);
+    background: var(--oha-accent-contrast, #ffffff);
+}
+
+.oha-delivery-switch:focus-visible {
+    outline: 2px solid var(--oha-accent);
+    outline-offset: 2px;
+}
+
+.oha-delivery-switch:disabled {
+    cursor: default;
+    opacity: var(--oha-disabled-opacity);
 }
 
 .oha-mode-button {
@@ -1255,6 +1337,7 @@ html:not(.oha-ipsview) .oha-shell {
 
 .oha-mode-button,
 .oha-partition-tab,
+.oha-delivery-switch,
 .oha-code-key,
 .oha-inline-disarm-button,
 .oha-modal-disarm-button,
@@ -2003,6 +2086,33 @@ html.oha-ipsview .oha-mode-button {
     gap: 8px;
     padding: 9px 10px;
     border-radius: 12px;
+}
+
+html.oha-ipsview .oha-arm-delivery {
+    --oha-text: var(--oha-panel-text);
+    --oha-border: var(--oha-panel-border);
+    min-height: 44px;
+    padding: 6px 9px;
+    border-color: var(--oha-panel-border);
+    background: var(--oha-page);
+    box-shadow: var(--oha-shadow);
+    text-shadow: none;
+}
+
+html.oha-ipsview .oha-arm-delivery-label {
+    color: var(--oha-panel-muted);
+    font-size: 0.64rem;
+}
+
+html.oha-ipsview .oha-arm-delivery-default {
+    color: var(--oha-panel-muted);
+    font-size: 0.63rem;
+}
+
+html.oha-ipsview .oha-delivery-switch {
+    min-height: 32px;
+    padding: 4px 8px 4px 5px;
+    font-size: 0.66rem;
 }
 
 html.oha-ipsview .oha-mode-button::before {

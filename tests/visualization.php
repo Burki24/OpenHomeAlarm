@@ -117,6 +117,27 @@ assertVisualization(
 assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'"), 'Visualization must arm the selected partition through RequestAction.');
 assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'"), 'Visualization must disarm the selected partition through RequestAction.');
 assertVisualization(
+    str_contains($html, 'class="oha-arm-delivery"')
+        && str_contains($html, 'data-delivery-switch')
+        && str_contains($html, 'role="switch"')
+        && !str_contains($html, '<select id="armDeliveryMode"'),
+    'Alarm response must use a clickable switch instead of a native select in both embedded views.'
+);
+assertVisualization(
+    str_contains($javascript, "control.matches('[data-delivery-switch]')")
+        && str_contains($javascript, 'delivery.dataset.selection')
+        && str_contains($javascript, "control.getAttribute('aria-checked') !== 'true'")
+        && str_contains($javascript, 'nextSilent === Boolean(state.SilentByDefault)')
+        && str_contains($javascript, "deliverySwitch.setAttribute('aria-checked', selectedSilent ? 'true' : 'false')")
+        && str_contains($javascript, "payload.Silent = selection === 'silent'"),
+    'The silent-alarm switch must toggle, return to area default and pass the selected response into the arming payload.'
+);
+assertVisualization(
+    str_contains($css, 'html.oha-ipsview .oha-arm-delivery')
+        && str_contains($css, '.oha-delivery-switch[aria-checked="true"]'),
+    'IPSView and tile switches must use the shared panel and active-control design.'
+);
+assertVisualization(
     str_contains($javascript, 'JSON.stringify(payload)')
         && str_contains($javascript, 'PartitionID: partitionID, Value: value'),
     'Partition visualization commands must cross the native RequestAction boundary as scalar JSON strings.'
@@ -124,7 +145,7 @@ assertVisualization(
 assertVisualization(
     str_contains($html, 'id="partitionNav"')
         && str_contains($javascript, 'function ohaRenderPartitions(state)')
-        && str_contains($javascript, "'[data-partition-id], [data-action=\"arm\"]")
+        && str_contains($javascript, "'[data-partition-id], [data-delivery-switch], [data-action=\"arm\"]")
         && str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'")
         && str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'")
         && str_contains($module, "case 'ArmPartition':")
