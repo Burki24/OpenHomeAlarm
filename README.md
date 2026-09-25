@@ -1,5 +1,7 @@
 # OpenHomeAlarm
 
+![OpenHomeAlarm – Dein Zuhause. Sicher im Blick.](docs/images/openhomealarm-readme-hero.png)
+
 OpenHomeAlarm ist eine herstellerunabhängige Alarm- und Sicherheitszentrale für die Hausautomation auf Basis von Symcon.
 
 Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als Sensoren, 24/7-Auslöser oder technische Störungseingänge verwendet werden. Das Modul stellt unabhängige Alarmbereiche, wiederanlaufsichere Verzögerungen mit optionaler Countdown-Ausgabe, Sensorüberbrückungen, wöchentliche automatische Scharfschaltung, Alarm-Eskalationsstufen, native Symcon- und direkte Pushover-Benachrichtigungen, benutzerbezogene Unscharfschaltcodes, Alarmgedächtnis, Ereignis- und Diagnoseexporte sowie eine versionierte Konfigurationssicherung bereit. Bedient wird es über die öffentliche API, eine responsive HTML-SDK-Kachel oder die IPSView-WebContent-Seite.
