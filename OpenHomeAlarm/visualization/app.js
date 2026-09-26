@@ -83,6 +83,8 @@ function ohaEventCaption(eventName) {
         disarm_code_rejected: 'Disarm code rejected',
         disarm_code_locked: 'Code entry locked',
         sensor_bypassed: 'Sensor bypassed',
+        sensor_auto_bypassed: 'Sensor automatically bypassed',
+        sensor_auto_bypass_restored: 'Automatic sensor bypass ended',
         sensor_bypass_removed: 'Sensor bypass restored',
         sensor_bypasses_cleared: 'All bypasses cleared',
         alarm_memory_cleared: 'Alarm memory acknowledged',
@@ -554,7 +556,9 @@ function ohaRenderBypasses(state) {
     }
 
     document.getElementById('bypassTitle').textContent = ohaTranslate('Bypassed sensors');
-    document.getElementById('bypassDetail').textContent = bypassed.map((sensor) => sensor.Name).join(', ');
+    document.getElementById('bypassDetail').textContent = bypassed.map((sensor) =>
+        sensor.Automatic ? `${sensor.Name} (${ohaTranslate('Until normal state')})` : sensor.Name
+    ).join(', ');
 
     const clearButton = document.getElementById('clearBypassesButton');
     const canClear = Boolean(state.Capabilities?.CanManageBypasses);
@@ -602,7 +606,8 @@ function ohaCollectSensorOperations(state) {
             Reason: 'bypassed',
             Bypassable: false,
             Modes: [],
-            Bypassed: true
+            Bypassed: true,
+            Automatic: Boolean(sensor.Automatic)
         });
     }
 
@@ -657,7 +662,7 @@ function ohaRenderSensorManagement(state) {
         title.textContent = operation.Name;
         const detail = document.createElement('span');
         if (operation.Bypassed) {
-            detail.textContent = ohaTranslate('Temporarily bypassed');
+            detail.textContent = ohaTranslate(operation.Automatic ? 'Until normal state' : 'Temporarily bypassed');
         } else {
             const modeLabels = operation.Modes.map((mode) => ohaModeCaption(mode)).join(', ');
             detail.textContent = `${ohaReasonCaption(operation.Reason)}${modeLabels ? ` · ${modeLabels}` : ''}`;

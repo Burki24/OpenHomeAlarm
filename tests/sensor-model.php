@@ -417,6 +417,7 @@ $configuredSensors = [
         'ArmAway'        => true,
         'ArmNight'       => true,
         'AlwaysActive'   => false,
+        'AllowAutomaticBypass' => false,
         'ExitDelay'      => true,
         'EntryDelay'     => true,
         'RetriggerAlarm' => false
@@ -432,6 +433,7 @@ $configuredSensors = [
         'ArmAway'        => true,
         'ArmNight'       => false,
         'AlwaysActive'   => false,
+        'AllowAutomaticBypass' => false,
         'ExitDelay'      => false,
         'EntryDelay'     => false,
         'RetriggerAlarm' => false
@@ -448,7 +450,9 @@ assertSensorModel($normalizedSensors === $configuredSensors, 'Valid sensor confi
 $alwaysActiveConfiguration = new OpenHomeAlarm();
 $alwaysActiveConfiguration->Create();
 $alwaysActiveConfiguration->TestSetPropertyString('Sensors', json_encode([array_merge($configuredSensors[0], [
-    'AlwaysActive' => true
+    'AlwaysActive' => true,
+    'AllowAutomaticBypass' => true,
+    'AllowAutomaticBypass' => true
 ])], JSON_THROW_ON_ERROR));
 $normalizedAlwaysActive = $readConfiguredSensors->invoke($alwaysActiveConfiguration)[0];
 assertSensorModel(
@@ -456,6 +460,7 @@ assertSensorModel(
     && $normalizedAlwaysActive['ArmHome'] === false
     && $normalizedAlwaysActive['ArmAway'] === false
     && $normalizedAlwaysActive['ArmNight'] === false
+    && $normalizedAlwaysActive['AllowAutomaticBypass'] === false
     && $normalizedAlwaysActive['ExitDelay'] === false
     && $normalizedAlwaysActive['EntryDelay'] === false,
     'Legacy 24/7 sensors must ignore saved arming-mode and delay values.'
@@ -484,6 +489,7 @@ assertSensorModel(
         'ArmAway'        => true,
         'ArmNight'       => false,
         'AlwaysActive'   => false,
+        'AllowAutomaticBypass' => false,
         'ExitDelay'      => false,
         'EntryDelay'     => false,
         'RetriggerAlarm' => false
@@ -551,6 +557,7 @@ foreach ([
     'ArmAway',
     'ArmNight',
     'AlwaysActive',
+    'AllowAutomaticBypass',
     'ExitDelay',
     'EntryDelay'
 ] as $columnName) {
@@ -578,6 +585,7 @@ assertSensorModel(($columns['ArmHome']['add'] ?? null) === false, 'New sensors m
 assertSensorModel(($columns['ArmAway']['add'] ?? null) === true, 'New sensors must be active in Away by default.');
 assertSensorModel(($columns['ArmNight']['add'] ?? null) === false, 'New sensors must not be active in Night by default.');
 assertSensorModel(($columns['AlwaysActive']['add'] ?? null) === false, 'New sensors must not be 24/7 active by default.');
+assertSensorModel(($columns['AllowAutomaticBypass']['add'] ?? null) === false, 'New sensors must not permit automatic bypasses by default.');
 assertSensorModel(($columns['ExitDelay']['add'] ?? null) === false, 'New sensors must not use the exit route by default.');
 assertSensorModel(($columns['EntryDelay']['add'] ?? null) === false, 'New sensors must not use entry delay by default.');
 assertSensorModel(
@@ -728,7 +736,7 @@ foreach ($alwaysActiveEditForm as $field) {
         $alwaysActiveEditFields[$field['name']] = $field;
     }
 }
-foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay'] as $fieldName) {
+foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay', 'AllowAutomaticBypass'] as $fieldName) {
     assertSensorModel(
         ($alwaysActiveEditFields[$fieldName]['enabled'] ?? true) === false
         && ($alwaysActiveEditFields[$fieldName]['value'] ?? true) === false,
@@ -738,9 +746,9 @@ foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay'] as $field
 $instance->TestClearFormUpdates();
 $instance->UpdateSensorAlwaysActiveForm(true);
 assertSensorModel(
-    count($instance->TestFormUpdates()) === 10
-    && array_column($instance->TestFormUpdates(), 'field') === ['ArmHome', 'ArmHome', 'ArmAway', 'ArmAway', 'ArmNight', 'ArmNight', 'ExitDelay', 'ExitDelay', 'EntryDelay', 'EntryDelay']
-    && array_column($instance->TestFormUpdates(), 'value') === array_fill(0, 10, false),
+    count($instance->TestFormUpdates()) === 12
+    && array_column($instance->TestFormUpdates(), 'field') === ['ArmHome', 'ArmHome', 'ArmAway', 'ArmAway', 'ArmNight', 'ArmNight', 'ExitDelay', 'ExitDelay', 'EntryDelay', 'EntryDelay', 'AllowAutomaticBypass', 'AllowAutomaticBypass']
+    && array_column($instance->TestFormUpdates(), 'value') === array_fill(0, 12, false),
     'Switching a sensor to 24/7 must immediately clear and disable every arming-mode and delay choice.'
 );
 assertSensorModel(

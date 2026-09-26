@@ -18,7 +18,7 @@ $schedules = AlarmArmingSchedule::schedules(json_encode([
         'Enabled' => true, 'Name' => ' Workday away ',
         'Monday'  => true, 'Tuesday' => true, 'Wednesday' => true, 'Thursday' => true,
         'Friday'  => true, 'Saturday' => false, 'Sunday' => false,
-        'Time'    => ' 08:15 ', 'Mode' => 'AWAY'
+        'Time'    => ' 08:15 ', 'Mode' => 'AWAY', 'BypassActiveSensors' => true
     ],
     [
         'Enabled' => false, 'Name' => '',
@@ -30,6 +30,8 @@ $schedules = AlarmArmingSchedule::schedules(json_encode([
 
 assertArmingSchedule($schedules[0]['Name'] === 'Workday away', 'Schedule names must be trimmed.');
 assertArmingSchedule($schedules[0]['Mode'] === 'away', 'Schedule modes must be normalized.');
+assertArmingSchedule($schedules[0]['BypassActiveSensors'] === true, 'Opted-in schedules must retain their active-sensor policy.');
+assertArmingSchedule($schedules[1]['BypassActiveSensors'] === false, 'Existing schedules must remain strict by default.');
 assertArmingSchedule($schedules[1]['Name'] === 'Schedule 2', 'Empty schedule names need a stable fallback.');
 assertArmingSchedule(count(AlarmArmingSchedule::due($schedules, 1, '08:15')) === 1, 'Configured schedules must become due.');
 assertArmingSchedule(AlarmArmingSchedule::due($schedules, 6, '08:15') === [], 'Unconfigured weekdays must not become due.');
@@ -40,10 +42,16 @@ $secondKey = AlarmArmingSchedule::executionKey($schedules[0], '2026-08-24 08:15'
 $nextMinuteKey = AlarmArmingSchedule::executionKey($schedules[0], '2026-08-24 08:16');
 assertArmingSchedule($firstKey === $secondKey, 'Execution keys must be stable for the same local minute.');
 assertArmingSchedule($firstKey !== $nextMinuteKey, 'Execution keys must change for another minute.');
+assertArmingSchedule(
+    AlarmArmingSchedule::executionKey($schedules[1], '2026-08-24 22:00')
+        === hash('sha256', json_encode(array_diff_key($schedules[1], ['BypassActiveSensors' => true]), JSON_THROW_ON_ERROR)) . ':2026-08-24 22:00',
+    'Existing strict schedules must retain their pre-upgrade execution keys.'
+);
 
 foreach ([
     '[{"Enabled":true,"Monday":true,"Time":"24:00","Mode":"away"}]',
     '[{"Enabled":true,"Monday":true,"Time":"08:00","Mode":"invalid"}]',
+    '[{"Enabled":true,"Monday":true,"Time":"08:00","Mode":"away","BypassActiveSensors":"true"}]',
     '[{"Enabled":true,"Time":"08:00","Mode":"away"}]'
 ] as $invalidConfiguration) {
     try {
@@ -72,7 +80,7 @@ assertArmingSchedule(
     'Automatic arming schedules must be configurable as a list.'
 );
 $columnNames = array_column($scheduleList['columns'] ?? [], 'name');
-foreach (['Enabled', 'Name', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Time', 'Mode'] as $columnName) {
+foreach (['Enabled', 'Name', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Time', 'Mode', 'BypassActiveSensors'] as $columnName) {
     assertArmingSchedule(in_array($columnName, $columnNames, true), sprintf('Schedule column %s is missing.', $columnName));
 }
 

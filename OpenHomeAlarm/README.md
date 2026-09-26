@@ -127,12 +127,17 @@ muss der Parameter für die Ausgangsverzögerung im von Symcon erzeugten
 konfigurierte Ausgangsverzögerung, `0` schaltet ohne Verzögerung scharf und eine
 positive Zahl überschreibt die Verzögerung für diesen einzelnen Aufruf. Für den
 allgemeinen Befehl gilt entsprechend zum Beispiel `OHA_Arm(12345, 'away', null)`.
-Als letzter optionaler Parameter kann bei allen Scharfbefehlen `true` (still)
+Als optionaler Parameter kann bei allen Scharfbefehlen `true` (still)
 oder `false` (normal) übergeben werden, beispielsweise
 `OHA_ArmPartition(12345, 'garage', 'away', null, true)`. Ohne diesen Parameter
 verwendet jeder Bereich seine eigene Vorgabe **Standardmäßig stiller Alarm**.
 Bei einer Gesamtschaltung überschreibt ein ausdrücklich angegebener Wert die
 Vorgabe aller Bereiche nur für diesen Scharfschaltzyklus.
+Der danach folgende letzte Parameter aktiviert mit `true` für diesen Aufruf
+die automatische Überbrückung bereits ausgelöster, am Sensor einzeln
+freigegebener Kontakte. Beispiel für einen Symcon-Wochenplan:
+`OHA_ArmPartition(12345, 'garage', 'night', null, null, true)`.
+Ohne diesen Parameter bleibt die Bereitschaftsprüfung unverändert streng.
 
 Vor dem Scharfschalten prüft OpenHomeAlarm alle aktiven Bereiche. Blockiert ein Sensor oder Störungseingang einen Bereich, bleibt die gesamte Anlage unverändert unscharf.
 
@@ -272,6 +277,7 @@ Jeder konfigurierte Eintrag enthält folgende Daten:
 | `ArmAway` | Im Scharfmodus Abwesend relevant |
 | `ArmNight` | Im Scharfmodus Nacht relevant |
 | `AlwaysActive` | 24/7 aktiv; löst unabhängig vom Scharfmodus sofort aus |
+| `AllowAutomaticBypass` | Erlaubt nur bei ausdrücklich aktivierter Scharfschaltoption das automatische Überbrücken eines bereits ausgelösten, normalen Sensors bis zu seinem nächsten Normalzustand |
 | `ExitDelay` | Kennzeichnet einen Sensor des Ausgangswegs; darf bei aktiver Ausgangsverzögerung beim Start ausgelöst sein. Bewegungsmelder dürfen wegen ihres nachlaufenden Werts auch am Countdown-Ende aktiv sein |
 | `EntryDelay` | Startet bei Auslösung im scharfen Betrieb die konfigurierte Eingangsverzögerung statt unmittelbar den Alarmzustand |
 
@@ -288,11 +294,13 @@ Nach erfolgreicher Scharfschaltprüfung wechselt OpenHomeAlarm bei einer Ausgang
 Löst im Zustand **Scharf** ein für den aktiven Modus relevanter Sensor aus, startet ein mit `EntryDelay` markierter Sensor die konfigurierte **Eingangsverzögerung**. Der Countdown wird durch das erneute Schließen des Sensors nicht abgebrochen und bei weiteren verzögerten Sensorereignissen nicht neu gestartet. Ein Sensor ohne Eingangsverzögerung wechselt unmittelbar in den Zustand **Alarm**. Das gilt ebenfalls, wenn während einer laufenden Eingangsverzögerung ein sofort auslösender Sensor anspricht. Nach Ablauf der Eingangsverzögerung wird ebenfalls **Alarm** gesetzt. Beim erstmaligen Eintritt in den Alarmzustand werden die fälligen Alarm-Eskalationsaktionen ausgeführt.
 
 
-Temporäre Sensorüberbrückungen können ausschließlich im Zustand **Unscharf** gesetzt oder entfernt werden. Eine Überbrückung wirkt auf alle Scharfmodi, denen die betreffende Variable zugeordnet ist, und wird bei der Scharfschaltbereitschaft, den Blockierlisten sowie der späteren Alarmauswertung ignoriert. Dadurch kann beispielsweise ein bewusst geöffnetes Fenster für genau einen Scharfschaltzyklus ausgeblendet werden. 24/7 aktive Sensoren können aus Sicherheitsgründen nicht überbrückt werden. Die Überbrückungen werden persistent gespeichert, überstehen daher `ApplyChanges()` und einen Symcon-Neustart, werden aber beim Unscharfschalten nach einem Scharfschaltzyklus automatisch vollständig gelöscht. `BypassedSensors` zeigt die derzeit überbrückten Sensoren an.
+Manuelle Sensorüberbrückungen können ausschließlich im Zustand **Unscharf** gesetzt oder entfernt werden. Sie wirken auf alle zugeordneten Scharfmodi und bleiben für einen Scharfschaltzyklus bestehen. 24/7 aktive Sensoren können aus Sicherheitsgründen nicht überbrückt werden. Manuelle Überbrückungen werden persistent gespeichert, überstehen `ApplyChanges()` und Neustarts und werden beim Unscharfschalten automatisch gelöscht. `BypassedSensors` zeigt die derzeit überbrückten Sensoren an.
 
 24/7 aktive Sensoren sind von den Scharfmodi unabhängig. Sie lösen sowohl im Zustand **Unscharf** als auch während Ausgangsverzögerung, **Scharf** oder Eingangsverzögerung unmittelbar einen **normalen Alarm** aus. Dies gilt auch, wenn der zugeordnete Bereich still scharfgeschaltet wurde; ein laufender stiller Alarm wird dann zum normalen Alarm mit Signalgebern hochgestuft. Für solche Sensoren sind die Auswahlen Zuhause, Abwesend und Nacht sowie `ExitDelay` und `EntryDelay` deaktiviert. Bereits gespeicherte Werte für diese Felder werden ignoriert. Ist ein 24/7-Sensor bei `ApplyChanges()` oder nach einem Symcon-Neustart bereits ausgelöst, wird dieser Zustand unmittelbar erkannt, sodass keine Überwachungslücke bis zur nächsten Variablenänderung entsteht. Typische Anwendungsfälle sind Rauch-, Wasser-, CO/CO₂- oder Panikauslöser; die Aktivierung bleibt jedoch bewusst eine explizite Benutzereinstellung.
 
 Beim Unscharfschalten werden laufende Ein- und Ausgangsverzögerungen immer beendet. Ist der Alarmausgang zu diesem Zeitpunkt noch aktiv, wird er zuerst zurückgesetzt. Wird ein bereits aktiver Alarm unscharf geschaltet, wird anschließend einmalig die konfigurierte Aktion **Beim Unscharfschalten nach Alarm** ausgeführt. Ein Abbruch während Ein- oder Ausgangsverzögerung löst diese Aktion nicht aus. Die Timer für Ein-/Ausgangsverzögerung und Alarmdauer verwenden persistierte Ablaufzeitpunkte und werden nach `ApplyChanges()` bzw. einem Symcon-Neustart mit der verbleibenden Zeit wiederhergestellt.
+
+Für eine einmalig gewählte Scharfschaltung darf ein bereits ausgelöster Sensor nur dann automatisch überbrückt werden, wenn am Sensor **Automatische Überbrückung erlauben** aktiviert wurde. Die Freigabe allein bewirkt nichts. Sobald ein so überbrückter Sensor seinen Normalzustand erreicht, wird er wieder überwacht und kann beim nächsten Auslösen Alarm geben. Nicht verfügbare Sensoren, 24/7-Sensoren und blockierende Störungen sind ausgeschlossen. Diese automatische Überbrückung bleibt über Neustarts erhalten, endet spätestens beim Unscharfschalten und wird in Status, Kachel, IPSView und Ereignisprotokoll sichtbar. Die bisherige manuelle Überbrückung bleibt dagegen bis zum Unscharfschalten bestehen. Hat ein Sensor während eines Symcon-Ausfalls geschlossen und wieder geöffnet, ist dieser Zwischenzustand nicht zuverlässig erkennbar; bei einem weiterhin ausgelösten Wert bleibt seine automatische Überbrückung deshalb bestehen.
 
 ### 7. Systemüberwachung
 
@@ -324,7 +332,7 @@ Der bestehende Befehl `OHA_Disarm($InstanzID)` bleibt als vertrauenswürdige dir
 
 Im Abschnitt **Automatische Scharfschaltung** können beliebig viele wöchentliche Zeitpläne aktiviert werden. Jeder Eintrag besitzt einen Namen, die gewünschten Wochentage, eine lokale Uhrzeit im Format `HH:MM` und den Zielmodus **Zuhause**, **Abwesend** oder **Nacht**. Die lokale Zeit und Zeitzone der Symcon-Installation sind maßgeblich.
 
-Ein fälliger Zeitplan verwendet exakt dieselbe Scharfschaltlogik wie `OHA_Arm()`. Ausgelöste oder nicht verfügbare Sensoren und blockierende Störungen verhindern die automatische Scharfschaltung deshalb unverändert. Sensorüberbrückungen werden nicht automatisch angelegt. Ist die Anlage bereits nicht mehr unscharf, wird weder der Modus gewechselt noch unscharf geschaltet.
+Ein fälliger Zeitplan verwendet dieselbe Scharfschaltlogik wie `OHA_Arm()`. Ohne zusätzliche Option verhindern ausgelöste oder nicht verfügbare Sensoren und blockierende Störungen die Scharfschaltung wie bisher. Mit **Aktive Sensoren überbrücken** dürfen nur bereits ausgelöste und am Sensor einzeln freigegebene Kontakte überbrückt werden. Nicht verfügbare Sensoren, 24/7-Sensoren und blockierende Störungen verhindern die Scharfschaltung weiterhin. Ist die Anlage bereits nicht mehr unscharf, wird weder der Modus gewechselt noch unscharf geschaltet.
 
 Jeder Zeitplan wird innerhalb derselben Minute höchstens einmal ausgeführt. Der Ausführungsmarker wird persistent gespeichert, sodass wiederholte Timeraufrufe, `ApplyChanges()` oder ein Symcon-Neustart keine zweite Ausführung in derselben Minute verursachen. War Symcon während der vollständigen Zielminute nicht betriebsbereit, wird der verpasste Zeitplan aus Sicherheitsgründen nicht nachträglich ausgeführt. Erfolg und Ablehnung werden als `automatic_arming_succeeded` beziehungsweise `automatic_arming_rejected` mit dem Zeitplannamen im Ereignisprotokoll gespeichert.
 
@@ -512,12 +520,12 @@ Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verf
 | `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert sämtliche Moduleinstellungen als versioniertes JSON; das Ergebnis kann Unscharfschaltcodes und Pushover-Zugangsdaten enthalten und muss vertraulich gespeichert werden |
 | `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
 | `OHA_TestPushover($InstanzID)` | `bool` | Sendet über die eingetragenen direkten Pushover-Zugangsdaten eine normale Testnachricht ohne Notfall-Wiederholung |
-| `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung, $Still = null)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich mit `home`, `away` oder `night` scharf; `null` als Verzögerung verwendet die konfigurierte, `0` keine und ein positiver Wert die angegebene Ausgangsverzögerung; `$Still` wählt `true`, `false` oder die Bereichsvorgabe; bei `main` werden alle aktiven Bereiche gemeinsam geschaltet |
+| `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet einen Alarmbereich scharf; die letzte Option überbrückt nur einzeln freigegebene, bereits ausgelöste Sensoren; `main` schaltet alle Bereiche gemeinsam |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich unscharf; bei `main` werden alle aktiven Bereiche gemeinsam unscharf geschaltet |
-| `OHA_Arm($InstanzID, $Modus, $Verzögerung, $Still = null)` | `bool` | Schaltet alle aktiven Bereiche mit `home`, `away` oder `night` scharf; `$Still` überschreibt optional die Alarmierungsart aller Bereiche für diesen Scharfschaltzyklus |
-| `OHA_ArmHome($InstanzID, $Verzögerung, $Still = null)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche; `$Still` überschreibt optional die Alarmierungsart |
-| `OHA_ArmAway($InstanzID, $Verzögerung, $Still = null)` | `bool` | Komfortbefehl für **Abwesend** für alle aktiven Bereiche; `$Still` überschreibt optional die Alarmierungsart |
-| `OHA_ArmNight($InstanzID, $Verzögerung, $Still = null)` | `bool` | Komfortbefehl für **Nacht** für alle aktiven Bereiche; `$Still` überschreibt optional die Alarmierungsart |
+| `OHA_Arm($InstanzID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet alle aktiven Bereiche mit `home`, `away` oder `night` scharf; die letzte Option gilt nur für einzeln freigegebene aktive Sensoren |
+| `OHA_ArmHome($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche |
+| `OHA_ArmAway($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Komfortbefehl für **Abwesend** für alle aktiven Bereiche |
+| `OHA_ArmNight($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Komfortbefehl für **Nacht** für alle aktiven Bereiche |
 | `OHA_BypassSensor($InstanzID, $VariableID)` | `bool` | Überbrückt einen normalen konfigurierten Scharfsensor temporär; nur im Zustand **Unscharf** möglich |
 | `OHA_RemoveSensorBypass($InstanzID, $VariableID)` | `bool` | Entfernt eine einzelne temporäre Sensorüberbrückung; nur im Zustand **Unscharf** möglich |
 | `OHA_BypassSensorPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Überbrückt einen Sensor ausschließlich im angegebenen unscharfen Alarmbereich |
@@ -543,7 +551,7 @@ Parameter. Deshalb muss bei den vier Scharfschaltbefehlen die Verzögerung auch
 dann explizit als `null` übergeben werden, wenn die konfigurierte
 Ausgangsverzögerung gelten soll. Die Scharfschaltbefehle liefern `false`, wenn
 das System nicht **Unscharf** ist oder mindestens ein für den Zielmodus
-relevanter Sensor bzw. eine blockierende Systemstörung die Scharfschaltung
+relevanter, nicht überbrückbarer Sensor bzw. eine blockierende Systemstörung die Scharfschaltung
 verhindert. In diesem Fall bleiben `Mode` und `State` unverändert. Für neue
 benutzerseitige Oberflächen ist `OHA_Arm()` die bevorzugte Schnittstelle; die
 drei modusspezifischen Befehle bleiben kompatibel erhalten.

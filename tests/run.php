@@ -48,7 +48,7 @@ $commands = [
     ['Check partition alarm output and memory aggregation', 'php tests/partition-alarm-registry.php'],
     ['Check alarm memory', 'php tests/alarm-memory.php'],
     ['Check 24/7 sensors', 'php tests/always-active.php'],
-    ['Check temporary sensor bypasses', 'php tests/bypass.php'],
+    ['Check manual and automatic sensor bypasses', 'php tests/bypass.php'],
     ['Check restart-safe armed sensor recovery', 'php tests/restart-recovery.php'],
     ['Check persistent security event history', 'php tests/event-history.php'],
     ['Check event history export', 'php tests/event-history-export.php'],

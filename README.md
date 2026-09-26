@@ -61,6 +61,11 @@ schaltet sofort scharf und eine positive Zahl überschreibt sie einmalig.
 Mit dem optionalen fünften Parameter `true` wird die Garage für diesen
 Scharfschaltzyklus still, mit `false` ausdrücklich normal geschaltet. Ohne ihn
 gilt die Einstellung **Standardmäßig stiller Alarm** des Bereichs.
+Ein optionaler sechster Parameter `true` überbrückt bei diesem Aufruf nur
+bereits ausgelöste Sensoren, die unter **Sensoren und Auslöser** einzeln dafür
+freigegeben wurden, zum Beispiel
+`OHA_ArmPartition(12345, 'garage', 'away', null, null, true)`. Sobald ein so
+überbrückter Sensor wieder normal ist, wird er erneut überwacht.
 
 Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
 `OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,

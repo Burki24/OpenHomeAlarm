@@ -40,10 +40,11 @@ final class AlarmArmingSchedule
             }
 
             $enabled = $schedule['Enabled'] ?? true;
+            $bypassActiveSensors = $schedule['BypassActiveSensors'] ?? false;
             $name = $schedule['Name'] ?? '';
             $time = $schedule['Time'] ?? '';
             $mode = $schedule['Mode'] ?? 'away';
-            if (!is_bool($enabled) || !is_string($name) || !is_string($time) || !is_string($mode)) {
+            if (!is_bool($enabled) || !is_bool($bypassActiveSensors) || !is_string($name) || !is_string($time) || !is_string($mode)) {
                 throw new UnexpectedValueException('Invalid automatic arming schedule field type.');
             }
 
@@ -72,7 +73,7 @@ final class AlarmArmingSchedule
             $normalized[] = array_merge([
                 'Enabled' => $enabled,
                 'Name'    => $name !== '' ? $name : sprintf('Schedule %d', $index + 1)
-            ], $days, ['Time' => $time, 'Mode' => $mode]);
+            ], $days, ['Time' => $time, 'Mode' => $mode, 'BypassActiveSensors' => $bypassActiveSensors]);
         }
 
         return $normalized;
@@ -101,6 +102,11 @@ final class AlarmArmingSchedule
     /** @param array<string, bool|string> $schedule */
     public static function executionKey(array $schedule, string $localMinute): string
     {
-        return hash('sha256', json_encode($schedule, JSON_THROW_ON_ERROR)) . ':' . $localMinute;
+        $identity = $schedule;
+        if (($identity['BypassActiveSensors'] ?? false) === false) {
+            unset($identity['BypassActiveSensors']);
+        }
+
+        return hash('sha256', json_encode($identity, JSON_THROW_ON_ERROR)) . ':' . $localMinute;
     }
 }

@@ -295,7 +295,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Configure weekly schedules that arm the system through the normal readiness checks."
+                    "caption": "Configure weekly schedules that arm the system through the normal readiness checks, optionally bypassing permitted active sensors."
                 },
                 {
                     "type": "List",
@@ -418,12 +418,21 @@
                                     }
                                 ]
                             }
+                        },
+                        {
+                            "caption": "Bypass active sensors",
+                            "name": "BypassActiveSensors",
+                            "width": "160px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
                         }
                     ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Automatic arming never bypasses sensors or blocking faults and never disarms or changes an already active mode."
+                    "caption": "Only explicitly permitted, already triggered sensors can be bypassed by a schedule. 24/7 sensors, unavailable sensors and blocking faults still prevent arming. An active mode is never changed."
                 }
             ]
         },
@@ -1116,6 +1125,15 @@
                     "caption": "24/7",
                     "name": "AlwaysActive",
                     "width": "70px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Allow automatic bypass",
+                    "name": "AllowAutomaticBypass",
+                    "width": "165px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"

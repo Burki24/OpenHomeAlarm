@@ -298,7 +298,8 @@ function bypassSensor(
     bool $armAway = false,
     bool $armNight = false,
     bool $alwaysActive = false,
-    bool $enabled = true
+    bool $enabled = true,
+    bool $allowAutomaticBypass = false
 ): array {
     return [
         'Enabled'      => $enabled,
@@ -310,6 +311,7 @@ function bypassSensor(
         'ArmAway'      => $armAway,
         'ArmNight'     => $armNight,
         'AlwaysActive' => $alwaysActive,
+        'AllowAutomaticBypass' => $allowAutomaticBypass,
         'EntryDelay'   => false
     ];
 }
@@ -390,4 +392,215 @@ assertBypass(
 );
 assertBypass($instance->TestValue('BypassedSensors') === '', 'Stale bypass status must be cleared after reconfiguration.');
 
-fwrite(STDOUT, "OpenHomeAlarm temporary sensor bypass checks passed.\n");
+$automatic = new OpenHomeAlarm();
+$automatic->Create();
+$automatic->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$automatic->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Bedroom window', armNight: true, allowAutomaticBypass: true)
+], JSON_THROW_ON_ERROR));
+$automatic->ApplyChanges();
+assertBypass($automatic->ArmNight() === false, 'Existing arming calls must still reject an active sensor.');
+assertBypass($automatic->ArmNight(null, null, true) === true, 'An opted-in active sensor may be bypassed for one arming call.');
+assertBypass(
+    json_decode($automatic->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === ['main:7001'],
+    'Automatic bypass assignments must be persisted separately from manual bypasses.'
+);
+$automaticState = json_decode($automatic->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(($automaticState['BypassedSensors'][0]['Automatic'] ?? false) === true, 'The control API must identify automatic bypasses.');
+$automatic->ApplyChanges();
+assertBypass($automatic->TestValue('State') === 2, 'An active bypassed sensor must not alarm after ApplyChanges.');
+assertBypass($automatic->TestValue('BypassedSensors') !== '', 'An automatic bypass must remain visible after ApplyChanges.');
+$testValues[7001] = false;
+$automatic->MessageSink(1, 7001, VM_UPDATE, [false, true, 0]);
+assertBypass($automatic->TestValue('State') === 2, 'Returning to normal must not itself trigger an alarm.');
+assertBypass($automatic->TestValue('BypassedSensors') === '', 'The automatic bypass must end at the first normal value.');
+assertBypass(
+    json_decode($automatic->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'Restoring monitoring must clear the persisted automatic bypass.'
+);
+$testValues[7001] = true;
+$automatic->MessageSink(1, 7001, VM_UPDATE, [true, false, 0]);
+assertBypass($automatic->TestValue('State') === 4, 'A new trigger after restoration must raise the alarm.');
+$events = json_decode($automatic->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(in_array('sensor_auto_bypassed', array_column($events, 'Event'), true), 'Automatic bypass creation must be logged.');
+assertBypass(in_array('sensor_auto_bypass_restored', array_column($events, 'Event'), true), 'Automatic bypass restoration must be logged.');
+$automatic->Disarm();
+
+$testValues[7003] = true;
+$notPermitted = new OpenHomeAlarm();
+$notPermitted->Create();
+$notPermitted->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$notPermitted->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Allowed window', armAway: true, allowAutomaticBypass: true),
+    bypassSensor(7003, 'Protected door', armAway: true)
+], JSON_THROW_ON_ERROR));
+$notPermitted->ApplyChanges();
+assertBypass($notPermitted->ArmAway(null, null, true) === false, 'An unapproved active sensor must still block arming.');
+assertBypass($notPermitted->TestValue('State') === 0, 'Rejected arming must leave the system disarmed.');
+assertBypass(
+    json_decode($notPermitted->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'A rejected arming attempt must not leave an automatic bypass behind.'
+);
+
+$unavailable = new OpenHomeAlarm();
+$unavailable->Create();
+$unavailable->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$unavailable->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(9999, 'Missing window', armAway: true, allowAutomaticBypass: true)
+], JSON_THROW_ON_ERROR));
+$unavailable->ApplyChanges();
+assertBypass($unavailable->ArmAway(null, null, true) === false, 'An unavailable sensor must never be automatically bypassed.');
+
+$testValues[7002] = true;
+$blockingFault = new OpenHomeAlarm();
+$blockingFault->Create();
+$blockingFault->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$blockingFault->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Allowed window', armAway: true, allowAutomaticBypass: true)
+], JSON_THROW_ON_ERROR));
+$blockingFault->TestSetPropertyString('FaultInputs', json_encode([[
+    'Enabled' => true, 'Name' => 'Door tamper', 'VariableID' => 7002,
+    'FaultType' => 0, 'TriggerValue' => 'true', 'BlockArming' => true, 'TriggerAlarm' => false
+]], JSON_THROW_ON_ERROR));
+$blockingFault->ApplyChanges();
+assertBypass($blockingFault->ArmAway(null, null, true) === false, 'A blocking fault must prevent bypass-assisted arming.');
+assertBypass(
+    json_decode($blockingFault->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'A blocking fault must not leave a proposed automatic bypass behind.'
+);
+$testValues[7002] = false;
+
+$scheduled = new OpenHomeAlarm();
+$scheduled->Create();
+$scheduled->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$scheduled->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Scheduled window', armNight: true, allowAutomaticBypass: true)
+], JSON_THROW_ON_ERROR));
+$scheduledMinute = mktime(2, 35, 0, 9, 26, 2026);
+$schedule = [
+    'Enabled' => true, 'Name' => 'Night check', 'Time' => '02:35',
+    'Mode' => 'night', 'BypassActiveSensors' => true
+];
+foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $weekday) {
+    $schedule[$weekday] = true;
+}
+$scheduled->TestSetPropertyString('AutomaticArmingSchedules', json_encode([$schedule], JSON_THROW_ON_ERROR));
+$scheduled->ApplyChanges();
+$executeSchedule = new ReflectionMethod(OpenHomeAlarm::class, 'ExecuteAutomaticArmingAt');
+$executeSchedule->invoke($scheduled, $scheduledMinute);
+assertBypass($scheduled->TestValue('State') === 2, 'An opted-in weekly schedule must arm with an eligible active sensor.');
+assertBypass(
+    json_decode($scheduled->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === ['main:7001'],
+    'The weekly schedule must use the same persistent automatic-bypass path as the public API.'
+);
+$scheduled->Disarm();
+
+$delayed = new OpenHomeAlarm();
+$delayed->Create();
+$delayed->TestSetPropertyInteger('ExitDelaySeconds', 30);
+$delayed->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Open window', armNight: true, allowAutomaticBypass: true)
+], JSON_THROW_ON_ERROR));
+$delayed->ApplyChanges();
+assertBypass($delayed->ArmNight(null, null, true), 'An opted-in active sensor may start an exit delay.');
+assertBypass($delayed->TestValue('State') === 1, 'The normal exit delay must remain active.');
+$delayed->CompleteExitDelay();
+assertBypass($delayed->TestValue('State') === 2, 'A still-open approved contact must not cancel arming at the end of the exit delay.');
+$testValues[7001] = false;
+$delayed->ApplyChanges();
+assertBypass($delayed->TestValue('State') === 2, 'A normal contact on restart must keep the system armed.');
+assertBypass(
+    json_decode($delayed->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'ApplyChanges must restore monitoring if the bypassed contact has returned to normal.'
+);
+$testValues[7001] = true;
+$delayed->MessageSink(1, 7001, VM_UPDATE, [true, false, 0]);
+assertBypass($delayed->TestValue('State') === 4, 'A contact re-opened after restart must alarm.');
+$delayed->Disarm();
+
+$strictSchedule = new OpenHomeAlarm();
+$strictSchedule->Create();
+$strictSchedule->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$strictSchedule->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Scheduled window', armNight: true, allowAutomaticBypass: true)
+], JSON_THROW_ON_ERROR));
+$schedule['BypassActiveSensors'] = false;
+$strictSchedule->TestSetPropertyString('AutomaticArmingSchedules', json_encode([$schedule], JSON_THROW_ON_ERROR));
+$strictSchedule->ApplyChanges();
+$executeSchedule->invoke($strictSchedule, $scheduledMinute);
+assertBypass($strictSchedule->TestValue('State') === 0, 'A schedule without the option must still reject the active sensor.');
+
+$partitioned = new OpenHomeAlarm();
+$partitioned->Create();
+$partitioned->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$partitioned->TestSetPropertyString('Partitions', '[{"Enabled":true,"ID":"main","Name":"House"},{"Enabled":true,"ID":"garage","Name":"Garage"}]');
+$partitioned->TestSetPropertyString('Sensors', json_encode([
+    array_merge(bypassSensor(7001, 'Main window', armAway: true, allowAutomaticBypass: true), ['Partition_main' => true]),
+    array_merge(bypassSensor(7003, 'Garage door', armAway: true), ['Partition_garage' => true])
+], JSON_THROW_ON_ERROR));
+$partitioned->ApplyChanges();
+assertBypass($partitioned->ArmAway(null, null, true) === false, 'A blocked area must prevent partial global arming.');
+assertBypass(
+    json_decode($partitioned->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'Global arming failure must not persist bypasses in another area.'
+);
+assertBypass($partitioned->ArmPartition('main', 'away', 0, null, true) === false, 'The main area must still represent the complete system.');
+assertBypass($partitioned->ArmPartition('garage', 'away', 0, null, true) === false, 'A protected garage contact must block its area.');
+
+$partitioned->TestSetPropertyString('Sensors', json_encode([
+    array_merge(bypassSensor(7001, 'Main window', armAway: true, allowAutomaticBypass: true), ['Partition_main' => true]),
+    array_merge(bypassSensor(7003, 'Garage door', armAway: true, allowAutomaticBypass: true), ['Partition_garage' => true])
+], JSON_THROW_ON_ERROR));
+$partitioned->ApplyChanges();
+assertBypass($partitioned->ArmPartition('garage', 'away', 0, null, true) === true, 'A single area may bypass its own approved contact.');
+assertBypass(
+    json_decode($partitioned->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === ['garage:7003'],
+    'An area-local arming call must not bypass the same or another sensor in main.'
+);
+$partitionState = json_decode($partitioned->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(
+    ($partitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'Arming one area must leave main disarmed.'
+);
+$testValues[7003] = false;
+$partitioned->MessageSink(1, 7003, VM_UPDATE, [false, true, 0]);
+assertBypass(
+    json_decode($partitioned->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'An area-local automatic bypass must end when its sensor returns to normal.'
+);
+$testValues[7003] = true;
+$partitioned->MessageSink(1, 7003, VM_UPDATE, [true, false, 0]);
+$partitionState = json_decode($partitioned->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'alarm', 'A re-opened garage contact must alarm its area.');
+$partitioned->DisarmPartition('garage');
+assertBypass($partitioned->ArmAway(0, null, true) === true, 'Global arming may bypass approved active contacts in every area.');
+assertBypass(
+    json_decode($partitioned->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === ['garage:7003', 'main:7001'],
+    'Global arming must retain separate bypass assignments for every area.'
+);
+$partitioned->Disarm();
+assertBypass(
+    json_decode($partitioned->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'Disarming all areas must remove every automatic bypass.'
+);
+
+$lostSensor = new OpenHomeAlarm();
+$lostSensor->Create();
+$lostSensor->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$lostSensor->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Lost window', armAway: true, allowAutomaticBypass: true)
+], JSON_THROW_ON_ERROR));
+$lostSensor->ApplyChanges();
+assertBypass($lostSensor->ArmAway(null, null, true), 'The unavailable-sensor test requires an armed bypass.');
+$savedVariable = $testVariables[7001];
+unset($testVariables[7001]);
+$lostSensor->MessageSink(1, 7001, OM_UNREGISTER, []);
+assertBypass(
+    json_decode($lostSensor->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'A sensor that becomes unavailable must not remain automatically bypassed.'
+);
+assertBypass($lostSensor->TestValue('SystemFault') === true, 'A lost automatically bypassed sensor must still be reported as a system fault.');
+$testVariables[7001] = $savedVariable;
+
+fwrite(STDOUT, "OpenHomeAlarm manual and automatic sensor bypass checks passed.\n");
