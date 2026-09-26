@@ -88,21 +88,21 @@ final class AlarmConfigurationNormalizer
             $exitDelay = self::booleanField($sensor, 'ExitDelay', false, 'Sensor');
             $entryDelay = self::booleanField($sensor, 'EntryDelay', false, 'Sensor');
             $normalizedSensors[] = [
-                'Enabled'        => self::booleanField($sensor, 'Enabled', true, 'Sensor'),
-                'PartitionID'    => $legacyPartitionID,
-                'PartitionIDs'   => array_values(array_unique($partitionIDs)),
-                'Name'           => trim(self::stringField($sensor, 'Name', '', 'Sensor')),
-                'VariableID'     => $variableID,
-                'SensorType'     => $sensorType,
-                'TriggerValue'   => self::stringField($sensor, 'TriggerValue', '1', 'Sensor'),
-                'ArmHome'        => !$alwaysActive && $armHome,
-                'ArmAway'        => !$alwaysActive && $armAway,
-                'ArmNight'       => !$alwaysActive && $armNight,
-                'AlwaysActive'   => $alwaysActive,
+                'Enabled'              => self::booleanField($sensor, 'Enabled', true, 'Sensor'),
+                'PartitionID'          => $legacyPartitionID,
+                'PartitionIDs'         => array_values(array_unique($partitionIDs)),
+                'Name'                 => trim(self::stringField($sensor, 'Name', '', 'Sensor')),
+                'VariableID'           => $variableID,
+                'SensorType'           => $sensorType,
+                'TriggerValue'         => self::stringField($sensor, 'TriggerValue', '1', 'Sensor'),
+                'ArmHome'              => !$alwaysActive && $armHome,
+                'ArmAway'              => !$alwaysActive && $armAway,
+                'ArmNight'             => !$alwaysActive && $armNight,
+                'AlwaysActive'         => $alwaysActive,
                 'AllowAutomaticBypass' => !$alwaysActive && $allowAutomaticBypass,
-                'ExitDelay'      => !$alwaysActive && $exitDelay,
-                'EntryDelay'     => !$alwaysActive && $entryDelay,
-                'RetriggerAlarm' => self::booleanField($sensor, 'RetriggerAlarm', false, 'Sensor')
+                'ExitDelay'            => !$alwaysActive && $exitDelay,
+                'EntryDelay'           => !$alwaysActive && $entryDelay,
+                'RetriggerAlarm'       => self::booleanField($sensor, 'RetriggerAlarm', false, 'Sensor')
             ];
         }
 

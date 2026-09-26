@@ -344,21 +344,21 @@ $sensors = AlarmConfigurationNormalizer::sensors(
 assertDomainSame(
     [
         [
-            'Enabled'        => true,
-            'PartitionID'    => '',
-            'PartitionIDs'   => [],
-            'Name'           => 'Front door',
-            'VariableID'     => 1001,
-            'SensorType'     => 1,
-            'TriggerValue'   => '1',
-            'ArmHome'        => true,
-            'ArmAway'        => true,
-            'ArmNight'       => false,
-            'AlwaysActive'   => false,
+            'Enabled'              => true,
+            'PartitionID'          => '',
+            'PartitionIDs'         => [],
+            'Name'                 => 'Front door',
+            'VariableID'           => 1001,
+            'SensorType'           => 1,
+            'TriggerValue'         => '1',
+            'ArmHome'              => true,
+            'ArmAway'              => true,
+            'ArmNight'             => false,
+            'AlwaysActive'         => false,
             'AllowAutomaticBypass' => false,
-            'ExitDelay'      => false,
-            'EntryDelay'     => false,
-            'RetriggerAlarm' => false
+            'ExitDelay'            => false,
+            'EntryDelay'           => false,
+            'RetriggerAlarm'       => false
         ]
     ],
     $sensors,

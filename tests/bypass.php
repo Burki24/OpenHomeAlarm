@@ -302,17 +302,17 @@ function bypassSensor(
     bool $allowAutomaticBypass = false
 ): array {
     return [
-        'Enabled'      => $enabled,
-        'Name'         => $name,
-        'VariableID'   => $variableID,
-        'SensorType'   => 0,
-        'TriggerValue' => 'true',
-        'ArmHome'      => $armHome,
-        'ArmAway'      => $armAway,
-        'ArmNight'     => $armNight,
-        'AlwaysActive' => $alwaysActive,
+        'Enabled'              => $enabled,
+        'Name'                 => $name,
+        'VariableID'           => $variableID,
+        'SensorType'           => 0,
+        'TriggerValue'         => 'true',
+        'ArmHome'              => $armHome,
+        'ArmAway'              => $armAway,
+        'ArmNight'             => $armNight,
+        'AlwaysActive'         => $alwaysActive,
         'AllowAutomaticBypass' => $allowAutomaticBypass,
-        'EntryDelay'   => false
+        'EntryDelay'           => false
     ];
 }
 
@@ -459,7 +459,7 @@ $blockingFault->TestSetPropertyString('Sensors', json_encode([
     bypassSensor(7001, 'Allowed window', armAway: true, allowAutomaticBypass: true)
 ], JSON_THROW_ON_ERROR));
 $blockingFault->TestSetPropertyString('FaultInputs', json_encode([[
-    'Enabled' => true, 'Name' => 'Door tamper', 'VariableID' => 7002,
+    'Enabled'   => true, 'Name' => 'Door tamper', 'VariableID' => 7002,
     'FaultType' => 0, 'TriggerValue' => 'true', 'BlockArming' => true, 'TriggerAlarm' => false
 ]], JSON_THROW_ON_ERROR));
 $blockingFault->ApplyChanges();
@@ -479,7 +479,7 @@ $scheduled->TestSetPropertyString('Sensors', json_encode([
 $scheduledMinute = mktime(2, 35, 0, 9, 26, 2026);
 $schedule = [
     'Enabled' => true, 'Name' => 'Night check', 'Time' => '02:35',
-    'Mode' => 'night', 'BypassActiveSensors' => true
+    'Mode'    => 'night', 'BypassActiveSensors' => true
 ];
 foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $weekday) {
     $schedule[$weekday] = true;

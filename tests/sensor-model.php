@@ -407,36 +407,36 @@ assertSensorModel(
 
 $configuredSensors = [
     [
-        'Enabled'        => true,
-        'PartitionID'    => 'main',
-        'Name'           => 'Haustür',
-        'VariableID'     => 12345,
-        'SensorType'     => 0,
-        'TriggerValue'   => '1',
-        'ArmHome'        => true,
-        'ArmAway'        => true,
-        'ArmNight'       => true,
-        'AlwaysActive'   => false,
+        'Enabled'              => true,
+        'PartitionID'          => 'main',
+        'Name'                 => 'Haustür',
+        'VariableID'           => 12345,
+        'SensorType'           => 0,
+        'TriggerValue'         => '1',
+        'ArmHome'              => true,
+        'ArmAway'              => true,
+        'ArmNight'             => true,
+        'AlwaysActive'         => false,
         'AllowAutomaticBypass' => false,
-        'ExitDelay'      => true,
-        'EntryDelay'     => true,
-        'RetriggerAlarm' => false
+        'ExitDelay'            => true,
+        'EntryDelay'           => true,
+        'RetriggerAlarm'       => false
     ],
     [
-        'Enabled'        => true,
-        'PartitionID'    => 'main',
-        'Name'           => 'Flur Bewegung',
-        'VariableID'     => 23456,
-        'SensorType'     => 1,
-        'TriggerValue'   => 'true',
-        'ArmHome'        => false,
-        'ArmAway'        => true,
-        'ArmNight'       => false,
-        'AlwaysActive'   => false,
+        'Enabled'              => true,
+        'PartitionID'          => 'main',
+        'Name'                 => 'Flur Bewegung',
+        'VariableID'           => 23456,
+        'SensorType'           => 1,
+        'TriggerValue'         => 'true',
+        'ArmHome'              => false,
+        'ArmAway'              => true,
+        'ArmNight'             => false,
+        'AlwaysActive'         => false,
         'AllowAutomaticBypass' => false,
-        'ExitDelay'      => false,
-        'EntryDelay'     => false,
-        'RetriggerAlarm' => false
+        'ExitDelay'            => false,
+        'EntryDelay'           => false,
+        'RetriggerAlarm'       => false
     ]
 ];
 $instance->TestSetPropertyString(
@@ -450,8 +450,7 @@ assertSensorModel($normalizedSensors === $configuredSensors, 'Valid sensor confi
 $alwaysActiveConfiguration = new OpenHomeAlarm();
 $alwaysActiveConfiguration->Create();
 $alwaysActiveConfiguration->TestSetPropertyString('Sensors', json_encode([array_merge($configuredSensors[0], [
-    'AlwaysActive' => true,
-    'AllowAutomaticBypass' => true,
+    'AlwaysActive'         => true,
     'AllowAutomaticBypass' => true
 ])], JSON_THROW_ON_ERROR));
 $normalizedAlwaysActive = $readConfiguredSensors->invoke($alwaysActiveConfiguration)[0];
@@ -479,20 +478,20 @@ $minimalInstance->TestSetPropertyString(
 $minimalSensors = $readConfiguredSensors->invoke($minimalInstance);
 assertSensorModel(
     $minimalSensors === [[
-        'Enabled'        => true,
-        'PartitionID'    => 'main',
-        'Name'           => '',
-        'VariableID'     => 34567,
-        'SensorType'     => 0,
-        'TriggerValue'   => '1',
-        'ArmHome'        => false,
-        'ArmAway'        => true,
-        'ArmNight'       => false,
-        'AlwaysActive'   => false,
+        'Enabled'              => true,
+        'PartitionID'          => 'main',
+        'Name'                 => '',
+        'VariableID'           => 34567,
+        'SensorType'           => 0,
+        'TriggerValue'         => '1',
+        'ArmHome'              => false,
+        'ArmAway'              => true,
+        'ArmNight'             => false,
+        'AlwaysActive'         => false,
         'AllowAutomaticBypass' => false,
-        'ExitDelay'      => false,
-        'EntryDelay'     => false,
-        'RetriggerAlarm' => false
+        'ExitDelay'            => false,
+        'EntryDelay'           => false,
+        'RetriggerAlarm'       => false
     ]],
     'Missing optional sensor fields must receive stable defaults.'
 );
