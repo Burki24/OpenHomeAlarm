@@ -16,6 +16,7 @@ $module = file_get_contents($root . '/OpenHomeAlarm/module.php');
 $html = file_get_contents($root . '/OpenHomeAlarm/visualization/index.html');
 $css = file_get_contents($root . '/OpenHomeAlarm/visualization/style.css');
 $javascript = file_get_contents($root . '/OpenHomeAlarm/visualization/app.js');
+$adapter = file_get_contents($root . '/libs/AlarmVisualizationAdapter.php');
 $locale = json_decode(
     (string) file_get_contents($root . '/OpenHomeAlarm/locale.json'),
     true,
@@ -24,6 +25,7 @@ $locale = json_decode(
 );
 
 assertVisualization(is_string($module), 'module.php must be readable.');
+assertVisualization(is_string($adapter), 'AlarmVisualizationAdapter.php must be readable.');
 assertVisualization(is_string($html) && $html !== '', 'Visualization HTML must be present.');
 assertVisualization(is_string($css) && $css !== '', 'Visualization CSS must be present.');
 assertVisualization(is_string($javascript) && $javascript !== '', 'Visualization JavaScript must be present.');
@@ -39,10 +41,12 @@ assertVisualization(
     'Native and IPSView documents must use the shared HTML page helper.'
 );
 assertVisualization(
-    str_contains($module, "require_once __DIR__ . '/../libs/helper/VisualizationThemeHelper.php';")
-        && str_contains($module, 'use \\Burki24\\SymconModuleHelper\\VisualizationThemeHelper;')
+    str_contains($module, "require_once __DIR__ . '/../libs/helper/VisualizationThemeConfigurationHelper.php';")
+        && str_contains($module, 'use \\Burki24\\SymconModuleHelper\\VisualizationThemeConfigurationHelper;')
+        && str_contains($module, '$this->RegisterVisualizationThemeProperties();')
+        && str_contains($module, '$this->InsertVisualizationThemeFormItems(')
         && str_contains($module, '$this->VisualizationThemeCSS()'),
-    'The visualization must use the shared Symcon theme helper.'
+    'The visualization must use the configurable shared Symcon theme helper.'
 );
 assertVisualization(
     str_contains($module, 'use \\Burki24\\SymconModuleHelper\\VisualizationAssetHelper;'),
@@ -99,17 +103,110 @@ assertVisualization(
 );
 assertVisualization(str_contains($javascript, 'function handleMessage(data)'), 'HTML-SDK handleMessage must be implemented.');
 assertVisualization(
+    substr_count($javascript, 'Number(') >= 2
+        && str_contains($javascript, 'Number(ohaState.ApiVersion) !== 2')
+        && str_contains($javascript, 'Number(state.ApiVersion) === 2')
+        && !str_contains($javascript, 'ApiVersion) === 1')
+        && !str_contains($javascript, 'ApiVersion) !== 1'),
+    'Native and IPSView rendering must accept the partition-aware control API version 2.'
+);
+assertVisualization(
     !str_contains($javascript, '.innerHTML ='),
     'Visualization state must be rendered without assigning HTML strings.'
 );
-assertVisualization(str_contains($javascript, "ohaRequestAction('Arm'"), 'Visualization must arm through RequestAction.');
-assertVisualization(str_contains($javascript, "ohaRequestAction('Disarm'"), 'Visualization must disarm through RequestAction.');
+assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'"), 'Visualization must arm the selected partition through RequestAction.');
+assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'"), 'Visualization must disarm the selected partition through RequestAction.');
+assertVisualization(
+    str_contains($html, 'class="oha-arm-delivery"')
+        && str_contains($html, 'data-delivery-switch')
+        && str_contains($html, 'role="switch"')
+        && !str_contains($html, '<select id="armDeliveryMode"'),
+    'Alarm response must use a clickable switch instead of a native select in both embedded views.'
+);
+assertVisualization(
+    preg_match('/<div class="oha-arming-controls">\s*<div class="oha-section-heading oha-section-heading-compact">[\s\S]*?<div class="oha-arm-delivery"[\s\S]*?<div class="oha-mode-grid">/', $html) === 1
+        && str_contains($css, '.oha-arming-controls {')
+        && str_contains($css, 'html.oha-ipsview .oha-arming-controls {'),
+    'Arming heading, alarm response and mode cards must share one styled control group in tile and IPSView.'
+);
+assertVisualization(
+    str_contains($javascript, "control.matches('[data-delivery-switch]')")
+        && str_contains($javascript, 'delivery.dataset.selection')
+        && str_contains($javascript, "control.getAttribute('aria-checked') !== 'true'")
+        && str_contains($javascript, 'nextSilent === Boolean(state.SilentByDefault)')
+        && str_contains($javascript, "deliverySwitch.setAttribute('aria-checked', selectedSilent ? 'true' : 'false')")
+        && str_contains($javascript, "payload.Silent = selection === 'silent'"),
+    'The silent-alarm switch must toggle, return to area default and pass the selected response into the arming payload.'
+);
+assertVisualization(
+    str_contains($css, 'html.oha-ipsview .oha-arm-delivery')
+        && str_contains($css, '.oha-delivery-switch[aria-checked="true"]'),
+    'IPSView and tile switches must use the shared panel and active-control design.'
+);
+assertVisualization(
+    str_contains($javascript, 'JSON.stringify(payload)')
+        && str_contains($javascript, 'PartitionID: partitionID, Value: value'),
+    'Partition visualization commands must cross the native RequestAction boundary as scalar JSON strings.'
+);
+assertVisualization(
+    str_contains($html, 'id="partitionNav"')
+        && str_contains($javascript, 'function ohaRenderPartitions(state)')
+        && str_contains($javascript, "'[data-partition-id], [data-delivery-switch], [data-action=\"arm\"]")
+        && str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'")
+        && str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'")
+        && str_contains($module, "case 'ArmPartition':")
+        && str_contains($module, "case 'DisarmPartition':"),
+    'Native and IPSView controls must select and operate one explicit alarm partition.'
+);
+assertVisualization(
+    str_contains($javascript, 'button.dataset.state = stateName;')
+        && str_contains($javascript, "button.dataset.fault = hasFault ? 'true' : 'false';")
+        && str_contains($javascript, "button.dataset.alarmMemory = hasAlarmMemory ? 'true' : 'false';")
+        && str_contains($javascript, "button.setAttribute('aria-label', statusDescription.join(', '));")
+        && str_contains($javascript, 'stateIcon.className = `fa-light ${ohaStateIcon(stateName)}`;')
+        && str_contains($javascript, "faultIcon.className = 'fa-light fa-triangle-exclamation';")
+        && str_contains($javascript, "memoryIcon.className = 'fa-light fa-bell';")
+        && str_contains($css, '.oha-partition-tab[data-state="armed"]')
+        && str_contains($css, '.oha-partition-tab[data-state="alarm"]')
+        && str_contains($css, '.oha-partition-badge-fault')
+        && str_contains($css, '.oha-partition-badge-memory'),
+    'Partition tabs must expose armed, delay, alarm, fault and alarm-memory states without relying on color alone.'
+);
+assertVisualization(
+    str_contains($javascript, "ohaRequestPartitionAction('DisarmPartitionWithCode', code);")
+        && str_contains($module, "case 'DisarmPartitionWithCode':")
+        && str_contains($module, '$this->DisarmPartitionWithCode($Value[\'PartitionID\'], $Value[\'Value\'])'),
+    'Code-protected visualization disarming must target the selected partition.'
+);
+assertVisualization(
+    str_contains($javascript, 'ResetFalseAlarmPartitionWithCode')
+        && str_contains($module, "case 'ResetFalseAlarmPartitionWithCode':")
+        && str_contains($adapter, "'ResetFalseAlarmPartitionWithCode'"),
+    'Code-protected false-alarm resets must use the code-protected partition action.'
+);
+assertVisualization(
+    str_contains($html, 'id="inlineStopSignalGenerator"')
+        && str_contains($html, 'id="codepadStopSignalGenerator"')
+        && str_contains($javascript, 'StopSignalGeneratorWithCode')
+        && str_contains($module, "case 'StopSignalGeneratorWithCode':")
+        && str_contains($adapter, "'StopSignalGeneratorWithCode'"),
+    'Code-protected signal-generator stops must be available from both codepads.'
+);
+assertVisualization(
+    str_contains($html, 'id="inlineResetFalseAlarm"')
+        && str_contains($html, 'id="codepadResetFalseAlarm"')
+        && str_contains($html, 'data-code-action="ResetFalseAlarmPartitionWithCode"')
+        && str_contains($module, "case 'ResetFalseAlarmPartitionWithCode':"),
+    'Code-protected false-alarm resets must be available from both codepads.'
+);
 foreach ([
-    'BypassSensor',
-    'RemoveSensorBypass',
+    'BypassSensorPartition',
+    'RemoveSensorBypassPartition',
     'ClearSensorBypasses',
     'ClearAlarmMemory',
-    'ResetAlarmOutput'
+    'ResetAlarmOutput',
+    'ResetFalseAlarm',
+    'StopSignalGenerator'
 ] as $operation) {
     assertVisualization(
         str_contains($module, "case '" . $operation . "':"),
@@ -143,23 +240,77 @@ assertVisualization(
     'Arming modes must be rendered as direct full-width controls through the shared click dispatcher and without native disabled buttons.'
 );
 assertVisualization(
-    strpos($html, 'id="statusHero"') < strpos($html, 'id="armingSection"')
+    strpos($html, 'id="statusHero"') < strpos($html, 'id="partitionNav"')
+        && strpos($html, 'id="partitionNav"') < strpos($html, 'id="armingSection"')
         && strpos($html, 'id="armingSection"') < strpos($html, 'id="controlBar"')
         && strpos($html, 'id="controlBar"') < strpos($html, 'id="statusGrid"'),
-    'Arming-mode controls and the disarm control must sit directly below the security-status hero and before secondary status information.'
+    'Security status must precede the framed area selector and arming controls, followed by secondary status information.'
+);
+assertVisualization(
+    str_contains($html, 'class="oha-partition-heading"')
+        && str_contains($html, 'id="partitionKicker"')
+        && str_contains($html, 'class="oha-partition-title" id="partitionLabel"')
+        && preg_match('/\.oha-partition-nav \{[^}]*border: var\(--oha-border-width\) solid var\(--oha-border\);/s', $css) === 1
+        && preg_match('/\.oha-arming-controls \{[^}]*border: var\(--oha-border-width\) solid var\(--oha-border\);/s', $css) === 1
+        && str_contains($css, 'html.oha-ipsview .oha-partition-nav {')
+        && str_contains($css, 'html.oha-ipsview .oha-arming-controls > .oha-section-heading {')
+        && preg_match('/"hero codepad"\s*"partitions codepad"\s*"arming codepad"/', $css) === 1,
+    'Both views must frame the area selector and group the arming heading with its controls in status-first order.'
 );
 assertVisualization(str_contains($html, 'id="statusGrid"'), 'Visualization must provide a compact always-visible system overview.');
 assertVisualization(str_contains($html, 'id="sensorManagementPanel"'), 'Visualization must provide contextual sensor management.');
 assertVisualization(str_contains($html, 'id="eventHistoryPanel"'), 'Visualization must provide recent security events.');
+assertVisualization(str_contains($html, 'id="diagnosticsPanel"'), 'Visualization must provide shared input diagnostics.');
+assertVisualization(
+    str_contains($html, 'data-operation="ExportEventHistory" data-format="json"')
+        && str_contains($html, 'data-operation="ExportEventHistory" data-format="csv"'),
+    'The event history panel must offer direct JSON and CSV downloads.'
+);
+assertVisualization(
+    str_contains($html, 'data-operation="ExportDiagnostics" data-format="json"')
+        && str_contains($html, 'data-operation="ExportDiagnostics" data-format="csv"')
+        && str_contains($module, "case 'ExportDiagnostics':")
+        && str_contains($javascript, 'function ohaDownloadDiagnostics(interaction)')
+        && str_contains($javascript, "action === 'ExportEventHistory' || action === 'ExportDiagnostics'"),
+    'The diagnostics panel must download JSON and CSV through the shared visualization action bridge.'
+);
 assertVisualization(
     str_contains($javascript, 'function ohaRenderSensorManagement(state)')
         && str_contains($javascript, 'function ohaRenderEventHistory(state)')
+        && str_contains($javascript, 'function ohaRenderDiagnostics(state)')
         && str_contains($module, "'RecentEvents'"),
     'Sensor operations and recent security events must be rendered from the backend control state.'
 );
 assertVisualization(
+    str_contains($javascript, 'button.dataset.operationValue = String(value);')
+        && str_contains($javascript, 'ohaRequestAction(action, control.dataset.operationValue ?? true);')
+        && !str_contains($javascript, 'const variableID = Number(control.dataset.variableId) || 0;'),
+    'Partition sensor operations must forward their complete JSON payload instead of reducing it to a boolean.'
+);
+assertVisualization(
+    str_contains($module, "'Diagnostics'      => \$this->BuildDiagnosticsPayload(\$allSensors, \$allFaultInputs)")
+        && str_contains($javascript, 'const items = Array.isArray(diagnostics?.Items) ? diagnostics.Items : [];')
+        && str_contains($javascript, 'ohaRenderDiagnostics(selectedState);')
+        && str_contains($css, '.oha-diagnostic-row[data-status="missing"]'),
+    'Native and IPSView dashboards must render the shared diagnostics payload and highlight unavailable inputs.'
+);
+assertVisualization(
+    str_contains($module, "case 'ExportEventHistory':")
+        && str_contains($javascript, 'function ohaDownloadEventHistory(interaction)')
+        && str_contains($javascript, 'new Blob([content], { type: mimeType })')
+        && str_contains($javascript, "ohaRequestAction(action, control.dataset.format ?? '')"),
+    'History downloads must flow through the visualization action bridge into a browser Blob without server-side files.'
+);
+assertVisualization(
+    str_contains($javascript, 'function ohaPartitionName(partitionID, state = ohaState)')
+        && str_contains($javascript, 'ohaPartitionName(item.PartitionID, state)'),
+    'Diagnostic entries must show the user-defined alarm area name instead of its technical ID.'
+);
+assertVisualization(
     str_contains($css, '--oha-accent: var(--symc-accent);')
         && str_contains($css, '--oha-bg: var(--symc-background);')
+        && str_contains($css, '--oha-heading: var(--symc-heading);')
+        && str_contains($css, '--oha-subheading: var(--symc-subheading);')
         && str_contains($css, 'html.oha-ipsview {')
         && str_contains($css, '--oha-accent: var(--ipsview-role-accent);')
         && str_contains($css, '--oha-bg: var(--ipsview-role-view-background);'),
@@ -186,8 +337,46 @@ assertVisualization(
 assertVisualization(
     str_contains($css, '.oha-topbar-actions {')
         && str_contains($css, 'position: sticky;')
-        && str_contains($css, 'box-shadow: 0 0 0 14px var(--oha-bg);'),
-    'Visualization must shield scrolled content below the sticky Symcon tile title.'
+        && str_contains($css, 'box-shadow: 0 -14px 0 14px var(--oha-bg);')
+        && !str_contains($css, 'box-shadow: 0 0 0 14px var(--oha-bg);'),
+    'Visualization must shield the sticky Symcon tile title without covering the following desktop content.'
+);
+assertVisualization(
+    str_contains($html, 'id="tileScrollContent"')
+        && str_contains($css, '.oha-scroll-content {')
+        && str_contains($css, 'html:not(.oha-ipsview) .oha-shell')
+        && str_contains($css, 'overscroll-behavior-y: contain;')
+        && str_contains($css, 'height: 100dvh;'),
+    'Native tiles must provide an internal scroll region instead of moving the host navigation.'
+);
+assertVisualization(
+    preg_match('/html:not\(\.oha-ipsview\) \.oha-shell \{[^}]*grid-auto-rows: max-content;/s', $css) === 1,
+    'Scrollable native tiles must size each dashboard row to its content so framed area controls cannot overlap the arming section.'
+);
+assertVisualization(
+    preg_match('/@media \(max-width: 620px\) \{.*?html:not\(\.oha-ipsview\) \.oha-shell \{.*?overflow: hidden;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-topbar-actions \{\s+position: static;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-scroll-content \{.*?overflow-y: auto;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-nav \{\s+height: auto;\s+min-height: 68px;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tabs \{.*?display: grid;.*?grid-template-columns: repeat\(auto-fit, minmax\(130px, 1fr\)\);.*?grid-auto-rows: minmax\(34px, auto\);.*?overflow: visible;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tab \{.*?width: 100%;.*?max-width: 100%;.*?white-space: normal;/s', $css) === 1
+        && preg_match('/html:not\(\.oha-ipsview\) \.oha-hero \{\s+min-height: 154px;/s', $css) === 1
+        && str_contains($css, 'min-height: 46px;')
+        && str_contains($css, 'scroll-padding-inline: 4px;'),
+    'Mobile tiles must keep the fixed title outside the content scroll region, grow wrapped area controls dynamically and reserve space for security status.'
+);
+assertVisualization(
+    preg_match('/@media \(max-width: 620px\) \{.*?\.oha-shell\[data-state="exit_delay"\] \.oha-hero.*?grid-template-columns: 42px minmax\(0, 1fr\) auto;/s', $css) === 1
+        && str_contains($css, 'font-size: clamp(1.1rem, 5.5cqi, 1.55rem);')
+        && preg_match('/\.oha-shell\[data-state="exit_delay"\] \.oha-hero-meta.*?grid-column: 3;.*?grid-row: 1;/s', $css) === 1,
+    'Mobile countdown states must keep responsive status text and the remaining time together in the visible hero row.'
+);
+assertVisualization(
+    str_contains($javascript, 'function ohaSchedulePartitionNavHeight()')
+        && str_contains($javascript, 'Math.ceil(nav.scrollHeight)')
+        && str_contains($javascript, 'nav.style.height = `${measuredHeight}px`;')
+        && str_contains($javascript, "window.addEventListener('resize', ohaSchedulePartitionNavHeight"),
+    'Mobile partition navigation must measure the whole framed selector to keep following content below it in WebViews.'
 );
 assertVisualization(str_contains($javascript, 'panel.hidden = !memoryActive || alarmActive;'), 'Alarm memory must only be shown when contextually relevant.');
 assertVisualization(str_contains($javascript, 'panel.hidden = !state.Faults?.Active;'), 'System faults must only be shown when active.');
@@ -203,7 +392,16 @@ foreach ([
     'Sensor management',
     'System log',
     'Recent activity',
-    'Silence alarm',
+    'System diagnostics',
+    'Inputs and communication',
+    'Missing',
+    'Unreadable',
+    'Disabled',
+    'Export diagnostics as JSON',
+    'Export diagnostics as CSV',
+    'Export event history as JSON',
+    'Export event history as CSV',
+    'Reset alarm actions',
     'Alarm triggered',
     'Reset alarm output',
     'Alarm output reset',

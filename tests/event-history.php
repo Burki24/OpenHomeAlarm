@@ -87,6 +87,8 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $currentValues = [];
 
+    private mixed $visualizationValue = null;
+
     public function Create(): void
     {
     }
@@ -125,6 +127,11 @@ class IPSModuleStrict
         $this->writtenValues = [];
     }
 
+    public function TestVisualizationValue(): mixed
+    {
+        return $this->visualizationValue;
+    }
+
     protected function SetVisualizationType(int $type): bool
     {
         return true;
@@ -132,6 +139,8 @@ class IPSModuleStrict
 
     protected function UpdateVisualizationValue(mixed $data): bool
     {
+        $this->visualizationValue = $data;
+
         return true;
     }
 
@@ -373,6 +382,38 @@ $history = json_decode($encodedHistory, true, 512, JSON_THROW_ON_ERROR);
 assertEventHistory(($history[0]['Event'] ?? null) === 'disarm_code_rejected', 'Rejected code attempts must be auditable.');
 assertEventHistory(!str_contains($encodedHistory, '9999'), 'The submitted disarm code must never be stored in the event history.');
 assertEventHistory(!str_contains($encodedHistory, '1234'), 'The configured disarm code must never be stored in the event history.');
+$alarmExport = json_decode(
+    $instance->ExportEventHistory('json', 0, 0, 'alarm'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertEventHistory(
+    count($alarmExport) === 1
+    && ($alarmExport[0]['Event'] ?? null) === 'alarm'
+    && ($alarmExport[0]['Source'] ?? null) === 'Haustür',
+    'The public JSON export must filter the persistent history without changing its fields.'
+);
+$csvExport = $instance->ExportEventHistory('csv', 0, 0, '');
+assertEventHistory(str_starts_with($csvExport, "Time,Event,Mode,State,Source,PartitionID\r\n"), 'The public CSV export must expose its stable header.');
+assertEventHistory(!str_contains($csvExport, '9999') && !str_contains($csvExport, '1234'), 'Exports must retain the event history code-redaction boundary.');
+$instance->RequestAction('ExportEventHistory', 'json');
+$visualizationExport = json_decode(
+    (string) $instance->TestVisualizationValue(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertEventHistory(
+    ($visualizationExport['Interaction']['Type'] ?? null) === 'event_history_export'
+    && ($visualizationExport['Interaction']['Format'] ?? null) === 'json'
+    && json_decode($visualizationExport['Interaction']['Content'] ?? '', true, 512, JSON_THROW_ON_ERROR) === $history,
+    'The visualization action must return the complete export as a transient interaction.'
+);
+assertEventHistory(
+    preg_match('/^openhomealarm-events-[0-9]{8}-[0-9]{6}\.json$/', $visualizationExport['Interaction']['Filename'] ?? '') === 1,
+    'Visualization exports need a deterministic, filesystem-safe download name.'
+);
 
 $testValues[5001] = false;
 assertEventHistory($instance->BypassSensor(5001) === true, 'A configured arming sensor must remain bypassable while disarmed.');

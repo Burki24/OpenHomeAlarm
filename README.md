@@ -1,8 +1,10 @@
 # OpenHomeAlarm
 
+![OpenHomeAlarm – Dein Zuhause. Sicher im Blick.](docs/images/openhomealarm-readme-hero.png)
+
 OpenHomeAlarm ist eine herstellerunabhängige Alarm- und Sicherheitszentrale für die Hausautomation auf Basis von Symcon.
 
-Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als Sensoren, 24/7-Auslöser oder technische Störungseingänge verwendet werden. Das Modul stellt die Zustandslogik, wiederanlaufsichere Verzögerungen, Sensorüberbrückungen, native Symcon-Aktionen, Code-Schutz, Alarmgedächtnis, Ereignisprotokoll, öffentliche Bedien-API und eine responsive HTML-SDK-Kachel sowie eine vollständig bedienbare IPSView-WebContent-Seite bereit.
+Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als Sensoren, 24/7-Auslöser oder technische Störungseingänge verwendet werden. Das Modul stellt unabhängige Alarmbereiche, wiederanlaufsichere Verzögerungen mit optionaler Countdown-Ausgabe, Sensorüberbrückungen, wöchentliche automatische Scharfschaltung, Alarm-Eskalationsstufen, native Symcon- und direkte Pushover-Benachrichtigungen, benutzerbezogene Unscharfschaltcodes, Alarmgedächtnis, Ereignis- und Diagnoseexporte sowie eine versionierte Konfigurationssicherung bereit. Bedient wird es über die öffentliche API, eine responsive HTML-SDK-Kachel oder die IPSView-WebContent-Seite.
 
 > [!WARNING]
 > OpenHomeAlarm ist keine zertifizierte Einbruch-, Brand- oder Gefahrenmeldeanlage nach EN-50131. Funktion und Verfügbarkeit hängen von Symcon, dem Hostsystem, dem Netzwerk, den eingebundenen Geräten und den konfigurierten Aktionen ab. Für normativ oder versicherungsrechtlich geforderte Schutzaufgaben ist geeignete zertifizierte Sicherheitstechnik erforderlich.
@@ -14,6 +16,102 @@ Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als
 ## Voraussetzungen
 
 - Symcon ab Version 9.0
+
+## Schnellstart
+
+1. Library installieren und eine **OpenHomeAlarm**-Instanz anlegen.
+2. Den vorhandenen Bereich `main` aktiv belassen. Er ist fest die Gesamtanlage;
+   zusätzliche Bereiche können einzeln geschaltet werden.
+3. Unter **Sensoren und Auslöser** Variablen hinzufügen, einem oder mehreren
+   Bereichen zuordnen und die gewünschten Modi (**Zuhause**, **Abwesend**,
+   **Nacht**) aktivieren.
+4. In der Kachel einen Modus auswählen. `main` schaltet alle aktiven Bereiche,
+   ein anderer Bereich nur diesen Bereich.
+5. Mit einem Testlauf prüfen, ob Sensorblocker, Unscharfschaltung und Aktionen
+   wie erwartet funktionieren.
+
+Die ausführliche Anleitung mit allen Einstellungen und PHP-Befehlen steht in der
+[OpenHomeAlarm-Dokumentation](OpenHomeAlarm).
+
+## Alarmbereiche – Kurzstart
+
+Beispiel: Eine Garage soll unabhängig vom Hauptbereich geschaltet werden.
+
+1. Unter **Alarmbereiche** einen aktiven Eintrag mit der ID `garage` und dem
+   Namen `Garage` anlegen. Den vorhandenen Hauptbereich (`main`) aktiv lassen.
+   Er ist fest die Gesamtanlage und schaltet alle aktiven Bereiche gemeinsam.
+2. **Änderungen übernehmen**.
+3. Die gewünschten Sensoren bearbeiten und unter **Alarmbereiche** mindestens
+   **Garage** auswählen. Ein Sensor darf mehreren Bereichen zugeordnet werden.
+4. Zum Schalten folgende Befehle in eigenen Symcon-Skripten verwenden:
+
+```php
+// Nur die Garage im Abwesend-Modus scharfschalten
+OHA_ArmPartition(12345, 'garage', 'away', null);
+
+// Nur die Garage unscharf schalten
+OHA_DisarmPartition(12345, 'garage');
+```
+
+`12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen. Zulässige Modi
+sind `home`, `away` und `night`. Andere Alarmbereiche werden durch diese Befehle
+nicht verändert. Bei `OHA_ArmPartition()` ist der vierte Parameter die
+Ausgangsverzögerung: `null` verwendet die konfigurierte Verzögerung, `0`
+schaltet sofort scharf und eine positive Zahl überschreibt sie einmalig.
+Mit dem optionalen fünften Parameter `true` wird die Garage für diesen
+Scharfschaltzyklus still, mit `false` ausdrücklich normal geschaltet. Ohne ihn
+gilt die Einstellung **Standardmäßig stiller Alarm** des Bereichs.
+Ein optionaler sechster Parameter `true` überbrückt bei diesem Aufruf nur
+bereits ausgelöste Sensoren, die unter **Sensoren und Auslöser** einzeln dafür
+freigegeben wurden, zum Beispiel
+`OHA_ArmPartition(12345, 'garage', 'away', null, null, true)`. Sobald ein so
+überbrückter Sensor wieder normal ist, wird er erneut überwacht.
+
+Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
+`OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,
+`OHA_ArmNight(12345, null)` oder `OHA_Disarm(12345)`. Bei den drei
+Scharfschaltbefehlen muss der zweite Parameter im von Symcon erzeugten
+`OHA_*`-Befehl immer angegeben werden: `null` verwendet die konfigurierte
+Ausgangsverzögerung, `0` schaltet ohne Verzögerung scharf und eine positive Zahl
+überschreibt die Verzögerung für diesen Aufruf. Ein Scharfschaltversuch über den
+Hauptbereich wird nur ausgeführt, wenn jeder aktive Bereich bereit ist; bei
+einem Blocker bleibt kein Bereich teilweise scharfgeschaltet.
+
+### Status eines Alarmbereichs im Script abfragen
+
+Die Statusvariablen unter der Instanz beschreiben den Gesamtzustand. Für einen
+einzelnen Alarmbereich lesen Sie den öffentlichen JSON-Status mit
+`OHA_GetControlState()` aus. Im folgenden Beispiel wird geprüft, ob die Garage
+gerade überwacht wird:
+
+```php
+$state = json_decode(OHA_GetControlState(12345), true, 512, JSON_THROW_ON_ERROR);
+$garage = $state['Partitions']['garage'] ?? null;
+$garageState = $garage['State']['Name'] ?? 'disarmed';
+
+$garageIsArmed = in_array(
+    $garageState,
+    ['exit_delay', 'armed', 'entry_delay', 'alarm'],
+    true
+);
+
+if ($garageIsArmed) {
+    // Abhängigkeit einschalten, zum Beispiel Licht oder eine Anwesenheitssimulation.
+}
+```
+
+`Mode.Name` enthält den aktiven Modus (`home`, `away` oder `night`).
+`State.Name` ist einer der Werte `disarmed`, `exit_delay`, `armed`,
+`entry_delay` oder `alarm`. Die Bereichs-ID `garage` ersetzen Sie durch die ID
+Ihres eigenen Bereichs.
+
+**Aktiv** bedeutet nur, dass ein Bereich verwendet werden kann; es schaltet ihn
+nicht scharf. Kachel und IPSView bieten eine Auswahl aller aktiven Bereiche.
+
+Die Bereichs-ID muss mit einem Kleinbuchstaben beginnen. Zulässig sind insgesamt
+1 bis 32 Kleinbuchstaben, Ziffern, `_` oder `-`, beispielsweise `main`, `garage`
+oder `bereich_1`. Der Anzeigename ist frei wählbar. Weitere Erläuterungen stehen
+in der [vollständigen Anleitung](OpenHomeAlarm#alarmbereiche).
 
 ## Sicherheit
 
@@ -38,9 +136,6 @@ Der lokale Test-Einstiegspunkt lautet:
 php tests/run.php
 ```
 
-Vor einem Release Candidate muss zusätzlich die
-[Symcon-9.0-Abnahmematrix](docs/SYMCON_9_ACCEPTANCE.md) auf einer realen
-Symcon-9.0-Installation vollständig durchgeführt und protokolliert werden.
 Der verbindliche Umfang und die Freigabekriterien stehen im
 [Release-Zielbild](docs/RELEASE_SCOPE.md).
 

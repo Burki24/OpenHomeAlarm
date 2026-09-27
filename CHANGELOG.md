@@ -1,9 +1,121 @@
 # Changelog
 
+- Die erweiterten IPSView-Farbeinstellungen blenden die ausschließlich für native Kalendersteuerungen vorgesehene Farbfamilie in OpenHomeAlarm aus.
+- Der zentrale `IPSViewHTMLPageHelper` stellt nun auch in OpenHomeAlarm den Button zur manuellen IPSView-HTML-Neugenerierung bereit und verarbeitet gemeinsame IPSView-Formularaktionen.
+
 Alle wesentlichen Änderungen an OpenHomeAlarm werden in diesem Dokument
 festgehalten. Die Library-Version folgt dem Format `Hauptversion.Nebenstand`
 aus `library.json`; der dazugehörige Git-Tag ergänzt für SemVer eine Patchstelle,
 beispielsweise `v1.109.0`.
+
+## Unreleased
+
+- Die Kachel- und IPSView-Oberfläche zeigen den Sicherheitsstatus zuerst. Die
+  Bereichsauswahl erhält einen eigenen Rahmen; Scharfmodi-Überschrift,
+  Alarmierungsart und Moduskarten stehen gemeinsam in einem zweiten Rahmen.
+  Kacheln bemessen die Rasterzeilen nach Inhalt, damit sich die Rahmen nicht
+  überlappen.
+
+- 24/7-Sensoren lösen nun stets einen normalen Alarm aus, auch in still
+  geschalteten Bereichen. Scharfmodus- und Verzögerungsfelder werden bei 24/7
+  deaktiviert; vorhandene Werte dafür bleiben ohne Wirkung.
+
+- Symcon-Push und Pushover können unabhängig voneinander nur bei normalen,
+  nur bei stillen oder bei beiden Alarmierungsarten benachrichtigen. Bestehende
+  Konfigurationen bleiben bei beiden Arten aktiv.
+
+- Die Eskalationsmaske benennt die Alarmierungsarten eindeutig als **Nur normal**,
+  **Nur still** und **Normal und still**. Bei Signalgebern wird die redundante
+  Auswahl ausgeblendet und ihre Beschränkung auf normale Alarme erklärt;
+  bestehende Einstellungen bleiben wirksam.
+
+- Die Alarmierungsart wird in Kachel und IPSView über einen gestalteten Switch
+  statt über ein im eingebetteten Browser unzuverlässiges Dropdown gewählt.
+
+- Stiller Alarm je Bereich: konfigurierbare Vorgabe und einmalige Auswahl beim
+  Scharfschalten per API, Kachel oder IPSView. Eskalationsaktionen können für
+  normale, stille oder beide Alarmierungsarten ausgeführt werden; Signalgeber
+  bleiben bei ausschließlich stillen Alarmbereichen aus.
+
+### Fixed
+
+- Verwaiste Sensor- oder Störungszuordnungen zu einem fehlenden bzw. deaktivierten
+  Alarmbereich führen beim Anwenden oder Neustart nicht mehr zu einem PHP-Fatal.
+  Die Instanz meldet stattdessen einen verständlichen Konfigurationsstatus, und
+  betroffene Einträge bleiben im Editor sichtbar und korrigierbar. Erkennt ein
+  späteres Modulupdate gleichzeitig eine solche Teilrücksetzung, stellt es die
+  zuletzt erfolgreich angewendeten Sicherheitsdaten einschließlich Alarmbereichen
+  und Eskalationsstufen wieder her; neu hinzugekommene Einstellungen bleiben erhalten.
+- Der Zustand ausgeführter Signalgeber wird über die sichtbare Boolean-Variable
+  `SignalGeneratorActive` geführt. Alarmierte Areas erhalten dadurch zuverlässig
+  die separate Aktion **Signalgeber stoppen**, ohne andere Alarmaktionen zurückzusetzen.
+- Das von der Symcon-Konsole gespeicherte flache Format der Eskalationsaktionen
+  übernimmt `ResetMode`, `ResetAction` und `SignalGenerator` nun vollständig;
+  zuvor ging insbesondere die Signalgeber-Markierung beim Einlesen verloren.
+- Ausgangsweg-Bewegungsmelder dürfen am Ende der Ausgangsverzögerung noch ihren
+  nachlaufenden Auslösewert melden, ohne die Scharfschaltung abzubrechen; Kontakte,
+  normale, fehlende oder unlesbare Sensoren und blockierende Störungen bleiben strikt.
+
+### Added
+
+- Direkter Pushover-Versand ohne zusätzliches Symcon-Modul mit optionalem
+  Empfängergerät, Sound, Priorität und verzögerter Alarm-Eskalation. Notfall-
+  Wiederholungen werden beim Ende des Alarmausgangs über den gespeicherten
+  Pushover-Beleg beendet.
+- Eskalationsaktionen unterstützen neben der automatischen Boolean-Umkehrung
+  eine explizite native Rücksetzaktion für Rollläden, Dimmer, Szenen und andere
+  mehrwertige Ziele.
+- Sensoren können mehreren Alarmbereichen gleichzeitig zugeordnet werden;
+  temporäre Überbrückungen bleiben dabei je Sensor und Bereich getrennt.
+- Unabhängig bedienbare Alarmbereiche mit bereichsbezogenen Zuständen,
+  Alarmgedächtnissen und Ausgängen.
+- Benutzerbezogene Unscharfschaltcodes mit gemeinsamer, wiederanlaufsicherer
+  Fehlversuchs- und Sperrzeitbehandlung.
+- Wöchentliche automatische Scharfschaltung über die regulären
+  Bereitschaftsprüfungen.
+- Optionale Countdown-Aktion für Ein- und Ausgangsverzögerungen sowie
+  zeitgesteuerte Alarm-Eskalationsstufen.
+- JSON- und CSV-Export für Ereignishistorie und Systemdiagnose.
+- Gemeinsame Diagnoseansicht für HTML-SDK-Kachel und IPSView mit Sensor-,
+  Störungs- und Aktualitätsinformationen.
+- Versionierter Export und validierte Wiederherstellung der vollständigen
+  Modulkonfiguration.
+
+### Changed
+
+- Kachel und IPSView stellen Alarmbereiche, Diagnose und Exportfunktionen über
+  denselben Bedienzustand bereit.
+- Der zentrale `IPSViewStyleHelper` wurde bis Version 1.6.4 aktualisiert.
+- Die IPSView-Konfiguration verwendet nun dieselbe gemeinsame Bearbeitungsmaske
+  wie OpenCalendar, einschließlich optionaler gruppierter Überschreibungen für
+  native IPSView-Farben.
+- Das HTML-Dokument von Kachel und IPSView kennzeichnet die aktive
+  Symcon-Sprache nun auch im standardkonformen `lang`-Attribut.
+
+### Fixed
+
+- Die native Auswahl einer eigenen Eskalations-Rücksetzaktion wird nur noch im
+  entsprechenden Rücksetzmodus erzeugt und blockiert Boolean-Aktionen nicht
+  mehr mit „Keine Aktion ausgewählt“.
+- Bereits konfigurierte optionale Aktionen behalten ihren Wert in der
+  dynamischen Konfigurationsmaske und blockieren dadurch keine unabhängigen
+  Änderungen mehr mit „Keine Aktion ausgewählt“.
+
+### Security
+
+- Konfigurationssicherungen sind ausdrücklich als vertraulich gekennzeichnet,
+  weil sie Unscharfschaltcodes, Pushover-Zugangsdaten und IPSView-Zugriffstoken
+  enthalten können.
+- Wiederherstellungen sind nur bei vollständig unscharfer Anlage zulässig und
+  weisen fremde, unbekannte oder typwidrige Sicherungsdaten ab.
+
+### Verified
+
+- Die automatisierten Tests und die praktische Einzelprüfung der neuen
+  Funktionen wurden während der Entwicklung bestanden.
+- Export, Wiederherstellung, Ablehnung einer fremden Modul-ID und unveränderte
+  Rückkehr zur Ausgangskonfiguration wurden auf der Symcon-Testinstanz geprüft.
+- Die vollständige Release-Abnahme des exakten Kandidaten-Commits steht noch aus.
 
 ## 1.122 – 2026-08-24
 

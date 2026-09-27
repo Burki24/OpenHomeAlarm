@@ -358,6 +358,26 @@ assertDisarmCode(
     'An invalid configured code must not disarm the system.'
 );
 
+$userInstance = new OpenHomeAlarm();
+$userInstance->Create();
+$userInstance->TestSetPropertyString(
+    'DisarmUsers',
+    '[{"Enabled":true,"Name":"Alice","Code":"1357"},{"Enabled":false,"Name":"Bob","Code":"2468"}]'
+);
+$userInstance->TestSetCurrentValue('Mode', 2);
+$userInstance->TestSetCurrentValue('State', 2);
+assertDisarmCode($userInstance->DisarmWithCode('2468') === false, 'A disabled user code must be rejected.');
+assertDisarmCode($userInstance->DisarmWithCode('1357') === true, 'An enabled user code must disarm the system.');
+$userEvents = json_decode($userInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertDisarmCode(
+    ($userEvents[0]['Event'] ?? null) === 'disarmed' && ($userEvents[0]['Source'] ?? null) === 'Alice',
+    'A successful named-user disarm must record only the user name.'
+);
+assertDisarmCode(
+    !str_contains(json_encode($userEvents, JSON_THROW_ON_ERROR), '1357'),
+    'A named user code must never be stored in event history.'
+);
+
 $form = json_decode(
     (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'),
     true,
@@ -374,11 +394,15 @@ foreach ($form['elements'] ?? [] as $element) {
 assertDisarmCode(is_array($codePanel), 'The configuration form must contain the Code protection panel.');
 
 $codeField = null;
+$userList = null;
 $maximumAttemptsField = null;
 $lockoutSecondsField = null;
 foreach ($codePanel['items'] ?? [] as $item) {
     if (($item['name'] ?? null) === 'DisarmCode') {
         $codeField = $item;
+    }
+    if (($item['name'] ?? null) === 'DisarmUsers') {
+        $userList = $item;
     }
     foreach ($item['items'] ?? [] as $nestedItem) {
         if (($nestedItem['name'] ?? null) === 'DisarmMaxAttempts') {
@@ -396,6 +420,7 @@ assertDisarmCode(
     ($codeField['validate'] ?? null) === '^(?:[0-9]{4,8})?$',
     'DisarmCode must accept only an empty value or 4 to 8 digits.'
 );
+assertDisarmCode(is_array($userList) && ($userList['type'] ?? null) === 'List', 'Named disarm users must be configurable as a list.');
 assertDisarmCode(
     ($maximumAttemptsField['minimum'] ?? null) === 1
         && ($maximumAttemptsField['maximum'] ?? null) === 20,

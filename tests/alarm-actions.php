@@ -22,6 +22,50 @@ $testValues = [
 /** @var list<array{actionID:string,parameters:array<string,mixed>}> */
 $testActions = [];
 
+$testPendingConfigurationChanges = false;
+$testResetConfigurationChanges = 0;
+/** @var list<array{tileID:int,title:string,message:string,icon:string,sound:string,targetID:int}> */
+$testPushNotifications = [];
+
+function VISU_PostNotificationEx(
+    int $tileID,
+    string $title,
+    string $message,
+    string $icon,
+    string $sound,
+    int $targetID
+): int|false {
+    global $testPushNotifications;
+
+    $testPushNotifications[] = [
+        'tileID'   => $tileID,
+        'title'    => $title,
+        'message'  => $message,
+        'icon'     => $icon,
+        'sound'    => $sound,
+        'targetID' => $targetID
+    ];
+
+    return count($testPushNotifications);
+}
+
+function IPS_HasChanges(int $instanceID): bool
+{
+    global $testPendingConfigurationChanges;
+
+    return $testPendingConfigurationChanges;
+}
+
+function IPS_ResetChanges(int $instanceID): bool
+{
+    global $testPendingConfigurationChanges, $testResetConfigurationChanges;
+
+    $testPendingConfigurationChanges = false;
+    ++$testResetConfigurationChanges;
+
+    return true;
+}
+
 function IPS_VariableExists(int $variableID): bool
 {
     global $testVariables;
@@ -79,6 +123,14 @@ function IPS_RunAction(string $actionID, array $parameters): bool
 
 class IPSModuleStrict
 {
+    public int $InstanceID = 0;
+
+    /** @var list<array{field:string,parameter:string,value:mixed}> */
+    private array $formUpdates = [];
+
+    /** @var list<string> */
+    private array $reloadedForms = [];
+
     /** @var array<string,mixed> */
     private array $properties = [];
 
@@ -119,6 +171,11 @@ class IPSModuleStrict
         $this->properties[$name] = $value;
     }
 
+    public function TestSetCurrentValue(string $ident, mixed $value): void
+    {
+        $this->currentValues[$ident] = $value;
+    }
+
     /** @return array<string,mixed> */
     public function TestWrittenValues(): array
     {
@@ -128,6 +185,35 @@ class IPSModuleStrict
     public function TestClearWrittenValues(): void
     {
         $this->writtenValues = [];
+    }
+
+    /** @return array<string,int|string> */
+    public function TestAttributes(): array
+    {
+        return $this->attributes;
+    }
+
+    /** @return array<string,array{interval:int,script:string}> */
+    public function TestTimers(): array
+    {
+        return $this->timers;
+    }
+
+    /** @return list<array{field:string,parameter:string,value:mixed}> */
+    public function TestFormUpdates(): array
+    {
+        return $this->formUpdates;
+    }
+
+    /** @return list<string> */
+    public function TestReloadedForms(): array
+    {
+        return $this->reloadedForms;
+    }
+
+    public function TestSetAttributeString(string $name, string $value): void
+    {
+        $this->attributes[$name] = $value;
     }
 
     protected function SetVisualizationType(int $type): bool
@@ -288,6 +374,19 @@ class IPSModuleStrict
 
     protected function UpdateFormField(string $field, string $parameter, mixed $value): bool
     {
+        $this->formUpdates[] = [
+            'field'     => $field,
+            'parameter' => $parameter,
+            'value'     => $value
+        ];
+
+        return true;
+    }
+
+    protected function ReloadForm(): bool
+    {
+        $this->reloadedForms[] = $this->GetConfigurationForm();
+
         return true;
     }
 
@@ -305,6 +404,48 @@ function assertAlarmAction(bool $condition, string $message): void
 }
 
 require_once dirname(__DIR__) . '/OpenHomeAlarm/module.php';
+
+final class TestablePushoverOpenHomeAlarm extends OpenHomeAlarm
+{
+    /** @var list<array{url:string,parameters:array<string,string|int>}> */
+    private array $pushoverRequests = [];
+
+    /** @var list<string> */
+    private array $pushoverResponses = [];
+
+    public function TestQueuePushoverResponse(string $response): void
+    {
+        $this->pushoverResponses[] = $response;
+    }
+
+    /** @return list<array{url:string,parameters:array<string,string|int>}> */
+    public function TestPushoverRequests(): array
+    {
+        return $this->pushoverRequests;
+    }
+
+    /** @param array<string,string|int> $parameters */
+    protected function PerformPushoverRequest(string $url, array $parameters): string
+    {
+        $this->pushoverRequests[] = ['url' => $url, 'parameters' => $parameters];
+        if ($this->pushoverResponses === []) {
+            throw new RuntimeException('Missing queued Pushover response.');
+        }
+
+        return array_shift($this->pushoverResponses);
+    }
+
+    /** @return array<string,mixed> */
+    protected function LoadConfigurationForm(): array
+    {
+        return json_decode(
+            (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+    }
+}
 
 /** @return array<string,mixed> */
 function alarmActionSensor(int $variableID, bool $entryDelay): array
@@ -336,15 +477,40 @@ function findAlarmActionFormField(array $elements, string $name): ?array
         if (($element['name'] ?? null) === $name) {
             return $element;
         }
-        if (isset($element['items']) && is_array($element['items'])) {
-            $found = findAlarmActionFormField($element['items'], $name);
-            if ($found !== null) {
-                return $found;
+        foreach (['items', 'form'] as $childField) {
+            if (isset($element[$childField]) && is_array($element[$childField])) {
+                $found = findAlarmActionFormField($element[$childField], $name);
+                if ($found !== null) {
+                    return $found;
+                }
             }
         }
     }
 
     return null;
+}
+
+/**
+ * @param list<array<string,mixed>> $elements
+ *
+ * @return list<array<string,mixed>>
+ */
+function collectAlarmActionExpansionPanels(array $elements): array
+{
+    $panels = [];
+    foreach ($elements as $element) {
+        if (!is_array($element)) {
+            continue;
+        }
+        if (($element['type'] ?? null) === 'ExpansionPanel') {
+            $panels[] = $element;
+        }
+        if (isset($element['items']) && is_array($element['items'])) {
+            array_push($panels, ...collectAlarmActionExpansionPanels($element['items']));
+        }
+    }
+
+    return $panels;
 }
 
 $alarmAction = json_encode([
@@ -356,83 +522,17 @@ $alarmAction = json_encode([
         'VALUE'       => true
     ]
 ], JSON_THROW_ON_ERROR);
-$disarmAction = json_encode([
-    'actionID'   => '{22222222-2222-2222-2222-222222222222}',
+$countdownAction = json_encode([
+    'actionID'   => '{33333333-3333-3333-3333-333333333333}',
     'parameters' => [
-        'TARGET'      => 5001,
+        'TARGET'      => 5002,
         'ENVIRONMENT' => 'Default',
         'PARENT'      => 6001,
-        'VALUE'       => false
+        'VALUE'       => true
     ]
 ], JSON_THROW_ON_ERROR);
 
-$instance = new OpenHomeAlarm();
-$instance->Create();
-$instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$instance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$instance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$instance->TestSetPropertyString('AlarmAction', $alarmAction);
-$instance->TestSetPropertyInteger('DisarmAfterAlarmActionEnabled', 1);
-$instance->TestSetPropertyString('DisarmAfterAlarmAction', $disarmAction);
-$instance->TestSetPropertyString(
-    'Sensors',
-    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
-);
-$instance->TestClearWrittenValues();
-
-assertAlarmAction($instance->ArmAway() === true, 'Away arming must succeed before testing alarm actions.');
-
-global $testValues, $testActions;
-$testValues[4001] = true;
-$instance->TestClearWrittenValues();
-$instance->MessageSink(1, 4001, VM_UPDATE, [true, true, false]);
-assertAlarmAction(
-    ($instance->TestWrittenValues()['State'] ?? null) === 4,
-    'An immediate sensor must enter Alarm before its configured action is executed.'
-);
-assertAlarmAction(count($testActions) === 1, 'Alarm action must run exactly once when Alarm starts.');
-assertAlarmAction(
-    $testActions[0]['actionID'] === '{11111111-1111-1111-1111-111111111111}'
-    && ($testActions[0]['parameters']['VALUE'] ?? null) === true,
-    'Alarm action must preserve the action ID and parameters selected by Symcon.'
-);
-
-$instance->MessageSink(2, 4001, VM_UPDATE, [true, true, true]);
-assertAlarmAction(count($testActions) === 1, 'Further sensor updates during Alarm must not rerun the alarm action.');
-
-$instance->Disarm();
-assertAlarmAction(count($testActions) === 2, 'Disarming an active Alarm must run the reset action once.');
-assertAlarmAction(
-    $testActions[1]['actionID'] === '{22222222-2222-2222-2222-222222222222}'
-    && ($testActions[1]['parameters']['VALUE'] ?? null) === false,
-    'Reset action must preserve the action ID and parameters selected by Symcon.'
-);
-assertAlarmAction(
-    ($instance->TestWrittenValues()['State'] ?? null) === 0
-    && ($instance->TestWrittenValues()['Mode'] ?? null) === 0,
-    'Disarming must remain successful independently of the configured reset action.'
-);
-
-$instance->Disarm();
-assertAlarmAction(count($testActions) === 2, 'Disarming an already disarmed system must not rerun the reset action.');
-
-// The native SelectAction false value represents a valid, deliberately unconfigured optional action.
-$testActions = [];
-$testValues[4001] = false;
-$noActionInstance = new OpenHomeAlarm();
-$noActionInstance->Create();
-$noActionInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$noActionInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$noActionInstance->TestSetPropertyString(
-    'Sensors',
-    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
-);
-assertAlarmAction($noActionInstance->ArmAway() === true, 'Unconfigured optional-action test must arm successfully.');
-$testValues[4001] = true;
-$noActionInstance->MessageSink(20, 4001, VM_UPDATE, [true, true, false]);
-assertAlarmAction($testActions === [], 'A native SelectAction false value must behave as no configured action.');
-
-// Entry-delay completion must use the same central Alarm transition and therefore run the alarm action.
+// Countdown actions remain independent of escalation actions.
 $testActions = [];
 $testValues[4001] = false;
 $testValues[4002] = false;
@@ -440,8 +540,7 @@ $delayedInstance = new OpenHomeAlarm();
 $delayedInstance->Create();
 $delayedInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $delayedInstance->TestSetPropertyInteger('EntryDelaySeconds', 10);
-$delayedInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$delayedInstance->TestSetPropertyString('AlarmAction', $alarmAction);
+$delayedInstance->TestSetPropertyString('CountdownAction', $countdownAction);
 $delayedInstance->TestSetPropertyString(
     'Sensors',
     json_encode([alarmActionSensor(4002, true)], JSON_THROW_ON_ERROR)
@@ -450,32 +549,654 @@ $delayedInstance->TestClearWrittenValues();
 assertAlarmAction($delayedInstance->ArmAway() === true, 'Delayed alarm action test must arm successfully.');
 $testValues[4002] = true;
 $delayedInstance->MessageSink(3, 4002, VM_UPDATE, [true, true, false]);
-assertAlarmAction(count($testActions) === 0, 'Entry-delay start must not run the alarm action early.');
+assertAlarmAction(
+    count($testActions) === 1
+    && $testActions[0]['actionID'] === '{33333333-3333-3333-3333-333333333333}',
+    'Entry-delay start must run the optional countdown action, but not the alarm action.'
+);
+$entryDeadline = (int) ($delayedInstance->TestAttributes()['EntryDelayDeadline'] ?? 0);
+$runCountdownStep = new ReflectionMethod(OpenHomeAlarm::class, 'RunCountdownActionStep');
+$runCountdownStep->invoke($delayedInstance, $entryDeadline, 10);
+assertAlarmAction(count($testActions) === 1, 'The same countdown step must not run twice.');
+$runCountdownStep->invoke($delayedInstance, $entryDeadline, 9);
+assertAlarmAction(
+    count($testActions) === 2
+    && $testActions[1]['actionID'] === '{33333333-3333-3333-3333-333333333333}',
+    'A new positive countdown value must run the configured action once.'
+);
 $delayedInstance->CompleteEntryDelay();
-assertAlarmAction(count($testActions) === 1, 'Entry-delay expiry must run the alarm action exactly once.');
+assertAlarmAction(
+    count($testActions) === 2,
+    'Entry-delay expiry must not execute removed global alarm actions.'
+);
 
-// Broken optional action configuration must never prevent the core alarm state transition.
+// Optional action Lists may contain multiple independently enabled native actions.
+$testActions = [];
+$listCountdownInstance = new OpenHomeAlarm();
+$listCountdownInstance->Create();
+$listCountdownInstance->TestSetPropertyString('CountdownAction', json_encode([
+    ['Enabled' => true, 'Name' => 'Countdown', 'Action' => $countdownAction],
+    ['Enabled' => false, 'Name' => 'Disabled', 'Action' => $alarmAction]
+], JSON_THROW_ON_ERROR));
+$runCountdownStep->invoke($listCountdownInstance, time() + 10, 10);
+assertAlarmAction(
+    count($testActions) === 1
+    && $testActions[0]['actionID'] === '{33333333-3333-3333-3333-333333333333}',
+    'Optional action Lists must execute every enabled action and ignore disabled rows.'
+);
+
+// A broken optional countdown action must never block the delay state machine.
 $testActions = [];
 $testValues[4001] = false;
-$brokenInstance = new OpenHomeAlarm();
-$brokenInstance->Create();
-$brokenInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$brokenInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
-$brokenInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$brokenInstance->TestSetPropertyString('AlarmAction', '{invalid json');
-$brokenInstance->TestSetPropertyString(
+$brokenCountdownInstance = new OpenHomeAlarm();
+$brokenCountdownInstance->Create();
+$brokenCountdownInstance->TestSetPropertyInteger('ExitDelaySeconds', 5);
+$brokenCountdownInstance->TestSetPropertyString('CountdownAction', '{invalid json');
+$brokenCountdownInstance->TestSetPropertyString(
     'Sensors',
     json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
 );
-$brokenInstance->TestClearWrittenValues();
-assertAlarmAction($brokenInstance->ArmAway() === true, 'Broken optional alarm action must not block arming.');
-$testValues[4001] = true;
-$brokenInstance->MessageSink(4, 4001, VM_UPDATE, [true, true, false]);
 assertAlarmAction(
-    ($brokenInstance->TestWrittenValues()['State'] ?? null) === 4,
-    'Broken optional action configuration must not prevent the Alarm state.'
+    $brokenCountdownInstance->ArmAway() === true
+    && ($brokenCountdownInstance->TestWrittenValues()['State'] ?? null) === 1,
+    'A broken countdown action must not block the normal exit-delay state.'
 );
-assertAlarmAction($testActions === [], 'Invalid action configuration must not call IPS_RunAction.');
+assertAlarmAction($testActions === [], 'An invalid countdown action must not call IPS_RunAction.');
+
+// Escalation steps execute once relative to the global alarm start and stop with the alarm output.
+$testActions = [];
+$testValues[4001] = false;
+$immediateEscalationAction = json_encode([
+    'actionID'   => '{44444444-4444-4444-4444-444444444444}',
+    'parameters' => ['VALUE' => 'immediate']
+], JSON_THROW_ON_ERROR);
+$delayedEscalationAction = json_encode([
+    'actionID'   => '{55555555-5555-5555-5555-555555555555}',
+    'parameters' => ['VALUE' => 'delayed']
+], JSON_THROW_ON_ERROR);
+$escalationInstance = new OpenHomeAlarm();
+$escalationInstance->Create();
+$escalationInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$escalationInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$escalationInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Immediate', 'DelaySeconds' => 0, 'Action' => $immediateEscalationAction],
+    ['Enabled' => true, 'Name' => 'Delayed', 'DelaySeconds' => 60, 'Action' => $delayedEscalationAction]
+], JSON_THROW_ON_ERROR));
+$escalationInstance->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($escalationInstance->ArmAway(), 'Escalation test must arm successfully.');
+$testValues[4001] = true;
+$escalationInstance->MessageSink(30, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    count($testActions) === 1
+    && $testActions[0]['actionID'] === '{44444444-4444-4444-4444-444444444444}',
+    'A zero-delay escalation step must execute once when the alarm starts.'
+);
+assertAlarmAction(
+    ($escalationInstance->TestTimers()['AlarmEscalation']['interval'] ?? 0) > 0,
+    'A pending delayed escalation step must schedule the shared timer.'
+);
+$escalationInstance->ProcessAlarmEscalation();
+assertAlarmAction(count($testActions) === 1, 'A processed escalation step must not execute twice.');
+$escalationRuntime = json_decode(
+    (string) ($escalationInstance->TestAttributes()['AlarmEscalationRuntime'] ?? '[]'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$escalationRuntime['StartedAt'] = time() - 120;
+$escalationInstance->TestSetAttributeString(
+    'AlarmEscalationRuntime',
+    json_encode($escalationRuntime, JSON_THROW_ON_ERROR)
+);
+$escalationInstance->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($testActions) === 2
+    && $testActions[1]['actionID'] === '{55555555-5555-5555-5555-555555555555}',
+    'An elapsed delayed escalation step must execute through the public timer callback.'
+);
+$escalationInstance->ProcessAlarmEscalation();
+assertAlarmAction(count($testActions) === 2, 'A delayed escalation step must remain exactly-once after execution.');
+assertAlarmAction($escalationInstance->ResetAlarmOutput(), 'The active alarm output must remain resettable.');
+assertAlarmAction(
+    ($escalationInstance->TestTimers()['AlarmEscalation']['interval'] ?? -1) === 0
+    && ($escalationInstance->TestAttributes()['AlarmEscalationRuntime'] ?? '') === '[]',
+    'Ending the last alarm output must cancel and clear its escalation cycle.'
+);
+
+// Native tile push notifications may be sent immediately without requiring a PHP action row.
+$testPushNotifications = [];
+$testValues[4001] = false;
+$immediatePush = new OpenHomeAlarm();
+$immediatePush->Create();
+$immediatePush->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$immediatePush->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$immediatePush->TestSetPropertyInteger('PushNotificationMode', 1);
+$immediatePush->TestSetPropertyInteger('PushNotificationTileID', 12345);
+$immediatePush->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($immediatePush->ArmAway(), 'Immediate-push test must arm successfully.');
+$testValues[4001] = true;
+$immediatePush->MessageSink(34, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $testPushNotifications === [[
+        'tileID'   => 12345,
+        'title'    => 'Intrusion alarm Main area!',
+        'message'  => 'Sensor Test 4001 triggered.',
+        'icon'     => 'Alert',
+        'sound'    => 'siren',
+        'targetID' => 0
+    ]],
+    'An immediate native push notification must include the affected area and triggering sensor.'
+);
+$immediatePush->ProcessAlarmEscalation();
+assertAlarmAction(count($testPushNotifications) === 1, 'An immediate native push notification must be sent only once per alarm cycle.');
+
+// The delayed mode shares the escalation timer but does not require a user-defined action.
+$testPushNotifications = [];
+$testValues[4001] = false;
+$delayedPush = new OpenHomeAlarm();
+$delayedPush->Create();
+$delayedPush->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$delayedPush->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$delayedPush->TestSetPropertyInteger('PushNotificationMode', 2);
+$delayedPush->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$delayedPush->TestSetPropertyInteger('PushNotificationDelaySeconds', 60);
+$delayedPush->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($delayedPush->ArmAway(), 'Delayed-push test must arm successfully.');
+$testValues[4001] = true;
+$delayedPush->MessageSink(35, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $testPushNotifications === []
+    && ($delayedPush->TestTimers()['AlarmEscalation']['interval'] ?? 0) > 0,
+    'A delayed native push notification must schedule the shared escalation timer without sending immediately.'
+);
+$delayedPushRuntime = json_decode(
+    (string) ($delayedPush->TestAttributes()['AlarmEscalationRuntime'] ?? '[]'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$delayedPushRuntime['StartedAt'] = time() - 120;
+$delayedPush->TestSetAttributeString(
+    'AlarmEscalationRuntime',
+    json_encode($delayedPushRuntime, JSON_THROW_ON_ERROR)
+);
+$delayedPush->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($testPushNotifications) === 1
+    && $testPushNotifications[0]['tileID'] === 23456
+    && $testPushNotifications[0]['message'] === 'Sensor Test 4001 triggered.',
+    'An elapsed native push delay must send the notification through the escalation timer.'
+);
+
+// Pushover is sent directly without requiring a third-party Symcon module.
+$testValues[4001] = false;
+$invalidPushoverConnection = new TestablePushoverOpenHomeAlarm();
+$invalidPushoverConnection->Create();
+assertAlarmAction(
+    !$invalidPushoverConnection->TestPushover()
+        && $invalidPushoverConnection->TestPushoverRequests() === [],
+    'The Pushover connection test must reject missing credentials without starting a network request.'
+);
+
+$pushoverConnectionTest = new TestablePushoverOpenHomeAlarm();
+$pushoverConnectionTest->Create();
+$pushoverConnectionTest->TestSetPropertyString('PushoverApplicationToken', str_repeat('T', 30));
+$pushoverConnectionTest->TestSetPropertyString('PushoverUserKey', str_repeat('K', 30));
+$pushoverConnectionTest->TestQueuePushoverResponse('{"status":1,"request":"connection-test"}');
+assertAlarmAction(
+    $pushoverConnectionTest->TestPushover()
+        && ($pushoverConnectionTest->TestPushoverRequests()[0]['parameters']['priority'] ?? null) === 0
+        && ($pushoverConnectionTest->TestPushoverRequests()[0]['parameters']['title'] ?? null) === 'OpenHomeAlarm test',
+    'The public Pushover connection test must send a harmless normal-priority message.'
+);
+
+$pushover = new TestablePushoverOpenHomeAlarm();
+$pushover->Create();
+$pushover->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$pushover->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$pushover->TestSetPropertyInteger('PushoverNotificationMode', 1);
+$pushover->TestSetPropertyString('PushoverApplicationToken', str_repeat('A', 30));
+$pushover->TestSetPropertyString('PushoverUserKey', str_repeat('U', 30));
+$pushover->TestSetPropertyString('PushoverDevice', 'iphone');
+$pushover->TestSetPropertyInteger('PushoverPriority', 1);
+$pushover->TestSetPropertyString('PushoverSound', 'siren');
+$pushover->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+$pushover->TestQueuePushoverResponse('{"status":1,"request":"test-request"}');
+assertAlarmAction($pushover->ArmAway(), 'Pushover test must arm successfully.');
+$testValues[4001] = true;
+$pushover->MessageSink(36, 4001, VM_UPDATE, [true, true, false]);
+$pushoverRequests = $pushover->TestPushoverRequests();
+assertAlarmAction(
+    $pushoverRequests === [[
+        'url'        => 'https://api.pushover.net/1/messages.json',
+        'parameters' => [
+            'token'    => str_repeat('A', 30),
+            'user'     => str_repeat('U', 30),
+            'title'    => 'Intrusion alarm Main area!',
+            'message'  => 'Sensor Test 4001 triggered.',
+            'priority' => 1,
+            'device'   => 'iphone',
+            'sound'    => 'siren'
+        ]
+    ]],
+    'A direct Pushover alarm must include credentials, alarm context, priority and optional routing fields.'
+);
+$pushover->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($pushover->TestPushoverRequests()) === 1,
+    'A direct Pushover notification must be attempted only once per alarm cycle.'
+);
+
+$testValues[4001] = false;
+$rejectedPushover = new TestablePushoverOpenHomeAlarm();
+$rejectedPushover->Create();
+$rejectedPushover->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$rejectedPushover->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$rejectedPushover->TestSetPropertyInteger('PushoverNotificationMode', 1);
+$rejectedPushover->TestSetPropertyString('PushoverApplicationToken', str_repeat('R', 30));
+$rejectedPushover->TestSetPropertyString('PushoverUserKey', str_repeat('S', 30));
+$rejectedPushover->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+$rejectedPushover->TestQueuePushoverResponse('{"status":0,"errors":["application token is invalid"]}');
+assertAlarmAction($rejectedPushover->ArmAway(), 'Rejected-Pushover test must arm successfully.');
+$testValues[4001] = true;
+$rejectedPushover->MessageSink(38, 4001, VM_UPDATE, [true, true, false]);
+$rejectedPushoverState = json_decode($rejectedPushover->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    ($rejectedPushoverState['Alarm']['OutputActive'] ?? false) === true
+        && count($rejectedPushover->TestPushoverRequests()) === 1,
+    'A rejected Pushover request must not interrupt the alarm state or create uncontrolled retries.'
+);
+
+// Emergency Pushover retries are cancelled when the alarm is disarmed.
+$testValues[4001] = false;
+$emergencyPushover = new TestablePushoverOpenHomeAlarm();
+$emergencyPushover->Create();
+$emergencyPushover->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$emergencyPushover->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$emergencyPushover->TestSetPropertyInteger('PushoverNotificationMode', 1);
+$emergencyPushover->TestSetPropertyString('PushoverApplicationToken', str_repeat('B', 30));
+$emergencyPushover->TestSetPropertyString('PushoverUserKey', str_repeat('V', 30));
+$emergencyPushover->TestSetPropertyInteger('PushoverPriority', 2);
+$emergencyPushover->TestSetPropertyInteger('PushoverEmergencyRetrySeconds', 60);
+$emergencyPushover->TestSetPropertyInteger('PushoverEmergencyExpireSeconds', 1800);
+$emergencyPushover->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+$emergencyPushover->TestQueuePushoverResponse('{"status":1,"request":"alarm-request","receipt":"receipt-123"}');
+$emergencyPushover->TestQueuePushoverResponse('{"status":1,"request":"cancel-request"}');
+assertAlarmAction($emergencyPushover->ArmAway(), 'Emergency Pushover test must arm successfully.');
+$testValues[4001] = true;
+$emergencyPushover->MessageSink(37, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    ($emergencyPushover->TestPushoverRequests()[0]['parameters']['retry'] ?? null) === 60
+        && ($emergencyPushover->TestPushoverRequests()[0]['parameters']['expire'] ?? null) === 1800
+        && ($emergencyPushover->TestAttributes()['PushoverEmergencyReceipt'] ?? '') === 'receipt-123',
+    'Emergency Pushover notifications must persist their receipt and configured retry window.'
+);
+assertAlarmAction($emergencyPushover->Disarm(), 'Disarming after an emergency Pushover alarm must succeed.');
+$emergencyRequests = $emergencyPushover->TestPushoverRequests();
+assertAlarmAction(
+    count($emergencyRequests) === 2
+        && $emergencyRequests[1] === [
+            'url'        => 'https://api.pushover.net/1/receipts/receipt-123/cancel.json',
+            'parameters' => ['token' => str_repeat('B', 30)]
+        ]
+        && ($emergencyPushover->TestAttributes()['PushoverEmergencyReceipt'] ?? 'missing') === '',
+    'Disarming must cancel Pushover emergency retries and clear the persisted receipt after success.'
+);
+
+// Symcon persists each row of the current escalation form as one flat action.
+$testActions = [];
+$testValues[4001] = false;
+$flatSignalGenerator = new OpenHomeAlarm();
+$flatSignalGenerator->Create();
+$flatSignalGenerator->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$flatSignalGenerator->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$flatSignalGenerator->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'         => true,
+    'Name'            => 'Form siren',
+    'DelaySeconds'    => 0,
+    'Action'          => ['actionID' => '{FORM-SIREN}', 'parameters' => ['VALUE' => true]],
+    'ResetMode'       => 1,
+    'ResetAction'     => '',
+    'SignalGenerator' => true
+]], JSON_THROW_ON_ERROR));
+$flatSignalGenerator->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($flatSignalGenerator->ArmAway(), 'The flat-form signal-generator test must arm successfully.');
+$testValues[4001] = true;
+$flatSignalGenerator->MessageSink(31, 4001, VM_UPDATE, [true, true, false]);
+$flatSignalState = json_decode($flatSignalGenerator->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    count($testActions) === 1
+        && $testActions[0]['parameters']['VALUE'] === true
+        && $flatSignalState['Alarm']['SignalGeneratorActive'] === true
+        && $flatSignalState['Capabilities']['CanStopSignalGenerator'] === true,
+    'A signal generator saved by the real Symcon form must expose its separate stop control.'
+);
+$flatSignalGenerator->TestSetPropertyString('DisarmCode', '1234');
+assertAlarmAction(
+    !$flatSignalGenerator->StopSignalGeneratorWithCode('0000') && count($testActions) === 1,
+    'A configured code must reject stopping a signal generator without the correct code.'
+);
+assertAlarmAction(
+    $flatSignalGenerator->StopSignalGeneratorWithCode('1234'),
+    'The flat-form signal generator must be stoppable with the configured code.'
+);
+assertAlarmAction(
+    count($testActions) === 2 && $testActions[1]['parameters']['VALUE'] === false,
+    'Stopping a flat-form signal generator must execute its inverse Boolean action.'
+);
+
+// One escalation step may execute multiple actions and automatically invert Boolean set-value actions on reset.
+$testActions = [];
+$testValues[4001] = false;
+$multiEscalation = new OpenHomeAlarm();
+$multiEscalation->Create();
+$multiEscalation->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$multiEscalation->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$multiEscalation->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Outputs',
+    'DelaySeconds' => 0,
+    'Actions'      => [
+        [
+            'Enabled'      => true,
+            'Name'         => 'Light',
+            'Action'       => ['actionID' => '{LIGHT}', 'parameters' => ['VALUE' => true]],
+            'ResetEnabled' => true
+        ],
+        [
+            'Enabled'         => true,
+            'Name'            => 'Siren',
+            'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+            'ResetEnabled'    => true,
+            'SignalGenerator' => true
+        ],
+        [
+            'Enabled'     => true,
+            'Name'        => 'Shutter',
+            'Action'      => ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 2]],
+            'ResetMode'   => 2,
+            'ResetAction' => ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 0]]
+        ]
+    ]
+]], JSON_THROW_ON_ERROR));
+$multiEscalation->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($multiEscalation->ArmAway(), 'Multiple-action escalation test must arm successfully.');
+$testValues[4001] = true;
+$multiEscalation->MessageSink(32, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    count($testActions) === 3
+    && array_column($testActions, 'actionID') === ['{LIGHT}', '{SIREN}', '{SHUTTER}']
+    && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, true, 2],
+    'A due escalation step must execute all configured actions.'
+);
+$signalGeneratorState = json_decode($multiEscalation->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $signalGeneratorState['Alarm']['SignalGeneratorActive'] === true
+    && $signalGeneratorState['Capabilities']['CanStopSignalGenerator'] === true,
+    'A successfully executed signal generator must publish its active state and remain stoppable.'
+);
+assertAlarmAction($multiEscalation->StopSignalGenerator(), 'An active signal generator must be stoppable without resetting the alarm output.');
+assertAlarmAction(
+    count($testActions) === 4
+    && $testActions[3]['actionID'] === '{SIREN}'
+    && $testActions[3]['parameters']['VALUE'] === false,
+    'Stopping the signal generator must execute only the siren reset action.'
+);
+$multiEscalationState = json_decode($multiEscalation->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $multiEscalationState['Alarm']['OutputActive'] === true
+    && $multiEscalationState['Alarm']['SignalGeneratorActive'] === false
+    && $multiEscalationState['Capabilities']['CanStopSignalGenerator'] === false,
+    'Silencing a signal generator must retain the alarm output while hiding the already consumed silence control.'
+);
+assertAlarmAction($multiEscalation->ResetAlarmOutput(), 'Multiple escalation actions must remain resettable.');
+assertAlarmAction(
+    count($testActions) === 6
+    && array_column(array_slice($testActions, 4), 'actionID') === ['{SHUTTER}', '{LIGHT}']
+    && array_column(array_column(array_slice($testActions, 4), 'parameters'), 'VALUE') === [0, false],
+    'Reset must preserve an already silenced signal generator and reset the remaining actions in reverse execution order.'
+);
+
+// The shared signal-generator state must only expose the stop control in an
+// area whose alarm output is active.
+$testActions = [];
+$testValues[4001] = false;
+$areaSignalGenerator = new OpenHomeAlarm();
+$areaSignalGenerator->Create();
+$areaSignalGenerator->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$areaSignalGenerator->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$areaSignalGenerator->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"Main area","Default":true},{"Enabled":true,"ID":"schuppen","Name":"Schuppen","Default":false}]'
+);
+$areaSignalGenerator->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Area output',
+    'DelaySeconds' => 0,
+    'Actions'      => [[
+        'Enabled'         => true,
+        'Name'            => 'Area siren',
+        'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+        'ResetEnabled'    => true,
+        'SignalGenerator' => true
+    ]]
+]], JSON_THROW_ON_ERROR));
+$areaSignalGenerator->TestSetPropertyString(
+    'Sensors',
+    json_encode([
+        array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'schuppen'])
+    ], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction(
+    $areaSignalGenerator->ArmPartition('main', 'away'),
+    'The area signal-generator test must arm all areas through main.'
+);
+$testValues[4001] = true;
+$areaSignalGenerator->MessageSink(33, 4001, VM_UPDATE, [true, true, false]);
+$areaSignalState = json_decode($areaSignalGenerator->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $areaSignalState['Alarm']['SignalGeneratorActive'] === true
+    && $areaSignalState['Partitions']['schuppen']['Alarm']['SignalGeneratorActive'] === true
+    && $areaSignalState['Partitions']['schuppen']['Capabilities']['CanStopSignalGenerator'] === true
+    && $areaSignalState['Partitions']['main']['Alarm']['SignalGeneratorActive'] === false
+    && $areaSignalState['Partitions']['main']['Capabilities']['CanStopSignalGenerator'] === false,
+    'The signal-generator control must follow the alarmed area instead of the currently selected area.'
+);
+
+// A running alarm must retain its dedicated signal-generator control even when
+// an update or restored installation has lost the escalation runtime cache.
+$testActions = [];
+$testValues[4001] = false;
+$missingEscalationRuntime = new OpenHomeAlarm();
+$missingEscalationRuntime->Create();
+$missingEscalationRuntime->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$missingEscalationRuntime->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$missingEscalationRuntime->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Outputs',
+    'DelaySeconds' => 0,
+    'Actions'      => [[
+        'Enabled'         => true,
+        'Name'            => 'Siren',
+        'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+        'ResetEnabled'    => true,
+        'SignalGenerator' => true
+    ]]
+]], JSON_THROW_ON_ERROR));
+$missingEscalationRuntime->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($missingEscalationRuntime->ArmAway(), 'Missing-runtime signal-generator test must arm successfully.');
+$testValues[4001] = true;
+$missingEscalationRuntime->MessageSink(32, 4001, VM_UPDATE, [true, true, false]);
+$missingEscalationRuntime->TestSetAttributeString('AlarmEscalationRuntime', '[]');
+$missingRuntimeState = json_decode($missingEscalationRuntime->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $missingRuntimeState['Alarm']['SignalGeneratorActive'] === true
+    && $missingRuntimeState['Capabilities']['CanStopSignalGenerator'] === true,
+    'The explicit signal-generator state must remain available when the escalation runtime cache is missing.'
+);
+assertAlarmAction(
+    $missingEscalationRuntime->StopSignalGenerator()
+    && count($testActions) === 2
+    && $testActions[1]['actionID'] === '{SIREN}'
+    && $testActions[1]['parameters']['VALUE'] === false,
+    'Stopping without a runtime cache must execute the configured signal-generator reset action.'
+);
+$missingRuntimeState = json_decode($missingEscalationRuntime->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $missingRuntimeState['Alarm']['SignalGeneratorActive'] === false
+    && $missingRuntimeState['Capabilities']['CanStopSignalGenerator'] === false,
+    'The signal-generator control must disappear after the configured fallback reset was executed.'
+);
+
+// Silencing a delayed signal generator must prevent it from starting later in
+// the same alarm cycle.
+$testActions = [];
+$testValues[4001] = false;
+$pendingSignalGenerator = new OpenHomeAlarm();
+$pendingSignalGenerator->Create();
+$pendingSignalGenerator->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$pendingSignalGenerator->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$pendingSignalGenerator->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Delayed output',
+    'DelaySeconds' => 60,
+    'Actions'      => [[
+        'Enabled'         => true,
+        'Name'            => 'Delayed siren',
+        'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+        'ResetEnabled'    => true,
+        'SignalGenerator' => true
+    ]]
+]], JSON_THROW_ON_ERROR));
+$pendingSignalGenerator->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($pendingSignalGenerator->ArmAway(), 'Pending signal-generator test must arm successfully.');
+$testValues[4001] = true;
+$pendingSignalGenerator->MessageSink(32, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $pendingSignalGenerator->StopSignalGenerator()
+    && count($testActions) === 1
+    && $testActions[0]['parameters']['VALUE'] === false,
+    'A pending signal generator must be silenced through its configured reset action.'
+);
+$pendingRuntime = json_decode($pendingSignalGenerator->TestAttributes()['AlarmEscalationRuntime'], true, 512, JSON_THROW_ON_ERROR);
+$pendingRuntime['StartedAt'] = time() - 61;
+$pendingSignalGenerator->TestSetAttributeString('AlarmEscalationRuntime', json_encode($pendingRuntime, JSON_THROW_ON_ERROR));
+$pendingSignalGenerator->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($testActions) === 1,
+    'A signal generator silenced earlier in the alarm cycle must not start when its delay expires.'
+);
+
+// Disarming directly from Alarm must execute the same escalation reset actions.
+$testActions = [];
+$testValues[4001] = false;
+$disarmEscalation = new OpenHomeAlarm();
+$disarmEscalation->Create();
+$disarmEscalation->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$disarmEscalation->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$disarmEscalation->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Disarm outputs',
+    'DelaySeconds' => 0,
+    'Actions'      => [
+        [
+            'Enabled'     => true,
+            'Name'        => 'Light',
+            'Action'      => ['actionID' => '{LIGHT}', 'parameters' => ['VALUE' => true]],
+            'ResetMode'   => 1,
+            'ResetAction' => ''
+        ],
+        [
+            'Enabled'     => true,
+            'Name'        => 'Shutter',
+            'Action'      => ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 2]],
+            'ResetMode'   => 2,
+            'ResetAction' => ['actionID' => '{SHUTTER}', 'parameters' => ['VALUE' => 0]]
+        ]
+    ]
+]], JSON_THROW_ON_ERROR));
+$disarmEscalation->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($disarmEscalation->ArmAway(), 'Disarm escalation test must arm successfully.');
+$testValues[4001] = true;
+$disarmEscalation->MessageSink(33, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction($disarmEscalation->Disarm(), 'Disarming an active alarm must succeed.');
+assertAlarmAction(
+    count($testActions) === 4
+    && array_column($testActions, 'actionID') === ['{LIGHT}', '{SHUTTER}', '{SHUTTER}', '{LIGHT}']
+    && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, 2, 0, false],
+    'Disarming must execute custom and inverted escalation reset actions in reverse execution order.'
+);
+
+// ApplyChanges and a service restart use the persisted absolute start without repeating completed steps.
+$testActions = [];
+$testValues[4001] = false;
+$restoredEscalation = new OpenHomeAlarm();
+$restoredEscalation->Create();
+$restoredEscalation->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$restoredEscalation->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$restoredEscalation->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Restored', 'DelaySeconds' => 60, 'Action' => $delayedEscalationAction]
+], JSON_THROW_ON_ERROR));
+$restoredEscalation->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmActionSensor(4001, false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmAction($restoredEscalation->ArmAway(), 'Restart escalation test must arm successfully.');
+$testValues[4001] = true;
+$restoredEscalation->MessageSink(31, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction($testActions === [], 'A future escalation step must not execute at alarm start.');
+$restoredRuntime = json_decode(
+    (string) ($restoredEscalation->TestAttributes()['AlarmEscalationRuntime'] ?? '[]'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$restoredRuntime['StartedAt'] = time() - 120;
+$restoredEscalation->TestSetAttributeString(
+    'AlarmEscalationRuntime',
+    json_encode($restoredRuntime, JSON_THROW_ON_ERROR)
+);
+$restoredEscalation->ApplyChanges();
+assertAlarmAction(
+    count($testActions) === 1
+    && $testActions[0]['actionID'] === '{55555555-5555-5555-5555-555555555555}',
+    'ApplyChanges must execute an overdue persisted escalation step once.'
+);
+$restoredEscalation->ApplyChanges();
+assertAlarmAction(count($testActions) === 1, 'Repeated recovery must not repeat an executed escalation step.');
 
 $form = json_decode(
     (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'),
@@ -487,46 +1208,307 @@ assertAlarmAction(
     findAlarmActionFormField($form['elements'] ?? [], 'AlarmAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'AlarmResetAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmAction') === null
-    && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') === null
-    && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') === null,
-    'Disabled optional SelectAction fields must be absent from static form.json so native validation cannot block unrelated changes.'
+    && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') !== null
+    && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') !== null
+    && findAlarmActionFormField($form['elements'] ?? [], 'CountdownAction') !== null,
+    'Removed global alarm-action selectors must be absent from the configuration form.'
 );
-foreach (
-    [
-        'AlarmActionEnabled',
-        'AlarmResetActionEnabled',
-        'DisarmAfterAlarmActionEnabled',
-        'FaultActionEnabled',
-        'FaultClearedActionEnabled'
-    ] as $toggleName
-) {
-    $toggle = findAlarmActionFormField($form['elements'] ?? [], $toggleName);
+assertAlarmAction(
+    findAlarmActionFormField($form['elements'] ?? [], 'AlarmActionEnabled') === null
+    && findAlarmActionFormField($form['elements'] ?? [], 'AlarmResetActionEnabled') === null
+    && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmActionEnabled') === null,
+    'Global alarm-action configuration must be removed completely.'
+);
+foreach (['FaultAction', 'FaultClearedAction', 'CountdownAction'] as $actionName) {
+    $action = findAlarmActionFormField($form['elements'] ?? [], $actionName);
     assertAlarmAction(
-        is_array($toggle) && ($toggle['type'] ?? null) === 'Select',
-        'Optional action toggle ' . $toggleName . ' must be present in static form.json.'
+        is_array($action)
+        && ($action['type'] ?? null) === 'List'
+        && ($action['add'] ?? null) === true
+        && ($action['delete'] ?? null) === true,
+        'Optional action ' . $actionName . ' must be an empty-safe native action List.'
     );
 }
 
 $dynamicFormInstance = new OpenHomeAlarm();
 $dynamicFormInstance->Create();
+$dynamicFormInstance->TestSetPropertyString('CountdownAction', $countdownAction);
+$dynamicFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'      => true,
+    'Name'         => 'Legacy step',
+    'DelaySeconds' => 0,
+    'Action'       => $alarmAction
+]], JSON_THROW_ON_ERROR));
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction') === null,
-    'GetConfigurationForm must omit disabled SelectAction fields completely.'
+    'GetConfigurationForm must not expose removed global alarm-action fields.'
+);
+$dynamicEscalationList = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmEscalationSteps');
+$dynamicEscalationValues = $dynamicEscalationList['values'] ?? [];
+assertAlarmAction(
+    count($dynamicEscalationValues) === 1
+    && ($dynamicEscalationValues[0]['Name'] ?? null) === 'Legacy step'
+    && ($dynamicEscalationValues[0]['Action'] ?? null) === $alarmAction
+    && ($dynamicEscalationValues[0]['ResetMode'] ?? null) === 0
+    && ($dynamicEscalationValues[0]['ResetAction'] ?? null) === ''
+    && ($dynamicEscalationValues[0]['ApplicableTo'] ?? null) === 'always',
+    'GetConfigurationForm must expose a legacy single action as one directly editable escalation row.'
+);
+$legacySignalFormInstance = new OpenHomeAlarm();
+$legacySignalFormInstance->Create();
+$legacySignalFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'         => true,
+    'Name'            => 'Legacy siren',
+    'DelaySeconds'    => 0,
+    'Action'          => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+    'ResetMode'       => 1,
+    'SignalGenerator' => true,
+    'ApplicableTo'    => 'always'
+]], JSON_THROW_ON_ERROR));
+$legacySignalForm = json_decode($legacySignalFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    (findAlarmActionFormField($legacySignalForm['elements'] ?? [], 'AlarmEscalationSteps')['values'][0]['ApplicableTo'] ?? null) === 'normal',
+    'Existing signal generators set to Always must display their effective normal-only behavior.'
+);
+$incompleteEscalationFormInstance = new OpenHomeAlarm();
+$incompleteEscalationFormInstance->Create();
+$incompleteEscalationFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    [
+        'Enabled'         => true,
+        'Name'            => 'Siren',
+        'DelaySeconds'    => 0,
+        'Action'          => $alarmAction,
+        'ResetMode'       => 0,
+        'ResetAction'     => '',
+        'SignalGenerator' => true,
+        'ApplicableTo'    => 'always'
+    ],
+    [
+        'Enabled'         => true,
+        'Name'            => 'Light',
+        'DelaySeconds'    => 0,
+        'Action'          => $alarmAction,
+        'ResetMode'       => 2,
+        'ResetAction'     => '',
+        'SignalGenerator' => false
+    ]
+], JSON_THROW_ON_ERROR));
+$incompleteEscalationForm = json_decode(
+    $incompleteEscalationFormInstance->GetConfigurationForm(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$incompleteEscalationValues = findAlarmActionFormField(
+    $incompleteEscalationForm['elements'] ?? [],
+    'AlarmEscalationSteps'
+)['values'] ?? [];
+assertAlarmAction(
+    count($incompleteEscalationValues) === 2
+    && ($incompleteEscalationValues[0]['SignalGenerator'] ?? null) === true
+    && ($incompleteEscalationValues[0]['ApplicableTo'] ?? null) === 'normal'
+    && ($incompleteEscalationValues[0]['ResetMode'] ?? null) === 0
+    && ($incompleteEscalationValues[1]['ResetMode'] ?? null) === 2
+    && ($incompleteEscalationValues[1]['ResetAction'] ?? null) === '',
+    'Incomplete signal-generator and custom-reset rows must remain editable without breaking the configuration form.'
+);
+$automaticResetForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
+    'ResetMode' => 1
+]);
+assertAlarmAction(
+    findAlarmActionFormField($automaticResetForm, 'ResetAction') === null,
+    'Boolean automatic reset must omit the custom SelectAction so an empty action cannot fail validation.'
+);
+$normalActionForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
+    'SignalGenerator' => false,
+    'ApplicableTo'    => 'silent'
+]);
+$normalApplicability = findAlarmActionFormField($normalActionForm, 'ApplicableTo');
+assertAlarmAction(
+    ($normalApplicability['visible'] ?? null) === true
+    && ($normalApplicability['value'] ?? null) === 'silent'
+    && array_column($normalApplicability['options'] ?? [], 'caption') === [
+        'Normal only', 'Silent only', 'Normal and silent'
+    ]
+    && (findAlarmActionFormField($normalActionForm, 'SignalGeneratorApplicabilityHint')['visible'] ?? null) === false,
+    'Non-signal actions must offer explicit normal, silent and shared applicability choices.'
+);
+$signalActionForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
+    'SignalGenerator' => true,
+    'ApplicableTo'    => 'always'
+]);
+assertAlarmAction(
+    (findAlarmActionFormField($signalActionForm, 'ApplicableTo')['visible'] ?? null) === false
+    && (findAlarmActionFormField($signalActionForm, 'ApplicableTo')['value'] ?? null) === 'normal'
+    && (findAlarmActionFormField($signalActionForm, 'SignalGeneratorApplicabilityHint')['visible'] ?? null) === true
+    && (findAlarmActionFormField($signalActionForm, 'SignalGenerator')['onChange'] ?? null)
+        === 'OHA_UpdateAlarmEscalationApplicabilityForm($id, $SignalGenerator);',
+    'Signal generators must hide the redundant choice and explain their fixed normal-alarm behavior.'
+);
+$dynamicFormInstance->UpdateAlarmEscalationApplicabilityForm(true);
+assertAlarmAction(
+    array_slice($dynamicFormInstance->TestFormUpdates(), -3) === [
+        ['field' => 'ApplicableTo', 'parameter' => 'value', 'value' => 'normal'],
+        ['field' => 'ApplicableTo', 'parameter' => 'visible', 'value' => false],
+        ['field' => 'SignalGeneratorApplicabilityHint', 'parameter' => 'visible', 'value' => true]
+    ],
+    'Enabling the signal-generator switch must immediately force normal applicability and hide the choice.'
+);
+$dynamicFormInstance->UpdateAlarmEscalationApplicabilityForm(false);
+assertAlarmAction(
+    array_slice($dynamicFormInstance->TestFormUpdates(), -2) === [
+        ['field' => 'ApplicableTo', 'parameter' => 'visible', 'value' => true],
+        ['field' => 'SignalGeneratorApplicabilityHint', 'parameter' => 'visible', 'value' => false]
+    ],
+    'Disabling the signal-generator switch must restore the applicability choice.'
+);
+$customResetForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
+    'ResetMode'   => 2,
+    'ResetAction' => json_encode([
+        'actionID'   => '{SHUTTER}',
+        'parameters' => ['VALUE' => 0]
+    ], JSON_THROW_ON_ERROR)
+]);
+$customResetSelector = findAlarmActionFormField($customResetForm, 'ResetAction');
+assertAlarmAction(
+    is_array($customResetSelector)
+    && ($customResetSelector['type'] ?? null) === 'SelectAction'
+    && ($customResetSelector['targetID'] ?? null) === -2
+    && json_decode((string) ($customResetSelector['value'] ?? ''), true, 512, JSON_THROW_ON_ERROR) === [
+        'actionID'   => '{SHUTTER}',
+        'parameters' => ['VALUE' => 0]
+    ],
+    'A custom reset mode must expose its stored native Symcon reset action selector.'
 );
 
-$dynamicFormInstance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
-$dynamicAlarmAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction');
-assertAlarmAction(
-    is_array($dynamicAlarmAction)
-    && ($dynamicAlarmAction['type'] ?? null) === 'SelectAction'
-    && ($dynamicAlarmAction['targetID'] ?? null) === -2,
-    'GetConfigurationForm must inject the native SelectAction only after its optional action is enabled.'
-);
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction') === null,
-    'Enabling one optional action must not inject other disabled SelectAction fields.'
+    'Removed global alarm-reset selectors must never be injected.'
+);
+
+$dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+$expansionPanels = collectAlarmActionExpansionPanels($dynamicForm['elements'] ?? []);
+assertAlarmAction(
+    $expansionPanels !== []
+        && array_filter($expansionPanels, static fn (array $panel): bool => ($panel['expanded'] ?? false) !== false) === [],
+    'Every configuration expansion panel must be collapsed initially.'
+);
+$alarmNotificationPanels = array_values(array_filter(
+    $expansionPanels,
+    static fn (array $panel): bool => ($panel['caption'] ?? null) === 'Alarm notifications'
+));
+assertAlarmAction(
+    count($alarmNotificationPanels) === 1
+        && array_map(
+            static fn (array $panel): mixed => $panel['caption'] ?? null,
+            array_values(array_filter(
+                $alarmNotificationPanels[0]['items'] ?? [],
+                static fn (mixed $item): bool => is_array($item) && ($item['type'] ?? null) === 'ExpansionPanel'
+            ))
+        ) === ['Symcon push notifications', 'Pushover (direct)'],
+    'Alarm notifications must group the native Symcon push and direct Pushover settings as separate topics.'
+);
+foreach ([
+    'PushoverNotificationMode',
+    'PushoverNotificationApplicableTo',
+    'PushoverApplicationToken',
+    'PushoverUserKey',
+    'PushoverDevice',
+    'PushoverPriority',
+    'PushoverSound',
+    'PushoverDelaySeconds',
+    'PushoverEmergencyRetrySeconds',
+    'PushoverEmergencyExpireSeconds'
+] as $pushoverFieldName) {
+    assertAlarmAction(
+        findAlarmActionFormField($dynamicForm['elements'] ?? [], $pushoverFieldName) !== null,
+        'The configuration form must expose every direct Pushover setting.'
+    );
+}
+foreach (['PushNotificationApplicableTo', 'PushoverNotificationApplicableTo'] as $applicabilityFieldName) {
+    $field = findAlarmActionFormField($dynamicForm['elements'] ?? [], $applicabilityFieldName);
+    assertAlarmAction(
+        ($field['type'] ?? null) === 'Select'
+        && array_column($field['options'] ?? [], 'value') === ['normal', 'silent', 'always'],
+        'Each notification channel must independently offer normal, silent and combined alarm responses.'
+    );
+}
+$moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
+assertAlarmAction(
+    str_contains($moduleReadme, '#### Pushover direkt verwenden')
+        && str_contains($moduleReadme, 'OHA_TestPushover($InstanzID)')
+        && str_contains($moduleReadme, 'Notfall mit Quittierung (`2`)')
+        && str_contains($moduleReadme, 'Konfigurationssicherung enthält sie'),
+    'The module README must document direct Pushover setup, priorities, testing and credential handling.'
+);
+$dynamicCountdownAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'CountdownAction');
+assertAlarmAction(
+    is_array($dynamicCountdownAction)
+    && ($dynamicCountdownAction['type'] ?? null) === 'List'
+    && ($dynamicCountdownAction['values'][0]['Name'] ?? null) === 'Configured action'
+    && ($dynamicCountdownAction['values'][0]['Action'] ?? null) === $countdownAction,
+    'GetConfigurationForm must migrate a previously configured optional action into its editable List.'
+);
+
+$lockedFormInstance = new OpenHomeAlarm();
+$lockedFormInstance->Create();
+$lockedFormInstance->TestSetCurrentValue('Mode', 2);
+$lockedFormInstance->TestSetCurrentValue('State', 2);
+$lockedForm = json_decode($lockedFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+foreach (['Partitions', 'ExitDelaySeconds', 'CountdownAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushNotificationApplicableTo', 'PushoverNotificationMode', 'PushoverNotificationApplicableTo'] as $fieldName) {
+    $field = findAlarmActionFormField($lockedForm['elements'] ?? [], $fieldName);
+    assertAlarmAction(
+        is_array($field) && ($field['enabled'] ?? null) === false,
+        'Every alarm configuration field must be disabled while an alarm partition is active.'
+    );
+}
+$lockedCountdown = findAlarmActionFormField($lockedForm['elements'] ?? [], 'CountdownAction');
+assertAlarmAction(
+    ($lockedCountdown['add'] ?? null) === false && ($lockedCountdown['delete'] ?? null) === false,
+    'Active alarm partitions must disable adding and deleting optional actions.'
+);
+assertAlarmAction(
+    str_contains((string) ($lockedForm['elements'][0]['caption'] ?? ''), 'instance configuration is locked'),
+    'The locked configuration form must explain that disarming is required before editing alarm settings.'
+);
+$reloadCountBeforeRejectedChange = count($lockedFormInstance->TestReloadedForms());
+$testPendingConfigurationChanges = true;
+$resetCountBeforeRejectedChange = $testResetConfigurationChanges;
+$lockedFormInstance->ApplyChanges();
+assertAlarmAction(
+    $testPendingConfigurationChanges === false
+        && $testResetConfigurationChanges === $resetCountBeforeRejectedChange + 1,
+    'ApplyChanges must discard pending configuration changes when an alarm partition became active.'
+);
+assertAlarmAction(
+    count($lockedFormInstance->TestReloadedForms()) === $reloadCountBeforeRejectedChange + 1,
+    'Rejecting a stale configuration form must reload it with the active-state lock.'
+);
+
+$lockTransitionInstance = new OpenHomeAlarm();
+$lockTransitionInstance->Create();
+$reloadCountBeforeArming = count($lockTransitionInstance->TestReloadedForms());
+assertAlarmAction($lockTransitionInstance->ArmAway(), 'The form-lock transition test must arm successfully.');
+assertAlarmAction(
+    count($lockTransitionInstance->TestReloadedForms()) === $reloadCountBeforeArming + 1,
+    'Arming must reload an already open configuration form so its fields become locked.'
+);
+$reloadCountBeforeDisarming = count($lockTransitionInstance->TestReloadedForms());
+assertAlarmAction($lockTransitionInstance->Disarm(), 'The form-lock transition test must disarm successfully.');
+assertAlarmAction(
+    count($lockTransitionInstance->TestReloadedForms()) === $reloadCountBeforeDisarming + 1,
+    'Disarming must reload an already open configuration form so its fields become editable again.'
+);
+$optionalActionForm = $dynamicFormInstance->GetOptionalActionEditForm([
+    'Action' => $countdownAction
+]);
+$optionalActionSelector = findAlarmActionFormField($optionalActionForm, 'Action');
+assertAlarmAction(
+    is_array($optionalActionSelector)
+    && ($optionalActionSelector['type'] ?? null) === 'SelectAction'
+    && ($optionalActionSelector['value'] ?? null) === $countdownAction,
+    'Optional action editing must retain the previously selected native action.'
 );
 
 $locale = json_decode(
@@ -536,8 +1518,333 @@ $locale = json_decode(
     JSON_THROW_ON_ERROR
 );
 $translations = $locale['translations']['de'] ?? [];
-foreach (['Alarm actions', 'No action', 'Configure action', 'Alarm start', 'On alarm', 'On disarm after alarm'] as $translationKey) {
+foreach ([
+    'Alarm escalation',
+    'Alarm notifications',
+    'Symcon push notifications',
+    'Notify for alarm response',
+    'Countdown output',
+    'Countdown actions',
+    'Actions on new fault',
+    'Actions on fault cleared',
+    'Configured action',
+    'Optional: Add an action for output on every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. An empty list runs no action. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API.',
+    'Optional: Add an action that runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. An empty list runs no action.',
+    'Optional: Add an action that runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action.'
+] as $translationKey) {
     assertAlarmAction(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }
+
+// A silent area keeps alarm state and notifications while selecting only silent
+// and shared actions. A later normal area may start its own eligible actions.
+$testActions = [];
+$testPushNotifications = [];
+$testValues[4001] = false;
+$testValues[4002] = false;
+$silentAreas = new OpenHomeAlarm();
+$silentAreas->Create();
+$silentAreas->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$silentAreas->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$silentAreas->TestSetPropertyInteger('PushNotificationMode', 1);
+$silentAreas->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$silentAreas->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true],
+    ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+], JSON_THROW_ON_ERROR));
+$silentAreas->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'garage']),
+    array_merge(alarmActionSensor(4002, false), ['PartitionID' => 'shed'])
+], JSON_THROW_ON_ERROR));
+$silentAreas->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Siren', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'SignalGenerator' => true],
+    ['Enabled' => true, 'Name' => 'Quiet', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{QUIET}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'silent'],
+    ['Enabled' => true, 'Name' => 'Normal', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{NORMAL}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'normal'],
+    ['Enabled' => true, 'Name' => 'Shared', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SHARED}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'always']
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($silentAreas->ArmPartition('garage', 'away', 0), 'A silent-by-default area must arm.');
+$silentState = json_decode($silentAreas->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $silentState['Partitions']['garage']['Silent'] === true
+    && $silentState['Partitions']['garage']['SilentByDefault'] === true,
+    'The selected silent response must be visible in the area control state.'
+);
+$testValues[4001] = true;
+$silentAreas->MessageSink(50, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{QUIET}', '{SHARED}']
+    && count($testPushNotifications) === 1,
+    'A silent alarm must run quiet and shared actions plus push, without starting the siren.'
+);
+$silentAreas->ProcessAlarmEscalation();
+assertAlarmAction(count($testActions) === 2, 'A silent alarm must not repeat actions during timer processing.');
+$silentAreas->ApplyChanges();
+$restoredSilentState = json_decode($silentAreas->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $restoredSilentState['Partitions']['garage']['Silent'] === true
+    && count($testActions) === 2,
+    'ApplyChanges must preserve the silent response and must not start or repeat alarm actions.'
+);
+assertAlarmAction($silentAreas->ArmPartition('shed', 'away', 0), 'A second, normal area must arm independently.');
+$testValues[4002] = true;
+$silentAreas->MessageSink(51, 4002, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column(array_slice($testActions, 2), 'actionID') === ['{SIREN}', '{NORMAL}'],
+    'A normal area joining an active silent alarm must start the newly applicable actions exactly once.'
+);
+$silentAreas->ResetAlarmOutputPartition('shed');
+assertAlarmAction(
+    array_column(array_slice($testActions, 4), 'actionID') === ['{NORMAL}', '{SIREN}']
+    && array_column(array_column(array_slice($testActions, 4), 'parameters'), 'VALUE') === [false, false],
+    'When only the silent area remains, reversible normal actions and the siren must stop.'
+);
+$remainingState = json_decode($silentAreas->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $remainingState['Alarm']['OutputActive'] === true
+    && $remainingState['Alarm']['SignalGeneratorActive'] === false,
+    'The silent alarm must remain active after the normal area output ends.'
+);
+
+$testPushNotifications = [];
+$testValues[4001] = false;
+$testValues[4002] = false;
+$routedNotifications = new TestablePushoverOpenHomeAlarm();
+$routedNotifications->Create();
+$routedNotifications->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$routedNotifications->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$routedNotifications->TestSetPropertyInteger('PushNotificationMode', 1);
+$routedNotifications->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$routedNotifications->TestSetPropertyString('PushNotificationApplicableTo', 'normal');
+$routedNotifications->TestSetPropertyInteger('PushoverNotificationMode', 1);
+$routedNotifications->TestSetPropertyString('PushoverNotificationApplicableTo', 'silent');
+$routedNotifications->TestSetPropertyString('PushoverApplicationToken', str_repeat('N', 30));
+$routedNotifications->TestSetPropertyString('PushoverUserKey', str_repeat('U', 30));
+$routedNotifications->TestSetPropertyInteger('PushoverPriority', 2);
+$routedNotifications->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true],
+    ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+], JSON_THROW_ON_ERROR));
+$routedNotifications->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'garage']),
+    array_merge(alarmActionSensor(4002, false), ['PartitionID' => 'shed'])
+], JSON_THROW_ON_ERROR));
+$routedNotifications->TestQueuePushoverResponse('{"status":1,"request":"silent-request","receipt":"silent-receipt"}');
+$routedNotifications->TestQueuePushoverResponse('{"status":1,"request":"cancel-request"}');
+assertAlarmAction($routedNotifications->ArmPartition('garage', 'away', 0), 'Routed-notification test must arm the silent area.');
+$testValues[4001] = true;
+$routedNotifications->MessageSink(53, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $testPushNotifications === []
+    && count($routedNotifications->TestPushoverRequests()) === 1
+    && ($routedNotifications->TestPushoverRequests()[0]['parameters']['title'] ?? null) === 'Intrusion alarm Garage!',
+    'A silent alarm must send only the silent Pushover notification with the matching area.'
+);
+assertAlarmAction($routedNotifications->ArmPartition('shed', 'away', 0), 'Routed-notification test must arm the normal area.');
+$testValues[4002] = true;
+$routedNotifications->MessageSink(54, 4002, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    count($testPushNotifications) === 1
+    && $testPushNotifications[0]['title'] === 'Intrusion alarm Shed!'
+    && count($routedNotifications->TestPushoverRequests()) === 1,
+    'A later normal alarm must send only the normal push notification and not repeat Pushover.'
+);
+$routedNotifications->ResetAlarmOutputPartition('garage');
+assertAlarmAction(
+    count($routedNotifications->TestPushoverRequests()) === 2
+    && $routedNotifications->TestPushoverRequests()[1]['url'] === 'https://api.pushover.net/1/receipts/silent-receipt/cancel.json'
+    && ($routedNotifications->TestAttributes()['PushoverEmergencyReceipt'] ?? 'missing') === '',
+    'Emergency Pushover retries must stop when no matching alarm area remains active.'
+);
+
+$testPushNotifications = [];
+$testValues[4001] = false;
+$testValues[4002] = false;
+$delayedRoutedPush = new OpenHomeAlarm();
+$delayedRoutedPush->Create();
+$delayedRoutedPush->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$delayedRoutedPush->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$delayedRoutedPush->TestSetPropertyInteger('PushNotificationMode', 2);
+$delayedRoutedPush->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$delayedRoutedPush->TestSetPropertyInteger('PushNotificationDelaySeconds', 60);
+$delayedRoutedPush->TestSetPropertyString('PushNotificationApplicableTo', 'normal');
+$delayedRoutedPush->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true],
+    ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+], JSON_THROW_ON_ERROR));
+$delayedRoutedPush->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'garage']),
+    array_merge(alarmActionSensor(4002, false), ['PartitionID' => 'shed'])
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($delayedRoutedPush->ArmPartition('garage', 'away', 0), 'Delayed routing test must arm the silent area.');
+$testValues[4001] = true;
+$delayedRoutedPush->MessageSink(55, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    $testPushNotifications === []
+    && ($delayedRoutedPush->TestTimers()['AlarmEscalation']['interval'] ?? -1) === 0,
+    'A non-matching silent alarm must not schedule a normal-only push notification.'
+);
+assertAlarmAction($delayedRoutedPush->ArmPartition('shed', 'away', 0), 'Delayed routing test must arm the normal area.');
+$testValues[4002] = true;
+$delayedRoutedPush->MessageSink(56, 4002, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    ($delayedRoutedPush->TestTimers()['AlarmEscalation']['interval'] ?? 0) > 0,
+    'A matching area joining the alarm must schedule its delayed push notification.'
+);
+$delayedRoutedPushRuntime = json_decode(
+    (string) $delayedRoutedPush->TestAttributes()['AlarmEscalationRuntime'],
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$delayedRoutedPushRuntime['StartedAt'] = time() - 120;
+$delayedRoutedPush->TestSetAttributeString(
+    'AlarmEscalationRuntime',
+    json_encode($delayedRoutedPushRuntime, JSON_THROW_ON_ERROR)
+);
+$delayedRoutedPush->ProcessAlarmEscalation();
+assertAlarmAction(
+    count($testPushNotifications) === 1
+    && $testPushNotifications[0]['title'] === 'Intrusion alarm Shed!',
+    'An elapsed normal-only push delay must name the matching normal area, not the silent area.'
+);
+
+$testActions = [];
+$testValues[4001] = false;
+$normalOverride = new OpenHomeAlarm();
+$normalOverride->Create();
+$normalOverride->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$normalOverride->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$normalOverride->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true]
+], JSON_THROW_ON_ERROR));
+$normalOverride->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['PartitionID' => 'garage'])
+], JSON_THROW_ON_ERROR));
+$normalOverride->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'   => true, 'Name' => 'Siren', 'DelaySeconds' => 0,
+    'Action'    => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]],
+    'ResetMode' => 1, 'SignalGenerator' => true
+]], JSON_THROW_ON_ERROR));
+assertAlarmAction($normalOverride->ArmPartition('garage', 'away', 0, false), 'A command must override the silent area default.');
+$testValues[4001] = true;
+$normalOverride->MessageSink(52, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{SIREN}']
+    && json_decode($normalOverride->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['garage']['Silent'] === false,
+    'The normal override must enable the siren and remain visible in control state.'
+);
+
+$globalSilentDefaults = new OpenHomeAlarm();
+$globalSilentDefaults->Create();
+$globalSilentDefaults->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$globalSilentDefaults->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main', 'SilentByDefault' => true],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => false]
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($globalSilentDefaults->ArmAway(0), 'Global arming with mixed area defaults must succeed.');
+$mixedDefaultsState = json_decode($globalSilentDefaults->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $mixedDefaultsState['Partitions']['main']['Silent'] === true
+    && $mixedDefaultsState['Partitions']['garage']['Silent'] === false,
+    'Global arming without an override must respect each area default.'
+);
+assertAlarmAction($globalSilentDefaults->Disarm(), 'Global disarming before an override must succeed.');
+assertAlarmAction($globalSilentDefaults->ArmAway(0, true), 'Global silent override must arm.');
+$globalOverrideState = json_decode($globalSilentDefaults->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $globalOverrideState['Partitions']['main']['Silent'] === true
+    && $globalOverrideState['Partitions']['garage']['Silent'] === true,
+    'A global explicit silent override must apply to every area.'
+);
+
+$testActions = [];
+$testValues[4001] = false;
+$silentAroundClock = new OpenHomeAlarm();
+$silentAroundClock->Create();
+$silentAroundClock->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main', 'SilentByDefault' => true]
+], JSON_THROW_ON_ERROR));
+$silentAroundClock->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), ['AlwaysActive' => true])
+], JSON_THROW_ON_ERROR));
+$silentAroundClock->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Siren', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'SignalGenerator' => true],
+    ['Enabled' => true, 'Name' => 'Quiet', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{QUIET}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'silent']
+], JSON_THROW_ON_ERROR));
+$testValues[4001] = true;
+$silentAroundClock->MessageSink(53, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{SIREN}']
+    && json_decode($silentAroundClock->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['main']['Silent'] === false,
+    'A disarmed 24/7 sensor must always start a normal alarm, even in an area configured silent by default.'
+);
+
+$testActions = [];
+$testPushNotifications = [];
+$testValues[4001] = false;
+$testValues[4002] = false;
+$safetyOverridesSilent = new OpenHomeAlarm();
+$safetyOverridesSilent->Create();
+$safetyOverridesSilent->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$safetyOverridesSilent->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$safetyOverridesSilent->TestSetPropertyInteger('PushNotificationMode', 1);
+$safetyOverridesSilent->TestSetPropertyInteger('PushNotificationTileID', 23456);
+$safetyOverridesSilent->TestSetPropertyString('PushNotificationApplicableTo', 'normal');
+$safetyOverridesSilent->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main', 'SilentByDefault' => true]
+], JSON_THROW_ON_ERROR));
+$safetyOverridesSilent->TestSetPropertyString('Sensors', json_encode([
+    alarmActionSensor(4001, false),
+    array_merge(alarmActionSensor(4002, false), ['AlwaysActive' => true])
+], JSON_THROW_ON_ERROR));
+$safetyOverridesSilent->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Siren', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'SignalGenerator' => true],
+    ['Enabled' => true, 'Name' => 'Quiet', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{QUIET}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'ApplicableTo' => 'silent']
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($safetyOverridesSilent->ArmAway(0, true), 'A silent area with a 24/7 safety sensor must arm.');
+$testValues[4001] = true;
+$safetyOverridesSilent->MessageSink(54, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{QUIET}'] && $testPushNotifications === [],
+    'A regular sensor in the silent area must still trigger only silent actions and notifications.'
+);
+$testValues[4002] = true;
+$safetyOverridesSilent->MessageSink(55, 4002, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{QUIET}', '{QUIET}', '{SIREN}']
+    && array_column(array_column($testActions, 'parameters'), 'VALUE') === [true, false, true]
+    && count($testPushNotifications) === 1
+    && $testPushNotifications[0]['message'] === 'Sensor Test 4002 triggered.'
+    && json_decode($safetyOverridesSilent->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['main']['Silent'] === false,
+    'A 24/7 safety sensor must promote an active silent alarm to normal and notify the normal-only channel.'
+);
+
+$testActions = [];
+$testValues[4001] = false;
+$safetyInSeparateArea = new OpenHomeAlarm();
+$safetyInSeparateArea->Create();
+$safetyInSeparateArea->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => true]
+], JSON_THROW_ON_ERROR));
+$safetyInSeparateArea->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), [
+        'PartitionID' => 'garage', 'AlwaysActive' => true,
+        'ArmHome'     => false, 'ArmAway' => false, 'ArmNight' => false
+    ])
+], JSON_THROW_ON_ERROR));
+$safetyInSeparateArea->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    ['Enabled' => true, 'Name' => 'Siren', 'DelaySeconds' => 0, 'Action' => ['actionID' => '{SIREN}', 'parameters' => ['VALUE' => true]], 'ResetMode' => 1, 'SignalGenerator' => true]
+], JSON_THROW_ON_ERROR));
+$testValues[4001] = true;
+$safetyInSeparateArea->MessageSink(56, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{SIREN}']
+    && json_decode($safetyInSeparateArea->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['garage']['Silent'] === false,
+    'A 24/7 sensor in a separate silent-default area must still cause a normal alarm without arming.'
+);
 
 fwrite(STDOUT, "OpenHomeAlarm alarm action checks passed.\n");

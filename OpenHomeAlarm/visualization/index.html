@@ -17,6 +17,7 @@
             </button>
         </header>
 
+        <div class="oha-scroll-content" id="tileScrollContent">
         <section class="oha-hero" id="statusHero" aria-live="polite">
             <div class="oha-hero-icon" id="stateIcon" aria-hidden="true">
                 <i class="fa-light fa-shield"></i>
@@ -35,51 +36,72 @@
             </div>
         </section>
 
-        <section class="oha-arm-section" id="armingSection">
-            <div class="oha-section-heading oha-section-heading-compact">
-                <div>
-                    <div class="oha-section-kicker" id="armingKicker"></div>
-                    <h2 id="armingTitle"></h2>
-                </div>
-                <span class="oha-section-hint" id="armingHint"></span>
+        <nav class="oha-partition-nav" id="partitionNav" aria-label="Alarm partitions" hidden>
+            <div class="oha-partition-heading">
+                <span class="oha-partition-kicker" id="partitionKicker"></span>
+                <h2 class="oha-partition-title" id="partitionLabel"></h2>
             </div>
+            <div class="oha-partition-tabs" id="partitionTabs" role="tablist"></div>
+        </nav>
 
-            <div class="oha-mode-grid">
-                <button class="oha-mode-button" data-action="arm" data-mode="home" type="button">
-                    <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-house"></i></span>
-                    <span class="oha-mode-button-copy">
-                        <strong data-role="mode-title"></strong>
-                        <span class="oha-readiness" data-role="readiness"></span>
-                        <span class="oha-blockers" data-role="blockers"></span>
-                        <span class="oha-mode-action" data-role="mode-action"></span>
-                    </span>
-                    <span class="oha-ready-dot" aria-hidden="true"></span>
-                    <i class="fa-light fa-chevron-right oha-mode-chevron" aria-hidden="true"></i>
-                </button>
+        <section class="oha-arm-section" id="armingSection">
+            <div class="oha-arming-controls">
+                <div class="oha-section-heading oha-section-heading-compact">
+                    <div>
+                        <div class="oha-section-kicker" id="armingKicker"></div>
+                        <h2 id="armingTitle"></h2>
+                    </div>
+                    <span class="oha-section-hint" id="armingHint"></span>
+                </div>
 
-                <button class="oha-mode-button" data-action="arm" data-mode="away" type="button">
-                    <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-person-walking-arrow-right"></i></span>
-                    <span class="oha-mode-button-copy">
-                        <strong data-role="mode-title"></strong>
-                        <span class="oha-readiness" data-role="readiness"></span>
-                        <span class="oha-blockers" data-role="blockers"></span>
-                        <span class="oha-mode-action" data-role="mode-action"></span>
-                    </span>
-                    <span class="oha-ready-dot" aria-hidden="true"></span>
-                    <i class="fa-light fa-chevron-right oha-mode-chevron" aria-hidden="true"></i>
-                </button>
+                <div class="oha-arm-delivery" id="armDelivery">
+                    <div class="oha-arm-delivery-copy">
+                        <strong class="oha-arm-delivery-label" id="armDeliveryLabel"></strong>
+                        <span class="oha-arm-delivery-default" id="armDeliveryDefault"></span>
+                    </div>
+                    <button class="oha-delivery-switch" data-delivery-switch type="button" role="switch" aria-checked="false" aria-describedby="armDeliveryDefault">
+                        <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
+                        <span class="oha-delivery-switch-value" id="armDeliveryValue"></span>
+                    </button>
+                </div>
 
-                <button class="oha-mode-button" data-action="arm" data-mode="night" type="button">
-                    <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-moon"></i></span>
-                    <span class="oha-mode-button-copy">
-                        <strong data-role="mode-title"></strong>
-                        <span class="oha-readiness" data-role="readiness"></span>
-                        <span class="oha-blockers" data-role="blockers"></span>
-                        <span class="oha-mode-action" data-role="mode-action"></span>
-                    </span>
-                    <span class="oha-ready-dot" aria-hidden="true"></span>
-                    <i class="fa-light fa-chevron-right oha-mode-chevron" aria-hidden="true"></i>
-                </button>
+                <div class="oha-mode-grid">
+                    <button class="oha-mode-button" data-action="arm" data-mode="home" type="button">
+                        <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-house"></i></span>
+                        <span class="oha-mode-button-copy">
+                            <strong data-role="mode-title"></strong>
+                            <span class="oha-readiness" data-role="readiness"></span>
+                            <span class="oha-blockers" data-role="blockers"></span>
+                            <span class="oha-mode-action" data-role="mode-action"></span>
+                        </span>
+                        <span class="oha-ready-dot" aria-hidden="true"></span>
+                        <i class="fa-light fa-chevron-right oha-mode-chevron" aria-hidden="true"></i>
+                    </button>
+
+                    <button class="oha-mode-button" data-action="arm" data-mode="away" type="button">
+                        <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-person-walking-arrow-right"></i></span>
+                        <span class="oha-mode-button-copy">
+                            <strong data-role="mode-title"></strong>
+                            <span class="oha-readiness" data-role="readiness"></span>
+                            <span class="oha-blockers" data-role="blockers"></span>
+                            <span class="oha-mode-action" data-role="mode-action"></span>
+                        </span>
+                        <span class="oha-ready-dot" aria-hidden="true"></span>
+                        <i class="fa-light fa-chevron-right oha-mode-chevron" aria-hidden="true"></i>
+                    </button>
+
+                    <button class="oha-mode-button" data-action="arm" data-mode="night" type="button">
+                        <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-moon"></i></span>
+                        <span class="oha-mode-button-copy">
+                            <strong data-role="mode-title"></strong>
+                            <span class="oha-readiness" data-role="readiness"></span>
+                            <span class="oha-blockers" data-role="blockers"></span>
+                            <span class="oha-mode-action" data-role="mode-action"></span>
+                        </span>
+                        <span class="oha-ready-dot" aria-hidden="true"></span>
+                        <i class="fa-light fa-chevron-right oha-mode-chevron" aria-hidden="true"></i>
+                    </button>
+                </div>
             </div>
         </section>
 
@@ -89,9 +111,17 @@
                 <span id="codeHint" hidden></span>
             </div>
             <div class="oha-control-actions">
-                <button class="oha-secondary-button" id="resetAlarmOutputButton" data-operation="ResetAlarmOutput" data-enabled="false" type="button" hidden>
+                <button class="oha-secondary-button" id="stopSignalGeneratorButton" data-operation="StopSignalGenerator" data-enabled="false" type="button" hidden>
                     <i class="fa-light fa-volume-xmark" aria-hidden="true"></i>
+                    <span id="stopSignalGeneratorLabel"></span>
+                </button>
+                <button class="oha-secondary-button" id="resetAlarmOutputButton" data-operation="ResetAlarmOutput" data-enabled="false" type="button" hidden>
+                    <i class="fa-light fa-arrow-rotate-left" aria-hidden="true"></i>
                     <span id="resetAlarmOutputLabel"></span>
+                </button>
+                <button class="oha-secondary-button" id="resetFalseAlarmButton" data-operation="ResetFalseAlarm" data-enabled="false" type="button" hidden>
+                    <i class="fa-light fa-shield-check" aria-hidden="true"></i>
+                    <span id="resetFalseAlarmLabel"></span>
                 </button>
                 <button class="oha-disarm-button" id="disarmButton" type="button">
                     <i class="fa-light fa-lock-open" aria-hidden="true"></i>
@@ -175,8 +205,27 @@
                         <div class="oha-section-kicker" id="eventHistoryKicker"></div>
                         <h2 id="eventHistoryTitle"></h2>
                     </div>
+                    <div class="oha-history-actions">
+                        <button class="oha-row-action" id="exportHistoryJson" data-operation="ExportEventHistory" data-format="json" data-enabled="true" type="button">JSON</button>
+                        <button class="oha-row-action" id="exportHistoryCsv" data-operation="ExportEventHistory" data-format="csv" data-enabled="true" type="button">CSV</button>
+                    </div>
                 </header>
                 <div class="oha-history-list" id="eventHistoryList"></div>
+            </article>
+
+            <article class="oha-operation-panel" id="diagnosticsPanel" hidden>
+                <header class="oha-operation-head">
+                    <div>
+                        <div class="oha-section-kicker" id="diagnosticsKicker"></div>
+                        <h2 id="diagnosticsTitle"></h2>
+                    </div>
+                    <div class="oha-history-actions">
+                        <span class="oha-operation-count" id="diagnosticsCount"></span>
+                        <button class="oha-row-action" id="exportDiagnosticsJson" data-operation="ExportDiagnostics" data-format="json" data-enabled="true" type="button">JSON</button>
+                        <button class="oha-row-action" id="exportDiagnosticsCsv" data-operation="ExportDiagnostics" data-format="csv" data-enabled="true" type="button">CSV</button>
+                    </div>
+                </header>
+                <div class="oha-diagnostics-list" id="diagnosticsList"></div>
             </article>
         </section>
 
@@ -227,7 +276,16 @@
                 <i class="fa-light fa-lock-open" aria-hidden="true"></i>
                 <span id="inlineDisarmLabel"></span>
             </button>
+            <button class="oha-inline-disarm-button" id="inlineStopSignalGenerator" data-code-confirm data-code-action="StopSignalGeneratorWithCode" data-code-surface="inline" type="button" hidden>
+                <i class="fa-light fa-volume-xmark" aria-hidden="true"></i>
+                <span id="inlineStopSignalGeneratorLabel"></span>
+            </button>
+            <button class="oha-inline-disarm-button" id="inlineResetFalseAlarm" data-code-confirm data-code-action="ResetFalseAlarmPartitionWithCode" data-code-surface="inline" type="button" hidden>
+                <i class="fa-light fa-shield-check" aria-hidden="true"></i>
+                <span id="inlineResetFalseAlarmLabel"></span>
+            </button>
         </aside>
+        </div>
 
     </main>
 
@@ -283,6 +341,14 @@
             <button class="oha-modal-disarm-button" id="codepadConfirm" data-code-confirm data-code-surface="modal" type="button">
                 <i class="fa-light fa-lock-open" aria-hidden="true"></i>
                 <span id="modalDisarmLabel"></span>
+            </button>
+            <button class="oha-modal-disarm-button" id="codepadStopSignalGenerator" data-code-confirm data-code-action="StopSignalGeneratorWithCode" data-code-surface="modal" type="button" hidden>
+                <i class="fa-light fa-volume-xmark" aria-hidden="true"></i>
+                <span id="modalStopSignalGeneratorLabel"></span>
+            </button>
+            <button class="oha-modal-disarm-button" id="codepadResetFalseAlarm" data-code-confirm data-code-action="ResetFalseAlarmPartitionWithCode" data-code-surface="modal" type="button" hidden>
+                <i class="fa-light fa-shield-check" aria-hidden="true"></i>
+                <span id="modalResetFalseAlarmLabel"></span>
             </button>
         </section>
     </div>

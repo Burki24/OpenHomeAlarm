@@ -6,6 +6,8 @@
     --oha-surface-soft: var(--symc-surface);
     --oha-border: var(--symc-border);
     --oha-text: var(--symc-text);
+    --oha-heading: var(--symc-heading);
+    --oha-subheading: var(--symc-subheading);
     --oha-text-active: var(--symc-text);
     --oha-text-inactive: var(--symc-muted);
     --oha-label: var(--symc-muted);
@@ -24,7 +26,7 @@
     --oha-danger-soft: var(--symc-danger-soft);
     --oha-danger-contrast: #ffffff;
     --oha-control-inactive: var(--symc-surface);
-    --oha-popup-background: var(--symc-surface-raised);
+    --oha-popup-background: var(--symc-background);
     --oha-popup-border: var(--symc-border);
     --oha-popup-shadow: none;
     --oha-disabled-opacity: 0.48;
@@ -51,6 +53,8 @@ html.oha-ipsview {
     --oha-control-inactive: var(--ipsview-role-control-inactive-background);
     --oha-border: var(--ipsview-role-border);
     --oha-text: var(--ipsview-role-text-primary);
+    --oha-heading: var(--ipsview-role-text-primary);
+    --oha-subheading: var(--ipsview-role-text-secondary);
     --oha-text-active: var(--ipsview-role-text-active);
     --oha-text-inactive: var(--ipsview-role-text-inactive);
     --oha-label: var(--ipsview-role-text-label);
@@ -113,6 +117,14 @@ body {
     overflow-x: hidden;
 }
 
+/* Native Symcon tiles must not move the host navigation when their content scrolls. */
+html:not(.oha-ipsview),
+html:not(.oha-ipsview) body {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
 button {
     font: inherit;
 }
@@ -133,6 +145,22 @@ button:focus-visible {
     align-content: start;
     padding: 14px;
     background: var(--oha-bg);
+}
+
+.oha-scroll-content {
+    display: contents;
+}
+
+html:not(.oha-ipsview) .oha-shell {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    grid-auto-rows: max-content;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
 }
 
 .oha-topbar,
@@ -214,7 +242,148 @@ button:focus-visible {
     justify-content: flex-end;
     min-height: 38px;
     background: var(--oha-bg);
-    box-shadow: 0 0 0 14px var(--oha-bg);
+    box-shadow: 0 -14px 0 14px var(--oha-bg);
+}
+
+.oha-partition-nav {
+    display: grid;
+    min-height: 54px;
+    min-width: 0;
+    gap: 7px;
+    padding: 10px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: var(--symc-radius-medium);
+    background: color-mix(in srgb, var(--oha-surface) 35%, var(--oha-bg));
+}
+
+.oha-partition-heading {
+    display: grid;
+    gap: 2px;
+    padding: 0 2px;
+}
+
+.oha-partition-kicker {
+    color: var(--oha-label);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+.oha-partition-title {
+    margin: 0;
+    color: var(--oha-heading);
+    font-size: 1.05rem;
+}
+
+.oha-partition-tabs {
+    display: flex;
+    min-width: 0;
+    gap: 7px;
+    overflow-x: auto;
+    /* The active tab uses a 4px outer focus ring. Keep it inside the
+       horizontally scrollable tab container instead of clipping it. */
+    padding: 6px;
+    scrollbar-width: thin;
+}
+
+.oha-partition-tab {
+    --oha-partition-color: var(--oha-muted);
+    --oha-partition-background: var(--oha-surface);
+    --oha-partition-border: var(--oha-border);
+    display: inline-flex;
+    min-height: 34px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 13px;
+    border: var(--oha-border-width) solid var(--oha-partition-border);
+    border-radius: 999px;
+    background: var(--oha-partition-background);
+    color: var(--oha-partition-color);
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.oha-partition-tab[data-state="armed"] {
+    --oha-partition-color: var(--oha-success);
+    --oha-partition-background: var(--oha-success-soft);
+    --oha-partition-border: var(--oha-success-border);
+}
+
+.oha-partition-tab[data-state="exit_delay"],
+.oha-partition-tab[data-state="entry_delay"] {
+    --oha-partition-color: var(--oha-warning);
+    --oha-partition-background: var(--oha-warning-soft);
+    --oha-partition-border: color-mix(in srgb, var(--oha-warning) 42%, var(--oha-border));
+}
+
+.oha-partition-tab[data-state="alarm"] {
+    --oha-partition-color: var(--oha-danger);
+    --oha-partition-background: var(--oha-danger-soft);
+    --oha-partition-border: color-mix(in srgb, var(--oha-danger) 52%, var(--oha-border));
+}
+
+.oha-partition-status {
+    display: grid;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+    font-size: 0.68rem;
+}
+
+.oha-partition-badges {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.oha-partition-badge {
+    display: grid;
+    width: 15px;
+    height: 15px;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--oha-danger-contrast);
+    font-size: 0.58rem;
+    font-weight: 850;
+    line-height: 1;
+}
+
+.oha-partition-badge-fault {
+    background: var(--oha-warning);
+}
+
+.oha-partition-badge-memory {
+    background: var(--oha-danger);
+}
+
+.oha-partition-tab:hover {
+    filter: brightness(1.04);
+}
+
+.oha-partition-tab[data-active="true"] {
+    box-shadow: 0 0 0 2px var(--oha-bg), 0 0 0 4px var(--oha-accent);
+}
+
+.oha-partition-tab[data-state="alarm"] .oha-partition-status {
+    animation: oha-partition-alarm-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes oha-partition-alarm-pulse {
+    50% {
+        opacity: 0.45;
+        transform: scale(1.3);
+    }
+}
+
+.oha-partition-tab:focus-visible {
+    outline: 2px solid var(--oha-accent);
+    outline-offset: 2px;
 }
 
 .oha-section-heading-compact {
@@ -525,11 +694,12 @@ button:focus-visible {
 
 .oha-section-heading h2 {
     margin: 3px 0 0;
+    color: var(--oha-heading);
     font-size: 1.05rem;
 }
 
 .oha-section-hint {
-    color: var(--oha-muted);
+    color: var(--oha-subheading);
     font-size: 0.76rem;
     text-align: right;
 }
@@ -538,6 +708,115 @@ button:focus-visible {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
+}
+
+.oha-arming-controls {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: var(--symc-radius-medium);
+    background: color-mix(in srgb, var(--oha-surface) 35%, var(--oha-bg));
+}
+
+.oha-arm-delivery {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: var(--symc-radius-small);
+    background: var(--oha-surface-soft);
+}
+
+.oha-arm-delivery-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.oha-arm-delivery-label {
+    color: var(--oha-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+.oha-arm-delivery-default {
+    color: var(--oha-muted);
+    font-size: 0.71rem;
+}
+
+.oha-delivery-switch {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    gap: 9px;
+    padding: 4px 11px 4px 6px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: 999px;
+    background: var(--oha-surface);
+    color: var(--oha-text);
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 700;
+    touch-action: manipulation;
+}
+
+.oha-delivery-switch:hover:not(:disabled) {
+    border-color: var(--oha-accent);
+    background: var(--oha-accent-soft);
+}
+
+.oha-delivery-switch[aria-checked="true"] {
+    border-color: var(--oha-accent);
+    background: var(--oha-surface-strong);
+    color: var(--oha-text-active);
+}
+
+.oha-delivery-switch-track {
+    display: flex;
+    width: 38px;
+    height: 22px;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 2px;
+    border: 1px solid var(--oha-border);
+    border-radius: 999px;
+    background: var(--oha-control-inactive);
+    transition: background 140ms ease, border-color 140ms ease;
+}
+
+.oha-delivery-switch-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--oha-text-inactive);
+    transition: transform 140ms ease, background 140ms ease;
+}
+
+.oha-delivery-switch[aria-checked="true"] .oha-delivery-switch-track {
+    border-color: var(--oha-accent);
+    background: var(--oha-accent);
+}
+
+.oha-delivery-switch[aria-checked="true"] .oha-delivery-switch-thumb {
+    transform: translateX(16px);
+    background: var(--oha-accent-contrast, #ffffff);
+}
+
+.oha-delivery-switch:focus-visible {
+    outline: 2px solid var(--oha-accent);
+    outline-offset: 2px;
+}
+
+.oha-delivery-switch:disabled {
+    cursor: default;
+    opacity: var(--oha-disabled-opacity);
 }
 
 .oha-mode-button {
@@ -784,6 +1063,12 @@ button:focus-visible {
     grid-template-columns: minmax(0, 1fr);
 }
 
+@media (min-width: 1251px) {
+    .oha-operations-grid[data-visible-panels="3"] {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
 .oha-operation-panel {
     min-width: 0;
     overflow: hidden;
@@ -804,6 +1089,7 @@ button:focus-visible {
 
 .oha-operation-head h2 {
     margin: 2px 0 0;
+    color: var(--oha-heading);
     font-size: 0.94rem;
 }
 
@@ -819,13 +1105,27 @@ button:focus-visible {
     font-weight: 800;
 }
 
+.oha-operation-count[data-problems="true"] {
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+}
+
+.oha-history-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+}
+
 .oha-operation-list,
-.oha-history-list {
+.oha-history-list,
+.oha-diagnostics-list {
     display: grid;
 }
 
 .oha-operation-row,
-.oha-history-row {
+.oha-history-row,
+.oha-diagnostic-row {
     display: grid;
     min-width: 0;
     align-items: center;
@@ -837,8 +1137,13 @@ button:focus-visible {
     grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
+.oha-diagnostic-row {
+    grid-template-columns: auto minmax(0, 1fr);
+}
+
 .oha-operation-row + .oha-operation-row,
-.oha-history-row + .oha-history-row {
+.oha-history-row + .oha-history-row,
+.oha-diagnostic-row + .oha-diagnostic-row {
     border-top: var(--oha-line-width) solid var(--oha-border);
 }
 
@@ -860,6 +1165,27 @@ button:focus-visible {
 .oha-operation-row[data-tone="bypass"] .oha-operation-icon {
     background: var(--oha-accent-soft);
     color: var(--oha-accent);
+}
+
+.oha-diagnostic-row[data-status="ready"] .oha-operation-icon {
+    background: var(--oha-success-soft);
+    color: var(--oha-success);
+}
+
+.oha-diagnostic-row[data-status="missing"] .oha-operation-icon,
+.oha-diagnostic-row[data-status="unreadable"] .oha-operation-icon,
+.oha-diagnostic-row[data-kind="fault"][data-status="triggered"] .oha-operation-icon {
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+}
+
+.oha-diagnostic-row[data-status="disabled"] {
+    opacity: var(--oha-disabled-opacity);
+}
+
+.oha-diagnostic-row[data-status="disabled"] .oha-operation-icon {
+    background: var(--oha-surface-strong);
+    color: var(--oha-muted);
 }
 
 .oha-operation-copy,
@@ -974,6 +1300,7 @@ button:focus-visible {
 
 .oha-inline-codepad-head h2 {
     margin: 3px 0 0;
+    color: var(--oha-heading);
     font-size: 1.05rem;
 }
 
@@ -1031,6 +1358,8 @@ button:focus-visible {
 
 
 .oha-mode-button,
+.oha-partition-tab,
+.oha-delivery-switch,
 .oha-code-key,
 .oha-inline-disarm-button,
 .oha-modal-disarm-button,
@@ -1061,6 +1390,10 @@ button:focus-visible {
     .oha-operations-grid,
     .oha-arm-section,
     .oha-control-bar {
+        grid-column: 1;
+    }
+
+    .oha-partition-nav {
         grid-column: 1;
     }
 
@@ -1137,9 +1470,58 @@ button:focus-visible {
         padding: 11px;
     }
 
-    .oha-topbar-actions {
-        top: 11px;
-        box-shadow: 0 0 0 11px var(--oha-bg);
+    html:not(.oha-ipsview) .oha-shell {
+        grid-template-rows: 38px minmax(0, 1fr);
+        gap: 0;
+        overflow: hidden;
+    }
+
+    html:not(.oha-ipsview) .oha-topbar-actions {
+        position: static;
+        top: auto;
+        z-index: auto;
+        box-shadow: none;
+    }
+
+    html:not(.oha-ipsview) .oha-scroll-content {
+        display: grid;
+        min-height: 0;
+        align-content: start;
+        gap: 11px;
+        padding-top: 11px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-y;
+    }
+
+    html:not(.oha-ipsview) .oha-partition-nav {
+        height: auto;
+        min-height: 68px;
+        gap: 5px;
+        padding: 10px;
+    }
+
+    html:not(.oha-ipsview) .oha-partition-tabs {
+        display: grid;
+        width: 100%;
+        min-height: 46px;
+        flex: 0 0 auto;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        grid-auto-rows: minmax(34px, auto);
+        align-content: flex-start;
+        row-gap: 9px;
+        padding: 6px 4px;
+        overflow: visible;
+        scroll-padding-inline: 4px;
+    }
+
+    html:not(.oha-ipsview) .oha-partition-tab {
+        width: 100%;
+        max-width: 100%;
+        justify-content: flex-start;
+        white-space: normal;
     }
 
     .oha-section-hint {
@@ -1150,9 +1532,69 @@ button:focus-visible {
         grid-template-columns: 1fr 1fr;
     }
 
-    .oha-hero {
-        min-height: 0;
+    html:not(.oha-ipsview) .oha-hero {
+        min-height: 154px;
         padding: 16px;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-hero,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-hero {
+        grid-template-columns: 42px minmax(0, 1fr) auto;
+        gap: 10px;
+        min-height: 132px;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-hero-icon,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-hero-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        font-size: 1.15rem;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-state,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-state {
+        font-size: clamp(1.1rem, 5.5cqi, 1.55rem);
+        line-height: 1.08;
+        overflow-wrap: anywhere;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-hero-message,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-hero-message {
+        margin-top: 4px;
+        font-size: clamp(0.68rem, 3.2cqi, 0.8rem);
+        line-height: 1.3;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-hero-meta,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-hero-meta {
+        grid-column: 3;
+        grid-row: 1;
+        display: grid;
+        width: auto;
+        align-self: center;
+        justify-items: end;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-mode-pill,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-mode-pill {
+        display: none;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-countdown,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-countdown {
+        margin-left: 0;
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-countdown strong,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-countdown strong {
+        font-size: clamp(1.75rem, 10cqi, 2.5rem);
+    }
+
+    html:not(.oha-ipsview) .oha-shell[data-state="exit_delay"] .oha-countdown span,
+    html:not(.oha-ipsview) .oha-shell[data-state="entry_delay"] .oha-countdown span {
+        margin-top: 3px;
+        font-size: 0.62rem;
     }
 
     .oha-hero-icon {
@@ -1205,19 +1647,25 @@ button:focus-visible {
     display: grid;
     place-items: center;
     padding: 18px;
+    overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
-    background: rgba(8, 13, 24, 0.58);
-    backdrop-filter: blur(5px);
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    background: rgba(8, 13, 24, 0.42);
+    backdrop-filter: blur(4px);
 }
 
 .oha-codepad {
     width: min(100%, 360px);
+    min-height: 0;
+    max-height: calc(100vh - 36px);
     max-height: min(calc(100dvh - 36px), 720px);
     display: flex;
     flex-direction: column;
     padding: 18px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     border: var(--oha-border-width) solid var(--oha-popup-border);
     border-radius: var(--symc-radius-large);
@@ -1255,12 +1703,13 @@ button:focus-visible {
 
 .oha-codepad-title-wrap h2 {
     margin: 0;
+    color: var(--oha-heading);
     font-size: 1rem;
 }
 
 .oha-codepad-title-wrap p {
     margin: 3px 0 0;
-    color: var(--oha-muted);
+    color: var(--oha-subheading);
     font-size: 0.75rem;
     line-height: 1.35;
 }
@@ -1380,6 +1829,7 @@ button:focus-visible {
 
     .oha-codepad {
         width: min(100%, 344px);
+        max-height: calc(100vh - 24px);
         max-height: calc(100dvh - 24px);
         margin: 12px 0;
         padding: 15px;
@@ -1454,6 +1904,7 @@ button:focus-visible {
 
     .oha-codepad {
         width: min(100%, 312px);
+        max-height: calc(100vh - 16px);
         max-height: calc(100dvh - 16px);
         margin: 0;
         padding: 11px;
@@ -1491,24 +1942,24 @@ button:focus-visible {
 
 @media (max-width: 420px) {
     .oha-codepad-overlay {
-        align-items: end;
-        place-items: end stretch;
-        padding: 0;
+        place-items: center;
+        padding: 12px;
     }
 
     .oha-codepad {
-        width: 100%;
-        max-height: min(100dvh, 100%);
+        width: min(100%, 360px);
+        max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
         margin: 0;
-        padding: 16px 16px max(16px, env(safe-area-inset-bottom));
-        border-right: 0;
-        border-bottom: 0;
-        border-left: 0;
-        border-radius: 20px 20px 0 0;
+        padding: 16px;
+        border-radius: 20px;
+        box-shadow: 0 12px 32px rgba(8, 13, 24, 0.2);
     }
 
     .oha-code-key {
-        min-height: 58px;
+        min-height: 50px;
+        min-height: clamp(42px, 7.5vh, 54px);
+        min-height: clamp(42px, 7.5dvh, 54px);
     }
 }
 
@@ -1535,6 +1986,60 @@ html.oha-ipsview .oha-shell {
 
 html.oha-ipsview .oha-topbar-actions {
     display: none;
+}
+
+html.oha-ipsview .oha-partition-nav {
+    min-height: 54px;
+    gap: 8px;
+    padding: 8px;
+    --oha-text: var(--oha-panel-text);
+    --oha-muted: var(--oha-panel-muted);
+    --oha-border: var(--oha-panel-border);
+    border-color: var(--oha-border);
+    background: var(--oha-page);
+    box-shadow: var(--oha-shadow);
+}
+
+html.oha-ipsview .oha-partition-kicker {
+    color: var(--oha-page-label-muted);
+    font-size: 0.62rem;
+}
+
+html.oha-ipsview .oha-partition-title {
+    color: var(--oha-panel-text);
+    font-size: 0.92rem;
+}
+
+html.oha-ipsview .oha-partition-tab {
+    min-height: 34px;
+    padding: 6px 12px;
+    --oha-partition-color: var(--oha-panel-muted);
+    --oha-partition-background: var(--oha-surface-soft);
+    --oha-partition-border: var(--oha-panel-border);
+    font-size: 0.68rem;
+}
+
+html.oha-ipsview .oha-partition-tab[data-state="armed"] {
+    --oha-partition-color: var(--oha-success);
+    --oha-partition-background: var(--oha-success-soft);
+    --oha-partition-border: var(--oha-success-border);
+}
+
+html.oha-ipsview .oha-partition-tab[data-state="exit_delay"],
+html.oha-ipsview .oha-partition-tab[data-state="entry_delay"] {
+    --oha-partition-color: var(--oha-warning);
+    --oha-partition-background: var(--oha-warning-soft);
+}
+
+html.oha-ipsview .oha-partition-tab[data-state="alarm"] {
+    --oha-partition-color: var(--oha-danger);
+    --oha-partition-background: var(--oha-danger-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .oha-partition-tab[data-state="alarm"] .oha-partition-status {
+        animation: none;
+    }
 }
 
 html.oha-ipsview .oha-hero {
@@ -1603,11 +2108,42 @@ html.oha-ipsview .oha-mode-grid {
     gap: 8px;
 }
 
+html.oha-ipsview .oha-arming-controls {
+    gap: 8px;
+    padding: 8px;
+    background: var(--oha-page);
+}
+
 html.oha-ipsview .oha-mode-button {
     min-height: 68px;
     gap: 8px;
     padding: 9px 10px;
     border-radius: 12px;
+}
+
+html.oha-ipsview .oha-arm-delivery {
+    --oha-text: var(--oha-panel-text);
+    --oha-border: var(--oha-panel-border);
+    min-height: 38px;
+    padding: 7px 9px;
+    border-color: var(--oha-panel-border);
+    text-shadow: none;
+}
+
+html.oha-ipsview .oha-arm-delivery-label {
+    color: var(--oha-panel-muted);
+    font-size: 0.64rem;
+}
+
+html.oha-ipsview .oha-arm-delivery-default {
+    color: var(--oha-panel-muted);
+    font-size: 0.63rem;
+}
+
+html.oha-ipsview .oha-delivery-switch {
+    min-height: 32px;
+    padding: 4px 8px 4px 5px;
+    font-size: 0.66rem;
 }
 
 html.oha-ipsview .oha-mode-button::before {
@@ -1731,7 +2267,8 @@ html.oha-ipsview .oha-operation-count {
 }
 
 html.oha-ipsview .oha-operation-list,
-html.oha-ipsview .oha-history-list {
+html.oha-ipsview .oha-history-list,
+html.oha-ipsview .oha-diagnostics-list {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -1740,7 +2277,8 @@ html.oha-ipsview .oha-history-list {
 }
 
 html.oha-ipsview .oha-operation-row,
-html.oha-ipsview .oha-history-row {
+html.oha-ipsview .oha-history-row,
+html.oha-ipsview .oha-diagnostic-row {
     gap: 8px;
     padding: 7px 10px;
 }
@@ -1885,6 +2423,18 @@ html.oha-ipsview .oha-section-heading .oha-section-hint {
     opacity: 1;
 }
 
+html.oha-ipsview .oha-arming-controls > .oha-section-heading {
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    color: var(--oha-panel-text);
+}
+
+html.oha-ipsview .oha-arming-controls > .oha-section-heading .oha-section-kicker,
+html.oha-ipsview .oha-arming-controls > .oha-section-heading .oha-section-hint {
+    color: var(--oha-panel-muted);
+}
+
 html.oha-ipsview .oha-operation-head,
 html.oha-ipsview .oha-operation-row,
 html.oha-ipsview .oha-history-row {
@@ -1938,8 +2488,35 @@ html.oha-ipsview .oha-shell {
             "operations";
     }
 
+    html.oha-ipsview .oha-shell[data-partition-selector-visible="true"] {
+        grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr);
+        grid-template-areas:
+            "hero codepad"
+            "partitions codepad"
+            "arming codepad"
+            "control codepad"
+            "status codepad"
+            "context codepad"
+            "operations codepad";
+    }
+
+    html.oha-ipsview .oha-shell[data-codepad-visible="false"][data-partition-selector-visible="true"] {
+        grid-template-areas:
+            "hero"
+            "partitions"
+            "arming"
+            "control"
+            "status"
+            "context"
+            "operations";
+    }
+
     html.oha-ipsview .oha-hero {
         grid-area: hero;
+    }
+
+    html.oha-ipsview .oha-partition-nav {
+        grid-area: partitions;
     }
 
     html.oha-ipsview .oha-arm-section {

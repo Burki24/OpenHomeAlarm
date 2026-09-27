@@ -385,30 +385,11 @@ function alarmDurationSensor(int $variableID): array
     ];
 }
 
-$alarmAction = json_encode([
-    'actionID'   => '{11111111-1111-1111-1111-111111111111}',
-    'parameters' => ['VALUE' => true]
-], JSON_THROW_ON_ERROR);
-$resetAction = json_encode([
-    'actionID'   => '{22222222-2222-2222-2222-222222222222}',
-    'parameters' => ['VALUE' => false]
-], JSON_THROW_ON_ERROR);
-$disarmAction = json_encode([
-    'actionID'   => '{33333333-3333-3333-3333-333333333333}',
-    'parameters' => ['VALUE' => false]
-], JSON_THROW_ON_ERROR);
-
 $instance = new OpenHomeAlarm();
 $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $instance->TestSetPropertyInteger('EntryDelaySeconds', 0);
 $instance->TestSetPropertyInteger('AlarmDurationSeconds', 3);
-$instance->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$instance->TestSetPropertyString('AlarmAction', $alarmAction);
-$instance->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
-$instance->TestSetPropertyString('AlarmResetAction', $resetAction);
-$instance->TestSetPropertyInteger('DisarmAfterAlarmActionEnabled', 1);
-$instance->TestSetPropertyString('DisarmAfterAlarmAction', $disarmAction);
 $instance->TestSetPropertyString(
     'Sensors',
     json_encode([alarmDurationSensor(7001)], JSON_THROW_ON_ERROR)
@@ -444,16 +425,11 @@ assertAlarmDuration(
     && ($instance->TestAttributes()['AlarmOutputActive'] ?? 0) === 1,
     'Alarm duration deadline and active state must be persisted.'
 );
-assertAlarmDuration(
-    count($testActions) === 1
-    && $testActions[0]['actionID'] === '{11111111-1111-1111-1111-111111111111}',
-    'Alarm start action must still run exactly once.'
-);
 
 $instance->CompleteAlarmDuration();
 assertAlarmDuration(
     ($instance->TestWrittenValues()['State'] ?? null) === 4,
-    'Automatic alarm-output reset must not disarm or clear the Alarm state.'
+    'An active triggering sensor must prevent automatic re-arming after the alarm duration.'
 );
 assertAlarmDuration(
     ($instance->TestWrittenValues()['AlarmOutputActive'] ?? null) === false,
@@ -465,28 +441,27 @@ assertAlarmDuration(
     && ($instance->TestAttributes()['AlarmOutputActive'] ?? -1) === 0,
     'Automatic timeout must stop and clear the alarm-duration timer state.'
 );
-assertAlarmDuration(
-    count($testActions) === 2
-    && $testActions[1]['actionID'] === '{22222222-2222-2222-2222-222222222222}',
-    'Automatic timeout must run the configured alarm reset action once.'
-);
 $history = json_decode($instance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmDuration(
     ($history[0]['Event'] ?? null) === 'alarm_output_reset'
     && ($history[0]['State'] ?? null) === 4,
-    'Alarm-output reset must be recorded while the system remains in Alarm.'
+    'Alarm-output reset must be recorded when the area is not ready for automatic re-arming.'
+);
+
+// Once the sensor is ready again, the false-alarm control restores the old mode.
+$testValues[7001] = false;
+assertAlarmDuration($instance->ResetFalseAlarm() === true, 'A ready false alarm must be resettable into its previous mode.');
+assertAlarmDuration(
+    ($instance->TestWrittenValues()['State'] ?? null) === 2,
+    'Resetting a ready false alarm must restore Armed instead of disarming the area.'
 );
 
 $instance->CompleteAlarmDuration();
-assertAlarmDuration(count($testActions) === 2, 'Repeated timer callbacks must not rerun the reset action.');
+assertAlarmDuration($testActions === [], 'Repeated timer callbacks must not execute legacy global actions.');
 assertAlarmDuration($instance->ResetAlarmOutput() === false, 'An already reset alarm output must not reset twice.');
 
 $instance->Disarm();
-assertAlarmDuration(
-    count($testActions) === 3
-    && $testActions[2]['actionID'] === '{33333333-3333-3333-3333-333333333333}',
-    'Disarming after an automatically reset alarm must still run the dedicated disarm-after-alarm action.'
-);
+assertAlarmDuration($testActions === [], 'Disarming must not execute removed global actions.');
 
 // A duration of 0 keeps the alarm output active until manual reset or disarm.
 $testActions = [];
@@ -496,10 +471,6 @@ $manual->Create();
 $manual->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $manual->TestSetPropertyInteger('EntryDelaySeconds', 0);
 $manual->TestSetPropertyInteger('AlarmDurationSeconds', 0);
-$manual->TestSetPropertyInteger('AlarmActionEnabled', 1);
-$manual->TestSetPropertyString('AlarmAction', $alarmAction);
-$manual->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
-$manual->TestSetPropertyString('AlarmResetAction', $resetAction);
 $manual->TestSetPropertyString('Sensors', json_encode([alarmDurationSensor(7001)], JSON_THROW_ON_ERROR));
 $manual->TestClearWrittenValues();
 assertAlarmDuration($manual->ArmAway() === true, 'Manual-reset test must arm successfully.');
@@ -516,34 +487,30 @@ assertAlarmDuration(
     && ($manual->TestWrittenValues()['AlarmOutputActive'] ?? null) === false,
     'Manual reset must silence only the alarm output and keep Alarm latched.'
 );
-assertAlarmDuration(count($testActions) === 2, 'Manual reset must run one alarm action and one reset action.');
+assertAlarmDuration($testActions === [], 'Manual reset must not execute removed global actions.');
 
-// A reset action may call back into the module without repeating itself recursively.
-$testActions = [];
+// A marked sensor must restart an already active alarm cycle when it triggers again.
 $testValues[7001] = false;
-$reentrant = new OpenHomeAlarm();
-$reentrant->Create();
-$reentrant->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$reentrant->TestSetPropertyInteger('AlarmDurationSeconds', 0);
-$reentrant->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
-$reentrant->TestSetPropertyString('AlarmResetAction', $resetAction);
-$reentrant->TestSetPropertyString('Sensors', json_encode([alarmDurationSensor(7001)], JSON_THROW_ON_ERROR));
-assertAlarmDuration($reentrant->ArmAway() === true, 'Reentrant reset setup must arm successfully.');
+$retrigger = new OpenHomeAlarm();
+$retrigger->Create();
+$retrigger->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$retrigger->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$retrigger->TestSetPropertyInteger('AlarmDurationSeconds', 30);
+$retriggerSensor = alarmDurationSensor(7001);
+$retriggerSensor['RetriggerAlarm'] = true;
+$retrigger->TestSetPropertyString('Sensors', json_encode([$retriggerSensor], JSON_THROW_ON_ERROR));
+assertAlarmDuration($retrigger->ArmAway(), 'Retrigger test must arm successfully.');
 $testValues[7001] = true;
-$reentrant->MessageSink(3, 7001, VM_UPDATE, [true, true, false]);
-$testActions = [];
-$testActionCallback = static function () use ($reentrant): void
-{
-    assertAlarmDuration(
-        $reentrant->ResetAlarmOutput() === false,
-        'A reentrant reset must see the alarm output as already inactive.'
-    );
-};
-assertAlarmDuration($reentrant->ResetAlarmOutput() === true, 'The outer alarm-output reset must succeed.');
-$testActionCallback = null;
+$retrigger->MessageSink(3, 7001, VM_UPDATE, [true, true, false]);
+$testValues[7001] = false;
+$retrigger->MessageSink(3, 7001, VM_UPDATE, [false, false, true]);
+$testValues[7001] = true;
+$retrigger->MessageSink(3, 7001, VM_UPDATE, [true, true, false]);
+$retriggerHistory = json_decode($retrigger->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
 assertAlarmDuration(
-    count($testActions) === 1,
-    'A reentrant alarm-reset action must execute at most once per alarm cycle.'
+    ($retriggerHistory[0]['Event'] ?? null) === 'alarm_retriggered'
+    && ($retrigger->TestTimers()['AlarmDuration']['interval'] ?? 0) > 0,
+    'A selected sensor must renew the alarm duration and record the re-trigger while Alarm is active.'
 );
 
 // Persisted deadlines restore the remaining timeout after ApplyChanges/restart.
@@ -572,23 +539,17 @@ $testActions = [];
 $expired = new OpenHomeAlarm();
 $expired->Create();
 $expired->TestSetPropertyInteger('AlarmDurationSeconds', 30);
-$expired->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
-$expired->TestSetPropertyString('AlarmResetAction', $resetAction);
 $expired->TestSetCurrentValue('Mode', 2);
 $expired->TestSetCurrentValue('State', 4);
 $expired->TestSetCurrentValue('AlarmOutputActive', true);
 $expired->TestSetAttributeInteger('AlarmOutputActive', 1);
 $expired->TestSetAttributeInteger('AlarmDurationDeadline', time() - 1);
 $expired->ApplyChanges();
+assertAlarmDuration($testActions === [], 'An expired alarm deadline must not execute removed global actions during restart recovery.');
 assertAlarmDuration(
-    count($testActions) === 1
-    && $testActions[0]['actionID'] === '{22222222-2222-2222-2222-222222222222}',
-    'An expired alarm deadline must run the reset action during restart recovery.'
-);
-assertAlarmDuration(
-    $expired->TestGetCurrentValue('State') === 4
+    $expired->TestGetCurrentValue('State') === 2
     && ($expired->TestWrittenValues()['AlarmOutputActive'] ?? null) === false,
-    'Expired deadline recovery must keep Alarm latched but mark its output inactive.'
+    'Expired deadline recovery must automatically restore a ready area to Armed.'
 );
 
 $form = json_decode(
@@ -599,12 +560,12 @@ $form = json_decode(
 );
 $alarmPanel = null;
 foreach ($form['elements'] ?? [] as $element) {
-    if (($element['type'] ?? null) === 'ExpansionPanel' && ($element['caption'] ?? null) === 'Alarm actions') {
+    if (($element['type'] ?? null) === 'ExpansionPanel' && ($element['caption'] ?? null) === 'Alarm escalation') {
         $alarmPanel = $element;
         break;
     }
 }
-assertAlarmDuration(is_array($alarmPanel), 'Alarm actions panel must remain available.');
+assertAlarmDuration(is_array($alarmPanel), 'Alarm escalation panel must remain available.');
 $fields = [];
 foreach ($alarmPanel['items'] ?? [] as $item) {
     if (isset($item['name'])) {
@@ -614,23 +575,11 @@ foreach ($alarmPanel['items'] ?? [] as $item) {
 assertAlarmDuration(
     ($fields['AlarmDurationSeconds']['type'] ?? null) === 'NumberSpinner'
     && ($fields['AlarmDurationSeconds']['minimum'] ?? null) === 0,
-    'Alarm actions panel must offer a non-negative alarm duration.'
+    'Alarm escalation panel must offer a non-negative alarm duration.'
 );
 assertAlarmDuration(
-    ($fields['AlarmResetActionEnabled']['type'] ?? null) === 'Select',
-    'Alarm actions panel must offer an explicit optional reset-action switch.'
-);
-
-$dynamicFormInstance = new OpenHomeAlarm();
-$dynamicFormInstance->Create();
-$dynamicFormInstance->TestSetPropertyInteger('AlarmResetActionEnabled', 1);
-$dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
-$dynamicResetAction = findAlarmDurationFormField($dynamicForm['elements'] ?? [], 'AlarmResetAction');
-assertAlarmDuration(
-    is_array($dynamicResetAction)
-    && ($dynamicResetAction['type'] ?? null) === 'SelectAction'
-    && ($dynamicResetAction['targetID'] ?? null) === -2,
-    'Enabled alarm-output reset action must expose the native SelectAction selector.'
+    ($fields['AutoRearmAfterAlarm']['type'] ?? null) === 'CheckBox',
+    'Alarm escalation panel must expose the enabled-by-default automatic re-arm option.'
 );
 
 $locale = json_decode(
@@ -640,7 +589,7 @@ $locale = json_decode(
     JSON_THROW_ON_ERROR
 );
 $translations = $locale['translations']['de'] ?? [];
-foreach (['Alarm duration (seconds)', 'On alarm output reset', 'Alarm output active', 'Alarm output inactive'] as $translationKey) {
+foreach (['Alarm escalation', 'Alarm duration (seconds)', 'Alarm output active', 'Alarm output inactive'] as $translationKey) {
     assertAlarmDuration(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }
 

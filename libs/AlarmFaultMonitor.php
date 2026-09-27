@@ -9,6 +9,7 @@ namespace Burki24\OpenHomeAlarm;
  */
 final class AlarmFaultMonitor
 {
+    /** @param list<array<string,mixed>> $faultInputs */
     public static function containsVariable(int $variableID, array $faultInputs): bool
     {
         foreach ($faultInputs as $faultInput) {

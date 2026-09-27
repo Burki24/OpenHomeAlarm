@@ -26,8 +26,8 @@ assertCodepad(
     'The visualization RequestAction gateway must accept DisarmWithCode.'
 );
 assertCodepad(
-    str_contains($module, '$this->DisarmWithCode($Value)'),
-    'Visualization code submission must use the existing DisarmWithCode API.'
+    str_contains($module, '$this->DisarmPartitionWithCode($Value[\'PartitionID\'], $Value[\'Value\'])'),
+    'Visualization code submission must disarm the explicitly selected partition.'
 );
 assertCodepad(
     str_contains($module, "'Type'")
@@ -54,12 +54,16 @@ assertCodepad(str_contains($html, 'id="codepadClear"'), 'The popup codepad must 
 assertCodepad(str_contains($html, 'id="inlineCodepadClear"'), 'The inline codepad must provide a clear key.');
 assertCodepad(str_contains($html, 'id="codepadConfirm"'), 'The popup codepad must provide an explicit disarm button.');
 assertCodepad(str_contains($html, 'id="inlineCodepadConfirm"'), 'The inline codepad must provide an explicit disarm button.');
-assertCodepad(substr_count($html, 'data-code-confirm') === 2, 'Both codepad surfaces must provide an explicit disarm action.');
+assertCodepad(substr_count($html, 'data-code-confirm') === 6, 'Both codepad surfaces must provide disarm, signal-generator and false-alarm actions.');
 assertCodepad(substr_count($html, 'class="oha-code-dot"') === 16, 'Both code displays must support up to eight digits.');
 
 assertCodepad(
-    str_contains($javascript, "ohaRequestAction('DisarmWithCode', code);"),
-    'The codepad must submit the entered code through the HTML-SDK RequestAction channel.'
+    str_contains($javascript, "ohaRequestPartitionAction('DisarmPartitionWithCode', code);"),
+    'The codepad must submit the entered code and selected partition through the HTML-SDK RequestAction channel.'
+);
+assertCodepad(
+    substr_count($module, "['Type' => 'disarm_code', 'Success' => true]") === 4,
+    'Every successful code-protected action must return an explicit success interaction to clear the codepad state.'
 );
 assertCodepad(
     str_contains($javascript, 'ohaCodeBuffer += digit;'),
@@ -92,7 +96,7 @@ assertCodepad(
     'The codepad must provide a dedicated clear operation.'
 );
 assertCodepad(
-    str_contains($javascript, 'ohaState?.Capabilities?.CodeRequired'),
+    str_contains($javascript, 'selectedState?.Capabilities?.CodeRequired'),
     'The codepad must only open when code protection is enabled.'
 );
 assertCodepad(
@@ -139,7 +143,7 @@ assertCodepad(str_contains($javascript, 'function ohaRenderInlineCodepad(state)'
 assertCodepad(str_contains($javascript, 'function ohaCodeInputAllowed()'), 'Both codepad surfaces must share the same backend-driven enablement rule.');
 assertCodepad(
     str_contains($javascript, 'function ohaCodeProtectionLocked(state = ohaState)')
-        && str_contains($javascript, '!ohaCodeProtectionLocked(ohaState)'),
+        && str_contains($javascript, '!ohaCodeProtectionLocked(selectedState)'),
     'Codepad input must be disabled while the backend reports a temporary lockout.'
 );
 assertCodepad(
@@ -163,6 +167,18 @@ assertCodepad(str_contains($javascript, "window.matchMedia('(min-width: 900px)')
 assertCodepad(str_contains($css, '.oha-codepad-overlay'), 'The codepad overlay must be styled.');
 assertCodepad(str_contains($css, '.oha-code-grid'), 'The numeric code grid must be styled.');
 assertCodepad(str_contains($css, '@media (max-width: 420px)'), 'The codepad must have a mobile layout.');
+assertCodepad(
+    str_contains($css, 'touch-action: pan-y;')
+        && str_contains($css, 'max-height: calc(100vh - 24px);')
+        && str_contains($css, 'max-height: calc(100dvh - 24px);'),
+    'The mobile codepad must stay scrollable and constrained to the visible viewport.'
+);
+assertCodepad(
+    str_contains($css, '--oha-popup-background: var(--symc-background);')
+        && str_contains($css, 'place-items: center;')
+        && !str_contains($css, 'place-items: end stretch;'),
+    'The mobile codepad must use an opaque theme surface and be centered in the viewport.'
+);
 
 $translations = $locale['translations']['de'] ?? [];
 foreach ([

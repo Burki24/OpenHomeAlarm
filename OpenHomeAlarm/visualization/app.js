@@ -13,12 +13,15 @@ const ohaIPSViewConfig = ohaVisualization.mode === 'ipsview'
     : null;
 
 let ohaState = ohaVisualization.state ?? null;
+let ohaSelectedPartitionID = '';
 let ohaCodeBuffer = '';
 let ohaCodeBusy = false;
+let ohaCodeAction = 'DisarmPartitionWithCode';
 let ohaCodeRequestTimer = null;
 let ohaCodeLockTimer = null;
 let ohaIPSViewPollTimer = null;
 let ohaIPSViewPendingRequests = 0;
+let ohaPartitionLayoutFrame = null;
 
 function ohaTranslate(text) {
     if (typeof translate === 'function') {
@@ -65,16 +68,23 @@ function ohaReasonCaption(reason) {
 function ohaEventCaption(eventName) {
     const captions = {
         arm_rejected: 'Arming rejected',
+        automatic_arming_succeeded: 'Automatic arming succeeded',
+        automatic_arming_rejected: 'Automatic arming rejected',
         arm_cancelled: 'Arming cancelled',
         exit_delay_started: 'Exit delay started',
         armed: 'System armed',
         entry_delay_started: 'Entry delay started',
         alarm: 'Alarm triggered',
+        alarm_retriggered: 'Alarm retriggered',
         alarm_output_reset: 'Alarm output reset',
+        alarm_rearmed: 'Alarm re-armed',
+        false_alarm_reset: 'False alarm reset',
         disarmed: 'System disarmed',
         disarm_code_rejected: 'Disarm code rejected',
         disarm_code_locked: 'Code entry locked',
         sensor_bypassed: 'Sensor bypassed',
+        sensor_auto_bypassed: 'Sensor automatically bypassed',
+        sensor_auto_bypass_restored: 'Automatic sensor bypass ended',
         sensor_bypass_removed: 'Sensor bypass restored',
         sensor_bypasses_cleared: 'All bypasses cleared',
         alarm_memory_cleared: 'Alarm memory acknowledged',
@@ -99,6 +109,18 @@ function ohaFormatEventTime(timestamp) {
     }).format(new Date(numericTimestamp * 1000));
 }
 
+function ohaDiagnosticStatusCaption(status) {
+    const captions = {
+        ready: 'Ready',
+        triggered: 'Triggered',
+        missing: 'Missing',
+        unreadable: 'Unreadable',
+        disabled: 'Disabled'
+    };
+
+    return ohaTranslate(captions[status] ?? status);
+}
+
 function ohaStateIcon(name) {
     const icons = {
         disarmed: 'fa-shield',
@@ -109,6 +131,162 @@ function ohaStateIcon(name) {
     };
 
     return icons[name] ?? 'fa-shield';
+}
+
+function ohaAvailablePartitions(state = ohaState) {
+    return state?.Partitions && typeof state.Partitions === 'object'
+        ? Object.values(state.Partitions).filter((partition) => partition && typeof partition.ID === 'string')
+        : [];
+}
+
+function ohaPartitionName(partitionID, state = ohaState) {
+    if (typeof partitionID !== 'string' || partitionID === '') {
+        return '';
+    }
+
+    const partition = ohaAvailablePartitions(state).find((item) => item.ID === partitionID);
+
+    return partition?.Name || partitionID;
+}
+
+function ohaSelectedState(state = ohaState) {
+    const partitions = ohaAvailablePartitions(state);
+    if (partitions.length === 0) {
+        return state;
+    }
+
+    const fallbackID = typeof state.DefaultPartition === 'string' ? state.DefaultPartition : partitions[0].ID;
+    if (!partitions.some((partition) => partition.ID === ohaSelectedPartitionID)) {
+        ohaSelectedPartitionID = fallbackID;
+    }
+    const partition = state.Partitions[ohaSelectedPartitionID] ?? partitions[0];
+    const recentEvents = Array.isArray(partition.RecentEvents)
+        ? partition.RecentEvents
+        : (Array.isArray(state.RecentEvents)
+            ? state.RecentEvents.filter((event) => (event.PartitionID ?? fallbackID) === partition.ID)
+            : []);
+    const diagnosticItems = Array.isArray(state.Diagnostics?.Items)
+        ? state.Diagnostics.Items.filter((item) => item.PartitionID === partition.ID)
+        : [];
+    const diagnosticProblems = diagnosticItems.filter((item) => ['missing', 'unreadable'].includes(item.Status)).length;
+
+    return {
+        ...partition,
+        ApiVersion: state.ApiVersion,
+        DefaultPartition: state.DefaultPartition,
+        Partitions: state.Partitions,
+        RecentEvents: recentEvents,
+        Diagnostics: {
+            ...(state.Diagnostics ?? {}),
+            Items: diagnosticItems,
+            Summary: { ...(state.Diagnostics?.Summary ?? {}), Problems: diagnosticProblems }
+        },
+        Interaction: state.Interaction
+    };
+}
+
+function ohaSchedulePartitionNavHeight() {
+    if (ohaPartitionLayoutFrame !== null) {
+        window.cancelAnimationFrame(ohaPartitionLayoutFrame);
+    }
+
+    ohaPartitionLayoutFrame = window.requestAnimationFrame(() => {
+        ohaPartitionLayoutFrame = null;
+        const nav = document.getElementById('partitionNav');
+        nav.style.removeProperty('height');
+
+        if (nav.hidden || document.documentElement.classList.contains('oha-ipsview')
+            || !window.matchMedia('(max-width: 620px)').matches) {
+            return;
+        }
+
+        const measuredHeight = Math.max(68, Math.ceil(nav.scrollHeight));
+        nav.style.height = `${measuredHeight}px`;
+    });
+}
+
+function ohaRenderPartitions(state) {
+    const nav = document.getElementById('partitionNav');
+    const tabs = document.getElementById('partitionTabs');
+    const partitions = ohaAvailablePartitions(state);
+    nav.hidden = partitions.length <= 1;
+    document.getElementById('ohaRoot').dataset.partitionSelectorVisible = nav.hidden ? 'false' : 'true';
+    tabs.replaceChildren();
+    if (nav.hidden) {
+        ohaSchedulePartitionNavHeight();
+        return;
+    }
+
+    document.getElementById('partitionKicker').textContent = ohaTranslate('Alarm partition');
+    document.getElementById('partitionLabel').textContent = ohaTranslate('Select alarm partition');
+    for (const partition of partitions) {
+        const button = document.createElement('button');
+        const stateName = partition.State?.Name ?? 'disarmed';
+        const hasFault = Boolean(partition.Faults?.Active);
+        const hasAlarmMemory = Boolean(partition.Alarm?.MemoryActive);
+        const partitionName = partition.Name || partition.ID;
+        button.className = 'oha-partition-tab';
+        button.type = 'button';
+        button.role = 'tab';
+        button.dataset.partitionId = partition.ID;
+        button.dataset.active = partition.ID === ohaSelectedPartitionID ? 'true' : 'false';
+        button.dataset.state = stateName;
+        button.dataset.fault = hasFault ? 'true' : 'false';
+        button.dataset.alarmMemory = hasAlarmMemory ? 'true' : 'false';
+        button.setAttribute('aria-selected', button.dataset.active);
+        const statusDescription = [partitionName, ohaStateCaption(stateName)];
+        if (hasFault) {
+            statusDescription.push(ohaTranslate('System fault active'));
+        }
+        if (hasAlarmMemory) {
+            statusDescription.push(ohaTranslate('Alarm stored'));
+        }
+        button.setAttribute('aria-label', statusDescription.join(', '));
+        button.title = statusDescription.join(' · ');
+
+        const indicator = document.createElement('span');
+        indicator.className = 'oha-partition-status';
+        indicator.setAttribute('aria-hidden', 'true');
+        const stateIcon = document.createElement('i');
+        stateIcon.className = `fa-light ${ohaStateIcon(stateName)}`;
+        indicator.appendChild(stateIcon);
+        const label = document.createElement('span');
+        label.textContent = partitionName;
+        const badges = document.createElement('span');
+        badges.className = 'oha-partition-badges';
+        badges.setAttribute('aria-hidden', 'true');
+        if (hasFault) {
+            const faultBadge = document.createElement('span');
+            faultBadge.className = 'oha-partition-badge oha-partition-badge-fault';
+            const faultIcon = document.createElement('i');
+            faultIcon.className = 'fa-light fa-triangle-exclamation';
+            faultBadge.appendChild(faultIcon);
+            badges.appendChild(faultBadge);
+        }
+        if (hasAlarmMemory) {
+            const memoryBadge = document.createElement('span');
+            memoryBadge.className = 'oha-partition-badge oha-partition-badge-memory';
+            const memoryIcon = document.createElement('i');
+            memoryIcon.className = 'fa-light fa-bell';
+            memoryBadge.appendChild(memoryIcon);
+            badges.appendChild(memoryBadge);
+        }
+        button.append(indicator, label, badges);
+        tabs.appendChild(button);
+    }
+    ohaSchedulePartitionNavHeight();
+}
+
+function ohaRequestPartitionAction(action, value = null) {
+    const partitionID = ohaSelectedState()?.ID ?? ohaState?.DefaultPartition ?? '';
+    const payload = { PartitionID: partitionID, Value: value };
+    if (action === 'ArmPartition') {
+        const selection = document.getElementById('armDelivery')?.dataset.selection ?? 'default';
+        if (selection !== 'default') {
+            payload.Silent = selection === 'silent';
+        }
+    }
+    ohaRequestAction(action, JSON.stringify(payload));
 }
 
 function ohaAllModesReady(state) {
@@ -239,7 +417,7 @@ function ohaRenderMode(modeName, modeState) {
             action.textContent = ohaTranslate('Activate');
         } else if (button.dataset.active === 'true') {
             action.textContent = ohaTranslate('Active');
-        } else if (ohaState?.State?.Name === 'disarmed') {
+        } else if (ohaSelectedState()?.State?.Name === 'disarmed') {
             action.textContent = ohaTranslate('Blocked');
         } else {
             action.textContent = ohaTranslate('Deactivate first to change mode');
@@ -257,7 +435,25 @@ function ohaRenderArming(state) {
     document.getElementById('armingTitle').textContent = ohaTranslate(isDisarmed ? 'Select security mode' : 'Security zones');
     document.getElementById('armingHint').textContent = isDisarmed
         ? ohaTranslate('Select a ready mode to arm')
-        : `${ohaTranslate('Active mode')}: ${ohaModeCaption(activeMode)}`;
+        : `${ohaTranslate('Active mode')}: ${ohaModeCaption(activeMode)} · ${ohaTranslate(state.Silent ? 'Silent alarm' : 'Normal alarm')}`;
+
+    const delivery = document.getElementById('armDelivery');
+    if (delivery.dataset.partitionId !== state.ID || (isDisarmed && delivery.dataset.wasDisarmed === 'false')) {
+        delivery.dataset.selection = 'default';
+    }
+    delivery.dataset.partitionId = state.ID;
+    delivery.dataset.wasDisarmed = isDisarmed ? 'true' : 'false';
+    delivery.hidden = !isDisarmed;
+    document.getElementById('armDeliveryLabel').textContent = ohaTranslate('Alarm response');
+    document.getElementById('armDeliveryDefault').textContent = `${ohaTranslate('Area default')}: ${ohaTranslate(state.SilentByDefault ? 'Silent' : 'Normal')}`;
+    const selectedSilent = (delivery.dataset.selection ?? 'default') === 'default'
+        ? Boolean(state.SilentByDefault)
+        : delivery.dataset.selection === 'silent';
+    const deliverySwitch = delivery.querySelector('[data-delivery-switch]');
+    deliverySwitch.setAttribute('aria-label', ohaTranslate('Silent alarm'));
+    deliverySwitch.setAttribute('aria-checked', selectedSilent ? 'true' : 'false');
+    deliverySwitch.disabled = !isDisarmed;
+    document.getElementById('armDeliveryValue').textContent = ohaTranslate(selectedSilent ? 'Silent' : 'Normal');
 
     for (const modeName of ['home', 'away', 'night']) {
         const button = document.querySelector(`.oha-mode-button[data-mode="${modeName}"]`);
@@ -360,7 +556,9 @@ function ohaRenderBypasses(state) {
     }
 
     document.getElementById('bypassTitle').textContent = ohaTranslate('Bypassed sensors');
-    document.getElementById('bypassDetail').textContent = bypassed.map((sensor) => sensor.Name).join(', ');
+    document.getElementById('bypassDetail').textContent = bypassed.map((sensor) =>
+        sensor.Automatic ? `${sensor.Name} (${ohaTranslate('Until normal state')})` : sensor.Name
+    ).join(', ');
 
     const clearButton = document.getElementById('clearBypassesButton');
     const canClear = Boolean(state.Capabilities?.CanManageBypasses);
@@ -408,19 +606,20 @@ function ohaCollectSensorOperations(state) {
             Reason: 'bypassed',
             Bypassable: false,
             Modes: [],
-            Bypassed: true
+            Bypassed: true,
+            Automatic: Boolean(sensor.Automatic)
         });
     }
 
     return Array.from(operations.values());
 }
 
-function ohaCreateOperationButton(action, variableID, caption, tone = 'neutral') {
+function ohaCreateOperationButton(action, value, caption, tone = 'neutral') {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'oha-row-action';
     button.dataset.operation = action;
-    button.dataset.variableId = String(variableID);
+    button.dataset.operationValue = String(value);
     button.dataset.tone = tone;
     button.dataset.enabled = 'true';
     button.textContent = ohaTranslate(caption);
@@ -463,7 +662,7 @@ function ohaRenderSensorManagement(state) {
         title.textContent = operation.Name;
         const detail = document.createElement('span');
         if (operation.Bypassed) {
-            detail.textContent = ohaTranslate('Temporarily bypassed');
+            detail.textContent = ohaTranslate(operation.Automatic ? 'Until normal state' : 'Temporarily bypassed');
         } else {
             const modeLabels = operation.Modes.map((mode) => ohaModeCaption(mode)).join(', ');
             detail.textContent = `${ohaReasonCaption(operation.Reason)}${modeLabels ? ` · ${modeLabels}` : ''}`;
@@ -473,8 +672,8 @@ function ohaRenderSensorManagement(state) {
         row.append(icon, copy);
         if (operation.Bypassed && state.Capabilities?.CanManageBypasses) {
             row.append(ohaCreateOperationButton(
-                'RemoveSensorBypass',
-                operation.VariableID,
+                'RemoveSensorBypassPartition',
+                JSON.stringify({ PartitionID: state.ID ?? ohaSelectedPartitionID, Value: operation.VariableID }),
                 'Restore',
                 'accent'
             ));
@@ -484,8 +683,8 @@ function ohaRenderSensorManagement(state) {
             && state.Capabilities?.CanManageBypasses
         ) {
             row.append(ohaCreateOperationButton(
-                'BypassSensor',
-                operation.VariableID,
+                'BypassSensorPartition',
+                JSON.stringify({ PartitionID: state.ID ?? ohaSelectedPartitionID, Value: operation.VariableID }),
                 'Bypass once',
                 'warning'
             ));
@@ -529,6 +728,57 @@ function ohaRenderEventHistory(state) {
     }
 }
 
+function ohaRenderDiagnostics(state) {
+    const panel = document.getElementById('diagnosticsPanel');
+    const list = document.getElementById('diagnosticsList');
+    const diagnostics = state.Diagnostics && typeof state.Diagnostics === 'object'
+        ? state.Diagnostics
+        : null;
+    const items = Array.isArray(diagnostics?.Items) ? diagnostics.Items : [];
+
+    panel.hidden = items.length === 0;
+    list.replaceChildren();
+    if (panel.hidden) {
+        return;
+    }
+
+    document.getElementById('diagnosticsKicker').textContent = ohaTranslate('System diagnostics');
+    document.getElementById('diagnosticsTitle').textContent = ohaTranslate('Inputs and communication');
+    document.getElementById('diagnosticsCount').textContent = String(diagnostics.Summary?.Problems ?? 0);
+    document.getElementById('diagnosticsCount').dataset.problems = Number(diagnostics.Summary?.Problems) > 0
+        ? 'true'
+        : 'false';
+
+    for (const item of items) {
+        const row = document.createElement('div');
+        row.className = 'oha-diagnostic-row';
+        row.dataset.status = item.Status;
+        row.dataset.kind = item.Kind;
+
+        const icon = document.createElement('span');
+        icon.className = 'oha-operation-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        const iconElement = document.createElement('i');
+        iconElement.className = `fa-light ${item.Kind === 'fault' ? 'fa-triangle-exclamation' : 'fa-wave-pulse'}`;
+        icon.appendChild(iconElement);
+
+        const copy = document.createElement('div');
+        copy.className = 'oha-operation-copy';
+        const title = document.createElement('strong');
+        title.textContent = item.Name;
+        const timestamp = Number(item.LastChanged) > 0 ? item.LastChanged : item.LastUpdated;
+        const detail = document.createElement('span');
+        detail.textContent = [
+            ohaDiagnosticStatusCaption(item.Status),
+            ohaPartitionName(item.PartitionID, state),
+            ohaFormatEventTime(timestamp)
+        ].filter(Boolean).join(' · ');
+        copy.append(title, detail);
+        row.append(icon, copy);
+        list.appendChild(row);
+    }
+}
+
 function ohaUpdateOperationsLayout() {
     const grid = document.getElementById('operationsGrid');
     const visiblePanels = Array.from(grid.querySelectorAll('.oha-operation-panel'))
@@ -551,10 +801,11 @@ function ohaCodeProtectionLocked(state = ohaState) {
 }
 
 function ohaCodeInputAllowed() {
+    const selectedState = ohaSelectedState();
     return Boolean(
-        ohaState?.Capabilities?.CodeRequired
-        && !ohaCodeProtectionLocked(ohaState)
-        && ohaCanDisarm(ohaState)
+        selectedState?.Capabilities?.CodeRequired
+        && !ohaCodeProtectionLocked(selectedState)
+        && ohaCanDisarm(selectedState)
     );
 }
 
@@ -584,6 +835,16 @@ function ohaRenderInlineCodepad(state) {
     }
 
     document.getElementById('inlineDisarmLabel').textContent = ohaTranslate('Deactivate');
+    const canStopSignalGenerator = Boolean(state.Capabilities?.CanStopSignalGenerator);
+    const inlineStopSignalGenerator = document.getElementById('inlineStopSignalGenerator');
+    inlineStopSignalGenerator.hidden = !canStopSignalGenerator;
+    inlineStopSignalGenerator.dataset.enabled = enabled && canStopSignalGenerator ? 'true' : 'false';
+    document.getElementById('inlineStopSignalGeneratorLabel').textContent = ohaTranslate('Stop signal generator');
+    const canResetFalseAlarm = Boolean(state.Capabilities?.CanResetFalseAlarm);
+    const inlineResetFalseAlarm = document.getElementById('inlineResetFalseAlarm');
+    inlineResetFalseAlarm.hidden = !canResetFalseAlarm;
+    inlineResetFalseAlarm.dataset.enabled = enabled && canResetFalseAlarm ? 'true' : 'false';
+    document.getElementById('inlineResetFalseAlarmLabel').textContent = ohaTranslate('Reset false alarm');
     ohaUpdateCodepad();
 }
 
@@ -597,6 +858,12 @@ function ohaRenderDisarm(state) {
     const canDisarm = ohaCanDisarm(state);
     const resetAlarmOutputButton = document.getElementById('resetAlarmOutputButton');
     const canResetAlarmOutput = Boolean(state.Capabilities?.CanResetAlarmOutput);
+    const resetFalseAlarmButton = document.getElementById('resetFalseAlarmButton');
+    const canResetFalseAlarm = Boolean(state.Capabilities?.CanResetFalseAlarm);
+    const stopSignalGeneratorButton = document.getElementById('stopSignalGeneratorButton');
+    const canStopSignalGenerator = Boolean(state.Capabilities?.CanStopSignalGenerator);
+    const modalStopSignalGenerator = document.getElementById('codepadStopSignalGenerator');
+    const modalResetFalseAlarm = document.getElementById('codepadResetFalseAlarm');
 
     bar.hidden = !canDisarm;
     bar.dataset.codeRequired = codeRequired ? 'true' : 'false';
@@ -607,9 +874,19 @@ function ohaRenderDisarm(state) {
     }
 
     document.getElementById('controlTitle').textContent = ohaTranslate('System control');
+    stopSignalGeneratorButton.hidden = !canStopSignalGenerator || codeRequired;
+    stopSignalGeneratorButton.dataset.enabled = canStopSignalGenerator ? 'true' : 'false';
+    modalStopSignalGenerator.hidden = !canStopSignalGenerator || !codeRequired;
+    modalStopSignalGenerator.dataset.enabled = canStopSignalGenerator && codeRequired && !codeLocked ? 'true' : 'false';
+    document.getElementById('stopSignalGeneratorLabel').textContent = ohaTranslate('Stop signal generator');
     resetAlarmOutputButton.hidden = !canResetAlarmOutput;
     resetAlarmOutputButton.dataset.enabled = canResetAlarmOutput ? 'true' : 'false';
-    document.getElementById('resetAlarmOutputLabel').textContent = ohaTranslate('Silence alarm');
+    document.getElementById('resetAlarmOutputLabel').textContent = ohaTranslate('Reset alarm actions');
+    resetFalseAlarmButton.hidden = !canResetFalseAlarm || codeRequired;
+    resetFalseAlarmButton.dataset.enabled = canResetFalseAlarm ? 'true' : 'false';
+    modalResetFalseAlarm.hidden = !canResetFalseAlarm || !codeRequired;
+    modalResetFalseAlarm.dataset.enabled = canResetFalseAlarm && codeRequired && !codeLocked ? 'true' : 'false';
+    document.getElementById('resetFalseAlarmLabel').textContent = ohaTranslate('Reset false alarm');
     codeHint.hidden = !codeRequired;
     codeHint.textContent = codeRequired
         ? ohaTranslate(codeLocked ? 'Code entry is temporarily locked.' : 'Code required for disarming')
@@ -630,32 +907,43 @@ function ohaRenderStaticText() {
     document.getElementById('codepadClear').setAttribute('aria-label', ohaTranslate('Clear code entry'));
     document.getElementById('codepadConfirm').setAttribute('aria-label', ohaTranslate('Deactivate'));
     document.getElementById('modalDisarmLabel').textContent = ohaTranslate('Deactivate');
+    document.getElementById('codepadStopSignalGenerator').setAttribute('aria-label', ohaTranslate('Stop signal generator'));
+    document.getElementById('modalStopSignalGeneratorLabel').textContent = ohaTranslate('Stop signal generator');
+    document.getElementById('codepadResetFalseAlarm').setAttribute('aria-label', ohaTranslate('Reset false alarm'));
+    document.getElementById('modalResetFalseAlarmLabel').textContent = ohaTranslate('Reset false alarm');
     document.getElementById('codepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('inlineCodepad').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('inlineCodepadDelete').setAttribute('aria-label', ohaTranslate('Delete last digit'));
     document.getElementById('inlineCodepadClear').setAttribute('aria-label', ohaTranslate('Clear code entry'));
     document.getElementById('inlineCodepadConfirm').setAttribute('aria-label', ohaTranslate('Deactivate'));
     document.getElementById('inlineCodepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
+    document.getElementById('exportHistoryJson').setAttribute('aria-label', ohaTranslate('Export event history as JSON'));
+    document.getElementById('exportHistoryCsv').setAttribute('aria-label', ohaTranslate('Export event history as CSV'));
+    document.getElementById('exportDiagnosticsJson').setAttribute('aria-label', ohaTranslate('Export diagnostics as JSON'));
+    document.getElementById('exportDiagnosticsCsv').setAttribute('aria-label', ohaTranslate('Export diagnostics as CSV'));
 }
 
 function ohaRender() {
-    if (!ohaState || Number(ohaState.ApiVersion) !== 1) {
+    if (!ohaState || Number(ohaState.ApiVersion) !== 2) {
         return;
     }
 
+    const selectedState = ohaSelectedState();
     ohaRenderStaticText();
-    ohaRenderHero(ohaState);
-    ohaRenderSummary(ohaState);
-    ohaRenderAlarmMemory(ohaState);
-    ohaRenderFaults(ohaState);
-    ohaRenderBypasses(ohaState);
-    ohaRenderSensorManagement(ohaState);
-    ohaRenderEventHistory(ohaState);
+    ohaRenderPartitions(ohaState);
+    ohaRenderHero(selectedState);
+    ohaRenderSummary(selectedState);
+    ohaRenderAlarmMemory(selectedState);
+    ohaRenderFaults(selectedState);
+    ohaRenderBypasses(selectedState);
+    ohaRenderSensorManagement(selectedState);
+    ohaRenderEventHistory(selectedState);
+    ohaRenderDiagnostics(selectedState);
     ohaUpdateOperationsLayout();
-    ohaRenderArming(ohaState);
-    ohaRenderInlineCodepad(ohaState);
-    ohaRenderDisarm(ohaState);
-    ohaScheduleCodeLockRefresh(ohaState);
+    ohaRenderArming(selectedState);
+    ohaRenderInlineCodepad(selectedState);
+    ohaRenderDisarm(selectedState);
+    ohaScheduleCodeLockRefresh(selectedState);
 }
 
 async function ohaIPSViewRequest(action, value) {
@@ -720,8 +1008,9 @@ function ohaIPSViewPollInterval() {
         return Math.max(5000, Number(ohaIPSViewConfig?.hiddenPollInterval) || 15000);
     }
 
-    const stateName = ohaState?.State?.Name ?? '';
-    if (stateName === 'exit_delay' || stateName === 'entry_delay' || ohaCodeProtectionLocked(ohaState)) {
+    const selectedState = ohaSelectedState();
+    const stateName = selectedState?.State?.Name ?? '';
+    if (stateName === 'exit_delay' || stateName === 'entry_delay' || ohaCodeProtectionLocked(selectedState)) {
         return Math.max(500, Number(ohaIPSViewConfig?.activePollInterval) || 1000);
     }
 
@@ -761,11 +1050,11 @@ function ohaHandleModeButton(button) {
     }
 
     if (button.dataset.canArm === 'true') {
-        ohaRequestAction('Arm', button.dataset.mode ?? '');
+        ohaRequestPartitionAction('ArmPartition', button.dataset.mode ?? '');
         return;
     }
 
-    if (ohaState?.State?.Name !== 'disarmed') {
+    if (ohaSelectedState()?.State?.Name !== 'disarmed') {
         const hint = document.getElementById('armingHint');
         if (hint) {
             hint.textContent = ohaTranslate('Deactivate first to change mode');
@@ -788,18 +1077,33 @@ function ohaFocusInlineCodepad() {
 }
 
 function ohaHandleDisarmButton() {
-    if (!ohaCanDisarm(ohaState) || ohaCodeProtectionLocked(ohaState)) {
+    const selectedState = ohaSelectedState();
+    if (!ohaCanDisarm(selectedState) || ohaCodeProtectionLocked(selectedState)) {
         return;
     }
 
-    if (ohaState?.Capabilities?.CodeRequired) {
+    if (selectedState?.Capabilities?.CodeRequired) {
+        ohaCodeAction = 'DisarmPartitionWithCode';
         if (!ohaFocusInlineCodepad()) {
             ohaOpenCodepad();
         }
         return;
     }
 
-    ohaRequestAction('Disarm', '');
+    ohaRequestPartitionAction('DisarmPartition');
+}
+
+function ohaHandleFalseAlarmReset() {
+    const selectedState = ohaSelectedState();
+    if (selectedState?.Capabilities?.CodeRequired) {
+        ohaCodeAction = 'ResetFalseAlarmPartitionWithCode';
+        if (!ohaFocusInlineCodepad()) {
+            ohaOpenCodepad();
+        }
+        return;
+    }
+
+    ohaRequestPartitionAction('ResetFalseAlarmPartition');
 }
 
 function ohaClearCodeRequestTimer() {
@@ -877,12 +1181,13 @@ function ohaResetCodeEntry() {
     ohaUpdateCodepad();
 }
 
-function ohaOpenCodepad() {
+function ohaOpenCodepad(action = 'DisarmPartitionWithCode') {
     if (!ohaCodeInputAllowed()) {
         return;
     }
 
     const overlay = document.getElementById('codepadOverlay');
+    ohaCodeAction = action;
     ohaResetCodeEntry();
     overlay.hidden = false;
     document.body.classList.add('oha-modal-open');
@@ -931,17 +1236,24 @@ function ohaClearCodeEntry() {
     ohaUpdateCodepad();
 }
 
-function ohaSubmitCode() {
+function ohaSubmitCode(requestedAction = null) {
     if (!ohaCodeInputAllowed() || ohaCodeBusy || ohaCodeBuffer.length < 4 || ohaCodeBuffer.length > 8) {
         return;
     }
 
+    const codeAction = requestedAction || ohaCodeAction;
     const code = ohaCodeBuffer;
     ohaCodeBuffer = '';
     ohaCodeBusy = true;
     ohaSetCodeError('');
     ohaUpdateCodepad();
-    ohaRequestAction('DisarmWithCode', code);
+    if (codeAction === 'DisarmPartitionWithCode') {
+        ohaRequestPartitionAction('DisarmPartitionWithCode', code);
+    } else if (codeAction === 'StopSignalGeneratorWithCode') {
+        ohaRequestAction('StopSignalGeneratorWithCode', code);
+    } else {
+        ohaRequestPartitionAction(codeAction, code);
+    }
 
     ohaClearCodeRequestTimer();
     ohaCodeRequestTimer = window.setTimeout(() => {
@@ -955,7 +1267,20 @@ function ohaSubmitCode() {
 }
 
 function ohaHandleInteraction(interaction) {
-    if (!interaction || interaction.Type !== 'disarm_code') {
+    if (!interaction) {
+        return;
+    }
+
+    if (interaction.Type === 'event_history_export') {
+        ohaDownloadEventHistory(interaction);
+        return;
+    }
+    if (interaction.Type === 'diagnostics_export') {
+        ohaDownloadDiagnostics(interaction);
+        return;
+    }
+
+    if (interaction.Type !== 'disarm_code') {
         return;
     }
 
@@ -975,6 +1300,47 @@ function ohaHandleInteraction(interaction) {
     ohaUpdateCodepad();
 }
 
+function ohaDownloadEventHistory(interaction) {
+    ohaDownloadData(interaction, 'openhomealarm-events');
+}
+
+function ohaDownloadDiagnostics(interaction) {
+    ohaDownloadData(interaction, 'openhomealarm-diagnostics');
+}
+
+function ohaDownloadData(interaction, fallbackBase) {
+    const format = interaction?.Format === 'csv' ? 'csv' : 'json';
+    const fallbackFilename = `${fallbackBase}.${format}`;
+    const filename = typeof interaction?.Filename === 'string'
+        && /^[a-z0-9._-]+$/i.test(interaction.Filename)
+        ? interaction.Filename
+        : fallbackFilename;
+    let content = typeof interaction?.Content === 'string' ? interaction.Content : '';
+    let mimeType = 'application/json;charset=utf-8';
+
+    if (format === 'csv') {
+        content = `\uFEFF${content}`;
+        mimeType = 'text/csv;charset=utf-8';
+    } else {
+        try {
+            content = JSON.stringify(JSON.parse(content), null, 2);
+        } catch (_error) {
+            return;
+        }
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.hidden = true;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function ohaFindInteractiveControl(event) {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) {
@@ -983,7 +1349,7 @@ function ohaFindInteractiveControl(event) {
 
     return target.closest(
         '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm], '
-        + '[data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
+        + '[data-partition-id], [data-delivery-switch], [data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
     );
 }
 
@@ -1008,7 +1374,7 @@ function ohaActivateCodeControl(control) {
     }
 
     if (control.matches('[data-code-confirm]')) {
-        ohaSubmitCode();
+        ohaSubmitCode(control.dataset.codeAction ?? null);
     }
 }
 
@@ -1034,13 +1400,48 @@ function ohaHandleInteractiveClick(event) {
         return;
     }
 
+    if (control.matches('[data-delivery-switch]')) {
+        const state = ohaSelectedState();
+        if (state?.State?.Name === 'disarmed') {
+            const nextSilent = control.getAttribute('aria-checked') !== 'true';
+            const delivery = document.getElementById('armDelivery');
+            delivery.dataset.selection = nextSilent === Boolean(state.SilentByDefault)
+                ? 'default'
+                : (nextSilent ? 'silent' : 'normal');
+            ohaRenderArming(state);
+        }
+        return;
+    }
+
+    if (control.matches('[data-partition-id]')) {
+        ohaSelectedPartitionID = control.dataset.partitionId ?? '';
+        ohaCloseCodepad();
+        ohaRender();
+        return;
+    }
+
     if (control.matches('[data-operation]')) {
         if (control.dataset.enabled !== 'true') {
             return;
         }
         const action = control.dataset.operation ?? '';
-        const variableID = Number(control.dataset.variableId) || 0;
-        ohaRequestAction(action, variableID > 0 ? variableID : true);
+        if (action === 'ExportEventHistory' || action === 'ExportDiagnostics') {
+            ohaRequestAction(action, control.dataset.format ?? '');
+            return;
+        }
+        if (action === 'ClearAlarmMemory') {
+            ohaRequestPartitionAction('ClearAlarmMemoryPartition');
+        } else if (action === 'StopSignalGenerator') {
+            ohaRequestAction('StopSignalGenerator', true);
+        } else if (action === 'ResetAlarmOutput') {
+            ohaRequestPartitionAction('ResetAlarmOutputPartition');
+        } else if (action === 'ResetFalseAlarm') {
+            ohaHandleFalseAlarmReset();
+        } else if (action === 'ClearSensorBypasses') {
+            ohaRequestPartitionAction('ClearSensorBypassesPartition');
+        } else {
+            ohaRequestAction(action, control.dataset.operationValue ?? true);
+        }
         return;
     }
 
@@ -1056,6 +1457,7 @@ function ohaHandleInteractiveClick(event) {
 
     if (control.id === 'codepadClose') {
         ohaCloseCodepad();
+        return;
     }
 }
 
@@ -1067,7 +1469,7 @@ function ohaIsControlStatePayload(state) {
     return Boolean(
         state
         && typeof state === 'object'
-        && Number(state.ApiVersion) === 1
+        && Number(state.ApiVersion) === 2
         && typeof state.State?.Name === 'string'
         && typeof state.Mode?.Name === 'string'
         && state.Capabilities
@@ -1096,9 +1498,9 @@ function handleMessage(data) {
         return;
     }
 
-    const previousStateName = ohaState?.State?.Name ?? null;
-    const nextStateName = nextState.State.Name;
+    const previousStateName = ohaSelectedState(ohaState)?.State?.Name ?? null;
     ohaState = nextState;
+    const nextStateName = ohaSelectedState(nextState)?.State?.Name ?? null;
 
     if (nextStateName === 'disarmed' && previousStateName !== 'disarmed') {
         ohaResetCodeEntry();
@@ -1159,6 +1561,11 @@ if (typeof ohaDesktopCodepadQuery.addEventListener === 'function') {
             ohaCloseCodepad();
         }
     });
+}
+
+window.addEventListener('resize', ohaSchedulePartitionNavHeight, { passive: true });
+if (document.fonts?.ready) {
+    document.fonts.ready.then(ohaSchedulePartitionNavHeight);
 }
 
 if (ohaIPSViewConfig) {

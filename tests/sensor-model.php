@@ -384,6 +384,7 @@ assertSensorModel(
         'DelayRemaining',
         'DelaySource',
         'AlarmOutputActive',
+        'SignalGeneratorActive',
         'ReadyToArm',
         'ReadyHome',
         'ReadyAway',
@@ -406,30 +407,36 @@ assertSensorModel(
 
 $configuredSensors = [
     [
-        'Enabled'      => true,
-        'Name'         => 'Haustür',
-        'VariableID'   => 12345,
-        'SensorType'   => 0,
-        'TriggerValue' => '1',
-        'ArmHome'      => true,
-        'ArmAway'      => true,
-        'ArmNight'     => true,
-        'AlwaysActive' => false,
-        'ExitDelay'    => true,
-        'EntryDelay'   => true
+        'Enabled'              => true,
+        'PartitionID'          => 'main',
+        'Name'                 => 'Haustür',
+        'VariableID'           => 12345,
+        'SensorType'           => 0,
+        'TriggerValue'         => '1',
+        'ArmHome'              => true,
+        'ArmAway'              => true,
+        'ArmNight'             => true,
+        'AlwaysActive'         => false,
+        'AllowAutomaticBypass' => false,
+        'ExitDelay'            => true,
+        'EntryDelay'           => true,
+        'RetriggerAlarm'       => false
     ],
     [
-        'Enabled'      => true,
-        'Name'         => 'Flur Bewegung',
-        'VariableID'   => 23456,
-        'SensorType'   => 1,
-        'TriggerValue' => 'true',
-        'ArmHome'      => false,
-        'ArmAway'      => true,
-        'ArmNight'     => false,
-        'AlwaysActive' => false,
-        'ExitDelay'    => false,
-        'EntryDelay'   => false
+        'Enabled'              => true,
+        'PartitionID'          => 'main',
+        'Name'                 => 'Flur Bewegung',
+        'VariableID'           => 23456,
+        'SensorType'           => 1,
+        'TriggerValue'         => 'true',
+        'ArmHome'              => false,
+        'ArmAway'              => true,
+        'ArmNight'             => false,
+        'AlwaysActive'         => false,
+        'AllowAutomaticBypass' => false,
+        'ExitDelay'            => false,
+        'EntryDelay'           => false,
+        'RetriggerAlarm'       => false
     ]
 ];
 $instance->TestSetPropertyString(
@@ -440,6 +447,23 @@ $instance->TestSetPropertyString(
 $readConfiguredSensors = new ReflectionMethod(OpenHomeAlarm::class, 'ReadConfiguredSensors');
 $normalizedSensors = $readConfiguredSensors->invoke($instance);
 assertSensorModel($normalizedSensors === $configuredSensors, 'Valid sensor configuration must round-trip unchanged.');
+$alwaysActiveConfiguration = new OpenHomeAlarm();
+$alwaysActiveConfiguration->Create();
+$alwaysActiveConfiguration->TestSetPropertyString('Sensors', json_encode([array_merge($configuredSensors[0], [
+    'AlwaysActive'         => true,
+    'AllowAutomaticBypass' => true
+])], JSON_THROW_ON_ERROR));
+$normalizedAlwaysActive = $readConfiguredSensors->invoke($alwaysActiveConfiguration)[0];
+assertSensorModel(
+    $normalizedAlwaysActive['AlwaysActive'] === true
+    && $normalizedAlwaysActive['ArmHome'] === false
+    && $normalizedAlwaysActive['ArmAway'] === false
+    && $normalizedAlwaysActive['ArmNight'] === false
+    && $normalizedAlwaysActive['AllowAutomaticBypass'] === false
+    && $normalizedAlwaysActive['ExitDelay'] === false
+    && $normalizedAlwaysActive['EntryDelay'] === false,
+    'Legacy 24/7 sensors must ignore saved arming-mode and delay values.'
+);
 
 $minimalInstance = new OpenHomeAlarm();
 $minimalInstance->Create();
@@ -454,17 +478,20 @@ $minimalInstance->TestSetPropertyString(
 $minimalSensors = $readConfiguredSensors->invoke($minimalInstance);
 assertSensorModel(
     $minimalSensors === [[
-        'Enabled'      => true,
-        'Name'         => '',
-        'VariableID'   => 34567,
-        'SensorType'   => 0,
-        'TriggerValue' => '1',
-        'ArmHome'      => false,
-        'ArmAway'      => true,
-        'ArmNight'     => false,
-        'AlwaysActive' => false,
-        'ExitDelay'    => false,
-        'EntryDelay'   => false
+        'Enabled'              => true,
+        'PartitionID'          => 'main',
+        'Name'                 => '',
+        'VariableID'           => 34567,
+        'SensorType'           => 0,
+        'TriggerValue'         => '1',
+        'ArmHome'              => false,
+        'ArmAway'              => true,
+        'ArmNight'             => false,
+        'AlwaysActive'         => false,
+        'AllowAutomaticBypass' => false,
+        'ExitDelay'            => false,
+        'EntryDelay'           => false,
+        'RetriggerAlarm'       => false
     ]],
     'Missing optional sensor fields must receive stable defaults.'
 );
@@ -521,6 +548,7 @@ foreach ($list['columns'] ?? [] as $column) {
 foreach ([
     'Enabled',
     'Name',
+    'PartitionNames',
     'VariableID',
     'SensorType',
     'TriggerValue',
@@ -528,6 +556,7 @@ foreach ([
     'ArmAway',
     'ArmNight',
     'AlwaysActive',
+    'AllowAutomaticBypass',
     'ExitDelay',
     'EntryDelay'
 ] as $columnName) {
@@ -546,11 +575,16 @@ assertSensorModel(
     'Sensor type values must remain stable.'
 );
 assertSensorModel(($columns['Enabled']['add'] ?? null) === true, 'New sensors must be enabled by default.');
+assertSensorModel(
+    ($columns['PartitionNames']['save'] ?? true) === false,
+    'The readable alarm-area summary must not be persisted.'
+);
 assertSensorModel(($columns['TriggerValue']['add'] ?? null) === '1', 'New sensors must use trigger value 1 by default.');
 assertSensorModel(($columns['ArmHome']['add'] ?? null) === false, 'New sensors must not be active in Home by default.');
 assertSensorModel(($columns['ArmAway']['add'] ?? null) === true, 'New sensors must be active in Away by default.');
 assertSensorModel(($columns['ArmNight']['add'] ?? null) === false, 'New sensors must not be active in Night by default.');
 assertSensorModel(($columns['AlwaysActive']['add'] ?? null) === false, 'New sensors must not be 24/7 active by default.');
+assertSensorModel(($columns['AllowAutomaticBypass']['add'] ?? null) === false, 'New sensors must not permit automatic bypasses by default.');
 assertSensorModel(($columns['ExitDelay']['add'] ?? null) === false, 'New sensors must not use the exit route by default.');
 assertSensorModel(($columns['EntryDelay']['add'] ?? null) === false, 'New sensors must not use entry delay by default.');
 assertSensorModel(
@@ -619,15 +653,18 @@ assertSensorModel(
     ($generatedSensorList['values'] ?? null) === [
         [
             'TriggerValueSelection' => 'ALARM',
-            'TriggerValueManual'    => 'ALARM'
+            'TriggerValueManual'    => 'ALARM',
+            'PartitionNames'        => 'Main area'
         ],
         [
             'TriggerValueSelection' => 'true',
-            'TriggerValueManual'    => 'true'
+            'TriggerValueManual'    => 'true',
+            'PartitionNames'        => 'Main area'
         ],
         [
             'TriggerValueSelection' => 'IDLE',
-            'TriggerValueManual'    => '"IDLE"'
+            'TriggerValueManual'    => '"IDLE"',
+            'PartitionNames'        => 'Main area'
         ]
     ],
     'Generated List values must restore the persisted trigger value into non-persistent edit helper fields.'
@@ -648,8 +685,70 @@ assertSensorModel(
     'Sensor editor must use SelectVariable for VariableID.'
 );
 assertSensorModel(
+    ($editFields['PartitionID']['type'] ?? null) === 'ValidationTextBox'
+    && ($editFields['PartitionID']['value'] ?? null) === 'main'
+    && ($editFields['PartitionID']['visible'] ?? true) === false
+    && ($editFields['Partition_main']['type'] ?? null) === 'CheckBox'
+    && ($editFields['Partition_main']['value'] ?? null) === true,
+    'Sensor editor must select the default area and persist its assignment with a checkbox.'
+);
+
+$orphanedEditForm = $instance->GetSensorEditForm(new IPSList([
+    'PartitionID'               => 'schuppen',
+    'Partition_main'            => false,
+    'Partition_schuppen'        => true,
+    'VariableID'                => 12345,
+    'TriggerValue'              => 'true'
+]));
+$orphanedEditFields = [];
+foreach ($orphanedEditForm as $field) {
+    if (isset($field['name'])) {
+        $orphanedEditFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($orphanedEditFields['Partition_schuppen']['type'] ?? null) === 'CheckBox'
+        && ($orphanedEditFields['Partition_schuppen']['value'] ?? null) === true
+        && ($orphanedEditFields['Partition_schuppen']['enabled'] ?? false) === true,
+    'Sensor editor must expose an orphaned partition assignment so the user can remove it.'
+);
+assertSensorModel(
     ($editFields['AlwaysActive']['type'] ?? null) === 'CheckBox',
     'Sensor editor must expose 24/7 monitoring as a checkbox.'
+);
+assertSensorModel(
+    ($editFields['AlwaysActive']['onChange'] ?? null) === 'OHA_UpdateSensorAlwaysActiveForm($id, $AlwaysActive);',
+    'Changing the 24/7 setting must update the arming-mode and delay choices immediately.'
+);
+$alwaysActiveEditForm = $instance->GetSensorEditForm(new IPSList([
+    'VariableID'   => 12345,
+    'AlwaysActive' => true,
+    'ArmHome'      => true,
+    'ArmAway'      => true,
+    'ArmNight'     => true,
+    'ExitDelay'    => true,
+    'EntryDelay'   => true
+]));
+$alwaysActiveEditFields = [];
+foreach ($alwaysActiveEditForm as $field) {
+    if (isset($field['name'])) {
+        $alwaysActiveEditFields[$field['name']] = $field;
+    }
+}
+foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay', 'AllowAutomaticBypass'] as $fieldName) {
+    assertSensorModel(
+        ($alwaysActiveEditFields[$fieldName]['enabled'] ?? true) === false
+        && ($alwaysActiveEditFields[$fieldName]['value'] ?? true) === false,
+        '24/7 sensors must disable and clear every irrelevant arming-mode and delay field.'
+    );
+}
+$instance->TestClearFormUpdates();
+$instance->UpdateSensorAlwaysActiveForm(true);
+assertSensorModel(
+    count($instance->TestFormUpdates()) === 12
+    && array_column($instance->TestFormUpdates(), 'field') === ['ArmHome', 'ArmHome', 'ArmAway', 'ArmAway', 'ArmNight', 'ArmNight', 'ExitDelay', 'ExitDelay', 'EntryDelay', 'EntryDelay', 'AllowAutomaticBypass', 'AllowAutomaticBypass']
+    && array_column($instance->TestFormUpdates(), 'value') === array_fill(0, 12, false),
+    'Switching a sensor to 24/7 must immediately clear and disable every arming-mode and delay choice.'
 );
 assertSensorModel(
     ($editFields['ExitDelay']['type'] ?? null) === 'CheckBox',
@@ -877,7 +976,7 @@ foreach ([
     'Other trigger',
     '24/7 active',
     'Exit route',
-    'Exit-route sensors may be open when arming starts if an exit delay is configured, but must be ready when the countdown ends.',
+    'Exit-route motion detectors may remain active through the end of a configured exit delay; all other sensors must be ready.',
     '24/7 sensors trigger immediately in every system state; mode assignments and entry/exit delay are ignored.',
     '24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored.',
     'Select a variable to choose its trigger value.',

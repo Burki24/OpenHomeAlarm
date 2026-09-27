@@ -17,6 +17,8 @@ final class AlarmConfigurationNormalizer
      *
      * @return list<array{
      *     Enabled: bool,
+     *     PartitionID: string,
+     *     PartitionIDs: list<string>,
      *     Name: string,
      *     VariableID: int,
      *     SensorType: int,
@@ -25,8 +27,10 @@ final class AlarmConfigurationNormalizer
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
+     *     AllowAutomaticBypass: bool,
      *     ExitDelay: bool,
-     *     EntryDelay: bool
+     *     EntryDelay: bool,
+     *     RetriggerAlarm: bool
      * }>
      */
     public static function sensors(
@@ -60,18 +64,45 @@ final class AlarmConfigurationNormalizer
                 throw new UnexpectedValueException('Unsupported sensor type.');
             }
 
+            $legacyPartitionID = strtolower(trim(self::stringField($sensor, 'PartitionID', '', 'Sensor')));
+            $partitionIDs = [];
+            $hasPartitionFields = false;
+            foreach ($sensor as $key => $selected) {
+                if (!is_string($key) || !str_starts_with($key, 'Partition_')) {
+                    continue;
+                }
+                $hasPartitionFields = true;
+                if ($selected === true) {
+                    $partitionIDs[] = strtolower(substr($key, strlen('Partition_')));
+                }
+            }
+            if (!$hasPartitionFields && $legacyPartitionID !== '') {
+                $partitionIDs[] = $legacyPartitionID;
+            }
+
+            $alwaysActive = self::booleanField($sensor, 'AlwaysActive', false, 'Sensor');
+            $allowAutomaticBypass = self::booleanField($sensor, 'AllowAutomaticBypass', false, 'Sensor');
+            $armHome = self::booleanField($sensor, 'ArmHome', false, 'Sensor');
+            $armAway = self::booleanField($sensor, 'ArmAway', true, 'Sensor');
+            $armNight = self::booleanField($sensor, 'ArmNight', false, 'Sensor');
+            $exitDelay = self::booleanField($sensor, 'ExitDelay', false, 'Sensor');
+            $entryDelay = self::booleanField($sensor, 'EntryDelay', false, 'Sensor');
             $normalizedSensors[] = [
-                'Enabled'      => self::booleanField($sensor, 'Enabled', true, 'Sensor'),
-                'Name'         => trim(self::stringField($sensor, 'Name', '', 'Sensor')),
-                'VariableID'   => $variableID,
-                'SensorType'   => $sensorType,
-                'TriggerValue' => self::stringField($sensor, 'TriggerValue', '1', 'Sensor'),
-                'ArmHome'      => self::booleanField($sensor, 'ArmHome', false, 'Sensor'),
-                'ArmAway'      => self::booleanField($sensor, 'ArmAway', true, 'Sensor'),
-                'ArmNight'     => self::booleanField($sensor, 'ArmNight', false, 'Sensor'),
-                'AlwaysActive' => self::booleanField($sensor, 'AlwaysActive', false, 'Sensor'),
-                'ExitDelay'    => self::booleanField($sensor, 'ExitDelay', false, 'Sensor'),
-                'EntryDelay'   => self::booleanField($sensor, 'EntryDelay', false, 'Sensor')
+                'Enabled'              => self::booleanField($sensor, 'Enabled', true, 'Sensor'),
+                'PartitionID'          => $legacyPartitionID,
+                'PartitionIDs'         => array_values(array_unique($partitionIDs)),
+                'Name'                 => trim(self::stringField($sensor, 'Name', '', 'Sensor')),
+                'VariableID'           => $variableID,
+                'SensorType'           => $sensorType,
+                'TriggerValue'         => self::stringField($sensor, 'TriggerValue', '1', 'Sensor'),
+                'ArmHome'              => !$alwaysActive && $armHome,
+                'ArmAway'              => !$alwaysActive && $armAway,
+                'ArmNight'             => !$alwaysActive && $armNight,
+                'AlwaysActive'         => $alwaysActive,
+                'AllowAutomaticBypass' => !$alwaysActive && $allowAutomaticBypass,
+                'ExitDelay'            => !$alwaysActive && $exitDelay,
+                'EntryDelay'           => !$alwaysActive && $entryDelay,
+                'RetriggerAlarm'       => self::booleanField($sensor, 'RetriggerAlarm', false, 'Sensor')
             ];
         }
 
@@ -83,6 +114,7 @@ final class AlarmConfigurationNormalizer
      *
      * @return list<array{
      *     Enabled: bool,
+     *     PartitionID: string,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
@@ -129,6 +161,7 @@ final class AlarmConfigurationNormalizer
 
             $normalized = [
                 'Enabled'      => self::booleanField($faultInput, 'Enabled', true, 'Fault input'),
+                'PartitionID'  => strtolower(trim(self::stringField($faultInput, 'PartitionID', '', 'Fault input'))),
                 'Name'         => trim(self::stringField($faultInput, 'Name', '', 'Fault input')),
                 'VariableID'   => $variableID,
                 'FaultType'    => $faultType,

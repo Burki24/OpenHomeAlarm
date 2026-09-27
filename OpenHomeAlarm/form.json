@@ -1,4 +1,16 @@
 {
+    "status": [
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "Invalid alarm partition configuration. The main area must exist and be enabled."
+        },
+        {
+            "code": 202,
+            "icon": "error",
+            "caption": "Invalid sensor or fault configuration. At least one entry references a missing or disabled alarm partition. Recreate that area or assign the entry to an existing enabled area."
+        }
+    ],
     "elements": [
         {
             "type": "Label",
@@ -6,27 +18,130 @@
         },
         {
             "type": "ExpansionPanel",
-            "caption": "IPSView",
+            "caption": "Alarm partitions",
             "expanded": false,
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Configure optional IPSView HTML output."
+                    "caption": "Enabled makes an area available but does not arm it. The required area main is the complete alarm system; it must stay enabled."
+                },
+                {
+                    "type": "List",
+                    "name": "Partitions",
+                    "caption": "Partitions",
+                    "rowCount": 4,
+                    "add": true,
+                    "delete": true,
+                    "form": [
+                        {
+                            "type": "CheckBox",
+                            "name": "Enabled",
+                            "caption": "Enabled"
+                        },
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "ID",
+                            "caption": "Partition ID",
+                            "validate": "^[a-z][a-z0-9_-]{0,31}$"
+                        },
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "Name",
+                            "caption": "Name"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "SilentByDefault",
+                            "caption": "Silent alarm by default"
+                        }
+                    ],
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "80px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Partition ID",
+                            "name": "ID",
+                            "width": "180px",
+                            "add": "area",
+                            "edit": {
+                                "type": "ValidationTextBox",
+                                "validate": "^[a-z][a-z0-9_-]{0,31}$"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Silent by default",
+                            "name": "SilentByDefault",
+                            "width": "140px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        }
+                    ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Configure the shared IPSView style used by the standalone HTML page."
-                },
-                {
-                    "type": "Label",
-                    "caption": "In IPSView, use an HTML-Box with the client browser renderer so JavaScript and the controls are available."
+                    "caption": "The area main is the fixed complete alarm system. Additional areas can be switched independently. Silent by default suppresses signal generators; the arming command can override it. Area IDs must start with a lowercase letter and may contain up to 32 lowercase letters, digits, underscores or hyphens (for example garage or area_1). The name is freely selectable."
                 }
             ]
         },
         {
             "type": "ExpansionPanel",
-            "caption": "Delays",
-            "expanded": true,
+            "caption": "View",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "Tile view",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Configure the shared Symcon tile theme used by the HTML-SDK visualization."
+                        }
+                    ]
+                },
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "IPSView",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Configure optional IPSView HTML output."
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "Configure the shared IPSView style used by the standalone HTML page."
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "In IPSView, use an HTML-Box with the client browser renderer so JavaScript and the controls are available."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Arming delays",
+            "expanded": false,
             "items": [
                 {
                     "type": "RowLayout",
@@ -50,13 +165,48 @@
                 {
                     "type": "Label",
                     "caption": "A value of 0 disables the corresponding delay."
+                },
+                {
+                    "type": "List",
+                    "name": "CountdownAction",
+                    "caption": "Countdown actions",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $CountdownAction);"
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Optional: Add an action for output on every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. An empty list runs no action. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API."
                 }
             ]
         },
         {
             "type": "ExpansionPanel",
             "caption": "Code protection",
-            "expanded": true,
+            "expanded": false,
             "items": [
                 {
                     "type": "Label",
@@ -68,6 +218,44 @@
                     "caption": "Disarm code (4-8 digits)",
                     "validate": "^(?:[0-9]{4,8})?$",
                     "width": "250px"
+                },
+                {
+                    "type": "List",
+                    "name": "DisarmUsers",
+                    "caption": "Disarm users",
+                    "rowCount": 4,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "User name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Code (4-8 digits)",
+                            "name": "Code",
+                            "width": "180px",
+                            "add": "",
+                            "edit": {
+                                "type": "PasswordTextBox",
+                                "validate": "^(?:[0-9]{4,8})?$"
+                            }
+                        }
+                    ]
                 },
                 {
                     "type": "RowLayout",
@@ -102,16 +290,160 @@
         },
         {
             "type": "ExpansionPanel",
-            "caption": "Alarm actions",
-            "expanded": true,
+            "caption": "Automatic arming",
+            "expanded": false,
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Configure optional Symcon actions for alarm start, automatic alarm-output reset and disarming after an alarm."
+                    "caption": "Configure weekly schedules that arm the system through the normal readiness checks, optionally bypassing permitted active sensors."
+                },
+                {
+                    "type": "List",
+                    "name": "AutomaticArmingSchedules",
+                    "caption": "Arming schedules",
+                    "rowCount": 5,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Mon",
+                            "name": "Monday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Tue",
+                            "name": "Tuesday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Wed",
+                            "name": "Wednesday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Thu",
+                            "name": "Thursday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Fri",
+                            "name": "Friday",
+                            "width": "55px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Sat",
+                            "name": "Saturday",
+                            "width": "55px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Sun",
+                            "name": "Sunday",
+                            "width": "55px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Time",
+                            "name": "Time",
+                            "width": "90px",
+                            "add": "08:00",
+                            "edit": {
+                                "type": "ValidationTextBox",
+                                "validate": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                            }
+                        },
+                        {
+                            "caption": "Arming mode",
+                            "name": "Mode",
+                            "width": "140px",
+                            "add": "away",
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "Home",
+                                        "value": "home"
+                                    },
+                                    {
+                                        "caption": "Away",
+                                        "value": "away"
+                                    },
+                                    {
+                                        "caption": "Night",
+                                        "value": "night"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "caption": "Bypass active sensors",
+                            "name": "BypassActiveSensors",
+                            "width": "160px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        }
+                    ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Optional actions are disabled by default. Select Configure action and apply once; the native Symcon action selector will then appear."
+                    "caption": "Only explicitly permitted, already triggered sensors can be bypassed by a schedule. 24/7 sensors, unavailable sensors and blocking faults still prevent arming. An active mode is never changed."
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Alarm escalation",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Configure all alarm actions as escalation steps. A step with a delay of 0 runs immediately when an alarm starts."
                 },
                 {
                     "type": "NumberSpinner",
@@ -125,59 +457,321 @@
                     "caption": "A value of 0 keeps the alarm output active until it is reset manually or the system is disarmed."
                 },
                 {
-                    "type": "Select",
-                    "name": "AlarmActionEnabled",
-                    "caption": "Alarm start",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Configure action",
-                            "value": 1
-                        }
-                    ],
-                    "width": "300px"
+                    "type": "CheckBox",
+                    "name": "AutoRearmAfterAlarm",
+                    "caption": "Automatically re-arm after alarm duration"
                 },
                 {
-                    "type": "Select",
-                    "name": "AlarmResetActionEnabled",
-                    "caption": "Reset alarm output",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Configure action",
-                            "value": 1
-                        }
-                    ],
-                    "width": "300px"
+                    "type": "Label",
+                    "caption": "After the alarm duration ends, the affected area is re-armed in its previous mode only when every relevant sensor and blocking fault is ready."
                 },
                 {
-                    "type": "Select",
-                    "name": "DisarmAfterAlarmActionEnabled",
-                    "caption": "Disarm after alarm",
-                    "options": [
+                    "type": "Label",
+                    "caption": "Add one row for each escalation action. Actions with the same delay run together. Use the gear button to select the Symcon action."
+                },
+                {
+                    "type": "List",
+                    "name": "AlarmEscalationSteps",
+                    "caption": "Alarm escalation actions",
+                    "rowCount": 6,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
                         {
-                            "caption": "No action",
-                            "value": 0
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
                         },
                         {
-                            "caption": "Configure action",
-                            "value": 1
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Delay (seconds)",
+                            "name": "DelaySeconds",
+                            "width": "150px",
+                            "add": 0,
+                            "edit": {
+                                "type": "NumberSpinner",
+                                "minimum": 0,
+                                "maximum": 86400
+                            }
+                        },
+                        {
+                            "caption": "Reset behavior",
+                            "name": "ResetMode",
+                            "width": "190px",
+                            "add": 0,
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "No reset",
+                                        "value": 0
+                                    },
+                                    {
+                                        "caption": "Invert Boolean automatically",
+                                        "value": 1
+                                    },
+                                    {
+                                        "caption": "Use custom reset action",
+                                        "value": 2
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "caption": "Signal generator",
+                            "name": "SignalGenerator",
+                            "width": "150px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Run for alarm response",
+                            "name": "ApplicableTo",
+                            "width": "175px",
+                            "add": "always",
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "Normal only",
+                                        "value": "normal"
+                                    },
+                                    {
+                                        "caption": "Silent only",
+                                        "value": "silent"
+                                    },
+                                    {
+                                        "caption": "Normal and silent",
+                                        "value": "always"
+                                    }
+                                ]
+                            }
                         }
                     ],
-                    "width": "300px"
+                    "form": [
+                        "return OHA_GetAlarmEscalationEditForm($id, $AlarmEscalationSteps);"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Alarm notifications",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "Symcon push notifications",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Send a native Symcon push notification to the registered devices of a tile visualization. The notification contains the affected alarm area and triggering sensor."
+                        },
+                        {
+                            "type": "Select",
+                            "name": "PushNotificationMode",
+                            "caption": "Push notification",
+                            "options": [
+                                {
+                                    "caption": "Disabled",
+                                    "value": 0
+                                },
+                                {
+                                    "caption": "Immediately when alarm starts",
+                                    "value": 1
+                                },
+                                {
+                                    "caption": "As delayed escalation step",
+                                    "value": 2
+                                }
+                            ]
+                        },
+                        {
+                            "type": "Select",
+                            "name": "PushNotificationApplicableTo",
+                            "caption": "Notify for alarm response",
+                            "options": [
+                                {
+                                    "caption": "Normal only",
+                                    "value": "normal"
+                                },
+                                {
+                                    "caption": "Silent only",
+                                    "value": "silent"
+                                },
+                                {
+                                    "caption": "Normal and silent",
+                                    "value": "always"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "PushNotificationTileID",
+                            "caption": "Tile visualization ID",
+                            "minimum": 0,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "PushNotificationDelaySeconds",
+                            "caption": "Push delay (seconds)",
+                            "minimum": 0,
+                            "maximum": 86400,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "The delay applies only to the delayed escalation mode. A value of 0 sends the push notification immediately. Tapping it opens this OpenHomeAlarm instance in the selected tile visualization."
+                        }
+                    ]
+                },
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "Pushover (direct)",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Send alarm notifications directly through the Pushover HTTPS API. No additional Symcon module is required."
+                        },
+                        {
+                            "type": "Select",
+                            "name": "PushoverNotificationMode",
+                            "caption": "Pushover notification",
+                            "options": [
+                                {
+                                    "caption": "Disabled",
+                                    "value": 0
+                                },
+                                {
+                                    "caption": "Immediately when alarm starts",
+                                    "value": 1
+                                },
+                                {
+                                    "caption": "As delayed escalation step",
+                                    "value": 2
+                                }
+                            ]
+                        },
+                        {
+                            "type": "Select",
+                            "name": "PushoverNotificationApplicableTo",
+                            "caption": "Notify for alarm response",
+                            "options": [
+                                {
+                                    "caption": "Normal only",
+                                    "value": "normal"
+                                },
+                                {
+                                    "caption": "Silent only",
+                                    "value": "silent"
+                                },
+                                {
+                                    "caption": "Normal and silent",
+                                    "value": "always"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "PasswordTextBox",
+                            "name": "PushoverApplicationToken",
+                            "caption": "Application API token",
+                            "width": "350px"
+                        },
+                        {
+                            "type": "PasswordTextBox",
+                            "name": "PushoverUserKey",
+                            "caption": "User or group key",
+                            "width": "350px"
+                        },
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "PushoverDevice",
+                            "caption": "Device name (optional)",
+                            "width": "350px"
+                        },
+                        {
+                            "type": "Select",
+                            "name": "PushoverPriority",
+                            "caption": "Priority",
+                            "options": [
+                                {
+                                    "caption": "Normal",
+                                    "value": 0
+                                },
+                                {
+                                    "caption": "High",
+                                    "value": 1
+                                },
+                                {
+                                    "caption": "Emergency with acknowledgement",
+                                    "value": 2
+                                }
+                            ]
+                        },
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "PushoverSound",
+                            "caption": "Sound name (optional)",
+                            "width": "350px"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "PushoverDelaySeconds",
+                            "caption": "Pushover delay (seconds)",
+                            "minimum": 0,
+                            "maximum": 86400,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "PushoverEmergencyRetrySeconds",
+                            "caption": "Emergency retry interval (seconds)",
+                            "minimum": 30,
+                            "maximum": 10800,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "PushoverEmergencyExpireSeconds",
+                            "caption": "Emergency retry duration (seconds)",
+                            "minimum": 30,
+                            "maximum": 10800,
+                            "width": "250px"
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "The delay is used only in delayed mode. Emergency priority repeats until acknowledged or expired; OpenHomeAlarm cancels an active emergency retry when the alarm output ends. Apply changes before testing."
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Send Pushover test message",
+                            "onClick": "if (OHA_TestPushover($id)) { echo 'Pushover test message sent.'; } else { echo 'Pushover test failed. Check configuration and debug log.'; }"
+                        }
+                    ]
                 }
             ]
         },
         {
             "type": "ExpansionPanel",
             "caption": "System monitoring",
-            "expanded": true,
+            "expanded": false,
             "items": [
                 {
                     "type": "Label",
@@ -196,40 +790,74 @@
                     "caption": "Configured sensor variables are checked periodically and immediately when Symcon reports their removal."
                 },
                 {
+                    "type": "List",
+                    "name": "FaultAction",
+                    "caption": "Actions on new fault",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $FaultAction);"
+                    ]
+                },
+                {
                     "type": "Label",
-                    "caption": "Optional fault actions are disabled by default. Enable one and apply once before selecting the Symcon action."
+                    "caption": "Optional: Add an action that runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. An empty list runs no action."
                 },
                 {
-                    "type": "Select",
-                    "name": "FaultActionEnabled",
-                    "caption": "New fault",
-                    "options": [
+                    "type": "List",
+                    "name": "FaultClearedAction",
+                    "caption": "Actions on fault cleared",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
                         {
-                            "caption": "No action",
-                            "value": 0
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
                         },
                         {
-                            "caption": "Configure action",
-                            "value": 1
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
                         }
                     ],
-                    "width": "300px"
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $FaultClearedAction);"
+                    ]
                 },
                 {
-                    "type": "Select",
-                    "name": "FaultClearedActionEnabled",
-                    "caption": "Fault cleared",
-                    "options": [
-                        {
-                            "caption": "No action",
-                            "value": 0
-                        },
-                        {
-                            "caption": "Configure action",
-                            "value": 1
-                        }
-                    ],
-                    "width": "300px"
+                    "type": "Label",
+                    "caption": "Optional: Add an action that runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action."
                 },
                 {
                     "type": "List",
@@ -252,6 +880,15 @@
                             "caption": "Name",
                             "name": "Name",
                             "width": "220px",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Alarm partition",
+                            "name": "PartitionID",
+                            "width": "150px",
                             "add": "",
                             "edit": {
                                 "type": "ValidationTextBox"
@@ -378,6 +1015,13 @@
                     }
                 },
                 {
+                    "caption": "Alarm partitions",
+                    "name": "PartitionNames",
+                    "width": "150px",
+                    "add": "",
+                    "save": false
+                },
+                {
                     "caption": "Variable",
                     "name": "VariableID",
                     "width": "auto",
@@ -487,6 +1131,15 @@
                     }
                 },
                 {
+                    "caption": "Allow automatic bypass",
+                    "name": "AllowAutomaticBypass",
+                    "width": "165px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
                     "caption": "Exit route",
                     "name": "ExitDelay",
                     "width": "115px",
@@ -515,9 +1168,8 @@
         },
         {
             "type": "Label",
-            "caption": "24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored."
+            "caption": "24/7 sensors trigger immediately as normal alarms in every system state. Arming modes and entry/exit delays do not apply."
         }
     ],
-    "actions": [],
-    "status": []
+    "actions": []
 }

@@ -6,6 +6,7 @@ use Burki24\OpenHomeAlarm\AlarmActionExecutor;
 use Burki24\OpenHomeAlarm\AlarmCodeProtection;
 use Burki24\OpenHomeAlarm\AlarmConfigurationNormalizer;
 use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
+use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
@@ -17,6 +18,7 @@ use Burki24\OpenHomeAlarm\AlarmVisualizationAdapter;
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmConfigurationNormalizer.php';
 require_once __DIR__ . '/../libs/AlarmControlStateAdapter.php';
+require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
@@ -198,20 +200,37 @@ assertDomainSame(
     AlarmControlStateAdapter::identity(2, 3),
     'The control adapter must expose stable machine-readable mode and state names.'
 );
+
+$disarmUsers = AlarmDisarmUserRegistry::users('[{"Enabled":true,"Name":" Alice ","Code":"1234"},{"Enabled":false,"Name":"Bob","Code":"5678"}]');
+assertDomainSame('Alice', $disarmUsers[0]['Name'], 'Disarm user names must be normalized.');
+assertDomainSame(true, AlarmDisarmUserRegistry::hasEnabledCode($disarmUsers), 'An enabled user code must enable code protection.');
+assertDomainSame('Alice', AlarmDisarmUserRegistry::matchingUser('1234', $disarmUsers), 'A user code must resolve to its name.');
+assertDomainSame(null, AlarmDisarmUserRegistry::matchingUser('5678', $disarmUsers), 'Disabled user codes must be rejected.');
+assertDomainThrows(
+    static fn (): array => AlarmDisarmUserRegistry::users('[{"Code":"1234"},{"Code":"1234"}]'),
+    'Enabled disarm user codes must be unique.'
+);
 assertDomainSame(
     [
-        'CodeRequired'        => true,
-        'CanDisarm'           => true,
-        'CanManageBypasses'   => false,
-        'CanResetAlarmOutput' => true,
-        'CanClearAlarmMemory' => false
+        'CodeRequired'           => true,
+        'CanDisarm'              => true,
+        'CanManageBypasses'      => false,
+        'CanResetAlarmOutput'    => true,
+        'CanResetFalseAlarm'     => false,
+        'CanStopSignalGenerator' => false,
+        'CanClearAlarmMemory'    => false
     ],
     AlarmControlStateAdapter::capabilities(2, 4, true, true, true),
     'Alarm capabilities must be derived independently from visualization transports.'
 );
 assertDomainSame(
-    ['ApiVersion' => 1, 'Interaction' => ['Type' => 'test']],
-    AlarmControlStateAdapter::withInteraction(['ApiVersion' => 1], ['Type' => 'test']),
+    true,
+    AlarmControlStateAdapter::capabilities(2, 4, true, true, true, true)['CanStopSignalGenerator'],
+    'An active alarm with a configured signal generator must expose the dedicated silence capability.'
+);
+assertDomainSame(
+    ['ApiVersion' => 2, 'Interaction' => ['Type' => 'test']],
+    AlarmControlStateAdapter::withInteraction(['ApiVersion' => 2], ['Type' => 'test']),
     'Visualization interactions must be added without rebuilding control state.'
 );
 assertDomainSame(
@@ -229,6 +248,48 @@ assertDomainSame(
     AlarmVisualizationAdapter::command('BypassSensor', '42'),
     'Visualization variable IDs must be normalized to positive integers.'
 );
+assertDomainSame(
+    ['Action' => 'BypassSensorPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 42]],
+    AlarmVisualizationAdapter::command('BypassSensorPartition', '{"PartitionID":"Garage","Value":42}'),
+    'Partition bypass commands must preserve both the selected area and sensor ID.'
+);
+assertDomainSame(
+    ['Action' => 'ExportEventHistory', 'Value' => 'csv'],
+    AlarmVisualizationAdapter::command('ExportEventHistory', ' CSV '),
+    'Visualization history exports must normalize their selected format.'
+);
+assertDomainSame(
+    ['Action' => 'ExportDiagnostics', 'Value' => 'json'],
+    AlarmVisualizationAdapter::command('ExportDiagnostics', ' JSON '),
+    'Visualization diagnostics exports must normalize their selected format.'
+);
+assertDomainSame(
+    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => null]],
+    AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"Garage","Value":"night"}'),
+    'Partition visualization commands must decode scalar JSON transport, normalize their partition ID and preserve their action value.'
+);
+assertDomainSame(
+    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => true]],
+    AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"Garage","Value":"night","Silent":true}'),
+    'The visualization must preserve an explicit silent arming override.'
+);
+try {
+    AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"garage","Value":"night","Silent":"yes"}');
+    throw new RuntimeException('An invalid silent arming override must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Silent arming option must be a Boolean.', $exception->getMessage(), 'Silent arming must have a strict transport contract.');
+}
+assertDomainSame(
+    ['Action' => 'DisarmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => null]],
+    AlarmVisualizationAdapter::command('DisarmPartition', ['PartitionID' => 'garage']),
+    'Partition visualization commands without an action value must preserve their explicit partition ID.'
+);
+try {
+    AlarmVisualizationAdapter::command('ArmPartition', '{invalid');
+    throw new RuntimeException('Invalid partition command JSON must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Partition visualization action contains invalid JSON.', $exception->getMessage(), 'Invalid partition JSON must expose a stable diagnostic.');
+}
 try {
     AlarmVisualizationAdapter::command('Arm', 2);
     throw new RuntimeException('A non-string visualization mode must be rejected.');
@@ -240,6 +301,12 @@ try {
     throw new RuntimeException('An unknown visualization command must be rejected.');
 } catch (InvalidArgumentException $exception) {
     assertDomainSame('Unknown visualization action.', $exception->getMessage(), 'Unknown actions must retain their diagnostic.');
+}
+try {
+    AlarmVisualizationAdapter::command('ExportEventHistory', 'xml');
+    throw new RuntimeException('An unsupported visualization export format must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Event history export format must be json or csv.', $exception->getMessage(), 'Export actions must retain the public API diagnostic.');
 }
 
 $codeStatus = AlarmCodeProtection::status(true, 0, 0, 3, 1000);
@@ -277,21 +344,43 @@ $sensors = AlarmConfigurationNormalizer::sensors(
 assertDomainSame(
     [
         [
-            'Enabled'      => true,
-            'Name'         => 'Front door',
-            'VariableID'   => 1001,
-            'SensorType'   => 1,
-            'TriggerValue' => '1',
-            'ArmHome'      => true,
-            'ArmAway'      => true,
-            'ArmNight'     => false,
-            'AlwaysActive' => false,
-            'ExitDelay'    => false,
-            'EntryDelay'   => false
+            'Enabled'              => true,
+            'PartitionID'          => '',
+            'PartitionIDs'         => [],
+            'Name'                 => 'Front door',
+            'VariableID'           => 1001,
+            'SensorType'           => 1,
+            'TriggerValue'         => '1',
+            'ArmHome'              => true,
+            'ArmAway'              => true,
+            'ArmNight'             => false,
+            'AlwaysActive'         => false,
+            'AllowAutomaticBypass' => false,
+            'ExitDelay'            => false,
+            'EntryDelay'           => false,
+            'RetriggerAlarm'       => false
         ]
     ],
     $sensors,
     'Sensor configuration must be normalized.'
+);
+assertDomainSame(
+    [true, false],
+    array_column(AlarmConfigurationNormalizer::sensors(
+        '[{"AllowAutomaticBypass":true},{"AlwaysActive":true,"AllowAutomaticBypass":true}]',
+        [0],
+        0
+    ), 'AllowAutomaticBypass'),
+    'Only normal sensors may opt in to automatic bypasses.'
+);
+assertDomainSame(
+    ['house', 'garage'],
+    AlarmConfigurationNormalizer::sensors(
+        '[{"Partition_house":true,"Partition_garage":true}]',
+        [0],
+        0
+    )[0]['PartitionIDs'],
+    'A sensor must retain every explicitly selected alarm partition.'
 );
 assertDomainThrows(
     static fn (): array => AlarmConfigurationNormalizer::sensors(
@@ -321,6 +410,7 @@ $faultInputs = AlarmConfigurationNormalizer::faultInputs(
     0
 );
 assertDomainSame('Tamper', $faultInputs[0]['Name'], 'Fault input names must be trimmed.');
+assertDomainSame('', $faultInputs[0]['PartitionID'], 'Empty fault partition assignments must remain available for default resolution.');
 assertDomainSame(false, $faultInputs[0]['TriggerAlarm'], 'Fault input defaults must be retained.');
 assertDomainThrows(
     static fn (): array => AlarmConfigurationNormalizer::faultInputs(
@@ -363,14 +453,17 @@ $history = AlarmEventHistory::normalize(
     [0, 1, 2, 3, 4],
     10
 );
-assertDomainSame([$validEntry], $history, 'Invalid event history entries must be discarded.');
+$normalizedValidEntry = $validEntry;
+$normalizedValidEntry['PartitionID'] = '';
+assertDomainSame([$normalizedValidEntry], $history, 'Invalid event history entries must be discarded and legacy entries retained.');
 
 $newEntry = [
-    'Time'   => 102,
-    'Event'  => 'disarmed',
-    'Mode'   => 0,
-    'State'  => 0,
-    'Source' => ''
+    'Time'        => 102,
+    'Event'       => 'disarmed',
+    'Mode'        => 0,
+    'State'       => 0,
+    'Source'      => '',
+    'PartitionID' => 'main'
 ];
 assertDomainSame(
     [$newEntry],

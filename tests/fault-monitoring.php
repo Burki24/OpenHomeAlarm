@@ -374,9 +374,7 @@ $faultClearedAction = json_encode([
 $instance = new OpenHomeAlarm();
 $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
-$instance->TestSetPropertyInteger('FaultActionEnabled', 1);
 $instance->TestSetPropertyString('FaultAction', $faultAction);
-$instance->TestSetPropertyInteger('FaultClearedActionEnabled', 1);
 $instance->TestSetPropertyString('FaultClearedAction', $faultClearedAction);
 $instance->TestSetPropertyString(
     'FaultInputs',
@@ -510,17 +508,46 @@ foreach ($systemPanel['items'] ?? [] as $item) {
 }
 assertFaultMonitoring(is_array($faultList), 'System monitoring must contain the FaultInputs list.');
 assertFaultMonitoring(
+    in_array('PartitionID', array_column($faultList['columns'] ?? [], 'name'), true),
+    'Fault input configuration must expose its alarm partition.'
+);
+assertFaultMonitoring(
     isset($faultList['values']) && is_array($faultList['values']) && count($faultList['values']) === 3,
     'Nested fault lists must receive their non-persistent trigger editor values.'
 );
 $editForm = $instance->GetFaultInputEditForm(faultInput(9002, 'Funkverbindung', 2, 'FAULT', true, false));
 $selection = null;
+$partitionSelection = null;
 foreach ($editForm as $field) {
     if (($field['name'] ?? null) === 'TriggerValueSelection') {
         $selection = $field;
+    }
+    if (($field['name'] ?? null) === 'PartitionID') {
+        $partitionSelection = $field;
+    }
+}
+assertFaultMonitoring(
+    ($partitionSelection['type'] ?? null) === 'Select'
+    && ($partitionSelection['value'] ?? null) === 'main',
+    'Fault input editor must resolve empty assignments to the default partition.'
+);
+
+$orphanedFaultEditForm = $instance->GetFaultInputEditForm(array_merge(
+    faultInput(9002, 'Funkverbindung', 2, 'FAULT', true, false),
+    ['PartitionID' => 'schuppen']
+));
+$orphanedPartitionSelection = null;
+foreach ($orphanedFaultEditForm as $field) {
+    if (($field['name'] ?? null) === 'PartitionID') {
+        $orphanedPartitionSelection = $field;
         break;
     }
 }
+assertFaultMonitoring(
+    ($orphanedPartitionSelection['value'] ?? null) === 'schuppen'
+        && in_array('schuppen', array_column($orphanedPartitionSelection['options'] ?? [], 'value'), true),
+    'Fault input editor must keep an orphaned partition visible until the user selects a valid area.'
+);
 assertFaultMonitoring(($selection['value'] ?? null) === 'FAULT', 'The stored fault value must be restored when editing.');
 assertFaultMonitoring(
     array_column($selection['options'] ?? [], 'caption') === ['Online', 'Offline'],

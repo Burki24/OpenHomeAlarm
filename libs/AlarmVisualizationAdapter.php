@@ -17,14 +17,63 @@ final class AlarmVisualizationAdapter
     public static function command(string $action, mixed $value): array
     {
         $normalizedValue = match ($action) {
-            'Arm'                                                                                           => self::stringValue($value, 'Arm action requires a mode string.'),
-            'DisarmWithCode'                                                                                => self::stringValue($value, 'DisarmWithCode action requires a code string.'),
-            'BypassSensor', 'RemoveSensorBypass'                                                            => self::variableID($value),
-            'Disarm', 'RefreshVisualization', 'ClearSensorBypasses', 'ClearAlarmMemory', 'ResetAlarmOutput' => null,
-            default                                                                                         => throw new InvalidArgumentException('Unknown visualization action.')
+            'ArmPartition'                                                                                                                             => self::armPartitionValue($value),
+            'DisarmPartition', 'ClearSensorBypassesPartition', 'ClearAlarmMemoryPartition', 'ResetAlarmOutputPartition', 'ResetFalseAlarmPartition'    => self::partitionValue($value, false),
+            'ResetFalseAlarmPartitionWithCode'                                                                                                         => self::partitionValue($value, true),
+            'DisarmPartitionWithCode'                                                                                                                  => self::partitionValue($value, true),
+            'Arm'                                                                                                                                      => self::stringValue($value, 'Arm action requires a mode string.'),
+            'DisarmWithCode', 'StopSignalGeneratorWithCode'                                                                                            => self::stringValue($value, 'Code-protected visualization action requires a code string.'),
+            'ExportEventHistory', 'ExportDiagnostics'                                                                                                  => self::exportFormat($value),
+            'BypassSensorPartition', 'RemoveSensorBypassPartition'                                                                                     => self::partitionVariableID($value),
+            'BypassSensor', 'RemoveSensorBypass'                                                                                                       => self::variableID($value),
+            'Disarm', 'RefreshVisualization', 'ClearSensorBypasses', 'ClearAlarmMemory', 'ResetAlarmOutput', 'ResetFalseAlarm', 'StopSignalGenerator'  => null,
+            default                                                                                                                                    => throw new InvalidArgumentException('Unknown visualization action.')
         };
 
         return ['Action' => $action, 'Value' => $normalizedValue];
+    }
+
+    /** @return array{PartitionID:string,Value:mixed} */
+    private static function partitionValue(mixed $value, bool $requiresValue): array
+    {
+        if (is_string($value)) {
+            try {
+                $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                throw new InvalidArgumentException('Partition visualization action contains invalid JSON.');
+            }
+        }
+        if (!is_array($value)) {
+            throw new InvalidArgumentException('Partition visualization action requires a JSON object.');
+        }
+
+        $partitionID = strtolower(trim(self::stringValue(
+            $value['PartitionID'] ?? null,
+            'Partition visualization action requires a partition ID.'
+        )));
+        if (preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $partitionID) !== 1) {
+            throw new InvalidArgumentException('Partition visualization action contains an invalid partition ID.');
+        }
+        if ($requiresValue && !is_string($value['Value'] ?? null)) {
+            throw new InvalidArgumentException('Partition visualization action requires a string value.');
+        }
+
+        return [
+            'PartitionID' => $partitionID,
+            'Value'       => $requiresValue ? $value['Value'] : null
+        ];
+    }
+
+    /** @return array{PartitionID:string,Value:string,Silent:?bool} */
+    private static function armPartitionValue(mixed $value): array
+    {
+        $decoded = is_string($value) ? json_decode($value, true) : $value;
+        $partition = self::partitionValue($value, true);
+        if (array_key_exists('Silent', $decoded) && !is_bool($decoded['Silent'])) {
+            throw new InvalidArgumentException('Silent arming option must be a Boolean.');
+        }
+
+        return $partition + ['Silent' => $decoded['Silent'] ?? null];
     }
 
     private static function stringValue(mixed $value, string $error): string
@@ -48,5 +97,27 @@ final class AlarmVisualizationAdapter
         }
 
         return $variableID;
+    }
+
+    /** @return array{PartitionID:string,Value:int} */
+    private static function partitionVariableID(mixed $value): array
+    {
+        $partition = self::partitionValue($value, false);
+        if (is_string($value)) {
+            $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        }
+        $partition['Value'] = self::variableID(is_array($value) ? ($value['Value'] ?? null) : null);
+
+        return $partition;
+    }
+
+    private static function exportFormat(mixed $value): string
+    {
+        $format = strtolower(trim(self::stringValue($value, 'Event history export format must be json or csv.')));
+        if (!in_array($format, ['json', 'csv'], true)) {
+            throw new InvalidArgumentException('Event history export format must be json or csv.');
+        }
+
+        return $format;
     }
 }

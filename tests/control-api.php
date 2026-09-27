@@ -9,8 +9,8 @@ const VM_UPDATE = 10603;
 
 /** @var array<int,array<string,mixed>> */
 $testVariables = [
-    2001 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    2002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    2001 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '', 'VariableChanged' => 100, 'VariableUpdated' => 110],
+    2002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '', 'VariableChanged' => 120, 'VariableUpdated' => 130],
     2003 => ['VariableType' => 3, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     2004 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
@@ -85,6 +85,8 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $writtenValues = [];
 
+    private int $status = 102;
+
     public function Create(): void
     {
     }
@@ -107,6 +109,11 @@ class IPSModuleStrict
         $this->properties[$name] = $value;
     }
 
+    public function TestSetAttributeString(string $name, string $value): void
+    {
+        $this->attributes[$name] = $value;
+    }
+
     /** @return array<string,mixed> */
     public function TestWrittenValues(): array
     {
@@ -116,6 +123,18 @@ class IPSModuleStrict
     public function TestClearWrittenValues(): void
     {
         $this->writtenValues = [];
+    }
+
+    public function TestStatus(): int
+    {
+        return $this->status;
+    }
+
+    protected function SetStatus(int $status): bool
+    {
+        $this->status = $status;
+
+        return true;
     }
 
     protected function SetVisualizationType(int $type): bool
@@ -291,6 +310,36 @@ function assertControlApi(bool $condition, string $message): void
 
 require_once dirname(__DIR__) . '/OpenHomeAlarm/module.php';
 
+$invalidPartitionInstance = new OpenHomeAlarm();
+$invalidPartitionInstance->Create();
+$invalidPartitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":false,"ID":"main","Name":"Main area","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
+);
+$invalidPartitionInstance->ApplyChanges();
+assertControlApi(
+    $invalidPartitionInstance->TestStatus() === 201,
+    'ApplyChanges must report a disabled main partition through a controlled instance status.'
+);
+
+$invalidAssignmentInstance = new OpenHomeAlarm();
+$invalidAssignmentInstance->Create();
+$invalidAssignmentInstance->TestSetPropertyString(
+    'Sensors',
+    '[{"Enabled":true,"PartitionID":"unknown","VariableID":0,"SensorType":0}]'
+);
+$invalidAssignmentInstance->ApplyChanges();
+assertControlApi(
+    $invalidAssignmentInstance->TestStatus() === 202,
+    'ApplyChanges must report an unknown sensor partition through a controlled instance status.'
+);
+$invalidAssignmentInstance->TestSetPropertyString('Sensors', '[]');
+$invalidAssignmentInstance->ApplyChanges();
+assertControlApi(
+    $invalidAssignmentInstance->TestStatus() === 102,
+    'A corrected sensor partition assignment must restore the active instance status.'
+);
+
 /** @return array<string,mixed> */
 function controlSensor(
     int $variableID,
@@ -353,7 +402,24 @@ $testValues[2001] = true;
 $testValues[2002] = false;
 
 $state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-assertControlApi(($state['ApiVersion'] ?? null) === 1, 'The control API must expose schema version 1.');
+assertControlApi(($state['ApiVersion'] ?? null) === 2, 'The partition-aware control API must expose schema version 2.');
+assertControlApi(($state['DefaultPartition'] ?? null) === 'main', 'The control API must identify the default partition.');
+assertControlApi(
+    ($state['Partitions']['main']['ID'] ?? null) === 'main'
+    && ($state['Partitions']['main']['Name'] ?? null) === 'Main area'
+    && ($state['Partitions']['main']['Default'] ?? null) === true,
+    'The default partition must expose its stable identity in the control state.'
+);
+assertControlApi(
+    ($state['Partitions']['main']['State']['Name'] ?? null) === 'disarmed',
+    'Slice 1 must publish the existing runtime as the default partition state.'
+);
+$partitionMetadata = json_decode($instance->GetPartitions(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionMetadata[0]['ID'] ?? null) === 'main'
+    && ($partitionMetadata[0]['Default'] ?? null) === true,
+    'The public partition metadata API must expose the configured default partition.'
+);
 assertControlApi(
     ($state['Mode']['Name'] ?? null) === 'none' && ($state['State']['Name'] ?? null) === 'disarmed',
     'The initial control state must expose stable machine-readable mode and state names.'
@@ -443,6 +509,363 @@ assertControlApi(
 assertControlApi(
     ($state['Faults']['Blocking'][0]['Name'] ?? null) === 'Control cabinet tamper',
     'The control state must expose active blocking faults separately for status views.'
+);
+$diagnostics = json_decode($instance->GetDiagnostics(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($state['Diagnostics']['ApiVersion'] ?? null) === 1
+        && ($state['Diagnostics']['Items'][0]['Name'] ?? null) === 'Front door',
+    'The shared control state must carry the same diagnostics contract for native and IPSView rendering.'
+);
+assertControlApi(
+    ($diagnostics['ApiVersion'] ?? null) === 1
+        && ($diagnostics['GeneratedAt'] ?? 0) > 0,
+    'The public diagnostics API must expose a versioned and timestamped snapshot.'
+);
+assertControlApi(
+    ($diagnostics['Summary']['Total'] ?? null) === 3
+        && ($diagnostics['Summary']['Ready'] ?? null) === 1
+        && ($diagnostics['Summary']['Triggered'] ?? null) === 2
+        && ($diagnostics['Summary']['Problems'] ?? null) === 1
+        && ($diagnostics['Summary']['Healthy'] ?? null) === false,
+    'The diagnostics API must summarize configured sensors and fault inputs.'
+);
+assertControlApi(
+    ($diagnostics['Items'][0] ?? null) === [
+        'Kind'         => 'sensor',
+        'Name'         => 'Front door',
+        'VariableID'   => 2001,
+        'PartitionID'  => 'main',
+        'Enabled'      => true,
+        'Monitored'    => true,
+        'Status'       => 'triggered',
+        'Active'       => true,
+        'LastChanged'  => 100,
+        'LastUpdated'  => 110
+    ],
+    'Diagnostics must expose stable sensor identity, state and Symcon timestamps without raw values.'
+);
+
+$partitionInstance = new OpenHomeAlarm();
+$partitionInstance->Create();
+$partitionInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$partitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
+);
+$partitionSensors = [
+    array_merge(controlSensor(2001, 'true', true, true), ['PartitionID' => 'main']),
+    array_merge(controlSensor(2002, 'true', true, true, true), ['PartitionID' => 'garage'])
+];
+$testValues[2001] = false;
+$testValues[2002] = false;
+$partitionInstance->TestSetPropertyString('Sensors', json_encode($partitionSensors, JSON_THROW_ON_ERROR));
+$partitionInstance->ApplyChanges();
+assertControlApi(!$partitionInstance->ArmPartition('unknown', 'away'), 'Unknown partitions must be rejected safely.');
+assertControlApi($partitionInstance->ArmPartition('garage', 'away'), 'A non-default partition must still arm independently.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'Arming a non-default partition must leave the main/default partition unchanged.'
+);
+$partitionEvents = json_decode($partitionInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionEvents[0]['Event'] ?? null) === 'armed'
+        && ($partitionEvents[0]['PartitionID'] ?? null) === 'garage'
+        && ($partitionEvents[0]['Mode'] ?? null) === 2
+        && ($partitionEvents[0]['State'] ?? null) === 2,
+    'A direct non-default partition arming must create a complete armed event.'
+);
+assertControlApi($partitionInstance->DisarmPartition('garage'), 'A non-default partition must disarm independently.');
+assertControlApi($partitionInstance->ArmPartition('main', 'home'), 'The main/default partition must arm every enabled area.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['main']['State']['Name'] ?? null) === 'armed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'Arming the main/default partition must arm all enabled areas.'
+);
+$partitionEvents = json_decode($partitionInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionEvents[0]['Event'] ?? null) === 'armed'
+        && ($partitionEvents[0]['PartitionID'] ?? null) === 'garage'
+        && ($partitionEvents[0]['Mode'] ?? null) === 1
+        && ($partitionEvents[0]['State'] ?? null) === 2,
+    'Arming the complete system must also record each non-default partition.'
+);
+assertControlApi($partitionInstance->DisarmPartition('main'), 'The main/default partition must disarm through the partition API.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed',
+    'Disarming the main/default partition must disarm all enabled areas.'
+);
+$testValues[2002] = true;
+$testValues[2001] = false;
+assertControlApi(
+    !$partitionInstance->ArmPartition('main', 'home'),
+    'A blocker in one enabled area must prevent the main/default partition from arming any area.'
+);
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed',
+    'A blocked main/default arming attempt must leave every area unchanged.'
+);
+assertControlApi(
+    !$partitionInstance->ArmPartition('garage', 'away'),
+    'A blocked non-default partition must reject arming independently.'
+);
+$partitionEvents = json_decode($partitionInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionEvents[0]['Event'] ?? null) === 'arm_rejected'
+        && ($partitionEvents[0]['PartitionID'] ?? null) === 'garage'
+        && ($partitionEvents[0]['Mode'] ?? null) === 2
+        && ($partitionEvents[0]['State'] ?? null) === 0,
+    'A rejected non-default partition arming must be retained in its event history.'
+);
+$testValues[2002] = false;
+assertControlApi($partitionInstance->ArmPartition('main', 'home'), 'The main/default partition must arm all ready areas.');
+$testValues[2002] = true;
+$partitionInstance->MessageSink(2, 2002, VM_UPDATE, [true, true, false]);
+$testValues[2001] = true;
+$partitionInstance->MessageSink(3, 2001, VM_UPDATE, [true, true, false]);
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['main']['Alarm']['OutputActive'] ?? null) === true
+        && ($partitionState['Partitions']['garage']['Alarm']['OutputActive'] ?? null) === true
+        && ($partitionState['Alarm']['OutputActive'] ?? null) === true,
+    'Two partition alarms must contribute to the aggregated alarm output.'
+);
+$partitionEvents = json_decode($partitionInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionEvents[0]['Event'] ?? null) === 'alarm'
+        && ($partitionEvents[0]['PartitionID'] ?? null) === 'main'
+        && ($partitionEvents[0]['Mode'] ?? null) === 1
+        && ($partitionEvents[0]['State'] ?? null) === 4,
+    'Partition alarm events must retain their partition, mode and alarm state.'
+);
+assertControlApi(
+    $partitionInstance->ResetAlarmOutputPartition('main'),
+    'One partition alarm output must be resettable independently.'
+);
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['main']['Alarm']['OutputActive'] ?? null) === false
+        && ($partitionState['Partitions']['garage']['Alarm']['OutputActive'] ?? null) === true
+        && ($partitionState['Alarm']['OutputActive'] ?? null) === true,
+    'Resetting one partition must retain another partition and the aggregated output.'
+);
+assertControlApi($partitionInstance->DisarmPartition('main'), 'The main/default partition must disarm every alarm partition.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Alarm']['OutputActive'] ?? null) === false,
+    'Disarming the main/default partition must reset all active areas and their outputs.'
+);
+assertControlApi($partitionInstance->ClearAlarmMemoryPartition('main'), 'The main partition memory must be acknowledgeable.');
+assertControlApi($partitionInstance->ClearAlarmMemoryPartition('garage'), 'The second partition memory must be acknowledgeable.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Alarm']['OutputActive'] ?? null) === false
+        && ($partitionState['Alarm']['MemoryActive'] ?? null) === false,
+    'The aggregate alarm summary must clear after every local output and memory was cleared.'
+);
+$partitionInstance->RequestAction('ArmPartition', '{"PartitionID":"garage","Value":"night"}');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'The visualization action bridge must arm only its explicitly selected partition.'
+);
+$partitionEvents = json_decode($partitionInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionEvents[0]['Event'] ?? null) === 'armed'
+        && ($partitionEvents[0]['PartitionID'] ?? null) === 'garage'
+        && ($partitionEvents[0]['Mode'] ?? null) === 3
+        && ($partitionEvents[0]['State'] ?? null) === 2,
+    'Visualization-triggered partition arming must create the same armed event as the script API.'
+);
+$partitionInstance->RequestAction('DisarmPartition', '{"PartitionID":"garage","Value":null}');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed',
+    'The visualization action bridge must disarm its explicitly selected partition.'
+);
+assertControlApi(
+    array_reduce(
+        $partitionState['Partitions']['garage']['RecentEvents'] ?? [],
+        static fn (bool $valid, array $event): bool => $valid && $event['PartitionID'] === 'garage',
+        true
+    ),
+    'Each visualization partition must expose only its own recent events.'
+);
+
+$partitionDelayInstance = new OpenHomeAlarm();
+$partitionDelayInstance->Create();
+$partitionDelayInstance->TestSetPropertyInteger('ExitDelaySeconds', 60);
+$partitionDelayInstance->TestSetPropertyInteger('EntryDelaySeconds', 15);
+$partitionDelayInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
+);
+$testValues[2001] = false;
+$testValues[2002] = false;
+$partitionDelayInstance->TestSetPropertyString('Sensors', json_encode([
+    array_merge(controlSensor(2001, 'true', true, false, true), ['PartitionID' => 'main']),
+    array_merge(controlSensor(2002, 'true', true, false, true), ['PartitionID' => 'garage', 'EntryDelay' => true])
+], JSON_THROW_ON_ERROR));
+$partitionDelayInstance->ApplyChanges();
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('garage', 'away', 0),
+    'A partition API call must accept an explicit zero exit delay.'
+);
+$partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'A zero partition exit delay must arm the selected partition immediately.'
+);
+assertControlApi($partitionDelayInstance->DisarmPartition('garage'), 'The partition delay test must disarm the selected partition.');
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('garage', 'away', 15),
+    'A partition API call must accept a positive exit-delay override.'
+);
+$partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'exit_delay',
+    'A positive partition exit-delay override must start the exit delay for the selected partition.'
+);
+$partitionDelayEvents = json_decode($partitionDelayInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayEvents[0]['Event'] ?? null) === 'exit_delay_started'
+        && ($partitionDelayEvents[0]['PartitionID'] ?? null) === 'garage'
+        && ($partitionDelayEvents[0]['Mode'] ?? null) === 2
+        && ($partitionDelayEvents[0]['State'] ?? null) === 1,
+    'A non-default partition exit delay must be recorded with its area and mode.'
+);
+assertControlApi($partitionDelayInstance->DisarmPartition('garage'), 'The overridden partition delay must be cancellable by disarming.');
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('garage', 'away', null),
+    'A partition API call must accept the configured exit delay through null.'
+);
+$partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'exit_delay',
+    'A null partition exit delay must use the configured exit delay.'
+);
+assertControlApi($partitionDelayInstance->DisarmPartition('garage'), 'The configured partition delay must be cancellable by disarming.');
+assertControlApi(
+    !$partitionDelayInstance->ArmPartition('garage', 'away', -1),
+    'Negative partition exit-delay values must be rejected.'
+);
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('main', 'away', 0),
+    'The main partition must forward its exit-delay override to every enabled partition.'
+);
+$partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayState['Partitions']['main']['State']['Name'] ?? null) === 'armed'
+        && ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'armed',
+    'A zero exit-delay override through main must arm every enabled partition immediately.'
+);
+$testValues[2002] = true;
+$partitionDelayInstance->MessageSink(4, 2002, VM_UPDATE, [true, true, false]);
+$partitionDelayEvents = json_decode($partitionDelayInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayEvents[0]['Event'] ?? null) === 'entry_delay_started'
+        && ($partitionDelayEvents[0]['PartitionID'] ?? null) === 'garage'
+        && ($partitionDelayEvents[0]['Mode'] ?? null) === 2
+        && ($partitionDelayEvents[0]['State'] ?? null) === 3
+        && ($partitionDelayEvents[0]['Source'] ?? null) === 'Test 2002',
+    'An entry delay in a non-default partition must be retained in its event history.'
+);
+assertControlApi(
+    $partitionDelayInstance->DisarmPartition('garage'),
+    'The entry-delay partition must be disarmable before testing its completed exit delay.'
+);
+$testValues[2002] = false;
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('garage', 'away', 15),
+    'The partition runtime test must start a delayed arming.'
+);
+$partitionDelayInstance->TestSetAttributeString('PartitionRuntime', json_encode([
+    'garage' => [
+        'Mode'             => 2,
+        'State'            => 1,
+        'Deadline'         => time() - 1,
+        'DelaySource'      => '',
+        'PendingSourceID'  => 0
+    ]
+], JSON_THROW_ON_ERROR));
+$partitionDelayInstance->UpdatePartitionRuntime();
+$partitionDelayEvents = json_decode($partitionDelayInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayEvents[0]['Event'] ?? null) === 'armed'
+        && ($partitionDelayEvents[0]['PartitionID'] ?? null) === 'garage'
+        && ($partitionDelayEvents[0]['Mode'] ?? null) === 2
+        && ($partitionDelayEvents[0]['State'] ?? null) === 2,
+    'A completed non-default partition exit delay must be retained as an armed event.'
+);
+assertControlApi($partitionDelayInstance->DisarmPartition('garage'), 'The completed delayed partition must be disarmable.');
+assertControlApi(
+    $partitionDelayInstance->ArmPartition('garage', 'away', 15),
+    'The partition runtime test must start a delayed arming before its final readiness check.'
+);
+$testValues[2002] = true;
+$partitionDelayInstance->TestSetAttributeString('PartitionRuntime', json_encode([
+    'garage' => [
+        'Mode'             => 2,
+        'State'            => 1,
+        'Deadline'         => time() - 1,
+        'DelaySource'      => '',
+        'PendingSourceID'  => 0
+    ]
+], JSON_THROW_ON_ERROR));
+$partitionDelayInstance->UpdatePartitionRuntime();
+$partitionDelayEvents = json_decode($partitionDelayInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionDelayEvents[0]['Event'] ?? null) === 'disarmed'
+        && ($partitionDelayEvents[1]['Event'] ?? null) === 'arm_cancelled'
+        && ($partitionDelayEvents[1]['PartitionID'] ?? null) === 'garage'
+        && ($partitionDelayEvents[1]['Mode'] ?? null) === 2
+        && ($partitionDelayEvents[1]['State'] ?? null) === 1,
+    'A non-default partition that fails its final readiness check must retain cancellation and disarming events.'
+);
+
+$sharedSensorInstance = new OpenHomeAlarm();
+$sharedSensorInstance->Create();
+$sharedSensorInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
+);
+$sharedSensor = array_merge(controlSensor(2001, 'true', true, false, true), [
+    'Partition_main'   => true,
+    'Partition_garage' => true
+]);
+$testValues[2001] = true;
+$sharedSensorInstance->TestSetPropertyString('Sensors', json_encode([$sharedSensor], JSON_THROW_ON_ERROR));
+$sharedSensorInstance->ApplyChanges();
+$sharedState = json_decode($sharedSensorInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($sharedState['Partitions']['main']['Modes']['away']['Ready'] ?? null) === false
+        && ($sharedState['Partitions']['garage']['Modes']['away']['Ready'] ?? null) === false,
+    'One sensor assigned to multiple areas must independently block every assigned area.'
+);
+assertControlApi(
+    $sharedSensorInstance->BypassSensorPartition('garage', 2001),
+    'A shared sensor must be bypassable in one selected area.'
+);
+$sharedState = json_decode($sharedSensorInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($sharedState['Partitions']['main']['Modes']['away']['Ready'] ?? null) === false
+        && ($sharedState['Partitions']['garage']['Modes']['away']['Ready'] ?? null) === true,
+    'A per-area bypass must not bypass the same sensor in another assigned area.'
+);
+$sharedSensorInstance->RequestAction('BypassSensorPartition', '{"PartitionID":"main","Value":2001}');
+$sharedState = json_decode($sharedSensorInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($sharedState['Partitions']['main']['Modes']['away']['Ready'] ?? null) === true,
+    'The visualization action bridge must accept the complete partition bypass payload.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm control API checks passed.\n");
