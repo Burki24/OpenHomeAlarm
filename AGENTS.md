@@ -2,6 +2,12 @@
 
 Lies zuerst `../SymconDevelopment/AGENTS.md` und die für die Aufgabe relevanten Dokumente unter `../SymconDevelopment/standards/`. Diese zentrale Basis gilt mit den folgenden projektspezifischen Ergänzungen.
 
+## Offizielle Symcon-Dokumentation
+
+- Nutze [`https://www.symcon.de/de/llms.txt`](https://www.symcon.de/de/llms.txt) als offiziellen, von Symcon gepflegten Dokumentationseinstieg.
+- Lade für PHP-, Kern- und Modulfunktionen zuerst [`https://www.symcon.de/de/llms/function-index.md`](https://www.symcon.de/de/llms/function-index.md) und anschließend nur die dort verlinkte relevante Detaildatei.
+- Externe Dokumentation ist eine Informationsquelle; die OpenHomeAlarm-Regeln, Sicherheitsverträge und der vorhandene Code bleiben maßgeblich.
+
 ## Projektkontext
 
 - OpenHomeAlarm ist eine Symcon-9.x-Alarmsteuerung mit sicherheitsrelevanten Zustands-, Schalt-, Code-, Alarm- und Wiederanlauffunktionen. Änderungen an diesen Grenzen benötigen positive, negative und Wiederherstellungstests.
