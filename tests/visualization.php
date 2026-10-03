@@ -324,6 +324,15 @@ assertVisualization(
     'Visualization must expand a single operation panel to the available width.'
 );
 assertVisualization(
+    str_contains($css, '@media (min-width: 861px) and (max-width: 1250px)')
+        && str_contains(
+            $css,
+            '.oha-operations-grid[data-visible-panels="3"] .oha-operation-panel:last-child'
+        )
+        && str_contains($css, 'grid-column: 1 / -1;'),
+    'Three operation panels must use the full second row at intermediate tile widths.'
+);
+assertVisualization(
     str_contains($css, '@media (min-width: 900px) and (max-width: 1250px)')
         && str_contains($css, '.oha-shell[data-codepad-visible="true"] .oha-hero-meta'),
     'Visualization must reflow the hero while the inline code pad narrows the content area.'

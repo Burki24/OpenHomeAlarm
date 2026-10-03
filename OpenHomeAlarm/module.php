@@ -2106,7 +2106,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $variableID = $this->ReadSensorEditInteger($sensor, 'VariableID', 0);
         $triggerValue = $this->ReadSensorEditString($sensor, 'TriggerValue', '1');
-        $partitions = $this->ReadConfiguredPartitions();
+        $partitions = $this->ConfigurationFormPartitions();
         $legacyPartitionID = strtolower(trim($this->ReadSensorEditString($sensor, 'PartitionID', '')));
         if ($legacyPartitionID === '') {
             $legacyPartitionID = AlarmPartitionRegistry::defaultPartition($partitions)['ID'];
@@ -2489,7 +2489,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $variableID = $this->ReadSensorEditInteger($faultInput, 'VariableID', 0);
         $triggerValue = $this->ReadSensorEditString($faultInput, 'TriggerValue', '1');
-        $partitions = $this->ReadConfiguredPartitions();
+        $partitions = $this->ConfigurationFormPartitions();
         $partitionID = strtolower(trim($this->ReadSensorEditString($faultInput, 'PartitionID', '')));
         if ($partitionID === '') {
             $partitionID = AlarmPartitionRegistry::defaultPartition($partitions)['ID'];
@@ -3037,9 +3037,22 @@ class OpenHomeAlarm extends IPSModuleStrict
         return AlarmPartitionRegistry::defaultPartition($this->ReadConfiguredPartitions())['ID'];
     }
 
-    private function DefaultPartitionName(): string
+    /** @return list<array{Enabled:bool,ID:string,Name:string,Default:bool,SilentByDefault:bool}> */
+    private function ConfigurationFormPartitions(): array
     {
-        return AlarmPartitionRegistry::defaultPartition($this->ReadConfiguredPartitions())['Name'];
+        try {
+            return $this->ReadConfiguredPartitions();
+        } catch (UnexpectedValueException) {
+            // Keep an invalid partition configuration editable. ApplyChanges()
+            // still reports status 201 until the required main area is restored.
+            return AlarmPartitionRegistry::partitions(self::DEFAULT_PARTITIONS_JSON);
+        }
+    }
+
+    /** @return array{Enabled:bool,ID:string,Name:string,Default:bool,SilentByDefault:bool} */
+    private function ConfigurationFormDefaultPartition(): array
+    {
+        return AlarmPartitionRegistry::defaultPartition($this->ConfigurationFormPartitions());
     }
 
     private function SilentByDefaultForPartition(string $partitionID): bool
@@ -3528,6 +3541,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     private function PopulateConfigurationListValues(array &$elements): void
     {
+        $formDefaultPartition = $this->ConfigurationFormDefaultPartition();
         foreach ($elements as &$element) {
             if (!is_array($element)) {
                 continue;
@@ -3539,14 +3553,14 @@ class OpenHomeAlarm extends IPSModuleStrict
                     $this->SetConfigurationListAddValue(
                         $element,
                         'PartitionNames',
-                        $this->DefaultPartitionName()
+                        $formDefaultPartition['Name']
                     );
                 } elseif (($element['name'] ?? null) === self::PROPERTY_FAULT_INPUTS) {
                     $element['values'] = $this->CreateTriggerListFormValues(self::PROPERTY_FAULT_INPUTS);
                     $this->SetConfigurationListAddValue(
                         $element,
                         'PartitionID',
-                        $this->DefaultPartitionID()
+                        $formDefaultPartition['ID']
                     );
                 } elseif (($element['name'] ?? null) === self::PROPERTY_ALARM_ESCALATION_STEPS) {
                     $element['values'] = $this->CreateAlarmEscalationListFormValues();
@@ -4998,11 +5012,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             $legacyID = is_string($sensor['PartitionID'] ?? null) ? $sensor['PartitionID'] : '';
             $selectedIDs = [!$hasPartitionFields && $legacyID !== ''
                 ? strtolower(trim($legacyID))
-                : $this->DefaultPartitionID()];
+                : $this->ConfigurationFormDefaultPartition()['ID']];
         }
 
         $partitionNames = [];
-        foreach ($this->ReadConfiguredPartitions() as $partition) {
+        foreach ($this->ConfigurationFormPartitions() as $partition) {
             $partitionNames[$partition['ID']] = $partition['Name'];
         }
 

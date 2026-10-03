@@ -1069,6 +1069,12 @@ html:not(.oha-ipsview) .oha-shell {
     }
 }
 
+@media (min-width: 861px) and (max-width: 1250px) {
+    .oha-operations-grid[data-visible-panels="3"] .oha-operation-panel:last-child {
+        grid-column: 1 / -1;
+    }
+}
+
 .oha-operation-panel {
     min-width: 0;
     overflow: hidden;

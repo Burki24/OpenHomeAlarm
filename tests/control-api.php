@@ -321,6 +321,47 @@ assertControlApi(
     $invalidPartitionInstance->TestStatus() === 201,
     'ApplyChanges must report a disabled main partition through a controlled instance status.'
 );
+$invalidPartitionForm = json_decode(
+    $invalidPartitionInstance->GetConfigurationForm(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    is_array($invalidPartitionForm),
+    'An invalid partition configuration must keep the configuration form available for repair.'
+);
+
+$missingMainPartitionInstance = new OpenHomeAlarm();
+$missingMainPartitionInstance->Create();
+$missingMainPartitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"house","Name":"House"}]'
+);
+$missingMainPartitionInstance->TestSetPropertyString(
+    'Sensors',
+    '[{"Enabled":true,"PartitionID":"house","VariableID":0,"SensorType":0}]'
+);
+$missingMainPartitionInstance->ApplyChanges();
+assertControlApi(
+    $missingMainPartitionInstance->TestStatus() === 201,
+    'ApplyChanges must report a missing main partition through a controlled instance status.'
+);
+$missingMainForm = json_decode(
+    $missingMainPartitionInstance->GetConfigurationForm(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    is_array($missingMainForm),
+    'A missing main partition must keep the configuration form available for repair.'
+);
+assertControlApi(
+    is_array($missingMainPartitionInstance->GetSensorEditForm(['PartitionID' => 'house']))
+        && is_array($missingMainPartitionInstance->GetFaultInputEditForm(['PartitionID' => 'house'])),
+    'Sensor and fault editors must remain available while the main partition is repaired.'
+);
 
 $invalidAssignmentInstance = new OpenHomeAlarm();
 $invalidAssignmentInstance->Create();
