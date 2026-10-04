@@ -1063,15 +1063,9 @@ html:not(.oha-ipsview) .oha-shell {
     grid-template-columns: minmax(0, 1fr);
 }
 
-@media (min-width: 1251px) {
+@media (min-width: 861px) {
     .oha-operations-grid[data-visible-panels="3"] {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-@media (min-width: 861px) and (max-width: 1250px) {
-    .oha-operations-grid[data-visible-panels="3"] .oha-operation-panel:last-child {
-        grid-column: 1 / -1;
     }
 }
 
@@ -2615,8 +2609,11 @@ html.oha-ipsview .oha-shell {
     }
 
     html.oha-ipsview .oha-operation-list,
-    html.oha-ipsview .oha-history-list {
-        max-height: 240px;
+    html.oha-ipsview .oha-history-list,
+    html.oha-ipsview .oha-diagnostics-list {
+        max-height: none;
+        overflow-y: visible;
+        overscroll-behavior: auto;
     }
 }
 

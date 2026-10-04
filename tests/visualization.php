@@ -324,13 +324,13 @@ assertVisualization(
     'Visualization must expand a single operation panel to the available width.'
 );
 assertVisualization(
-    str_contains($css, '@media (min-width: 861px) and (max-width: 1250px)')
-        && str_contains(
+    str_contains($css, '@media (min-width: 861px)')
+        && str_contains($css, 'grid-template-columns: repeat(3, minmax(0, 1fr));')
+        && !str_contains(
             $css,
             '.oha-operations-grid[data-visible-panels="3"] .oha-operation-panel:last-child'
-        )
-        && str_contains($css, 'grid-column: 1 / -1;'),
-    'Three operation panels must use the full second row at intermediate tile widths.'
+        ),
+    'Three operation panels must remain equally wide until the layout changes directly to one column.'
 );
 assertVisualization(
     str_contains($css, '@media (min-width: 900px) and (max-width: 1250px)')

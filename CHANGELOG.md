@@ -42,8 +42,11 @@ beispielsweise `v1.109.0`.
 - Das Konfigurationsformular bleibt bei einem fehlenden oder deaktivierten
   Hauptbereich `main` erreichbar, damit die ungültige Bereichskonfiguration
   direkt korrigiert werden kann.
-- Bei mittleren Kachel- und IPSView-Breiten nutzt der dritte von drei sichtbaren
-  Detailbereichen die vollständige zweite Zeile statt nur der linken Spalte.
+- Drei gleichzeitig sichtbare Detailbereiche bleiben in Kachel und IPSView bis
+  zum direkten Wechsel auf die einspaltige Mobilansicht gleich breit.
+- Auf schmalen IPSView-Flächen scrollt die vollständige Seite statt einzelner
+  Detaillisten, damit insbesondere die Systemdiagnose jederzeit wieder bis zu
+  ihrem Kopfbereich zurückgescrollt werden kann.
 - Verwaiste Sensor- oder Störungszuordnungen zu einem fehlenden bzw. deaktivierten
   Alarmbereich führen beim Anwenden oder Neustart nicht mehr zu einem PHP-Fatal.
   Die Instanz meldet stattdessen einen verständlichen Konfigurationsstatus, und

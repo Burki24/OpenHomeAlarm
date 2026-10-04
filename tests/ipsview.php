@@ -252,6 +252,13 @@ assertIPSView(
     'The IPSView codepad column must scale with the configured font size without horizontal overflow.'
 );
 assertIPSView(
+    preg_match(
+        '/@media \(max-width: 899px\) \{.*?html\.oha-ipsview \.oha-operation-list,.*?html\.oha-ipsview \.oha-history-list,.*?html\.oha-ipsview \.oha-diagnostics-list \{.*?max-height: none;.*?overflow-y: visible;.*?overscroll-behavior: auto;/s',
+        $css
+    ) === 1,
+    'Narrow IPSView dashboards must use page scrolling instead of trapping touch gestures in nested operation lists.'
+);
+assertIPSView(
     str_contains($form, '"caption": "View"')
         && str_contains($form, '"caption": "Tile view"')
         && str_contains($form, '"caption": "Configure optional IPSView HTML output."')
