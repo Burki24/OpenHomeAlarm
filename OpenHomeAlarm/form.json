@@ -1070,7 +1070,26 @@
                     }
                 },
                 {
-                    "caption": "Trigger value",
+                    "caption": "Evaluation",
+                    "name": "TriggerCondition",
+                    "width": "210px",
+                    "add": "equals",
+                    "edit": {
+                        "type": "Select",
+                        "options": [
+                            {
+                                "caption": "Trigger at selected value",
+                                "value": "equals"
+                            },
+                            {
+                                "caption": "Trigger when different from normal value",
+                                "value": "not_equals"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "caption": "Comparison value",
                     "name": "TriggerValue",
                     "width": "125px",
                     "add": "1",
@@ -1164,7 +1183,7 @@
         },
         {
             "type": "Label",
-            "caption": "Selectable variable states are shown as a consistent list; variables without discrete states keep a raw-value input."
+            "caption": "Choose whether the selected value itself triggers an alarm or whether every deviation from a known normal value should trigger. Variables without discrete states keep a raw-value input."
         },
         {
             "type": "Label",

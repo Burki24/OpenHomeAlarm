@@ -43,7 +43,9 @@ Der Release umfasst verbindlich:
 21. zeitgesteuerte Alarm-Eskalationsstufen,
 22. JSON- und CSV-Export der Ereignishistorie,
 23. Sensor- und Störungsdiagnose in API, Kachel und IPSView einschließlich Export,
-24. versionierte Konfigurationssicherungen und deren validierte Wiederherstellung.
+24. versionierte Konfigurationssicherungen und deren validierte Wiederherstellung,
+25. eine sensorbezogene Auswertung wahlweise auf einen einzelnen Auslösewert
+    oder auf jede Abweichung von einem festgelegten Normalwert.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -55,6 +57,8 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 
 - Jeder angeforderte Scharfmodus berücksichtigt genau seine relevanten Sensoren sowie alle 24/7-Sensoren.
 - Ein ausgelöster oder nicht auswertbarer relevanter Sensor verhindert eine unsichere Scharfschaltung.
+- Bei der Auswertung gegen einen Normalwert gilt ausschließlich der konfigurierte
+  Wert als normal; jeder andere gültige Variablenwert gilt als ausgelöst.
 - Ein Sofortalarm darf durch parallel laufende Verzögerungen nicht unterdrückt werden.
 - Alarmaktionen werden pro vorgesehenem Zustandsübergang höchstens einmal ausgeführt.
 - Unscharfschalten beendet laufende Verzögerungen und setzt einen aktiven Alarmausgang kontrolliert zurück.

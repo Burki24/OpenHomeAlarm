@@ -350,6 +350,7 @@ assertDomainSame(
             'Name'                 => 'Front door',
             'VariableID'           => 1001,
             'SensorType'           => 1,
+            'TriggerCondition'     => 'equals',
             'TriggerValue'         => '1',
             'ArmHome'              => true,
             'ArmAway'              => true,
@@ -398,6 +399,14 @@ assertDomainThrows(
     ),
     'Unsupported sensor type.'
 );
+assertDomainThrows(
+    static fn (): array => AlarmConfigurationNormalizer::sensors(
+        '[{"TriggerCondition":"greater_than"}]',
+        [0],
+        0
+    ),
+    'Unsupported sensor trigger condition.'
+);
 
 assertDomainSame(
     [],
@@ -429,6 +438,21 @@ assertDomainSame(true, AlarmTriggerValue::matches(0, '1', true), 'Boolean trigge
 assertDomainSame(false, AlarmTriggerValue::matches(1, '7', 8), 'Integer trigger mismatch failed.');
 assertDomainSame(true, AlarmTriggerValue::matches(2, '2.5', 2.5), 'Float trigger comparison failed.');
 assertDomainSame(null, AlarmTriggerValue::matches(1, 'invalid', 1), 'Invalid trigger text must be rejected.');
+assertDomainSame(
+    false,
+    AlarmTriggerValue::isTriggered(1, '0', 0, 'not_equals'),
+    'A configured normal value must not trigger.'
+);
+assertDomainSame(
+    true,
+    AlarmTriggerValue::isTriggered(1, '0', 4, 'not_equals'),
+    'Every valid value different from the configured normal value must trigger.'
+);
+assertDomainSame(
+    null,
+    AlarmTriggerValue::isTriggered(1, 'invalid', 4, 'not_equals'),
+    'An invalid normal value must remain unevaluable instead of being inverted into an alarm.'
+);
 
 $validEntry = [
     'Time'   => 100,

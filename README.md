@@ -24,7 +24,9 @@ Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als
    zusätzliche Bereiche können einzeln geschaltet werden.
 3. Unter **Sensoren und Auslöser** Variablen hinzufügen, einem oder mehreren
    Bereichen zuordnen und die gewünschten Modi (**Zuhause**, **Abwesend**,
-   **Nacht**) aktivieren.
+   **Nacht**) aktivieren. Bei mehrwertigen Zustandsvariablen kann alternativ
+   ein sicherer Normalwert gewählt werden; jede Abweichung gilt dann als
+   Auslösung.
 4. In der Kachel einen Modus auswählen. `main` schaltet alle aktiven Bereiche,
    ein anderer Bereich nur diesen Bereich.
 5. Mit einem Testlauf prüfen, ob Sensorblocker, Unscharfschaltung und Aktionen

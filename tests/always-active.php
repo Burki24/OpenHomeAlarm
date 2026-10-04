@@ -10,13 +10,15 @@ const VM_UPDATE = 10603;
 /** @var array<int,array<string,mixed>> */
 $testVariables = [
     5001 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    5002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    5002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    5003 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
 $testValues = [
     5001 => false,
-    5002 => false
+    5002 => false,
+    5003 => 0
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -308,19 +310,22 @@ function alwaysActiveSensor(
     string $name,
     bool $alwaysActive,
     bool $armAway = false,
-    bool $entryDelay = false
+    bool $entryDelay = false,
+    string $triggerValue = 'true',
+    string $triggerCondition = 'equals'
 ): array {
     return [
-        'Enabled'      => true,
-        'Name'         => $name,
-        'VariableID'   => $variableID,
-        'SensorType'   => 3,
-        'TriggerValue' => 'true',
-        'ArmHome'      => false,
-        'ArmAway'      => $armAway,
-        'ArmNight'     => false,
-        'AlwaysActive' => $alwaysActive,
-        'EntryDelay'   => $entryDelay
+        'Enabled'          => true,
+        'Name'             => $name,
+        'VariableID'       => $variableID,
+        'SensorType'       => 3,
+        'TriggerCondition' => $triggerCondition,
+        'TriggerValue'     => $triggerValue,
+        'ArmHome'          => false,
+        'ArmAway'          => $armAway,
+        'ArmNight'         => false,
+        'AlwaysActive'     => $alwaysActive,
+        'EntryDelay'       => $entryDelay
     ];
 }
 
@@ -424,6 +429,31 @@ assertAlwaysActive(
         && ($restartWritten['AlarmMemory'] ?? null) === true
         && ($restartWritten['LastAlarmSource'] ?? null) === 'Rauchmelder Flur',
     'ApplyChanges must detect a 24/7 sensor that was already triggered before the module restarted.'
+);
+
+// A 24/7 multi-state sensor must alarm for every state different from its configured normal value.
+$normalValue24x7 = new OpenHomeAlarm();
+$normalValue24x7->Create();
+$normalValue24x7->TestSetPropertyString('Sensors', json_encode([
+    alwaysActiveSensor(
+        5003,
+        'Wassermelder Status',
+        true,
+        triggerValue: '0',
+        triggerCondition: 'not_equals'
+    )
+], JSON_THROW_ON_ERROR));
+$normalValue24x7->ApplyChanges();
+assertAlwaysActive(
+    ($normalValue24x7->TestWrittenValues()['State'] ?? null) !== 4,
+    'A 24/7 sensor at its configured normal value must not alarm.'
+);
+$normalValue24x7->TestClearWrittenValues();
+$testValues[5003] = 3;
+$normalValue24x7->MessageSink(5, 5003, VM_UPDATE, [3, true, 0]);
+assertAlwaysActive(
+    ($normalValue24x7->TestWrittenValues()['State'] ?? null) === 4,
+    'A 24/7 sensor that leaves its configured normal value must alarm immediately.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm 24/7 sensor checks passed.\n");

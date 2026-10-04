@@ -11,14 +11,16 @@ const VM_UPDATE = 10603;
 $testVariables = [
     7001 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     7002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    7003 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    7003 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    7004 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
 $testValues = [
     7001 => true,
     7002 => false,
-    7003 => false
+    7003 => false,
+    7004 => 2
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -299,14 +301,17 @@ function bypassSensor(
     bool $armNight = false,
     bool $alwaysActive = false,
     bool $enabled = true,
-    bool $allowAutomaticBypass = false
+    bool $allowAutomaticBypass = false,
+    string $triggerValue = 'true',
+    string $triggerCondition = 'equals'
 ): array {
     return [
         'Enabled'              => $enabled,
         'Name'                 => $name,
         'VariableID'           => $variableID,
         'SensorType'           => 0,
-        'TriggerValue'         => 'true',
+        'TriggerCondition'     => $triggerCondition,
+        'TriggerValue'         => $triggerValue,
         'ArmHome'              => $armHome,
         'ArmAway'              => $armAway,
         'ArmNight'             => $armNight,
@@ -425,6 +430,32 @@ $events = json_decode($automatic->GetEventHistory(), true, 512, JSON_THROW_ON_ER
 assertBypass(in_array('sensor_auto_bypassed', array_column($events, 'Event'), true), 'Automatic bypass creation must be logged.');
 assertBypass(in_array('sensor_auto_bypass_restored', array_column($events, 'Event'), true), 'Automatic bypass restoration must be logged.');
 $automatic->Disarm();
+
+$normalValueBypass = new OpenHomeAlarm();
+$normalValueBypass->Create();
+$normalValueBypass->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$normalValueBypass->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(
+        7004,
+        'Multi-state window',
+        armAway: true,
+        allowAutomaticBypass: true,
+        triggerValue: '0',
+        triggerCondition: 'not_equals'
+    )
+], JSON_THROW_ON_ERROR));
+$normalValueBypass->ApplyChanges();
+assertBypass(
+    $normalValueBypass->ArmAway(null, null, true) === true,
+    'A permitted multi-state sensor outside its normal value may be bypassed for one arming call.'
+);
+$testValues[7004] = 0;
+$normalValueBypass->MessageSink(1, 7004, VM_UPDATE, [0, true, 2]);
+assertBypass(
+    json_decode($normalValueBypass->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'A multi-state automatic bypass must end when the configured normal value returns.'
+);
+$normalValueBypass->Disarm();
 
 $testValues[7003] = true;
 $notPermitted = new OpenHomeAlarm();

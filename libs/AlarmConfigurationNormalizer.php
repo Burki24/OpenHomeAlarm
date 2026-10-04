@@ -22,6 +22,7 @@ final class AlarmConfigurationNormalizer
      *     Name: string,
      *     VariableID: int,
      *     SensorType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     ArmHome: bool,
      *     ArmAway: bool,
@@ -64,6 +65,19 @@ final class AlarmConfigurationNormalizer
                 throw new UnexpectedValueException('Unsupported sensor type.');
             }
 
+            $triggerCondition = self::stringField(
+                $sensor,
+                'TriggerCondition',
+                AlarmTriggerValue::CONDITION_EQUALS,
+                'Sensor'
+            );
+            if (!in_array($triggerCondition, [
+                AlarmTriggerValue::CONDITION_EQUALS,
+                AlarmTriggerValue::CONDITION_NOT_EQUALS
+            ], true)) {
+                throw new UnexpectedValueException('Unsupported sensor trigger condition.');
+            }
+
             $legacyPartitionID = strtolower(trim(self::stringField($sensor, 'PartitionID', '', 'Sensor')));
             $partitionIDs = [];
             $hasPartitionFields = false;
@@ -94,6 +108,7 @@ final class AlarmConfigurationNormalizer
                 'Name'                 => trim(self::stringField($sensor, 'Name', '', 'Sensor')),
                 'VariableID'           => $variableID,
                 'SensorType'           => $sensorType,
+                'TriggerCondition'     => $triggerCondition,
                 'TriggerValue'         => self::stringField($sensor, 'TriggerValue', '1', 'Sensor'),
                 'ArmHome'              => !$alwaysActive && $armHome,
                 'ArmAway'              => !$alwaysActive && $armAway,

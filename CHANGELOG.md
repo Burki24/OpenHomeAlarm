@@ -10,6 +10,11 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Sensoren können weiterhin auf einen einzelnen Auslösewert oder neu auf jede
+  Abweichung von einem festgelegten Normalwert reagieren. Dadurch lassen sich
+  mehrwertige Zustandsvariablen etwa von Fenstergriffen, Türschlössern oder
+  Wassermeldern ohne mehrfachen Sensoreintrag auswerten.
+
 - Die Kachel- und IPSView-Oberfläche zeigen den Sicherheitsstatus zuerst. Die
   Bereichsauswahl erhält einen eigenen Rahmen; Scharfmodi-Überschrift,
   Alarmierungsart und Moduskarten stehen gemeinsam in einem zweiten Rahmen.

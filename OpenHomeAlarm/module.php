@@ -2105,6 +2105,17 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function GetSensorEditForm(mixed $sensor): array
     {
         $variableID = $this->ReadSensorEditInteger($sensor, 'VariableID', 0);
+        $triggerCondition = $this->ReadSensorEditString(
+            $sensor,
+            'TriggerCondition',
+            AlarmTriggerValue::CONDITION_EQUALS
+        );
+        if (!in_array($triggerCondition, [
+            AlarmTriggerValue::CONDITION_EQUALS,
+            AlarmTriggerValue::CONDITION_NOT_EQUALS
+        ], true)) {
+            $triggerCondition = AlarmTriggerValue::CONDITION_EQUALS;
+        }
         $triggerValue = $this->ReadSensorEditString($sensor, 'TriggerValue', '1');
         $partitions = $this->ConfigurationFormPartitions();
         $legacyPartitionID = strtolower(trim($this->ReadSensorEditString($sensor, 'PartitionID', '')));
@@ -2151,6 +2162,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         $selectedTriggerValue = $hasTriggerOptions
             ? $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions)
             : $triggerValue;
+        $usesNormalValue = $triggerCondition === AlarmTriggerValue::CONDITION_NOT_EQUALS;
+        $triggerValueCaption = $usesNormalValue ? 'Normal value' : 'Trigger value';
 
         return [
             [
@@ -2187,6 +2200,23 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'options' => $this->CreateSensorTypeOptions()
             ],
             [
+                'type'     => 'Select',
+                'name'     => 'TriggerCondition',
+                'caption'  => $this->Translate('Evaluation'),
+                'options'  => [
+                    [
+                        'caption' => $this->Translate('Trigger at selected value'),
+                        'value'   => AlarmTriggerValue::CONDITION_EQUALS
+                    ],
+                    [
+                        'caption' => $this->Translate('Trigger when different from normal value'),
+                        'value'   => AlarmTriggerValue::CONDITION_NOT_EQUALS
+                    ]
+                ],
+                'value'    => $triggerCondition,
+                'onChange' => 'OHA_UpdateSensorTriggerConditionForm($id, $TriggerCondition);'
+            ],
+            [
                 'type'    => 'ValidationTextBox',
                 'name'    => 'TriggerValue',
                 'visible' => false
@@ -2194,7 +2224,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             [
                 'type'     => 'Select',
                 'name'     => 'TriggerValueSelection',
-                'caption'  => $this->Translate('Trigger value'),
+                'caption'  => $this->Translate($triggerValueCaption),
                 'options'  => $hasTriggerOptions ? $triggerOptions : $this->CreateEmptyTriggerValueOptions(),
                 'value'    => $selectedTriggerValue,
                 'visible'  => $hasVariable && $hasTriggerOptions,
@@ -2203,7 +2233,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             [
                 'type'     => 'ValidationTextBox',
                 'name'     => 'TriggerValueManual',
-                'caption'  => $this->Translate('Trigger value'),
+                'caption'  => $this->Translate($triggerValueCaption),
                 'value'    => $triggerValue,
                 'visible'  => $hasVariable && !$hasTriggerOptions,
                 'onChange' => 'OHA_SetSensorTriggerValue($id, $TriggerValueManual);'
@@ -2211,13 +2241,17 @@ class OpenHomeAlarm extends IPSModuleStrict
             [
                 'type'    => 'Label',
                 'name'    => 'TriggerValueHint',
-                'caption' => $this->Translate('Select a variable to choose its trigger value.'),
+                'caption' => $this->Translate($usesNormalValue
+                    ? 'Select a variable to choose its normal value.'
+                    : 'Select a variable to choose its trigger value.'),
                 'visible' => !$hasVariable
             ],
             [
                 'type'    => 'Label',
                 'name'    => 'TriggerValueManualHint',
-                'caption' => $this->Translate('This variable has no selectable states. Enter the raw trigger value.'),
+                'caption' => $this->Translate($usesNormalValue
+                    ? 'This variable has no selectable states. Enter the raw normal value.'
+                    : 'This variable has no selectable states. Enter the raw trigger value.'),
                 'visible' => $hasVariable && !$hasTriggerOptions
             ],
             [
@@ -2453,6 +2487,29 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->UpdateFormField('TriggerValueManual', 'visible', $hasVariable && !$hasTriggerOptions);
         $this->UpdateFormField('TriggerValueHint', 'visible', !$hasVariable);
         $this->UpdateFormField('TriggerValueManualHint', 'visible', $hasVariable && !$hasTriggerOptions);
+    }
+
+    /** Updates the comparison-value labels after the sensor evaluation rule changes. */
+    public function UpdateSensorTriggerConditionForm(string $triggerCondition): void
+    {
+        $usesNormalValue = $triggerCondition === AlarmTriggerValue::CONDITION_NOT_EQUALS;
+        $valueCaption = $this->Translate($usesNormalValue ? 'Normal value' : 'Trigger value');
+        $this->UpdateFormField('TriggerValueSelection', 'caption', $valueCaption);
+        $this->UpdateFormField('TriggerValueManual', 'caption', $valueCaption);
+        $this->UpdateFormField(
+            'TriggerValueHint',
+            'caption',
+            $this->Translate($usesNormalValue
+                ? 'Select a variable to choose its normal value.'
+                : 'Select a variable to choose its trigger value.')
+        );
+        $this->UpdateFormField(
+            'TriggerValueManualHint',
+            'caption',
+            $this->Translate($usesNormalValue
+                ? 'This variable has no selectable states. Enter the raw normal value.'
+                : 'This variable has no selectable states. Enter the raw trigger value.')
+        );
     }
 
     /** Removes arming-mode and delay choices when a sensor monitors around the clock. */
@@ -4947,7 +5004,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      * The helper columns are intentionally not persisted, so their values are restored
      * through the List values array whenever the configuration form is opened.
      *
-     * @return list<array{TriggerValueSelection:string,TriggerValueManual:string}>
+     * @return list<array<string,string>>
      */
     private function CreateTriggerListFormValues(string $propertyName): array
     {
@@ -4987,6 +5044,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'TriggerValueManual'    => $triggerValue
             ];
             if ($propertyName === self::PROPERTY_SENSORS) {
+                $value['TriggerCondition'] = is_string($row['TriggerCondition'] ?? null)
+                    ? $row['TriggerCondition']
+                    : AlarmTriggerValue::CONDITION_EQUALS;
                 $value['PartitionNames'] = $this->SensorPartitionNames($row);
             }
             $values[] = $value;
@@ -5066,6 +5126,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      *     Name: string,
      *     VariableID: int,
      *     SensorType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     ArmHome: bool,
      *     ArmAway: bool,
@@ -6321,14 +6382,16 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
-     * Returns true when the current variable value equals the configured trigger
-     * value, false when it does not, and null when the state cannot be evaluated.
+     * Returns true when the current variable value satisfies the configured alarm
+     * rule, false when it represents the configured normal state, and null when
+     * the state cannot be evaluated.
      *
      * @param array{
      *     Enabled: bool,
      *     Name: string,
      *     VariableID: int,
      *     SensorType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     ArmHome: bool,
      *     ArmAway: bool,
@@ -6351,10 +6414,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             return null;
         }
 
-        return AlarmTriggerValue::matches(
+        return AlarmTriggerValue::isTriggered(
             $variable['VariableType'],
             $sensor['TriggerValue'],
-            $currentValue
+            $currentValue,
+            $sensor['TriggerCondition'] ?? AlarmTriggerValue::CONDITION_EQUALS
         );
     }
 

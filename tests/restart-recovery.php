@@ -14,7 +14,8 @@ $testVariables = [
     8003 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     8004 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     8005 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    8006 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    8006 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    8007 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
@@ -24,7 +25,8 @@ $testValues = [
     8003 => false,
     8004 => false,
     8005 => false,
-    8006 => false
+    8006 => false,
+    8007 => 0
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -327,19 +329,22 @@ function restartSensor(
     bool $entryDelay = false,
     bool $armHome = false,
     bool $armAway = true,
-    bool $armNight = false
+    bool $armNight = false,
+    string $triggerValue = 'true',
+    string $triggerCondition = 'equals'
 ): array {
     return [
-        'Enabled'      => true,
-        'Name'         => $name,
-        'VariableID'   => $variableID,
-        'SensorType'   => 0,
-        'TriggerValue' => 'true',
-        'ArmHome'      => $armHome,
-        'ArmAway'      => $armAway,
-        'ArmNight'     => $armNight,
-        'AlwaysActive' => false,
-        'EntryDelay'   => $entryDelay
+        'Enabled'          => true,
+        'Name'             => $name,
+        'VariableID'       => $variableID,
+        'SensorType'       => 0,
+        'TriggerCondition' => $triggerCondition,
+        'TriggerValue'     => $triggerValue,
+        'ArmHome'          => $armHome,
+        'ArmAway'          => $armAway,
+        'ArmNight'         => $armNight,
+        'AlwaysActive'     => false,
+        'EntryDelay'       => $entryDelay
     ];
 }
 
@@ -450,6 +455,19 @@ $otherModeInstance->ApplyChanges();
 assertRestartRecovery(
     !array_key_exists('State', $otherModeInstance->TestWrittenValues()),
     'A sensor that is irrelevant for the active mode must not enter Alarm after restart.'
+);
+
+// A multi-state sensor that left its configured normal value while offline must alarm after restart.
+$testValues[8007] = 0;
+$normalValueInstance = createArmedRestartInstance([
+    restartSensor(8007, 'Door lock', triggerValue: '0', triggerCondition: 'not_equals')
+]);
+$testValues[8007] = 2;
+$normalValueInstance->ApplyChanges();
+assertRestartRecovery(
+    ($normalValueInstance->TestWrittenValues()['State'] ?? null) === 4
+        && ($normalValueInstance->TestWrittenValues()['LastAlarmSource'] ?? null) === 'Door lock',
+    'Restart recovery must alarm when a multi-state sensor differs from its configured normal value.'
 );
 
 // An unreadable sensor is a system fault, but not a confirmed alarm signal.

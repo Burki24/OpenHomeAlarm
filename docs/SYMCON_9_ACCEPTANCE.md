@@ -24,7 +24,7 @@ festgehalten.
 | PHP-Syntax | Bestanden | Alle PHP-Dateien bestehen `php -l` |
 | JSON-Format | Bestanden | `php .style/json-check.php` endet ohne Fehler |
 | Historische Basisabnahme | Bestanden (49/49) | Der freigegebene Basisumfang wurde am 24.08.2026 auf Symcon 9.1 bestanden |
-| Erweiterungen H-01 bis H-16 | Bestanden | Alle Pflichtfälle aus Abschnitt H wurden auf der repräsentativen Symcon-9.1-Testinstallation bestanden |
+| Erweiterungen H-01 bis H-17 | Teilweise bestanden | H-01 bis H-16 wurden auf der repräsentativen Symcon-9.1-Testinstallation bestanden; für H-17 ist die Praxisabnahme offen |
 | HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
 | IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
 | Update/Migration | Bestanden | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
@@ -183,6 +183,7 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | H-14 | Eine geänderte Konfiguration im vollständig unscharfen Zustand aus der Sicherung wiederherstellen | Alle gesicherten Eigenschaften und Datentypen werden exakt wiederhergestellt | Offen | |
 | H-15 | Wiederherstellung bei scharfem Bereich sowie mit fremder Modul-ID, unbekannter Eigenschaft und falschem Datentyp versuchen | Jeder Versuch wird ohne Konfigurationsänderung verständlich abgewiesen | Offen | |
 | H-16 | Eine Sicherung ohne eine erst in einer neueren Modulversion eingeführte Eigenschaft einspielen | Die fehlende Eigenschaft behält ihren aktuellen Standard- beziehungsweise Konfigurationswert | Offen | |
+| H-17 | Einen mehrwertigen Integer-Sensor auf „Abweichung vom Normalwert“ konfigurieren und als normalen sowie als 24/7-Sensor prüfen | Der Normalwert ist bereit; jeder andere gültige Wert blockiert die Scharfschaltung beziehungsweise löst im überwachten Zustand Alarm aus; fehlende oder nicht auswertbare Werte bleiben sicherheitsgerichtet gestört | Offen | |
 
 ## Automatisierte Vorprüfung
 
@@ -212,7 +213,7 @@ mit Begründung in einen Folgerelease verschoben werden.
 Ein Commit darf als Release Candidate markiert werden, wenn:
 
 1. alle automatisierten Checks und beide CI-Checks für exakt diesen Commit bestanden sind,
-2. alle Pflichtfälle A-01 bis H-16 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden sind,
+2. alle Pflichtfälle A-01 bis H-17 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden sind,
 3. Desktop- und Mobilbedienung der HTML-SDK-Kachel geprüft wurden,
 4. alle IPSView-Fälle bestanden sind,
 5. Update und Wiederherstellung praktisch geprüft wurden,

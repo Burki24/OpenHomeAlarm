@@ -298,18 +298,20 @@ function armingSensor(
     bool $enabled = true,
     bool $armHome = false,
     bool $armAway = false,
-    bool $armNight = false
+    bool $armNight = false,
+    string $triggerCondition = 'equals'
 ): array {
     return [
-        'Enabled'      => $enabled,
-        'Name'         => 'Test ' . $variableID,
-        'VariableID'   => $variableID,
-        'SensorType'   => 0,
-        'TriggerValue' => $triggerValue,
-        'ArmHome'      => $armHome,
-        'ArmAway'      => $armAway,
-        'ArmNight'     => $armNight,
-        'EntryDelay'   => false
+        'Enabled'          => $enabled,
+        'Name'             => 'Test ' . $variableID,
+        'VariableID'       => $variableID,
+        'SensorType'       => 0,
+        'TriggerCondition' => $triggerCondition,
+        'TriggerValue'     => $triggerValue,
+        'ArmHome'          => $armHome,
+        'ArmAway'          => $armAway,
+        'ArmNight'         => $armNight,
+        'EntryDelay'       => false
     ];
 }
 
@@ -480,6 +482,34 @@ $executeAutomaticArming->invoke($instance, $scheduleTimestamp);
 assertArming(
     $instance->TestWrittenValues() === [],
     'A schedule must not execute twice in the same local minute.'
+);
+
+// A multi-state sensor may treat one configured value as normal and every other value as triggered.
+$normalValueInstance = new OpenHomeAlarm();
+$normalValueInstance->Create();
+$normalValueInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$normalValueInstance->TestSetPropertyString('Sensors', json_encode([
+    armingSensor(2004, '0', armAway: true, triggerCondition: 'not_equals')
+], JSON_THROW_ON_ERROR));
+$testValues[2004] = 0;
+assertArming(
+    $normalValueInstance->ArmAway() === true,
+    'The configured normal value must permit arming.'
+);
+$normalValueInstance->Disarm();
+$testValues[2004] = 4;
+assertArming(
+    $normalValueInstance->ArmAway() === false,
+    'Every different valid state must block arming under normal-value evaluation.'
+);
+$testValues[2004] = 0;
+assertArming($normalValueInstance->ArmAway() === true, 'The normal-value alarm test must arm first.');
+$normalValueInstance->TestClearWrittenValues();
+$testValues[2004] = 2;
+$normalValueInstance->MessageSink(1, 2004, VM_UPDATE, [2, true, 0]);
+assertArming(
+    ($normalValueInstance->TestWrittenValues()['State'] ?? null) === 4,
+    'A transition away from the configured normal value must alarm while armed.'
 );
 
 $moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');

@@ -412,6 +412,7 @@ $configuredSensors = [
         'Name'                 => 'Haustür',
         'VariableID'           => 12345,
         'SensorType'           => 0,
+        'TriggerCondition'     => 'equals',
         'TriggerValue'         => '1',
         'ArmHome'              => true,
         'ArmAway'              => true,
@@ -428,6 +429,7 @@ $configuredSensors = [
         'Name'                 => 'Flur Bewegung',
         'VariableID'           => 23456,
         'SensorType'           => 1,
+        'TriggerCondition'     => 'equals',
         'TriggerValue'         => 'true',
         'ArmHome'              => false,
         'ArmAway'              => true,
@@ -483,6 +485,7 @@ assertSensorModel(
         'Name'                 => '',
         'VariableID'           => 34567,
         'SensorType'           => 0,
+        'TriggerCondition'     => 'equals',
         'TriggerValue'         => '1',
         'ArmHome'              => false,
         'ArmAway'              => true,
@@ -551,6 +554,7 @@ foreach ([
     'PartitionNames',
     'VariableID',
     'SensorType',
+    'TriggerCondition',
     'TriggerValue',
     'ArmHome',
     'ArmAway',
@@ -580,6 +584,18 @@ assertSensorModel(
     'The readable alarm-area summary must not be persisted.'
 );
 assertSensorModel(($columns['TriggerValue']['add'] ?? null) === '1', 'New sensors must use trigger value 1 by default.');
+assertSensorModel(
+    ($columns['TriggerCondition']['add'] ?? null) === 'equals',
+    'New sensors must use exact trigger-value evaluation by default.'
+);
+assertSensorModel(
+    ($columns['TriggerCondition']['edit']['type'] ?? null) === 'Select'
+        && ($columns['TriggerCondition']['edit']['options'] ?? null) === [
+            ['caption' => 'Trigger at selected value', 'value' => 'equals'],
+            ['caption' => 'Trigger when different from normal value', 'value' => 'not_equals']
+        ],
+    'Sensor evaluation must offer exact alarm-value and normal-value rules.'
+);
 assertSensorModel(($columns['ArmHome']['add'] ?? null) === false, 'New sensors must not be active in Home by default.');
 assertSensorModel(($columns['ArmAway']['add'] ?? null) === true, 'New sensors must be active in Away by default.');
 assertSensorModel(($columns['ArmNight']['add'] ?? null) === false, 'New sensors must not be active in Night by default.');
@@ -654,16 +670,19 @@ assertSensorModel(
         [
             'TriggerValueSelection' => 'ALARM',
             'TriggerValueManual'    => 'ALARM',
+            'TriggerCondition'      => 'equals',
             'PartitionNames'        => 'Main area'
         ],
         [
             'TriggerValueSelection' => 'true',
             'TriggerValueManual'    => 'true',
+            'TriggerCondition'      => 'equals',
             'PartitionNames'        => 'Main area'
         ],
         [
             'TriggerValueSelection' => 'IDLE',
             'TriggerValueManual'    => '"IDLE"',
+            'TriggerCondition'      => 'equals',
             'PartitionNames'        => 'Main area'
         ]
     ],
@@ -683,6 +702,13 @@ foreach ($editForm as $field) {
 assertSensorModel(
     ($editFields['VariableID']['type'] ?? null) === 'SelectVariable',
     'Sensor editor must use SelectVariable for VariableID.'
+);
+assertSensorModel(
+    ($editFields['TriggerCondition']['type'] ?? null) === 'Select'
+        && ($editFields['TriggerCondition']['value'] ?? null) === 'equals'
+        && ($editFields['TriggerCondition']['onChange'] ?? null)
+            === 'OHA_UpdateSensorTriggerConditionForm($id, $TriggerCondition);',
+    'Legacy sensor rows must open with exact trigger-value evaluation.'
 );
 assertSensorModel(
     ($editFields['PartitionID']['type'] ?? null) === 'ValidationTextBox'
@@ -782,6 +808,42 @@ assertSensorModel(
 assertSensorModel(
     ($editFields['TriggerValueManual']['visible'] ?? true) === false,
     'Manual trigger input must be hidden when selectable states exist.'
+);
+
+$normalValueEditForm = $instance->GetSensorEditForm(new IPSList([
+    'VariableID'       => 12345,
+    'TriggerCondition' => 'not_equals',
+    'TriggerValue'     => 'false'
+]));
+$normalValueFields = [];
+foreach ($normalValueEditForm as $field) {
+    if (isset($field['name'])) {
+        $normalValueFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($normalValueFields['TriggerValueSelection']['caption'] ?? null) === 'Normal value'
+        && ($normalValueFields['TriggerValueManual']['caption'] ?? null) === 'Normal value',
+    'Normal-value evaluation must label the selected comparison state as the normal value.'
+);
+$instance->TestClearFormUpdates();
+$instance->UpdateSensorTriggerConditionForm('not_equals');
+assertSensorModel(
+    $instance->TestFormUpdates() === [
+        ['field' => 'TriggerValueSelection', 'parameter' => 'caption', 'value' => 'Normal value'],
+        ['field' => 'TriggerValueManual', 'parameter' => 'caption', 'value' => 'Normal value'],
+        [
+            'field'     => 'TriggerValueHint',
+            'parameter' => 'caption',
+            'value'     => 'Select a variable to choose its normal value.'
+        ],
+        [
+            'field'     => 'TriggerValueManualHint',
+            'parameter' => 'caption',
+            'value'     => 'This variable has no selectable states. Enter the raw normal value.'
+        ]
+    ],
+    'Changing the evaluation rule must relabel the comparison value without reopening the editor.'
 );
 
 $stringEditForm = $instance->GetSensorEditForm(new IPSList([
