@@ -2295,7 +2295,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             [
                 'type'    => 'CheckBox',
                 'name'    => 'ExitDelay',
-                'caption' => $this->Translate('Exit route'),
+                'caption' => $this->Translate('Exit route (Away only)'),
                 'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ExitDelay', false),
                 'enabled' => !$alwaysActive
             ],
@@ -4333,12 +4333,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             if ($triggerState === false) {
                 continue;
             }
-            if (
+            if ($triggerState === true && $this->CanIgnoreExitRouteSensor(
+                $mode,
+                $sensor,
                 $allowActiveExitRoute
-                && !$sensor['AlwaysActive']
-                && $sensor['ExitDelay']
-                && $triggerState === true
-            ) {
+            )) {
                 continue;
             }
 
@@ -5649,9 +5648,10 @@ class OpenHomeAlarm extends IPSModuleStrict
      *
      * ReadyToArm remains the global summary for starting an arming cycle.
      * ReadyHome, ReadyAway and ReadyNight only consider sensors assigned to the
-     * respective mode plus every 24/7 sensor. When a positive
-     * exit delay is configured, sensors marked as exit route may still be active
-     * while arming is initiated; they must be ready when the countdown ends. The
+     * respective mode plus every 24/7 sensor. When a positive exit delay is
+     * configured, sensors marked as exit route may still be active while Away
+     * arming is initiated; Home and Night check them strictly before arming. The
+     * exit-route sensors must normally be ready when the Away countdown ends. The
      * matching blocking-sensor variables expose the concrete sensor names for
      * diagnostics and the later visualization.
      *
@@ -5758,19 +5758,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
-            if (
-                $allowActiveExitRoute
-                && !$sensor['AlwaysActive']
-                && (!$motionExitRouteOnly || $sensor['SensorType'] === self::SENSOR_TYPE_MOTION)
-                && $sensor['ExitDelay']
-                && $triggerState === true
-            ) {
-                continue;
-            }
-
             $sensorName = $this->ResolveSensorDisplayName($sensor);
-            $readiness['global'] = false;
             if ($sensor['AlwaysActive']) {
+                $readiness['global'] = false;
                 $readiness['home'] = false;
                 $readiness['away'] = false;
                 $readiness['night'] = false;
@@ -5781,15 +5771,38 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
-            if ($sensor['ArmHome']) {
+            $blocksHome = $sensor['ArmHome'] && !($triggerState === true && $this->CanIgnoreExitRouteSensor(
+                self::MODE_HOME,
+                $sensor,
+                $allowActiveExitRoute,
+                $motionExitRouteOnly
+            ));
+            $blocksAway = $sensor['ArmAway'] && !($triggerState === true && $this->CanIgnoreExitRouteSensor(
+                self::MODE_AWAY,
+                $sensor,
+                $allowActiveExitRoute,
+                $motionExitRouteOnly
+            ));
+            $blocksNight = $sensor['ArmNight'] && !($triggerState === true && $this->CanIgnoreExitRouteSensor(
+                self::MODE_NIGHT,
+                $sensor,
+                $allowActiveExitRoute,
+                $motionExitRouteOnly
+            ));
+            if (!$blocksHome && !$blocksAway && !$blocksNight) {
+                continue;
+            }
+
+            $readiness['global'] = false;
+            if ($blocksHome) {
                 $readiness['home'] = false;
                 $blockingHome[] = $sensorName;
             }
-            if ($sensor['ArmAway']) {
+            if ($blocksAway) {
                 $readiness['away'] = false;
                 $blockingAway[] = $sensorName;
             }
-            if ($sensor['ArmNight']) {
+            if ($blocksNight) {
                 $readiness['night'] = false;
                 $blockingNight[] = $sensorName;
             }
@@ -5801,6 +5814,20 @@ class OpenHomeAlarm extends IPSModuleStrict
             'blockingAway'  => array_values(array_unique($blockingAway)),
             'blockingNight' => array_values(array_unique($blockingNight))
         ];
+    }
+
+    /** @param array<string,mixed> $sensor */
+    private function CanIgnoreExitRouteSensor(
+        int $mode,
+        array $sensor,
+        bool $allowActiveExitRoute,
+        bool $motionExitRouteOnly = false
+    ): bool {
+        return $mode === self::MODE_AWAY
+            && $allowActiveExitRoute
+            && !$sensor['AlwaysActive']
+            && $sensor['ExitDelay']
+            && (!$motionExitRouteOnly || $sensor['SensorType'] === self::SENSOR_TYPE_MOTION);
     }
 
     /**

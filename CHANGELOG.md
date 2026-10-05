@@ -44,6 +44,9 @@ beispielsweise `v1.109.0`.
 
 ### Fixed
 
+- Die Ausnahme für aktive Ausgangswegsensoren gilt nur noch beim Scharfmodus
+  **Abwesend**. Bei **Zuhause** und **Nacht** werden dieselben Sensoren sofort als
+  Blocker angezeigt und verhindern die Scharfschaltung.
 - Das Konfigurationsformular bleibt bei einem fehlenden oder deaktivierten
   Hauptbereich `main` erreichbar, damit die ungültige Bereichskonfiguration
   direkt korrigiert werden kann.

@@ -45,7 +45,9 @@ Der Release umfasst verbindlich:
 23. Sensor- und Störungsdiagnose in API, Kachel und IPSView einschließlich Export,
 24. versionierte Konfigurationssicherungen und deren validierte Wiederherstellung,
 25. eine sensorbezogene Auswertung wahlweise auf einen einzelnen Auslösewert
-    oder auf jede Abweichung von einem festgelegten Normalwert.
+    oder auf jede Abweichung von einem festgelegten Normalwert,
+26. eine auf den Scharfmodus Abwesend begrenzte Ausgangsweg-Ausnahme; Zuhause
+    und Nacht behandeln dieselben Sensoren ohne Ausnahme als Blocker.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -59,6 +61,8 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 - Ein ausgelöster oder nicht auswertbarer relevanter Sensor verhindert eine unsichere Scharfschaltung.
 - Bei der Auswertung gegen einen Normalwert gilt ausschließlich der konfigurierte
   Wert als normal; jeder andere gültige Variablenwert gilt als ausgelöst.
+- Ausgangswegsensoren dürfen nur beim Start des Scharfmodus Abwesend vorübergehend
+  aktiv sein. Zuhause und Nacht prüfen sie bereits vor dem Scharfschalten streng.
 - Ein Sofortalarm darf durch parallel laufende Verzögerungen nicht unterdrückt werden.
 - Alarmaktionen werden pro vorgesehenem Zustandsübergang höchstens einmal ausgeführt.
 - Unscharfschalten beendet laufende Verzögerungen und setzt einen aktiven Alarmausgang kontrolliert zurück.

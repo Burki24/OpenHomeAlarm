@@ -12,7 +12,8 @@ $testVariables = [
     2101 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     2102 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     2103 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    2104 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    2104 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    2105 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
@@ -20,7 +21,8 @@ $testValues = [
     2101 => false,
     2102 => false,
     2103 => false,
-    2104 => false
+    2104 => false,
+    2105 => 1
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -319,6 +321,45 @@ function exitRouteSensor(
         'EntryDelay'   => false
     ];
 }
+
+// Exit-route exceptions belong to Away. Home and Night must immediately expose
+// the same unsafe door as a blocker even while a positive exit delay exists.
+$modeSpecific = new OpenHomeAlarm();
+$modeSpecific->Create();
+$modeSpecific->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$modeSpecificSensor = exitRouteSensor(2105, true, name: 'Haustürschloss');
+$modeSpecificSensor['TriggerCondition'] = 'not_equals';
+$modeSpecificSensor['TriggerValue'] = '0';
+$modeSpecificSensor['ArmHome'] = true;
+$modeSpecificSensor['ArmNight'] = true;
+$modeSpecific->TestSetPropertyString(
+    'Sensors',
+    json_encode([$modeSpecificSensor], JSON_THROW_ON_ERROR)
+);
+$controlState = json_decode($modeSpecific->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertExitRoute(
+    ($controlState['Modes']['home']['Ready'] ?? true) === false
+        && array_column($controlState['Modes']['home']['Blockers'] ?? [], 'Name') === ['Haustürschloss']
+        && ($controlState['Modes']['away']['Ready'] ?? false) === true
+        && ($controlState['Modes']['away']['Blockers'] ?? null) === []
+        && ($controlState['Modes']['night']['Ready'] ?? true) === false
+        && array_column($controlState['Modes']['night']['Blockers'] ?? [], 'Name') === ['Haustürschloss'],
+    'An unsafe exit-route sensor must be visible for Home and Night but temporarily waived for Away.'
+);
+assertExitRoute($modeSpecific->ArmHome() === false, 'An unsafe exit-route sensor must reject Home immediately.');
+assertExitRoute($modeSpecific->ArmNight() === false, 'An unsafe exit-route sensor must reject Night immediately.');
+assertExitRoute($modeSpecific->ArmAway() === true, 'The same exit-route sensor may start the Away exit delay.');
+$modeSpecific->TestClearWrittenValues();
+$modeSpecific->CompleteExitDelay();
+assertExitRoute(
+    ($modeSpecific->TestWrittenValues()['State'] ?? null) === 0
+        && ($modeSpecific->TestWrittenValues()['Mode'] ?? null) === 0
+        && ($modeSpecific->TestWrittenValues()['ReadyHome'] ?? true) === false
+        && ($modeSpecific->TestWrittenValues()['BlockingHomeSensors'] ?? null) === 'Haustürschloss'
+        && ($modeSpecific->TestWrittenValues()['ReadyNight'] ?? true) === false
+        && ($modeSpecific->TestWrittenValues()['BlockingNightSensors'] ?? null) === 'Haustürschloss',
+    'A cancelled Away exit delay must return to disarmed mode while retaining Home and Night blocker hints.'
+);
 
 $instance = new OpenHomeAlarm();
 $instance->Create();

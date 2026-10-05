@@ -15,7 +15,8 @@ $testVariables = [
     8004 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     8005 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     8006 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    8007 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    8007 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    8008 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
@@ -26,7 +27,8 @@ $testValues = [
     8004 => false,
     8005 => false,
     8006 => false,
-    8007 => 0
+    8007 => 0,
+    8008 => true
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -331,7 +333,8 @@ function restartSensor(
     bool $armAway = true,
     bool $armNight = false,
     string $triggerValue = 'true',
-    string $triggerCondition = 'equals'
+    string $triggerCondition = 'equals',
+    bool $exitDelay = false
 ): array {
     return [
         'Enabled'          => true,
@@ -344,6 +347,7 @@ function restartSensor(
         'ArmAway'          => $armAway,
         'ArmNight'         => $armNight,
         'AlwaysActive'     => false,
+        'ExitDelay'        => $exitDelay,
         'EntryDelay'       => $entryDelay
     ];
 }
@@ -371,6 +375,29 @@ function createArmedRestartInstance(array $sensors, int $entryDelaySeconds = 5):
 }
 
 global $testValues;
+
+// A restart must preserve the mode boundary of the exit-route exception.
+$exitRouteRestartInstance = new OpenHomeAlarm();
+$exitRouteRestartInstance->Create();
+$exitRouteRestartInstance->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$exitRouteRestartInstance->TestSetPropertyString(
+    'Sensors',
+    json_encode([
+        restartSensor(8008, 'Front door', armHome: true, armNight: true, exitDelay: true)
+    ], JSON_THROW_ON_ERROR)
+);
+$exitRouteRestartInstance->TestClearWrittenValues();
+$exitRouteRestartInstance->ApplyChanges();
+$exitRouteRestartWrites = $exitRouteRestartInstance->TestWrittenValues();
+assertRestartRecovery(
+    ($exitRouteRestartWrites['ReadyHome'] ?? true) === false
+        && ($exitRouteRestartWrites['BlockingHomeSensors'] ?? null) === 'Front door'
+        && ($exitRouteRestartWrites['ReadyAway'] ?? false) === true
+        && ($exitRouteRestartWrites['BlockingAwaySensors'] ?? null) === ''
+        && ($exitRouteRestartWrites['ReadyNight'] ?? true) === false
+        && ($exitRouteRestartWrites['BlockingNightSensors'] ?? null) === 'Front door',
+    'Restart recovery must waive an active exit-route sensor only for Away.'
+);
 
 // ApplyChanges must defer runtime access until Symcon reports a ready kernel.
 $immediateInstance = createArmedRestartInstance([

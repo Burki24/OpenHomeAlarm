@@ -27,7 +27,7 @@
             "Entry delay": "Eingangsverzögerung",
             "Retrigger alarm while active": "Alarm bei erneuter Auslösung verlängern",
             "Use this for motion detectors or other sensors that should restart the alarm duration and escalation actions when they trigger again during an active alarm.": "Für Bewegungsmelder oder andere Sensoren verwenden, die bei erneuter Auslösung während eines aktiven Alarms die Alarmdauer und Eskalationsaktionen neu starten sollen.",
-            "Exit route": "Ausgangsweg",
+            "Exit route (Away only)": "Ausgangsweg (nur Abwesend)",
             "Alarm": "Alarm",
             "Ready": "Bereit",
             "Not ready": "Nicht bereit",

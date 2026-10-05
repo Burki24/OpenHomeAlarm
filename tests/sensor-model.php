@@ -1037,7 +1037,7 @@ foreach ([
     'Panic trigger',
     'Other trigger',
     '24/7 active',
-    'Exit route',
+    'Exit route (Away only)',
     'Exit-route motion detectors may remain active through the end of a configured exit delay; all other sensors must be ready.',
     '24/7 sensors trigger immediately in every system state; mode assignments and entry/exit delay are ignored.',
     '24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored.',

@@ -1159,7 +1159,7 @@
                     }
                 },
                 {
-                    "caption": "Exit route",
+                    "caption": "Exit route (Away only)",
                     "name": "ExitDelay",
                     "width": "115px",
                     "add": false,
