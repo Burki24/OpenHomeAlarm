@@ -44,6 +44,9 @@ beispielsweise `v1.109.0`.
 
 ### Fixed
 
+- Das Ziel nativer Symcon-Push-Nachrichten wird als Kachel-Visualisierung direkt
+  aus dem Instanzbaum gewählt, statt eine fehleranfällige numerische ID zu
+  verlangen.
 - Die Ausnahme für aktive Ausgangswegsensoren gilt nur noch beim Scharfmodus
   **Abwesend**. Bei **Zuhause** und **Nacht** werden dieselben Sensoren sofort als
   Blocker angezeigt und verhindern die Scharfschaltung.

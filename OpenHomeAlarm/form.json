@@ -621,11 +621,13 @@
                             ]
                         },
                         {
-                            "type": "NumberSpinner",
+                            "type": "SelectInstance",
                             "name": "PushNotificationTileID",
-                            "caption": "Tile visualization ID",
-                            "minimum": 0,
-                            "width": "250px"
+                            "caption": "Tile visualization",
+                            "validModules": [
+                                "{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}"
+                            ],
+                            "width": "350px"
                         },
                         {
                             "type": "NumberSpinner",

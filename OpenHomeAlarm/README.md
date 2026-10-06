@@ -380,7 +380,7 @@ Eine vorhandene Zeile kann über das Zahnrad bearbeitet, über **Aktiv** vorübe
 
 #### Push-Nachricht mit Area und Sensor
 
-Für eine native Symcon-Push-Nachricht ist kein Skript erforderlich. Öffnen Sie in der Instanzkonfiguration den Abschnitt **Push-Benachrichtigungen**, wählen Sie **Sofort bei Alarmauslösung** oder **Als verzögerte Eskalationsstufe** und tragen Sie nur die ID Ihrer Kachel-Visualisierung ein. Unter **Benachrichtigen bei Alarmierungsart** wählen Sie **Nur normal**, **Nur still** oder **Normal und still** (Vorgabe). Im verzögerten Modus bestimmen Sie zusätzlich die Verzögerung in Sekunden. Die Nachricht wird pro Alarmzyklus genau einmal versendet und öffnet beim Antippen diese OpenHomeAlarm-Instanz in der ausgewählten Kachel-Visualisierung.
+Für eine native Symcon-Push-Nachricht ist kein Skript erforderlich. Öffnen Sie in der Instanzkonfiguration den Abschnitt **Push-Benachrichtigungen**, wählen Sie **Sofort bei Alarmauslösung** oder **Als verzögerte Eskalationsstufe** und anschließend die gewünschte **Kachel-Visualisierung** direkt aus dem Symcon-Instanzbaum. Unter **Benachrichtigen bei Alarmierungsart** wählen Sie **Nur normal**, **Nur still** oder **Normal und still** (Vorgabe). Im verzögerten Modus bestimmen Sie zusätzlich die Verzögerung in Sekunden. Die Nachricht wird pro Alarmzyklus genau einmal versendet und öffnet beim Antippen diese OpenHomeAlarm-Instanz in der ausgewählten Kachel-Visualisierung.
 
 Sie enthält automatisch den zuletzt alarmierenden Bereich und Sensor, beispielsweise:
 

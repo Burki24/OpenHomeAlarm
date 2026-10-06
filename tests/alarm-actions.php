@@ -1434,9 +1434,16 @@ foreach (['PushNotificationApplicableTo', 'PushoverNotificationApplicableTo'] as
         'Each notification channel must independently offer normal, silent and combined alarm responses.'
     );
 }
+$pushTileField = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'PushNotificationTileID');
+assertAlarmAction(
+    ($pushTileField['type'] ?? null) === 'SelectInstance'
+        && ($pushTileField['validModules'] ?? null) === ['{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}'],
+    'The native push target must be selected from the available tile visualization instances.'
+);
 $moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
 assertAlarmAction(
-    str_contains($moduleReadme, '#### Pushover direkt verwenden')
+    str_contains($moduleReadme, 'direkt aus dem Symcon-Instanzbaum')
+        && str_contains($moduleReadme, '#### Pushover direkt verwenden')
         && str_contains($moduleReadme, 'OHA_TestPushover($InstanzID)')
         && str_contains($moduleReadme, 'Notfall mit Quittierung (`2`)')
         && str_contains($moduleReadme, 'Konfigurationssicherung enthält sie'),
@@ -1522,6 +1529,7 @@ foreach ([
     'Alarm escalation',
     'Alarm notifications',
     'Symcon push notifications',
+    'Tile visualization',
     'Notify for alarm response',
     'Countdown output',
     'Countdown actions',

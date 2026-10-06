@@ -94,7 +94,7 @@
             "Push notification": "Push-Benachrichtigung",
             "Immediately when alarm starts": "Sofort bei Alarmauslösung",
             "As delayed escalation step": "Als verzögerte Eskalationsstufe",
-            "Tile visualization ID": "ID der Kachel-Visualisierung",
+            "Tile visualization": "Kachel-Visualisierung",
             "Push delay (seconds)": "Push-Verzögerung (Sekunden)",
             "The delay applies only to the delayed escalation mode. A value of 0 sends the push notification immediately. Tapping it opens this OpenHomeAlarm instance in the selected tile visualization.": "Die Verzögerung gilt nur im Modus der verzögerten Eskalationsstufe. Der Wert 0 versendet die Push-Nachricht sofort. Beim Antippen wird diese OpenHomeAlarm-Instanz in der gewählten Kachel-Visualisierung geöffnet.",
             "Pushover (direct)": "Pushover (direkt)",
