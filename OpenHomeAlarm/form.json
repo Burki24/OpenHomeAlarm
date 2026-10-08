@@ -200,6 +200,41 @@
                 {
                     "type": "Label",
                     "caption": "Optional: Add an action for output on every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. An empty list runs no action. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API."
+                },
+                {
+                    "type": "List",
+                    "name": "CountdownEndAction",
+                    "caption": "Actions after countdown ends",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $CountdownEndAction);"
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Optional: Add an action that runs exactly once after a started entry or exit countdown ends, including controlled cancellation by disarming or granting passage. Use this to switch off a tone, light or status output explicitly. An empty list runs no action."
                 }
             ]
         },

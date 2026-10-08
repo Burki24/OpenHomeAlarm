@@ -746,6 +746,62 @@ assertControlApi(
     'Each visualization partition must expose only its own recent events.'
 );
 
+$multiPartitionInstance = new OpenHomeAlarm();
+$multiPartitionInstance->Create();
+$multiPartitionInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$multiPartitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false},{"Enabled":true,"ID":"shed","Name":"Shed","Default":false}]'
+);
+$multiPartitionInstance->TestSetPropertyString('Sensors', json_encode([
+    array_merge(controlSensor(2001, 'true', true, false, true), ['PartitionID' => 'garage']),
+    array_merge(controlSensor(2002, 'true', true, false, true), ['PartitionID' => 'shed'])
+], JSON_THROW_ON_ERROR));
+$testValues[2001] = false;
+$testValues[2002] = true;
+$multiPartitionInstance->ApplyChanges();
+assertControlApi(
+    !$multiPartitionInstance->ArmPartitions(['garage', 'shed'], 'away', 0),
+    'A blocker in one selected area must reject the complete multi-area arming request.'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['shed']['State']['Name'] ?? null) === 'disarmed',
+    'Rejected multi-area arming must not leave a partially armed selection.'
+);
+$testValues[2002] = false;
+assertControlApi(
+    $multiPartitionInstance->ArmPartitions(['garage', 'shed', 'garage'], 'away', 0),
+    'Two ready areas must arm together while duplicate IDs remain harmless.'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed'
+        && ($multiPartitionState['Partitions']['shed']['State']['Name'] ?? null) === 'armed',
+    'A multi-area subset must not alter the unselected main area.'
+);
+assertControlApi(
+    $multiPartitionInstance->DisarmPartitions(['garage', 'shed']),
+    'A selected multi-area subset must disarm together through the trusted automation API.'
+);
+assertControlApi(
+    !$multiPartitionInstance->ArmPartitions(['garage', 'unknown'], 'away', 0),
+    'An unknown member must reject a multi-area request before any area changes.'
+);
+$multiPartitionInstance->RequestAction(
+    'ArmPartitions',
+    '{"PartitionIDs":["garage","shed"],"Value":"night","BypassActiveSensors":false}'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['garage']['Mode']['Name'] ?? null) === 'night'
+        && ($multiPartitionState['Partitions']['shed']['Mode']['Name'] ?? null) === 'night',
+    'The shared visualization bridge must arm the selected subset through the same atomic API.'
+);
+
 $partitionDelayInstance = new OpenHomeAlarm();
 $partitionDelayInstance->Create();
 $partitionDelayInstance->TestSetPropertyInteger('ExitDelaySeconds', 60);

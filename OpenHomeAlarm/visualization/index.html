@@ -65,6 +65,25 @@
                     </button>
                 </div>
 
+                <div class="oha-arm-delivery" id="armBypass" hidden>
+                    <div class="oha-arm-delivery-copy">
+                        <strong class="oha-arm-delivery-label" id="armBypassLabel"></strong>
+                        <span class="oha-arm-delivery-default" id="armBypassHint"></span>
+                    </div>
+                    <button class="oha-delivery-switch" data-bypass-switch type="button" role="switch" aria-checked="false" aria-describedby="armBypassHint">
+                        <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
+                        <span class="oha-delivery-switch-value" id="armBypassValue"></span>
+                    </button>
+                </div>
+
+                <div class="oha-arm-targets" id="armTargets" hidden>
+                    <div class="oha-arm-delivery-copy">
+                        <strong class="oha-arm-delivery-label" id="armTargetsLabel"></strong>
+                        <span class="oha-arm-delivery-default" id="armTargetsHint"></span>
+                    </div>
+                    <div class="oha-arm-target-list" id="armTargetList"></div>
+                </div>
+
                 <div class="oha-mode-grid">
                     <button class="oha-mode-button" data-action="arm" data-mode="home" type="button">
                         <span class="oha-mode-icon" aria-hidden="true"><i class="fa-light fa-house"></i></span>

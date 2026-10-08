@@ -24,7 +24,7 @@ festgehalten.
 | PHP-Syntax | Bestanden | Alle PHP-Dateien bestehen `php -l` |
 | JSON-Format | Bestanden | `php .style/json-check.php` endet ohne Fehler |
 | Historische Basisabnahme | Bestanden (49/49) | Der freigegebene Basisumfang wurde am 24.08.2026 auf Symcon 9.1 bestanden |
-| Erweiterungen H-01 bis H-22 | Teilweise bestanden | H-01 bis H-16 wurden auf der repräsentativen Symcon-9.1-Testinstallation bestanden; für H-17 bis H-22 ist die Praxisabnahme offen |
+| Erweiterungen H-01 bis H-26 | Teilweise bestanden | H-01 bis H-16 wurden auf der repräsentativen Symcon-9.1-Testinstallation bestanden; für H-17 bis H-26 ist die Praxisabnahme offen |
 | HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
 | IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
 | Update/Migration | Bestanden | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
@@ -189,6 +189,10 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | H-20 | Einen dafür freigegebenen Türsensor in einem scharfen Bereich per API zeitlich begrenzt freigeben, öffnen und wieder schließen | Der Bereich bleibt durchgehend scharf; nur dieser Sensor wird für genau einen Durchgang unterdrückt und ist danach wieder vollständig überwacht | Offen | |
 | H-21 | Während einer Durchgangsfreigabe einen anderen Sensor auslösen sowie die Frist einmal mit weiterhin geöffneter Tür ablaufen lassen | Der andere Sensor löst unverändert Alarm aus; die bei Fristablauf noch offene freigegebene Tür löst unmittelbar Alarm aus | Offen | |
 | H-22 | Eine wartende und eine bereits ausgelöste Durchgangsfreigabe jeweils über ApplyChanges und Symcon-Neustart prüfen; außerdem unfreigegebene, nicht verfügbare und 24/7-Sensoren anfordern | Gültige Freigabe und Restfrist werden ohne Doppelereignis wiederhergestellt; unzulässige Anforderungen werden abgewiesen und umgehen keine Schutzregel | Offen | |
+| H-23 | Bei mindestens drei getrennten Bereichen genau zwei Bereiche gemeinsam scharf- und danach wieder unscharfschalten | Nur die ausgewählten Bereiche wechseln ihren Zustand; der dritte Bereich bleibt unverändert | Offen | |
+| H-24 | Zwei Bereiche gemeinsam scharfschalten, während einer davon einen nicht überbrückbaren Blocker enthält | Der Befehl wird vollständig abgewiesen; keiner der beiden Bereiche ändert seinen Zustand | Offen | |
+| H-25 | Denselben freigegebenen Sensor in zwei gleichzeitig scharfen Bereichen gemeinsam freigeben; anschließend einen dritten, unzulässigen Bereich in denselben Befehl aufnehmen | Die gültige Zweierfreigabe wirkt in beiden Bereichen; der ungültige Dreierbefehl wird ohne Teilfreigabe abgewiesen | Offen | |
+| H-26 | Ein- und Ausgangsverzögerung jeweils regulär beenden und jeweils kontrolliert abbrechen, während Countdown- und Abschlussaktion konfiguriert sind; einen laufenden Countdown zusätzlich über ApplyChanges/Neustart wiederherstellen | Jeder positive Countdown-Schritt läuft höchstens einmal; die Abschlussaktion läuft nach jedem begonnenen Countdown genau einmal und wird weder ausgelassen noch doppelt ausgeführt | Offen | |
 
 ## Automatisierte Vorprüfung
 
@@ -218,7 +222,7 @@ mit Begründung in einen Folgerelease verschoben werden.
 Ein Commit darf als Release Candidate markiert werden, wenn:
 
 1. alle automatisierten Checks und beide CI-Checks für exakt diesen Commit bestanden sind,
-2. alle Pflichtfälle A-01 bis H-22 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden sind,
+2. alle Pflichtfälle A-01 bis H-26 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden sind,
 3. Desktop- und Mobilbedienung der HTML-SDK-Kachel geprüft wurden,
 4. alle IPSView-Fälle bestanden sind,
 5. Update und Wiederherstellung praktisch geprüft wurden,

@@ -14,6 +14,7 @@ const ohaIPSViewConfig = ohaVisualization.mode === 'ipsview'
 
 let ohaState = ohaVisualization.state ?? null;
 let ohaSelectedPartitionID = '';
+let ohaArmPartitionIDs = [];
 let ohaCodeBuffer = '';
 let ohaCodeBusy = false;
 let ohaCodeAction = 'DisarmPartitionWithCode';
@@ -285,12 +286,69 @@ function ohaRequestPartitionAction(action, value = null) {
     const partitionID = ohaSelectedState()?.ID ?? ohaState?.DefaultPartition ?? '';
     const payload = { PartitionID: partitionID, Value: value };
     if (action === 'ArmPartition') {
+        const targetIDs = ohaResolvedArmPartitionIDs();
+        if (targetIDs.length > 1) {
+            action = 'ArmPartitions';
+            payload.PartitionIDs = targetIDs;
+            delete payload.PartitionID;
+        }
         const selection = document.getElementById('armDelivery')?.dataset.selection ?? 'default';
         if (selection !== 'default') {
             payload.Silent = selection === 'silent';
         }
+        payload.BypassActiveSensors = document.getElementById('armBypass')?.dataset.enabled === 'true';
     }
     ohaRequestAction(action, JSON.stringify(payload));
+}
+
+function ohaResolvedArmPartitionIDs() {
+    const partitions = ohaPartitionList(ohaState);
+    const valid = new Set(partitions.map((partition) => partition.ID));
+    let selected = ohaArmPartitionIDs.filter((partitionID) => valid.has(partitionID));
+    if (selected.length === 0) {
+        selected = [ohaSelectedState()?.ID ?? ohaState?.DefaultPartition ?? ''];
+    }
+    const defaultID = ohaState?.DefaultPartition ?? '';
+    if (selected.includes(defaultID)) {
+        selected = [defaultID];
+    }
+    ohaArmPartitionIDs = Array.from(new Set(selected.filter(Boolean)));
+    return ohaArmPartitionIDs;
+}
+
+function ohaArmTargetStates() {
+    const targetIDs = ohaResolvedArmPartitionIDs();
+    if (targetIDs.includes(ohaState?.DefaultPartition ?? '')) {
+        return ohaPartitionList(ohaState)
+            .map((partition) => ohaState?.Partitions?.[partition.ID])
+            .filter((partition) => partition && typeof partition === 'object');
+    }
+    return targetIDs
+        .map((partitionID) => ohaState?.Partitions?.[partitionID])
+        .filter((partition) => partition && typeof partition === 'object');
+}
+
+function ohaRenderArmTargets() {
+    const targetPanel = document.getElementById('armTargets');
+    const targetList = document.getElementById('armTargetList');
+    const partitions = ohaPartitionList(ohaState);
+    targetPanel.hidden = partitions.length < 3;
+    if (targetPanel.hidden) {
+        return;
+    }
+    document.getElementById('armTargetsLabel').textContent = ohaTranslate('Arm selected areas together');
+    document.getElementById('armTargetsHint').textContent = ohaTranslate('Select one or more areas. Main area means all areas.');
+    const selected = new Set(ohaResolvedArmPartitionIDs());
+    targetList.replaceChildren();
+    for (const partition of partitions) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'oha-arm-target';
+        button.dataset.armTargetId = partition.ID;
+        button.setAttribute('aria-pressed', selected.has(partition.ID) ? 'true' : 'false');
+        button.textContent = partition.Name || partition.ID;
+        targetList.appendChild(button);
+    }
 }
 
 function ohaAllModesReady(state) {
@@ -431,8 +489,10 @@ function ohaRenderMode(modeName, modeState) {
 
 function ohaRenderArming(state) {
     const section = document.getElementById('armingSection');
-    const isDisarmed = state.State.Name === 'disarmed';
-    const activeMode = state.Mode?.Name ?? 'none';
+    const targetStates = ohaArmTargetStates();
+    const isDisarmed = targetStates.every((target) => target.State?.Name === 'disarmed');
+    const activeModes = Array.from(new Set(targetStates.map((target) => target.Mode?.Name ?? 'none')));
+    const activeMode = activeModes.length === 1 ? activeModes[0] : 'none';
 
     section.hidden = false;
     document.getElementById('armingKicker').textContent = ohaTranslate('Arming modes');
@@ -449,7 +509,10 @@ function ohaRenderArming(state) {
     delivery.dataset.wasDisarmed = isDisarmed ? 'true' : 'false';
     delivery.hidden = !isDisarmed;
     document.getElementById('armDeliveryLabel').textContent = ohaTranslate('Alarm response');
-    document.getElementById('armDeliveryDefault').textContent = `${ohaTranslate('Area default')}: ${ohaTranslate(state.SilentByDefault ? 'Silent' : 'Normal')}`;
+    const defaultResponses = Array.from(new Set(targetStates.map((target) => Boolean(target.SilentByDefault))));
+    document.getElementById('armDeliveryDefault').textContent = defaultResponses.length === 1
+        ? `${ohaTranslate('Area default')}: ${ohaTranslate(defaultResponses[0] ? 'Silent' : 'Normal')}`
+        : ohaTranslate('Individual area defaults');
     const selectedSilent = (delivery.dataset.selection ?? 'default') === 'default'
         ? Boolean(state.SilentByDefault)
         : delivery.dataset.selection === 'silent';
@@ -459,13 +522,49 @@ function ohaRenderArming(state) {
     deliverySwitch.disabled = !isDisarmed;
     document.getElementById('armDeliveryValue').textContent = ohaTranslate(selectedSilent ? 'Silent' : 'Normal');
 
+    const bypass = document.getElementById('armBypass');
+    const hasBypassableBlocker = targetStates.some((target) => ['home', 'away', 'night'].some((modeName) =>
+        Array.isArray(target.Modes?.[modeName]?.Blockers)
+        && target.Modes[modeName].Blockers.some((blocker) => blocker.Bypassable === true)
+    ));
+    if (bypass.dataset.partitionId !== state.ID || !isDisarmed) {
+        bypass.dataset.enabled = 'false';
+    }
+    bypass.dataset.partitionId = state.ID;
+    bypass.hidden = !isDisarmed || !hasBypassableBlocker;
+    document.getElementById('armBypassLabel').textContent = ohaTranslate('Arm with permitted active sensors');
+    document.getElementById('armBypassHint').textContent = ohaTranslate('Only sensors explicitly permitted for automatic bypass are ignored once.');
+    const bypassSwitch = bypass.querySelector('[data-bypass-switch]');
+    const bypassEnabled = bypass.dataset.enabled === 'true';
+    bypassSwitch.setAttribute('aria-label', ohaTranslate('Bypass permitted active sensors once'));
+    bypassSwitch.setAttribute('aria-checked', bypassEnabled ? 'true' : 'false');
+    bypassSwitch.disabled = !isDisarmed;
+    document.getElementById('armBypassValue').textContent = ohaTranslate(bypassEnabled ? 'Enabled' : 'Disabled');
+
+    ohaRenderArmTargets();
+
     for (const modeName of ['home', 'away', 'night']) {
         const button = document.querySelector(`.oha-mode-button[data-mode="${modeName}"]`);
         if (button) {
             button.dataset.active = !isDisarmed && activeMode === modeName ? 'true' : 'false';
             button.setAttribute('aria-pressed', button.dataset.active);
         }
-        ohaRenderMode(modeName, state.Modes[modeName]);
+        const modeStates = targetStates.map((target) => target.Modes?.[modeName]).filter(Boolean);
+        const blockers = modeStates.flatMap((modeState) => Array.isArray(modeState.Blockers) ? modeState.Blockers : []);
+        const canArm = modeStates.length > 0 && modeStates.every((modeState) => {
+            if (modeState.CanArm) {
+                return true;
+            }
+            const modeBlockers = Array.isArray(modeState.Blockers) ? modeState.Blockers : [];
+            return bypassEnabled
+                && modeBlockers.length > 0
+                && modeBlockers.every((blocker) => blocker.Bypassable === true);
+        });
+        ohaRenderMode(modeName, {
+            Ready: canArm,
+            CanArm: canArm,
+            Blockers: blockers
+        });
     }
 }
 
@@ -1373,7 +1472,7 @@ function ohaFindInteractiveControl(event) {
 
     return target.closest(
         '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm], '
-        + '[data-partition-id], [data-delivery-switch], [data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
+        + '[data-partition-id], [data-arm-target-id], [data-delivery-switch], [data-bypass-switch], [data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
     );
 }
 
@@ -1437,8 +1536,35 @@ function ohaHandleInteractiveClick(event) {
         return;
     }
 
+    if (control.matches('[data-bypass-switch]')) {
+        const state = ohaSelectedState();
+        if (state?.State?.Name === 'disarmed') {
+            const bypass = document.getElementById('armBypass');
+            bypass.dataset.enabled = bypass.dataset.enabled === 'true' ? 'false' : 'true';
+            ohaRenderArming(state);
+        }
+        return;
+    }
+
+    if (control.matches('[data-arm-target-id]')) {
+        const partitionID = control.dataset.armTargetId ?? '';
+        const defaultID = ohaState?.DefaultPartition ?? '';
+        if (partitionID === defaultID) {
+            ohaArmPartitionIDs = [defaultID];
+        } else {
+            let selected = ohaResolvedArmPartitionIDs().filter((id) => id !== defaultID);
+            selected = selected.includes(partitionID)
+                ? selected.filter((id) => id !== partitionID)
+                : [...selected, partitionID];
+            ohaArmPartitionIDs = selected.length > 0 ? selected : [partitionID];
+        }
+        ohaRenderArming(ohaSelectedState());
+        return;
+    }
+
     if (control.matches('[data-partition-id]')) {
         ohaSelectedPartitionID = control.dataset.partitionId ?? '';
+        ohaArmPartitionIDs = ohaSelectedPartitionID ? [ohaSelectedPartitionID] : [];
         ohaCloseCodepad();
         ohaRender();
         return;

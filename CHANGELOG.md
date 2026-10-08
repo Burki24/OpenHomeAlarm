@@ -10,6 +10,26 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Mehrere frei gewählte Alarmbereiche können über die neue atomare API und die
+  gemeinsame Kachel-/IPSView-Auswahl zusammen scharfgeschaltet werden. Ein
+  Blocker oder eine ungültige Bereichs-ID verhindert den gesamten Auftrag;
+  `main` bleibt die bewusste Auswahl der Gesamtanlage.
+
+- Kachel und IPSView bieten beim Scharfschalten die einmalige automatische
+  Überbrückung nur für Sensoren an, die dafür ausdrücklich freigegeben sind.
+  Nicht verfügbare und 24/7-Sensoren sowie Störungen bleiben unverändert
+  blockierend.
+
+- Ein Sensor kann mit `OHA_GrantPassagePartitions()` atomar in mehreren
+  gleichzeitig scharfen Bereichen für denselben Durchgang freigegeben werden.
+  Die Anleitung beschreibt zusätzlich die eingeschränkte Verwendung eines
+  Nuki-Verriegelungszustands, wenn kein separater Türkontakt vorhanden ist.
+
+- Neben der Aktion für jeden positiven Countdown-Schritt kann eine getrennte
+  Abschlussaktion konfiguriert werden. Sie läuft nach regulärem Ende oder
+  kontrolliertem Abbruch eines begonnenen Countdowns genau einmal und eignet
+  sich zum ausdrücklichen Ausschalten von Ton, Licht oder Statusausgaben.
+
 - Normale Sensoren können einzeln für eine vertrauenswürdige, zeitlich begrenzte
   Durchgangsfreigabe zugelassen werden. Die neuen PHP-Funktionen geben genau
   einen Öffnen-/Schließen-Zyklus frei, lassen den Bereich scharf und beenden

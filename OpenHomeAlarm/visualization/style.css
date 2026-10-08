@@ -732,6 +732,45 @@ html:not(.oha-ipsview) .oha-shell {
     background: var(--oha-surface-soft);
 }
 
+.oha-arm-targets {
+    display: grid;
+    gap: 8px;
+    padding: 8px 10px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: var(--symc-radius-small);
+    background: var(--oha-surface-soft);
+}
+
+.oha-arm-target-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.oha-arm-target {
+    min-height: 32px;
+    padding: 5px 11px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: 999px;
+    background: var(--oha-surface);
+    color: var(--oha-text);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.oha-arm-target[aria-pressed="true"] {
+    border-color: var(--oha-accent);
+    background: var(--oha-accent-soft);
+    color: var(--oha-text-active);
+}
+
+.oha-arm-target:focus-visible {
+    outline: 2px solid var(--oha-focus);
+    outline-offset: 2px;
+}
+
 .oha-arm-delivery-copy {
     display: grid;
     gap: 2px;

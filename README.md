@@ -57,6 +57,9 @@ OHA_ArmPartition(12345, 'garage', 'away', null);
 
 // Nur die Garage unscharf schalten
 OHA_DisarmPartition(12345, 'garage');
+
+// Garage und Schuppen gemeinsam, aber nicht alle Bereiche scharfschalten
+OHA_ArmPartitions(12345, ['garage', 'schuppen'], 'away', null);
 ```
 
 `12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen. Zulässige Modi
@@ -72,6 +75,12 @@ bereits ausgelöste Sensoren, die unter **Sensoren und Auslöser** einzeln dafü
 freigegeben wurden, zum Beispiel
 `OHA_ArmPartition(12345, 'garage', 'away', null, null, true)`. Sobald ein so
 überbrückter Sensor wieder normal ist, wird er erneut überwacht.
+
+`OHA_ArmPartitions()` prüft zuerst die gesamte angegebene Liste. Ist ein
+gewählter Bereich blockiert oder ungültig, wird keiner der Bereiche
+scharfgeschaltet. `main` in der Liste bedeutet weiterhin Gesamtanlage; für
+eine Teilmenge wird `main` deshalb weggelassen. Kachel und IPSView bieten bei
+mehreren Einzelbereichen dieselbe Auswahl im Rahmen **Scharfmodi** an.
 
 Für einen ausdrücklich zugelassenen normalen Sensor kann eine vertrauenswürdige
 Automation einen einmaligen Durchgang freigeben, ohne den Bereich

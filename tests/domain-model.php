@@ -264,12 +264,12 @@ assertDomainSame(
     'Visualization diagnostics exports must normalize their selected format.'
 );
 assertDomainSame(
-    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => null]],
+    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => null, 'BypassActiveSensors' => false]],
     AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"Garage","Value":"night"}'),
     'Partition visualization commands must decode scalar JSON transport, normalize their partition ID and preserve their action value.'
 );
 assertDomainSame(
-    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => true]],
+    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => true, 'BypassActiveSensors' => false]],
     AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"Garage","Value":"night","Silent":true}'),
     'The visualization must preserve an explicit silent arming override.'
 );
@@ -278,6 +278,34 @@ try {
     throw new RuntimeException('An invalid silent arming override must be rejected.');
 } catch (InvalidArgumentException $exception) {
     assertDomainSame('Silent arming option must be a Boolean.', $exception->getMessage(), 'Silent arming must have a strict transport contract.');
+}
+assertDomainSame(
+    [
+        'Action' => 'ArmPartitions',
+        'Value'  => [
+            'PartitionIDs'        => ['garage', 'shed'],
+            'Value'               => 'away',
+            'Silent'              => null,
+            'BypassActiveSensors' => true
+        ]
+    ],
+    AlarmVisualizationAdapter::command(
+        'ArmPartitions',
+        '{"PartitionIDs":["Garage","shed","garage"],"Value":"away","BypassActiveSensors":true}'
+    ),
+    'Multi-partition arming must normalize and deduplicate every target before execution.'
+);
+try {
+    AlarmVisualizationAdapter::command('ArmPartitions', '{"PartitionIDs":[],"Value":"away"}');
+    throw new RuntimeException('An empty multi-partition selection must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Multi-partition arming requires at least one partition.', $exception->getMessage(), 'Empty multi-partition requests must fail safely.');
+}
+try {
+    AlarmVisualizationAdapter::command('ArmPartitions', '{"Value":"away"}');
+    throw new RuntimeException('A missing multi-partition list must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Multi-partition arming requires a partition ID list.', $exception->getMessage(), 'Missing multi-partition lists must fail without a transport type error.');
 }
 assertDomainSame(
     ['Action' => 'DisarmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => null]],

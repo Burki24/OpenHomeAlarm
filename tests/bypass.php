@@ -806,6 +806,40 @@ assertBypass(
     'Disarming an area must clear its pending passage release.'
 );
 
+$testValues[7003] = false;
+$multiPassage = new OpenHomeAlarm();
+$multiPassage->Create();
+$multiPassage->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$multiPassage->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House"},{"Enabled":true,"ID":"garage","Name":"Garage"},{"Enabled":true,"ID":"shed","Name":"Shed"}]'
+);
+$multiPassage->TestSetPropertyString('Sensors', json_encode([
+    array_merge(
+        bypassSensor(7003, 'Shared door', armAway: true, allowPassage: true),
+        ['Partition_main' => false, 'Partition_garage' => true, 'Partition_shed' => true]
+    )
+], JSON_THROW_ON_ERROR));
+$multiPassage->ApplyChanges();
+assertBypass($multiPassage->ArmPartitions(['garage', 'shed'], 'away', 0), 'Both shared-door areas must arm for the multi-passage test.');
+assertBypass(
+    !$multiPassage->GrantPassagePartitions(['garage', 'main', 'shed'], 7003, 90),
+    'One invalid target must reject a multi-area passage without creating partial grants.'
+);
+assertBypass(
+    json_decode($multiPassage->TestAttributeString('PassageRuntime'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'Rejected multi-area passage must leave every selected area protected.'
+);
+assertBypass(
+    $multiPassage->GrantPassagePartitions(['garage', 'shed'], 7003, 90),
+    'The same approved sensor must be releasable atomically in two armed areas.'
+);
+$multiPassageRuntime = json_decode($multiPassage->TestAttributeString('PassageRuntime'), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(
+    array_keys($multiPassageRuntime) === ['garage', 'shed'],
+    'A valid multi-area passage must create matching releases only for the requested areas.'
+);
+
 $passageEvents = json_decode($passage->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
 assertBypass(in_array('passage_granted', array_column($passageEvents, 'Event'), true), 'Passage creation must be logged.');
 assertBypass(in_array('passage_started', array_column($passageEvents, 'Event'), true), 'Passage start must be logged.');

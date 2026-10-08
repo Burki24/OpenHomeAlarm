@@ -130,6 +130,21 @@ assertVisualization(
     'Alarm response must use a clickable switch instead of a native select in both embedded views.'
 );
 assertVisualization(
+    str_contains($html, 'id="armBypass"')
+        && str_contains($html, 'data-bypass-switch')
+        && str_contains($javascript, 'payload.BypassActiveSensors')
+        && str_contains($javascript, 'modeBlockers.every((blocker) => blocker.Bypassable === true)')
+        && str_contains($module, '$Value[\'BypassActiveSensors\']'),
+    'Tile and IPSView must offer one-time automatic bypass only through the validated backend option.'
+);
+assertVisualization(
+    str_contains($html, 'id="armTargets"')
+        && str_contains($javascript, 'function ohaResolvedArmPartitionIDs()')
+        && str_contains($javascript, "action = 'ArmPartitions'")
+        && str_contains($module, "case 'ArmPartitions':"),
+    'Tile and IPSView must be able to arm an explicitly selected subset of alarm partitions.'
+);
+assertVisualization(
     preg_match('/<div class="oha-arming-controls">\s*<div class="oha-section-heading oha-section-heading-compact">[\s\S]*?<div class="oha-arm-delivery"[\s\S]*?<div class="oha-mode-grid">/', $html) === 1
         && str_contains($css, '.oha-arming-controls {')
         && str_contains($css, 'html.oha-ipsview .oha-arming-controls {'),
@@ -157,12 +172,12 @@ assertVisualization(
 assertVisualization(
     str_contains($html, 'id="partitionNav"')
         && str_contains($javascript, 'function ohaRenderPartitions(state)')
-        && str_contains($javascript, "'[data-partition-id], [data-delivery-switch], [data-action=\"arm\"]")
+        && str_contains($javascript, '[data-partition-id], [data-arm-target-id], [data-delivery-switch]')
         && str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'")
         && str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'")
         && str_contains($module, "case 'ArmPartition':")
         && str_contains($module, "case 'DisarmPartition':"),
-    'Native and IPSView controls must select and operate one explicit alarm partition.'
+    'Native and IPSView controls must keep one explicit display area while allowing an explicit arming subset.'
 );
 assertVisualization(
     str_contains($javascript, 'button.dataset.state = stateName;')

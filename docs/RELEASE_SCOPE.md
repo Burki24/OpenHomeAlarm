@@ -49,7 +49,13 @@ Der Release umfasst verbindlich:
 26. eine auf den Scharfmodus Abwesend begrenzte Ausgangsweg-Ausnahme; Zuhause
     und Nacht behandeln dieselben Sensoren ohne Ausnahme als Blocker,
 27. eine explizit freizugebende, zeitlich begrenzte Durchgangsfreigabe für
-    genau einen Auslöse-/Normalzyklus eines normalen Sensors im scharfen Bereich.
+    genau einen Auslöse-/Normalzyklus eines normalen Sensors im scharfen Bereich,
+28. atomare Scharf- und Unscharfschaltung einer frei gewählten Teilmenge aktiver
+    Alarmbereiche,
+29. eine atomare Durchgangsfreigabe desselben Sensors in mehreren ausgewählten
+    Alarmbereichen,
+30. eine optionale Abschlussaktion, die nach jedem begonnenen Ein- oder
+    Ausgangs-Countdown genau einmal ausgeführt wird.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -72,6 +78,11 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 - Eine Durchgangsfreigabe gilt nur für einen ausdrücklich freigegebenen Sensor
   im scharfen Bereich. Andere Sensoren und 24/7-Sensoren bleiben aktiv; ein bei
   Fristablauf noch ausgelöster freigegebener Sensor führt unmittelbar zum Alarm.
+- Mehrbereichsbefehle werden vollständig vorgeprüft. Ist ein ausgewählter Bereich
+  oder Sensor unzulässig, ändert sich keiner der ausgewählten Bereiche.
+- Eine konfigurierte Countdown-Abschlussaktion läuft nach regulärem Ende und
+  nach kontrolliertem Abbruch eines begonnenen Countdowns genau einmal. Ein
+  Neustart oder erneutes `ApplyChanges()` darf sie weder verlieren noch doppeln.
 - Alarmgedächtnis, Ereignishistorie, Sperrzeit und laufende Fristen verhalten sich über `ApplyChanges()` und Neustarts wie dokumentiert.
 - Fehlende Sensor- oder Störungsvariablen werden sichtbar und sicherheitsgerichtet behandelt.
 

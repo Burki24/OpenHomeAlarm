@@ -531,6 +531,15 @@ $countdownAction = json_encode([
         'VALUE'       => true
     ]
 ], JSON_THROW_ON_ERROR);
+$countdownEndAction = json_encode([
+    'actionID'   => '{33333333-3333-3333-3333-444444444444}',
+    'parameters' => [
+        'TARGET'      => 5002,
+        'ENVIRONMENT' => 'Default',
+        'PARENT'      => 6001,
+        'VALUE'       => false
+    ]
+], JSON_THROW_ON_ERROR);
 
 // Countdown actions remain independent of escalation actions.
 $testActions = [];
@@ -541,6 +550,7 @@ $delayedInstance->Create();
 $delayedInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $delayedInstance->TestSetPropertyInteger('EntryDelaySeconds', 10);
 $delayedInstance->TestSetPropertyString('CountdownAction', $countdownAction);
+$delayedInstance->TestSetPropertyString('CountdownEndAction', $countdownEndAction);
 $delayedInstance->TestSetPropertyString(
     'Sensors',
     json_encode([alarmActionSensor(4002, true)], JSON_THROW_ON_ERROR)
@@ -566,9 +576,35 @@ assertAlarmAction(
 );
 $delayedInstance->CompleteEntryDelay();
 assertAlarmAction(
-    count($testActions) === 2,
-    'Entry-delay expiry must not execute removed global alarm actions.'
+    count($testActions) === 3
+    && $testActions[2]['actionID'] === '{33333333-3333-3333-3333-444444444444}'
+    && ($testActions[2]['parameters']['VALUE'] ?? null) === false,
+    'Entry-delay expiry must execute the explicit countdown end action exactly once.'
 );
+$delayedInstance->Disarm();
+assertAlarmAction(count($testActions) === 3, 'A completed countdown must not execute its end action again while disarming.');
+
+$testActions = [];
+$cancelledCountdown = new OpenHomeAlarm();
+$cancelledCountdown->Create();
+$cancelledCountdown->TestSetPropertyInteger('ExitDelaySeconds', 5);
+$cancelledCountdown->TestSetPropertyString('CountdownAction', $countdownAction);
+$cancelledCountdown->TestSetPropertyString('CountdownEndAction', $countdownEndAction);
+$cancelledCountdown->TestSetPropertyString('Sensors', json_encode([
+    alarmActionSensor(4001, false)
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($cancelledCountdown->ArmAway(), 'A cancellable exit countdown must start.');
+assertAlarmAction(count($testActions) === 1, 'A begun exit countdown must execute its first positive step.');
+$cancelledCountdown->ApplyChanges();
+assertAlarmAction(count($testActions) === 1, 'ApplyChanges must not repeat the current countdown step or finish a running countdown.');
+$cancelledCountdown->Disarm();
+assertAlarmAction(
+    count($testActions) === 2
+    && $testActions[1]['actionID'] === '{33333333-3333-3333-3333-444444444444}',
+    'Controlled cancellation must execute the countdown end action exactly once.'
+);
+$cancelledCountdown->Disarm();
+assertAlarmAction(count($testActions) === 2, 'Repeated cancellation must not duplicate the countdown end action.');
 
 // Optional action Lists may contain multiple independently enabled native actions.
 $testActions = [];
@@ -1210,7 +1246,8 @@ assertAlarmAction(
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') !== null
     && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') !== null
-    && findAlarmActionFormField($form['elements'] ?? [], 'CountdownAction') !== null,
+    && findAlarmActionFormField($form['elements'] ?? [], 'CountdownAction') !== null
+    && findAlarmActionFormField($form['elements'] ?? [], 'CountdownEndAction') !== null,
     'Removed global alarm-action selectors must be absent from the configuration form.'
 );
 assertAlarmAction(
@@ -1219,7 +1256,7 @@ assertAlarmAction(
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmActionEnabled') === null,
     'Global alarm-action configuration must be removed completely.'
 );
-foreach (['FaultAction', 'FaultClearedAction', 'CountdownAction'] as $actionName) {
+foreach (['FaultAction', 'FaultClearedAction', 'CountdownAction', 'CountdownEndAction'] as $actionName) {
     $action = findAlarmActionFormField($form['elements'] ?? [], $actionName);
     assertAlarmAction(
         is_array($action)
@@ -1233,6 +1270,7 @@ foreach (['FaultAction', 'FaultClearedAction', 'CountdownAction'] as $actionName
 $dynamicFormInstance = new OpenHomeAlarm();
 $dynamicFormInstance->Create();
 $dynamicFormInstance->TestSetPropertyString('CountdownAction', $countdownAction);
+$dynamicFormInstance->TestSetPropertyString('CountdownEndAction', $countdownEndAction);
 $dynamicFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
     'Enabled'      => true,
     'Name'         => 'Legacy step',
@@ -1463,7 +1501,7 @@ $lockedFormInstance->Create();
 $lockedFormInstance->TestSetCurrentValue('Mode', 2);
 $lockedFormInstance->TestSetCurrentValue('State', 2);
 $lockedForm = json_decode($lockedFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
-foreach (['Partitions', 'ExitDelaySeconds', 'CountdownAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushNotificationApplicableTo', 'PushoverNotificationMode', 'PushoverNotificationApplicableTo'] as $fieldName) {
+foreach (['Partitions', 'ExitDelaySeconds', 'CountdownAction', 'CountdownEndAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushNotificationApplicableTo', 'PushoverNotificationMode', 'PushoverNotificationApplicableTo'] as $fieldName) {
     $field = findAlarmActionFormField($lockedForm['elements'] ?? [], $fieldName);
     assertAlarmAction(
         is_array($field) && ($field['enabled'] ?? null) === false,
