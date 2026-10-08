@@ -1,12 +1,16 @@
 # OpenHomeAlarm
 
-OpenHomeAlarm ist die zentrale Alarm- und Sicherheitslogik der gleichnamigen Library.
+OpenHomeAlarm ist eine herstellerunabhängige Alarm- und Sicherheitslogik für
+Symcon. Bereits vorhandene Symcon-Variablen können als Sensoren,
+24/7-Auslöser oder technische Störungseingänge verwendet werden. Das Modul
+übernimmt die Zustandsführung, Scharfschaltung, Verzögerungen, Alarmreaktionen,
+Benachrichtigungen und die Bedienung über Kachel, IPSView oder PHP-Skripte.
 
 > **Funktionsstatus:** OpenHomeAlarm stellt eine vollständige, praktisch auf Symcon 9.x geprüfte Alarmsteuerung bereit. Dazu gehören unabhängige Alarmbereiche, mehrere Scharfmodi, wiederanlaufsichere Verzögerungen, 24/7-Sensoren, Störungsüberwachung, Sensorüberbrückungen, Benutzer-Codeschutz, automatische Scharfschaltung, Alarmaktionen und Eskalationsstufen, Alarmgedächtnis, Ereignis- und Diagnoseexporte sowie eine versionierte Konfigurationssicherung. Die HTML-SDK-Kachel und die IPSView-WebContent-Seite verwenden denselben Bedienzustand und Funktionsumfang.
 
 > **Sicherheitshinweis:** OpenHomeAlarm ist keine zertifizierte Einbruch-, Brand- oder Gefahrenmeldeanlage. Die Verfügbarkeit hängt von Symcon, Hostsystem, Netzwerk, Sensoren und konfigurierten Aktionen ab. Für normativ oder versicherungsrechtlich geforderte Schutzaufgaben ist geeignete zertifizierte Sicherheitstechnik erforderlich. Weitere Hinweise enthält die [Sicherheitsrichtlinie](../SECURITY.md).
 
-## Schnellstart für neue Anwender
+## 1. Schnellstart
 
 1. Installieren Sie die Library über die Symcon-Modulverwaltung und legen Sie eine
    **OpenHomeAlarm**-Instanz an.
@@ -29,25 +33,27 @@ schaltet noch nichts scharf. Ein Scharfschaltversuch über `main` wird vollstän
 abgelehnt, sobald ein aktiver Bereich nicht bereit ist; es gibt keine teilweise
 aktivierte Anlage.
 
-### Inhaltsverzeichnis
+## Inhaltsverzeichnis
 
-1. [Funktionsumfang](#1-funktionsumfang)
-2. [Voraussetzungen](#2-voraussetzungen)
-3. [Software-Installation](#3-software-installation)
-4. [Einrichten der Instanz in Symcon](#4-einrichten-der-instanz-in-symcon)
-5. [Statusvariablen und Darstellungen](#5-statusvariablen-und-darstellungen)
-6. [Sensoren und Auslöser](#6-sensoren-und-auslöser)
-7. [Systemüberwachung](#7-systemüberwachung)
-8. [Code-Schutz](#8-code-schutz)
-9. [Automatische Scharfschaltung](#9-automatische-scharfschaltung)
-10. [Alarmaktionen](#10-alarmaktionen)
-11. [Alarmgedächtnis](#11-alarmgedächtnis)
-12. [Ereignisprotokoll und Diagnose](#12-ereignisprotokoll-und-diagnose)
-13. [Konfigurationssicherung](#13-konfigurationssicherung)
-14. [Visualisierung](#14-visualisierung)
-15. [PHP-Befehlsreferenz](#15-php-befehlsreferenz)
+1. [Schnellstart](#1-schnellstart)
+2. [Funktionsumfang und Zustandsmodell](#2-funktionsumfang-und-zustandsmodell)
+3. [Voraussetzungen und Installation](#3-voraussetzungen-und-installation)
+4. [Grundkonfiguration](#4-grundkonfiguration)
+5. [Alarmbereiche einrichten und bedienen](#5-alarmbereiche-einrichten-und-bedienen)
+6. [Statusvariablen](#6-statusvariablen)
+7. [Sensoren und Auslöser](#7-sensoren-und-auslöser)
+8. [Temporäre Durchgangsfreigabe](#8-temporäre-durchgangsfreigabe)
+9. [Systemüberwachung](#9-systemüberwachung)
+10. [Code-Schutz](#10-code-schutz)
+11. [Automatische Scharfschaltung](#11-automatische-scharfschaltung)
+12. [Alarmaktionen und Benachrichtigungen](#12-alarmaktionen-und-benachrichtigungen)
+13. [Alarmgedächtnis](#13-alarmgedächtnis)
+14. [Ereignisprotokoll und Diagnose](#14-ereignisprotokoll-und-diagnose)
+15. [Konfigurationssicherung](#15-konfigurationssicherung)
+16. [Kachel und IPSView](#16-kachel-und-ipsview)
+17. [PHP-Befehlsreferenz](#17-php-befehlsreferenz)
 
-### 1. Funktionsumfang
+## 2. Funktionsumfang und Zustandsmodell
 
 Das Modul stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, einmalige zeitbegrenzte Durchgangsfreigaben im scharfen Zustand, dauerhaft aktive 24/7-Sensoren, timerbasierte Ein-/Ausgangsverzögerungen mit laufendem Countdown-Status, optionaler Countdown-Aktion und Ausgangsweg-Sensoren, konfigurierbare Alarm-Eskalationsaktionen mit optionaler automatischer Alarmdauer und separatem Stoppen von Signalgebern, eine 24/7-Systemüberwachung für Manipulation, Batterie-/Stromversorgung, Kommunikation und Gerätestörungen mit optionaler Scharfschaltblockade oder Alarmauslösung, eine optionale Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll sowie eine versionierte öffentliche Bedien-API bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
@@ -61,25 +67,83 @@ getrennt; IDs werden nicht an die sichtbaren Namen angehängt.
 
 Ausgangs- und Eingangsverzögerung sind global in Sekunden konfigurierbar. Der Wert `0` deaktiviert die jeweilige Verzögerung. Sensoren können zusätzlich als **Ausgangsweg (nur Abwesend)** markiert werden. Bei aktivierter Ausgangsverzögerung dürfen sie ausschließlich beim Start des Scharfmodus **Abwesend** bereits ausgelöst sein. Für **Zuhause** und **Nacht** gelten sie wie normale Sensoren und blockieren die Scharfschaltung sofort. Ein Bewegungsmelder des Ausgangswegs darf bei **Abwesend** auch am Countdown-Ende noch aktiv sein, weil sein Boolean-Wert nach einer Bewegung häufig nachläuft. Nach dem Scharfschalten wird er beim Zurückkehren in den Ruhezustand wieder regulär ausgewertet und löst bei der nächsten Aktivierung Alarm aus. Andere Sensortypen des Ausgangswegs, insbesondere Öffnungskontakte, müssen am Countdown-Ende bereit sein. Bei deaktivierter Ausgangsverzögerung gelten Ausgangswegsensoren auch für **Abwesend** wie normale Sensoren und müssen bereits vor dem Scharfschalten bereit sein. Während eines laufenden Countdowns steht die verbleibende Zeit in der öffentlichen Statusabfrage `OHA_GetControlState($InstanzID)` bereit. Bei einer Eingangsverzögerung enthält sie zusätzlich den Sensor, der den Countdown gestartet hat; die Werte werden beim Abbruch, Abschluss oder Alarm zurückgesetzt. Die optionale Countdown-Aktion wird für jeden positiven Wert genau einmal ausgeführt. Ein Aktionsskript kann `OHA_GetControlState($InstanzID)` verwenden, um etwa Restzeit, auslösenden Sensor, Scharfmodus und Zustand für eine Sprachausgabe oder Signaltöne auszuwerten. Alarmreaktionen werden als Eskalationsaktionen konfiguriert. Die Alarmdauer ist global in Sekunden konfigurierbar; der Standardwert `0` lässt den Alarmausgang aktiv, bis er manuell zurückgesetzt oder die Anlage unscharf geschaltet wird. Ist eine Alarmdauer größer als `0`, ist **Nach Ablauf der Alarmdauer automatisch wieder scharf schalten** standardmäßig aktiv: Der betroffene Bereich wird nach dem Zurücksetzen der Alarmaktionen nur im vorherigen Modus wieder scharf, wenn kein relevanter Sensor ausgelöst und keine blockierende Störung aktiv ist. Das Alarmgedächtnis bleibt dabei als Nachweis erhalten. Für einen erkannten Fehlalarm steht in der Kachel zusätzlich **Fehlalarm zurücksetzen** bereit. Diese Schaltfläche setzt Aktionen und Alarmgedächtnis zurück und schaltet den Bereich ebenfalls nur bei voller Bereitschaft wieder scharf. Für benutzerseitiges Unscharfschalten kann optional ein vier- bis achtstelliger Zahlencode hinterlegt werden.
 
-### 2. Voraussetzungen
+OpenHomeAlarm trennt den gewählten **Scharfmodus** vom aktuellen
+**Systemzustand**:
+
+| Scharfmodus | Bedeutung |
+| --- | --- |
+| Kein Scharfmodus | Der Bereich ist unscharf. |
+| Zuhause | Die für Anwesenheit ausgewählten Sensoren werden überwacht. |
+| Abwesend | Die für Abwesenheit ausgewählten Sensoren werden überwacht. |
+| Nacht | Die für den Nachtbetrieb ausgewählten Sensoren werden überwacht. |
+
+| Systemzustand | Bedeutung |
+| --- | --- |
+| Unscharf | Sensoren der drei Scharfmodi lösen keinen Einbruchalarm aus; 24/7-Sensoren bleiben aktiv. |
+| Ausgangsverzögerung | Die Scharfschaltung wurde gestartet, der konfigurierte Countdown läuft. |
+| Scharf | Die Sensoren des gewählten Modus werden überwacht. |
+| Eingangsverzögerung | Ein entsprechend konfigurierter Sensor hat ausgelöst; vor dem Alarm läuft der Countdown. |
+| Alarm | Mindestens ein Sensor hat einen Alarm ausgelöst. |
+
+## 3. Voraussetzungen und Installation
+
+### Voraussetzungen
 
 - Symcon ab Version 9.0
+- vorhandene Symcon-Variablen für die gewünschten Sensoren und Auslöser
+- für IPSView eine HTML-Box mit dem Renderer **Browser des Clients**
 
-### 3. Software-Installation
+### Installation
 
-Die Library kann über die Modulverwaltung von Symcon aus dem GitHub-Repository `Burki24/OpenHomeAlarm` installiert werden.
+1. Öffnen Sie die Modulverwaltung von Symcon.
+2. Installieren Sie die Library aus dem GitHub-Repository
+   `Burki24/OpenHomeAlarm`.
+3. Legen Sie über **Instanz hinzufügen** eine Instanz vom Typ
+   **OpenHomeAlarm** an.
+4. Öffnen Sie die Instanzkonfiguration und richten Sie zuerst Alarmbereiche und
+   Sensoren ein.
 
-### 4. Einrichten der Instanz in Symcon
+## 4. Grundkonfiguration
 
-Unter **Instanz hinzufügen** kann das Modul **OpenHomeAlarm** gefunden und angelegt werden.
+Die folgende Reihenfolge vermeidet unvollständige oder widersprüchliche
+Konfigurationen:
 
-Im Konfigurationsformular können die globale **Ausgangsverzögerung** und **Eingangsverzögerung** in Sekunden festgelegt werden. Unter **Countdown-Aktionen** kann optional eine oder mehrere normale Symcon-Aktionen angelegt werden. Sie laufen bei jeder Sekunde einer aktiven Ein- oder Ausgangsverzögerung und können beispielsweise eine Restzeit ansagen, einen Gong auslösen oder einen Statuswert setzen. Eine leere Liste führt keine Aktion aus. Im Abschnitt **Code-Schutz** kann optional ein vier- bis achtstelliger **Unscharfschaltcode** hinterlegt werden. **Automatische Scharfschaltung** verwaltet wöchentliche Schaltpläne mit Wochentagen, Uhrzeit und Zielmodus. Im Abschnitt **Alarmaktionen** werden die **Alarmdauer** und alle Alarmreaktionen ausschließlich als **Alarm-Eskalationsaktionen** konfiguriert. Im Abschnitt **Systemüberwachung** wird außerdem das Intervall der **Sensor-Integritätsprüfung** festgelegt; dort stehen auch die optionalen Listen **Aktionen bei neuer Störung** und **Aktionen nach Behebung aller Störungen** bereit. Aktionen bei einer neuen Störung laufen für jede neu auftretende Störung einmal. Die Entstörungsaktionen laufen erst beim Übergang zur vollständig störungsfreien Anlage; leere Listen führen keine Aktion aus. Darunter steht die Liste **Sensoren und Auslöser** zur Verfügung. Dort kann ein Sensor zusätzlich als **Ausgangsweg (nur Abwesend)** markiert oder für eine **Temporäre Durchgangsfreigabe** durch vertrauenswürdige Skripte zugelassen werden. Ein Eintrag verweist direkt auf eine vorhandene Symcon-Variable und ist damit unabhängig vom Hersteller oder Protokoll des eigentlichen Geräts.
+1. **Alarmbereiche** anlegen. Der vorhandene Bereich `main` bleibt aktiv.
+2. **Sensoren und Auslöser** hinzufügen und einem oder mehreren Bereichen
+   zuordnen.
+3. **Ausgangs- und Eingangsverzögerung** festlegen. `0` deaktiviert die
+   jeweilige Verzögerung.
+4. Optional **Countdown-Aktionen** für Ansagen, Gong oder Statusanzeigen
+   hinterlegen.
+5. Optional **Systemüberwachung**, **Code-Schutz** und **automatische
+   Scharfschaltung** einrichten.
+6. Unter **Alarmaktionen** mindestens die gewünschten Reaktionen und deren
+   Rücksetzverhalten konfigurieren.
+7. Benachrichtigungen und Visualisierungen erst danach ergänzen.
+8. Änderungen übernehmen und alle vorgesehenen Zustände praktisch testen.
 
-#### Alarmbereiche
+| Konfigurationsbereich | Aufgabe | Wichtige Vorgabe |
+| --- | --- | --- |
+| Alarmbereiche | Gesamtanlage und getrennt schaltbare Bereiche | `main` bleibt als Gesamtanlage aktiv. |
+| Verzögerungen | Zeit zum Verlassen oder Betreten | Standardmäßig jeweils 30 Sekunden; `0` deaktiviert. |
+| Countdown-Aktionen | Aktion bei jeder positiven Countdown-Sekunde | Eine leere Liste führt nichts aus. |
+| Sensoren und Auslöser | Alarmquellen, Scharfmodi und Sonderverhalten | Sensoren werden über ihre Variablen-ID identifiziert. |
+| Systemüberwachung | Manipulation, Batterie, Kommunikation und Gerätestörung | Störungen können blockieren oder 24/7 Alarm auslösen. |
+| Code-Schutz | Geschützte Benutzerbedienung | Vier bis acht Ziffern; direkte vertrauenswürdige APIs bleiben codefrei. |
+| Automatische Scharfschaltung | Wöchentliche Zeitpläne | Verpasste Schaltungen werden nicht nachgeholt. |
+| Alarmaktionen | Eskalation, Signalgeber und Rücksetzung | Signalgeber laufen ausschließlich bei normalem Alarm. |
+| Push/Pushover | Alarmbenachrichtigungen | Für normal, still oder beide Alarmierungsarten wählbar. |
+| Symcon-Kachel/IPSView | Darstellung und Bedienung | Beide Oberflächen verwenden denselben Bedienzustand. |
+
+Änderungen an Alarmbereichen, Sensoren und Störungseingängen werden nur bei
+vollständig unscharfer Anlage übernommen. Laufende Sicherheitszustände können
+dadurch nicht unbemerkt durch eine neue Konfiguration verändert werden.
+
+## 5. Alarmbereiche einrichten und bedienen
 
 Mit Alarmbereichen können beispielsweise Wohnhaus und Garage unabhängig voneinander scharf- und unscharf geschaltet werden. `main` ist dabei fest die **Gesamtanlage**: Scharf- und Unscharfschalten über ihn wirkt auf alle aktiven Bereiche.
 
-##### Beispiel: Bereich „Garage“ einrichten
+### Beispiel: Bereich „Garage“ einrichten
 
 **1. Bereich anlegen**
 
@@ -99,28 +163,11 @@ Den gewünschten Eintrag unter **Sensoren und Auslöser** bearbeiten. Im Editor 
 
 Temporäre Überbrückungen gelten immer nur für den aktuell ausgewählten Bereich. Ist derselbe Sensor beispielsweise **Haus** und **Garage** zugeordnet, lässt eine Überbrückung in **Garage** seine Überwachung in **Haus** unverändert.
 
-Für eine Tür, die bei scharf bleibendem Bereich einmal geöffnet und wieder
-geschlossen werden soll, steht davon getrennt die **Durchgangsfreigabe** zur
-Verfügung. Am Sensor muss zuvor **Temporäre Durchgangsfreigabe erlauben**
-aktiviert sein. Eine vertrauenswürdige Automation ruft anschließend zum
-Beispiel auf:
-
-```php
-// Hauptbereich: maximal 90 Sekunden für genau einen Durchgang freigeben
-OHA_GrantPassage(12345, 4711, 90);
-
-// Einzelner Bereich
-OHA_GrantPassagePartition(12345, 'garage', 4711, 90);
-```
-
-`12345` ist die OpenHomeAlarm-Instanz-ID, `4711` die ID der als Sensor
-konfigurierten Variable. Ohne dritten beziehungsweise vierten Parameter gilt
-eine Frist von 60 Sekunden; zulässig sind 1 bis 3600 Sekunden. Die Freigabe
-funktioniert nur im Zustand **Scharf** oder für genau den Sensor, der gerade die
-**Eingangsverzögerung** gestartet hat. Sie unterdrückt ausschließlich diesen
-Sensor bis zum ersten Auslösen und anschließenden Normalzustand. Andere
-Sensoren bleiben aktiv. Läuft die Frist bei noch ausgelöstem Sensor ab, folgt
-sofort der normale Alarm. 24/7-Sensoren sind grundsätzlich ausgeschlossen.
+Eine überwachte Tür kann über die ausdrücklich freizugebende
+**Durchgangsfreigabe** einmal geöffnet und geschlossen werden, während ihr
+Alarmbereich scharf bleibt. Einrichtung, Sicherheitsgrenzen und ein
+vollständiges Ereignisskript beschreibt Kapitel
+[Temporäre Durchgangsfreigabe](#8-temporäre-durchgangsfreigabe).
 
 **3. Einzelnen Bereich oder Gesamtanlage schalten**
 
@@ -170,7 +217,7 @@ Ohne diesen Parameter bleibt die Bereitschaftsprüfung unverändert streng.
 
 Vor dem Scharfschalten prüft OpenHomeAlarm alle aktiven Bereiche. Blockiert ein Sensor oder Störungseingang einen Bereich, bleibt die gesamte Anlage unverändert unscharf.
 
-##### Beispiel: Hotelschalter oder Kartenleser
+### Beispiel: Hotelschalter oder Kartenleser
 
 Liefert eine Integer-Variable beim Einstecken der Karte den Wert `16` und ohne
 Karte den Wert `0`, kann sie über ein Ereignis **Bei Änderung** mit folgendem
@@ -203,7 +250,7 @@ OHA_DisarmPartition(12345, 'garage');
 
 Auch dieser Befehl verändert keinen anderen Alarmbereich.
 
-##### Was bedeuten die Begriffe?
+### Was bedeuten die Begriffe?
 
 | Begriff | Bedeutung |
 | --- | --- |
@@ -222,7 +269,7 @@ aber als **Signalgeber** markierte Aktionen. Die gewählte Alarmierungsart wird
 im Bedienzustand (`Silent`) je Bereich angezeigt und auch nach einem Neustart
 beibehalten.
 
-##### Regeln für die Bereichs-ID
+### Regeln für die Bereichs-ID
 
 - 1 bis 32 Zeichen
 - beginnt mit einem Kleinbuchstaben
@@ -231,11 +278,11 @@ beibehalten.
 
 Gültig sind beispielsweise `main`, `garage`, `erdgeschoss`, `bereich_1` und `aussen-2`. Ungültig sind `1`, `Garage`, `außen` und `mein bereich`. Da die ID in Zuordnungen und Skripten verwendet wird, sollte sie später nicht ohne Anpassung dieser Verwendungen geändert werden.
 
-##### Technischer Hintergrund
+### Technischer Hintergrund
 
-Änderungen an Bereichen, Sensoren und Störungseingängen sind nur möglich, wenn alle Bereiche unscharf sind. Die Control API 2 veröffentlicht jeden aktiven Bereich mit eigenem Modus, Zustand, Countdown, Alarmausgang und Alarmgedächtnis unter `Partitions`; `DefaultPartition` ist stets `main`. `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Bereichsmetadaten. Laufzeiten, Fristen und Alarmdaten werden neustartsicher gespeichert. Die Instanzvariablen `AlarmOutputActive`, `SignalGeneratorActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` fassen den Gesamtzustand aller Bereiche zusammen.
+Änderungen an Bereichen, Sensoren und Störungseingängen sind nur möglich, wenn alle Bereiche unscharf sind. Die Control API 3 veröffentlicht jeden aktiven Bereich mit eigenem Modus, Zustand, Countdown, Alarmausgang, Alarmgedächtnis und Durchgangsfreigabe unter `Partitions`; `DefaultPartition` ist stets `main`. `OHA_GetPartitions($InstanzID)` liefert die konfigurierten Bereichsmetadaten. Laufzeiten, Fristen und Alarmdaten werden neustartsicher gespeichert. Die Instanzvariablen `AlarmOutputActive`, `SignalGeneratorActive`, `AlarmMemory`, `LastAlarmSource` und `LastAlarmTime` fassen den Gesamtzustand aller Bereiche zusammen.
 
-##### Bereichsstatus in eigenen Skripten
+### Bereichsstatus in eigenen Skripten
 
 Für Abhängigkeiten wie Licht, Heizung oder Anwesenheitssimulation verwenden Sie
 `OHA_GetControlState($InstanzID)`. Die Variablen `Mode` und `State` unter der
@@ -259,7 +306,7 @@ während eines Alarms `true`. Für den Scharfmodus steht zusätzlich
 `$garage['Mode']['Name']` mit `home`, `away` oder `night` bereit. Eine fehlende
 oder deaktivierte Bereichs-ID wird durch den Fallback als `disarmed` behandelt.
 
-### 5. Statusvariablen und Darstellungen
+## 6. Statusvariablen
 
 OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
 
@@ -290,14 +337,14 @@ OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
 
 Die Variablen verwenden native Symcon-Darstellungen. Bereits vorhandene Betriebszustände werden bei einem Modulupdate nicht auf die Initialwerte zurückgesetzt.
 
-### 6. Sensoren und Auslöser
+## 7. Sensoren und Auslöser
 
 Jeder konfigurierte Eintrag enthält folgende Daten:
 
 | Feld | Bedeutung |
 | --- | --- |
 | `Enabled` | Eintrag grundsätzlich aktiviert/deaktiviert |
-| `PartitionID` | Technische ID des Alarmbereichs; leer wird `main` zugeordnet |
+| Alarmbereiche | Ein oder mehrere aktive Alarmbereiche; neue Sensoren sind `main` zugeordnet |
 | `Name` | Frei wählbare Bezeichnung |
 | `VariableID` | ID der verwendeten Symcon-Variable |
 | `SensorType` | Öffnungskontakt, Bewegungsmelder, Glasbruch-, Rauch- oder Wassermelder, Panikauslöser oder sonstiger Auslöser |
@@ -326,47 +373,6 @@ Nach erfolgreicher Scharfschaltprüfung wechselt OpenHomeAlarm bei einer Ausgang
 
 Löst im Zustand **Scharf** ein für den aktiven Modus relevanter Sensor aus, startet ein mit `EntryDelay` markierter Sensor die konfigurierte **Eingangsverzögerung**. Der Countdown wird durch das erneute Schließen des Sensors nicht abgebrochen und bei weiteren verzögerten Sensorereignissen nicht neu gestartet. Ein Sensor ohne Eingangsverzögerung wechselt unmittelbar in den Zustand **Alarm**. Das gilt ebenfalls, wenn während einer laufenden Eingangsverzögerung ein sofort auslösender Sensor anspricht. Nach Ablauf der Eingangsverzögerung wird ebenfalls **Alarm** gesetzt. Beim erstmaligen Eintritt in den Alarmzustand werden die fälligen Alarm-Eskalationsaktionen ausgeführt.
 
-Eine Durchgangsfreigabe ist keine Unscharfschaltung und keine allgemeine
-Überbrückung. Sie kann ausschließlich per vertrauenswürdiger PHP-Automation für
-einen am Sensor ausdrücklich zugelassenen, im aktuellen Modus überwachten
-Sensor angefordert werden. Ist dessen Eingangsverzögerung bereits aktiv, wird
-nur diese passende Verzögerung beendet und der Bereich kehrt in **Scharf**
-zurück. Die Freigabe endet nach dem ersten Auslösen und anschließenden
-Normalzustand, beim Unscharfschalten, bei einem Alarm oder spätestens nach der
-gewählten Frist. Wartende und bereits begonnene Freigaben sowie ihre Restfrist
-werden über `ApplyChanges()` und Neustarts wiederhergestellt. Der öffentliche
-Bedienzustand liefert dazu je Bereich `Passage.Active`, `Phase`, `Sensor` und
-`RemainingSeconds`, jedoch keine interne Variablen-ID.
-
-##### Beispiel für ein Türschloss wie Nuki
-
-OpenHomeAlarm bewertet keine herstellerspezifischen Schlossereignisse. Das
-zugehörige Ereignisskript muss selbst zuverlässig entscheiden, ob wirklich ein
-berechtigtes Öffnen erkannt wurde. Erst dann wird die allgemeine Freigabe
-aufgerufen:
-
-```php
-<?php
-
-$alarmInstanceID = 12345;
-$doorSensorID = 4711;
-
-// Diesen Wert aus der eigenen Nuki-Anbindung beziehungsweise Logik ableiten.
-$authorizedUnlock = /* nur bei einem berechtigten Öffnungsvorgang */ false;
-
-if ($authorizedUnlock) {
-    OHA_GrantPassage($alarmInstanceID, $doorSensorID, 90);
-}
-```
-
-Die konkrete Erkennung von Benutzer, Keypad, App, Auto-Unlock oder manueller
-Betätigung bleibt bewusst beim Anwender, weil die verfügbaren Zustände und
-Ereignisse von der jeweiligen Nuki-Anbindung abhängen. Für unterschiedliche
-Scharfmodi können außerdem getrennte Zustandsvariablen sinnvoll sein: etwa der
-Türkontakt als Kriterium für **Zuhause** und der Verriegelungszustand zusätzlich
-für **Abwesend**.
-
-
 Manuelle Sensorüberbrückungen können ausschließlich im Zustand **Unscharf** gesetzt oder entfernt werden. Sie wirken auf alle zugeordneten Scharfmodi und bleiben für einen Scharfschaltzyklus bestehen. 24/7 aktive Sensoren können aus Sicherheitsgründen nicht überbrückt werden. Manuelle Überbrückungen werden persistent gespeichert, überstehen `ApplyChanges()` und Neustarts und werden beim Unscharfschalten automatisch gelöscht. `BypassedSensors` zeigt die derzeit überbrückten Sensoren an.
 
 24/7 aktive Sensoren sind von den Scharfmodi unabhängig. Sie lösen sowohl im Zustand **Unscharf** als auch während Ausgangsverzögerung, **Scharf** oder Eingangsverzögerung unmittelbar einen **normalen Alarm** aus. Dies gilt auch, wenn der zugeordnete Bereich still scharfgeschaltet wurde; ein laufender stiller Alarm wird dann zum normalen Alarm mit Signalgebern hochgestuft. Für solche Sensoren sind die Auswahlen Zuhause, Abwesend und Nacht sowie `AllowAutomaticBypass`, `AllowPassage`, `ExitDelay` und `EntryDelay` deaktiviert. Bereits gespeicherte Werte für diese Felder werden ignoriert. Ist ein 24/7-Sensor bei `ApplyChanges()` oder nach einem Symcon-Neustart bereits ausgelöst, wird dieser Zustand unmittelbar erkannt, sodass keine Überwachungslücke bis zur nächsten Variablenänderung entsteht. Typische Anwendungsfälle sind Rauch-, Wasser-, CO/CO₂- oder Panikauslöser; die Aktivierung bleibt jedoch bewusst eine explizite Benutzereinstellung.
@@ -375,11 +381,226 @@ Beim Unscharfschalten werden laufende Ein- und Ausgangsverzögerungen immer been
 
 Für eine einmalig gewählte Scharfschaltung darf ein bereits ausgelöster Sensor nur dann automatisch überbrückt werden, wenn am Sensor **Automatische Überbrückung erlauben** aktiviert wurde. Die Freigabe allein bewirkt nichts. Sobald ein so überbrückter Sensor seinen Normalzustand erreicht, wird er wieder überwacht und kann beim nächsten Auslösen Alarm geben. Nicht verfügbare Sensoren, 24/7-Sensoren und blockierende Störungen sind ausgeschlossen. Diese automatische Überbrückung bleibt über Neustarts erhalten, endet spätestens beim Unscharfschalten und wird in Status, Kachel, IPSView und Ereignisprotokoll sichtbar. Die bisherige manuelle Überbrückung bleibt dagegen bis zum Unscharfschalten bestehen. Hat ein Sensor während eines Symcon-Ausfalls geschlossen und wieder geöffnet, ist dieser Zwischenzustand nicht zuverlässig erkennbar; bei einem weiterhin ausgelösten Wert bleibt seine automatische Überbrückung deshalb bestehen.
 
-### 7. Systemüberwachung
+## 8. Temporäre Durchgangsfreigabe
+
+Die temporäre Durchgangsfreigabe erlaubt einer überwachten Tür genau einen
+Öffnen-/Schließen-Zyklus, ohne den Alarmbereich unscharf zu schalten. Sie ist
+für berechtigte Zutritte oder ein berechtigtes Verlassen gedacht, wenn
+beispielsweise der Modus **Zuhause** aktiv bleiben soll.
+
+Die Durchgangsfreigabe ist keine allgemeine Sensorüberbrückung:
+
+- Sie gilt nur für den ausdrücklich angegebenen Sensor und Alarmbereich.
+- Der Sensor muss im aktuellen Scharfmodus überwacht werden.
+- Am Sensor muss **Temporäre Durchgangsfreigabe erlauben** aktiviert sein.
+- Sie endet nach dem ersten Auslösen und anschließenden Normalzustand.
+- Sie endet außerdem beim Unscharfschalten, bei einem Alarm oder nach Ablauf
+  der gewählten Frist.
+- Andere Sensoren und alle 24/7-Sensoren bleiben aktiv.
+- Pro Alarmbereich kann nur eine Durchgangsfreigabe gleichzeitig laufen.
+- Ein wiederholter Aufruf verlängert eine laufende Freigabe nicht.
+
+### Türkontakt und Verriegelungszustand getrennt behandeln
+
+Bei einem Türschloss wie Nuki sollten zwei unterschiedliche Informationen nicht
+als derselbe Sensor behandelt werden:
+
+1. Der **Türkontakt** meldet, ob die Tür offen oder geschlossen ist. Er ist der
+   eigentliche Alarmsensor.
+2. Der **Verriegelungszustand** meldet, ob das Schloss verriegelt oder
+   entriegelt ist. Er kann eine zusätzliche Scharfschaltvoraussetzung sein.
+
+Eine sinnvolle Konfiguration kann so aussehen:
+
+- Türkontakt: relevant für **Zuhause**, **Abwesend** und gegebenenfalls
+  **Nacht**.
+- Verriegelungszustand: zusätzlich nur für **Abwesend** relevant.
+
+Damit muss die Haustür bei **Zuhause** geschlossen, aber nicht zwingend
+abgeschlossen sein. Bei **Abwesend** kann zusätzlich verlangt werden, dass sie
+wirklich verriegelt ist. Liefert eine Gerätevariable mehrere Zustände, die sich
+nicht eindeutig auf diese beiden Aufgaben abbilden lassen, sollte der Anwender
+daraus vorher per Skript oder Logik getrennte eindeutige Zustandsvariablen
+bilden.
+
+### Schritt 1: Türkontakt freigeben
+
+1. Öffnen Sie **Sensoren und Auslöser**.
+2. Bearbeiten Sie den Türkontakt.
+3. Ordnen Sie ihn dem gewünschten Alarmbereich und den gewünschten
+   Scharfmodi zu.
+4. Aktivieren Sie **Temporäre Durchgangsfreigabe erlauben**.
+5. Aktivieren Sie bei Bedarf **Eingangsverzögerung**.
+6. Übernehmen Sie die Konfiguration im unscharfen Zustand.
+
+Idealerweise erkennt die Zutrittsautomation die berechtigte Entriegelung,
+bevor der Türkontakt öffnet. Meldet das Schloss die berechtigte Aktion erst
+nach dem Öffnen, gibt die Eingangsverzögerung der Automation Zeit. Die
+Durchgangsfreigabe darf dann genau die von diesem Türkontakt gestartete
+Eingangsverzögerung bestätigen; der Bereich kehrt unmittelbar in **Scharf**
+zurück. Ohne Eingangsverzögerung könnte der Alarm bereits ausgelöst sein, bevor
+das Schlossereignis verarbeitet wurde.
+
+### Schritt 2: Hilfsvariable anlegen
+
+Legen Sie in Symcon eine eigene Boolean-Variable an, zum Beispiel
+**Berechtigter Türdurchgang**. Diese Variable bleibt normalerweise `false` und
+wird von der eigenen Zutrittsautomation nur bei einer sicher erkannten,
+berechtigten Entriegelung auf `true` gesetzt.
+
+Beispiel-IDs für die folgende Anleitung:
+
+| Objekt | Beispiel-ID |
+| --- | --- |
+| OpenHomeAlarm-Instanz | `12345` |
+| Türkontakt-Variable | `23456` |
+| Hilfsvariable „Berechtigter Türdurchgang“ | `34567` |
+
+Die Beispiel-IDs müssen vollständig durch die fünfstelligen IDs der eigenen
+Installation ersetzt werden. Die Bereichs-ID `main` ist dagegen keine
+Symcon-Objekt-ID, sondern der technische Schlüssel der Gesamtanlage.
+
+### Schritt 3: Ereignisskript anlegen
+
+Legen Sie ein PHP-Skript an und verbinden Sie es über ein Ereignis **Bei
+Variablenänderung** mit der Hilfsvariable. Das Ereignis ruft das Skript auf,
+wenn die Hilfsvariable auf `true` wechselt.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Eigene Konfiguration
+ */
+$openHomeAlarmInstanceID = 12345;
+$partitionID = 'main';
+$doorSensorVariableID = 23456;
+$passageTriggerVariableID = 34567;
+$passageTimeoutSeconds = 90;
+
+/*
+ * Nur auf die vorgesehene Hilfsvariable und nur auf true reagieren.
+ */
+if (
+    ($_IPS['SENDER'] ?? '') !== 'Variable'
+    || (int) ($_IPS['VARIABLE'] ?? 0) !== $passageTriggerVariableID
+    || ($_IPS['VALUE'] ?? false) !== true
+) {
+    return;
+}
+
+try {
+    $success = OHA_GrantPassagePartition(
+        $openHomeAlarmInstanceID,
+        $partitionID,
+        $doorSensorVariableID,
+        $passageTimeoutSeconds
+    );
+
+    if (!$success) {
+        IPS_LogMessage(
+            'OpenHomeAlarm',
+            'Die temporäre Durchgangsfreigabe wurde abgelehnt.'
+        );
+    }
+} catch (Throwable $exception) {
+    IPS_LogMessage(
+        'OpenHomeAlarm',
+        'Fehler bei der Durchgangsfreigabe: ' . $exception->getMessage()
+    );
+} finally {
+    /* Für den nächsten berechtigten Zutritt zurücksetzen. */
+    SetValueBoolean($passageTriggerVariableID, false);
+}
+```
+
+Für einen eigenen Alarmbereich wird statt `main` dessen technische Bereichs-ID
+eingetragen, beispielsweise `garage`. Ist derselbe Türkontakt mehreren
+gleichzeitig scharfen Bereichen zugeordnet, muss jeder betroffene Bereich
+separat freigegeben werden.
+
+### Schritt 4: Zutrittsautomation verbinden
+
+An der Stelle, an der die vorhandene Nuki-, Keypad-, Fingerprint- oder andere
+Zutrittsautomation eine berechtigte Entriegelung erkennt, wird die
+Hilfsvariable gesetzt:
+
+```php
+SetValueBoolean(34567, true);
+```
+
+OpenHomeAlarm bewertet bewusst keine herstellerspezifischen
+Schlossereignisse. Die aufrufende Automation muss zuverlässig entscheiden, ob
+wirklich eine berechtigte Aktion vorliegt. Welche Variable und welche Werte
+dafür auszuwerten sind, hängt von der eingesetzten Geräteanbindung ab. Ein
+allgemeiner Zustand wie „Schloss entriegelt“ sollte nicht ungeprüft als
+Berechtigungsnachweis verwendet werden.
+
+### Ablauf eines freigegebenen Durchgangs
+
+1. Der Alarmbereich ist scharf.
+2. Eine vertrauenswürdige Automation fordert die Durchgangsfreigabe an.
+3. Der Türkontakt darf einmal auslösen.
+4. Nach dem Schließen endet die Freigabe sofort.
+5. Ein erneutes Öffnen wird wieder normal überwacht.
+
+Wird die Tür innerhalb der Frist gar nicht geöffnet, endet die wartende
+Freigabe ohne Alarm. Ist die Tür beim Fristablauf noch offen, löst
+OpenHomeAlarm unmittelbar einen normalen Alarm aus. Wartende und bereits
+begonnene Freigaben sowie ihre Restfrist werden über `ApplyChanges()` und
+Symcon-Neustarts wiederhergestellt.
+
+Der öffentliche Bedienzustand enthält je Bereich `Passage.Active`,
+`Passage.Phase`, `Passage.Sensor` und `Passage.RemainingSeconds`. Die Phasen
+sind `waiting` für eine wartende und `triggered` für eine bereits begonnene
+Freigabe. Die interne Variablen-ID wird in diesem Bedienzustand nicht
+veröffentlicht.
+
+### Direkter PHP-Aufruf ohne Hilfsvariable
+
+Eine bereits vertrauenswürdige Automation kann die Funktion auch direkt
+aufrufen:
+
+```php
+// Hauptbereich: 90 Sekunden für einen Durchgang freigeben
+OHA_GrantPassage(12345, 23456, 90);
+
+// Einzelnen Alarmbereich freigeben
+OHA_GrantPassagePartition(12345, 'garage', 23456, 90);
+```
+
+Ohne Fristparameter gelten 60 Sekunden. Zulässig sind 1 bis 3600 Sekunden.
+`false` bedeutet, dass die Freigabe abgelehnt wurde. Häufige Ursachen sind ein
+unscharfer Bereich, eine falsche Bereichs- oder Variablen-ID, ein im aktuellen
+Modus nicht überwachter Sensor, eine fehlende Sensorfreigabe, ein 24/7-Sensor
+oder eine bereits laufende Durchgangsfreigabe.
+
+
+## 9. Systemüberwachung
 
 Zusätzlich zu den eigentlichen Alarmsensoren können im Abschnitt **Systemüberwachung** unabhängige 24/7-Eingänge für **Manipulation**, **Batterie/Stromversorgung**, **Kommunikation**, **Gerätestörung** oder eine sonstige Störung angelegt werden. Jeder Eintrag verweist wie ein normaler Sensor auf eine Symcon-Variable; der Störwert wird aus deren Variablendarstellung übernommen oder bei Bedarf als Rohwert eingegeben.
 
-Jeder Sensor und jeder Störungseingang ist über `PartitionID` genau einem aktiven Alarmbereich zugeordnet. Leere Zuordnungen werden auf `main` aufgelöst. Unbekannte oder deaktivierte Zielbereiche werden bereits bei `ApplyChanges()` abgewiesen, damit keine Eingänge unbemerkt außerhalb eines aktiven Bereichs liegen.
+### Störungseingang einrichten
+
+1. Öffnen Sie **Systemüberwachung** und fügen Sie einen Störungseingang hinzu.
+2. Wählen Sie den Alarmbereich, einen verständlichen Namen und die
+   Symcon-Variable.
+3. Wählen Sie den Störungstyp und den Wert, der eine Störung bedeutet.
+4. Aktivieren Sie **Scharfschaltung blockieren**, wenn der Bereich mit dieser
+   Störung nicht scharfgeschaltet werden darf.
+5. Aktivieren Sie **Alarm sofort und 24/7 auslösen** nur für Zustände, die
+   tatsächlich einen normalen Alarm auslösen sollen.
+6. Hinterlegen Sie bei Bedarf Aktionen für eine neue Störung und für den
+   Zeitpunkt, an dem alle Störungen behoben sind.
+7. Legen Sie das Prüfintervall fest und übernehmen Sie die Konfiguration.
+
+Ein Sensor kann einem oder mehreren aktiven Alarmbereichen zugeordnet werden.
+Ein Störungseingang gehört dagegen genau zu einem Bereich. Leere ältere
+Zuordnungen werden auf `main` aufgelöst. Unbekannte oder deaktivierte
+Zielbereiche werden bereits bei `ApplyChanges()` abgewiesen, damit keine
+Eingänge unbemerkt außerhalb eines aktiven Bereichs liegen.
 
 Für jeden Störungseingang kann separat festgelegt werden, ob eine aktive Störung die **Scharfschaltung blockiert** und ob sie den normalen Alarmzustand **sofort und 24/7 auslöst**. Dadurch kann beispielsweise ein Sabotagekontakt unmittelbar alarmieren, während eine schwache Batterie lediglich als Systemstörung angezeigt wird. Eine blockierende Störung setzt `ReadyHome`, `ReadyAway`, `ReadyNight` und `ReadyToArm` auf **Nicht bereit** und erscheint zusätzlich in `BlockingFaults`.
 
@@ -391,9 +612,22 @@ Dasselbe Störungsmodell überwacht die Verfügbarkeit aller aktiv genutzten Ala
 
 Die generische Prüfung kann erkennen, ob eine Symcon-Variable fehlt oder nicht gelesen werden kann. Bleibt eine Variable vorhanden und liefert lediglich einen veralteten letzten Wert, ist das ohne anbieterspezifisches Kommunikations- oder Zeitkriterium nicht zuverlässig feststellbar. Für solche Geräte sollte ein separater Kommunikations- oder Gerätestörungswert als Störungseingang konfiguriert werden.
 
-### 8. Code-Schutz
+## 10. Code-Schutz
 
 Für die benutzerseitige Bedienung können im Konfigurationsformular mehrere aktivierbare Benutzer mit Namen und individuellem vier- bis achtstelligem Zahlencode hinterlegt werden. Doppelte aktive Codes werden abgelehnt. Der bisherige einzelne Unscharfschaltcode bleibt als kompatibler Legacy-Code erhalten; sind weder ein Legacy-Code noch aktive Benutzercodes konfiguriert, ist die Code-Prüfung deaktiviert.
+
+### Code-Schutz einrichten
+
+1. Öffnen Sie **Code-Schutz**.
+2. Fügen Sie für jede Person einen aktiven Benutzer mit eindeutigem Namen und
+   eigenem vier- bis achtstelligem Zahlencode hinzu.
+3. Legen Sie die maximalen Fehlversuche und die Sperrdauer fest.
+4. Übernehmen Sie die Konfiguration und prüfen Sie die Bedienung zunächst bei
+   unscharfer beziehungsweise gefahrloser Testkonfiguration.
+
+Der Legacy-Code sollte nur noch für bestehende Installationen verwendet werden.
+Neue Installationen verwenden vorzugsweise benannte Benutzer, damit im
+Ereignisprotokoll erkennbar ist, wer die Anlage unscharf geschaltet hat.
 
 Der Code wird als lokale Symcon-Instanzeigenschaft gespeichert. Das Passwortfeld verhindert die offene Anzeige im Konfigurationsformular, ersetzt aber keinen Schutz der Symcon-Administration, Sicherungen und JSON-RPC-Zugänge. Der Code wird nicht in Statusvariablen, Bedienzustand, Debug-Ausgaben oder Ereignisprotokoll übernommen.
 
@@ -401,15 +635,27 @@ Der Code wird als lokale Symcon-Instanzeigenschaft gespeichert. Das Passwortfeld
 
 Der bestehende Befehl `OHA_Disarm($InstanzID)` bleibt als vertrauenswürdige direkte API für Automationen erhalten und umgeht bewusst Code-Prüfung und Benutzersperre. Der öffentliche Bedienzustand enthält unter `CodeProtection` ausschließlich Sperrstatus, verbleibende Versuche und Sperrdauer; weder der konfigurierte noch der eingegebene Code werden ausgegeben.
 
-### 9. Automatische Scharfschaltung
+## 11. Automatische Scharfschaltung
 
 Im Abschnitt **Automatische Scharfschaltung** können beliebig viele wöchentliche Zeitpläne aktiviert werden. Jeder Eintrag besitzt einen Namen, die gewünschten Wochentage, eine lokale Uhrzeit im Format `HH:MM` und den Zielmodus **Zuhause**, **Abwesend** oder **Nacht**. Die lokale Zeit und Zeitzone der Symcon-Installation sind maßgeblich.
+
+### Wochenplan einrichten
+
+1. Öffnen Sie **Automatische Scharfschaltung** und fügen Sie einen Zeitplan
+   hinzu.
+2. Vergeben Sie einen eindeutigen Namen.
+3. Wählen Sie die Wochentage und tragen Sie die lokale Uhrzeit als `HH:MM` ein.
+4. Wählen Sie **Zuhause**, **Abwesend** oder **Nacht**.
+5. Aktivieren Sie **Aktive Sensoren überbrücken** nur dann, wenn bereits
+   ausgelöste und am Sensor ausdrücklich freigegebene Kontakte bei diesem
+   Zeitplan vorübergehend übergangen werden dürfen.
+6. Aktivieren Sie den Zeitplan und übernehmen Sie die Konfiguration.
 
 Ein fälliger Zeitplan verwendet dieselbe Scharfschaltlogik wie `OHA_Arm()`. Ohne zusätzliche Option verhindern ausgelöste oder nicht verfügbare Sensoren und blockierende Störungen die Scharfschaltung wie bisher. Mit **Aktive Sensoren überbrücken** dürfen nur bereits ausgelöste und am Sensor einzeln freigegebene Kontakte überbrückt werden. Nicht verfügbare Sensoren, 24/7-Sensoren und blockierende Störungen verhindern die Scharfschaltung weiterhin. Ist die Anlage bereits nicht mehr unscharf, wird weder der Modus gewechselt noch unscharf geschaltet.
 
 Jeder Zeitplan wird innerhalb derselben Minute höchstens einmal ausgeführt. Der Ausführungsmarker wird persistent gespeichert, sodass wiederholte Timeraufrufe, `ApplyChanges()` oder ein Symcon-Neustart keine zweite Ausführung in derselben Minute verursachen. War Symcon während der vollständigen Zielminute nicht betriebsbereit, wird der verpasste Zeitplan aus Sicherheitsgründen nicht nachträglich ausgeführt. Erfolg und Ablehnung werden als `automatic_arming_succeeded` beziehungsweise `automatic_arming_rejected` mit dem Zeitplannamen im Ereignisprotokoll gespeichert.
 
-### 10. Alarmaktionen
+## 12. Alarmaktionen und Benachrichtigungen
 
 OpenHomeAlarm verwendet für externe Reaktionen ausschließlich **Alarm-Eskalationsaktionen**. Jede Tabellenzeile entspricht einer Aktion. Mehrere Aktionen mit derselben Verzögerung werden gemeinsam fällig und bilden damit eine Eskalationsstufe. Die Verzögerung wird ab dem Beginn des gemeinsamen Alarmausgangs gemessen; jede aktive Aktion wird in der konfigurierten Reihenfolge genau einmal ausgeführt.
 
@@ -430,7 +676,7 @@ Die **Alarmdauer** legt fest, nach wie vielen Sekunden der jeweilige Bereichsaus
 
 Da die Zielauswahl Bestandteil der nativen Symcon-Aktion ist, können einzelne Gerätevariablen, Skripte, Ablaufpläne und andere Symcon-Aktionsziele verwendet werden. Eine fehlerhafte Aktion verhindert weder den Alarmzustand noch das Unscharfschalten.
 
-#### Eskalationsaktionen einrichten
+### Eskalationsaktionen einrichten
 
 1. Öffnen Sie in der Instanzkonfiguration den Abschnitt **Alarmaktionen**.
 2. Wählen Sie unter **Alarm-Eskalationsaktionen** die Schaltfläche **Hinzufügen**. Dadurch wird eine neue Aktionszeile angelegt und deren Bearbeitungsdialog geöffnet.
@@ -447,6 +693,8 @@ Da die Zielauswahl Bestandteil der nativen Symcon-Aktion ist, können einzelne G
 Eine Eskalationsstufe entsteht durch die eingetragene Verzögerung: Alle aktiven Zeilen mit derselben Verzögerung gehören funktional zur gleichen Stufe und werden beim Erreichen dieses Zeitpunkts nacheinander ausgeführt. Beispielsweise können drei Zeilen mit `0` Sekunden gleichzeitig Licht, Innensirene und Außensirene einschalten. Eine weitere Zeile mit `60` Sekunden kann nach einer Minute eine zusätzliche Benachrichtigung auslösen. Für mehrere Aktionen derselben Stufe muss deshalb keine Unterliste geöffnet werden.
 
 Eine vorhandene Zeile kann über das Zahnrad bearbeitet, über **Aktiv** vorübergehend deaktiviert oder über den Papierkorb gelöscht werden. Deaktivieren behält die Konfiguration der Aktion für eine spätere erneute Aktivierung bei. Löschen entfernt die vollständige Aktionszeile. Änderungen an einer bereits laufenden Alarmeskalation sollten vermieden werden; konfigurieren und testen Sie die Aktionen bei unscharfer Anlage.
+
+### Benachrichtigungen
 
 #### Push-Nachricht mit Area und Sensor
 
@@ -506,13 +754,13 @@ werden nicht in Diagnose- oder Ereignisexporten ausgegeben. Die vollständige
 Konfigurationssicherung enthält sie jedoch ebenso wie Unscharfschaltcodes und
 muss deshalb geschützt gespeichert werden.
 
-#### Signalgeber separat stoppen
+### Signalgeber separat stoppen
 
 Nach der erfolgreichen Ausführung einer als **Signalgeber** markierten Eskalationsaktion wechselt die Statusvariable `SignalGeneratorActive` auf **Signalgeber aktiv**. In jeder Area mit aktivem Alarm erscheint dann zusätzlich **Signalgeber stoppen**. Die Schaltfläche führt ausschließlich die Rücksetzaktionen der Signalgeber aus und setzt die Statusvariable wieder auf **Signalgeber inaktiv**. So lässt sich im Symcon-Objektbaum direkt unterscheiden, ob bereits die Aktion nicht gestartet wurde oder lediglich ihre Schaltfläche in einer Area fehlt.
 
 Noch nicht gestartete, verzögerte Signalgeber werden nach dem separaten Stoppen für den aktuellen Alarmzyklus unterdrückt. Bei einer erneuten Alarmauslösung beginnt ein neuer Alarmzyklus und die Signalgeber dürfen wieder starten. Der Alarmausgang, das Alarmgedächtnis sowie andere Eskalationsaktionen wie Licht oder Rollläden bleiben beim separaten Stoppen unverändert aktiv. **Alarmaktionen zurücksetzen** bleibt die bewusste Gesamtaktion und setzt anschließend alle noch nicht zurückgesetzten Eskalationsaktionen zurück.
 
-#### Rücksetzverhalten
+### Rücksetzverhalten
 
 Für jede Eskalationsaktion kann das Rücksetzverhalten unabhängig festgelegt werden:
 
@@ -532,13 +780,16 @@ OpenHomeAlarm errät für Integer-, Float- oder Stringwerte keine Gegenwerte. In
 
 Der Ausführungsstand einschließlich der ausgeführten Aktionen und ihrer gewählten Rücksetzwege wird persistent gespeichert. Nach `ApplyChanges()` oder einem Symcon-Neustart werden bereits ausgeführte Aktionen deshalb nicht wiederholt, während noch ausstehende Aktionen mit ihrem ursprünglichen Fälligkeitszeitpunkt fortgesetzt werden. Eine Rücksetzung des letzten aktiven Alarmausgangs führt die vorgesehenen Rücksetzaktionen in umgekehrter Ausführungsreihenfolge aus und beendet anschließend den laufenden Eskalationsplan. Bestehende Einträge mit der bisherigen Option **Automatisch zurücksetzen** werden kompatibel übernommen: aktiviert entspricht **Boolean automatisch umkehren**, deaktiviert entspricht **Keine Rücksetzung**.
 
-### 11. Alarmgedächtnis
+## 13. Alarmgedächtnis
 
 Beim tatsächlichen Eintritt in den Zustand **Alarm** speichert OpenHomeAlarm den auslösenden Sensor und den Alarmzeitpunkt. Bei einem Sensor mit Eingangsverzögerung wird dabei der Sensor gemerkt, der den Countdown gestartet hat; auch wenn dieser Sensor vor Ablauf der Verzögerung wieder in den Ruhezustand zurückkehrt, bleibt er die Alarmquelle. Ein Sensor ohne eingetragenen Namen wird ersatzweise über seinen aktuellen Symcon-Namen bezeichnet.
 
 Das Alarmgedächtnis bleibt beim Unscharfschalten erhalten. Dadurch ist nach der Rückkehr weiterhin nachvollziehbar, welcher Sensor den letzten Alarm ausgelöst hat. Jeder Bereich besitzt ein eigenes Gedächtnis; die bestehenden Instanzvariablen zeigen zusammengefasst den jüngsten Alarm. `OHA_ClearAlarmMemory($InstanzID)` quittiert das Gedächtnis von `main`. `OHA_ClearAlarmMemoryPartition($InstanzID, $BereichID)` quittiert gezielt einen Bereich. Während dessen Alarmzustand noch aktiv ist, wird die Quittierung abgelehnt.
 
-### 12. Ereignisprotokoll und Diagnose
+Quittieren Sie das Alarmgedächtnis erst, nachdem die Ursache geprüft wurde. Die
+Quittierung beendet keinen aktiven Alarm und schaltet keinen Bereich unscharf.
+
+## 14. Ereignisprotokoll und Diagnose
 
 OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle.
 
@@ -552,13 +803,29 @@ Die Diagnoseansicht führt alle konfigurierten Sensoren und Störungseingänge m
 
 Die Diagnose kann über die Schaltflächen **JSON** und **CSV** oder mit `OHA_ExportDiagnostics()` heruntergeladen werden. JSON enthält den vollständigen Snapshot einschließlich Zusammenfassung und Erstellungszeitpunkt. CSV enthält pro Eingang eine maschinenlesbare Zeile in derselben Reihenfolge wie die Diagnoseansicht. Rohwerte, Unscharfschaltcodes und andere Geheimnisse sind nicht Bestandteil des Diagnoseexports.
 
-### 13. Konfigurationssicherung
+Für eine manuelle Integritätsprüfung kann ein Symcon-Skript folgenden Befehl
+verwenden:
+
+```php
+OHA_CheckSensorIntegrity(12345);
+```
+
+Die Prüfung verändert keine Scharfzustände. Sie liest die konfigurierten
+Quellen neu ein und aktualisiert Bereitschaft, Diagnose und Systemstörung.
+
+## 15. Konfigurationssicherung
 
 `OHA_ExportConfigurationBackup($InstanzID)` exportiert sämtliche registrierten Moduleinstellungen als versioniertes, menschenlesbares JSON. Dazu gehören auch Unscharfschalt- und Benutzercodes. Der Export trägt deshalb die Kennzeichnung `ContainsSecrets: true` und muss vertraulich gespeichert sowie ausschließlich über einen geschützten Übertragungsweg weitergegeben werden. Laufzeitzustände, Timer, Alarmgedächtnis und Ereignishistorie werden nicht gesichert.
 
 `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` stellt eine validierte Sicherung nur wieder her, wenn alle Alarmbereiche vollständig unscharf sind. Format, Sicherungsversion, Modul-ID, Eigenschaftsnamen und Datentypen werden vor jeder Änderung geprüft. Fremde oder beschädigte Sicherungen werden ohne Konfigurationsänderung abgewiesen. Scheitert das Anwenden einer bereits validierten Sicherung, setzt das Modul die vorherige Konfiguration zurück. Fehlt in einer älteren Sicherung eine erst später eingeführte Eigenschaft, behält diese ihren aktuellen Wert.
 
-### 14. Visualisierung
+Die Sicherung enthält keine Laufzeitzustände, Timer, Alarmgedächtnisse oder
+Ereignishistorie. Sie kann jedoch Unscharfschaltcodes, Pushover-Zugangsdaten und
+das IPSView-Zugriffstoken enthalten. Speichern und übertragen Sie die Datei
+daher wie ein Kennwort und veröffentlichen Sie sie nicht in Forum, Issue oder
+Repository.
+
+## 16. Kachel und IPSView
 
 OpenHomeAlarm besitzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Das Dashboard ist zustandsorientiert aufgebaut: **Unscharf**, **Scharf**, **Ein-/Ausgangsverzögerung** und **Alarm** werden als zentraler Hauptzustand dargestellt. Countdown, Alarmgedächtnis, aktive Systemstörungen, temporär überbrückte Sensoren und eine laufende Durchgangsfreigabe erscheinen nur dann als zusätzliche Hinweise, wenn sie tatsächlich relevant sind. Dadurch bleibt die Normalansicht kompakt und die jeweils wichtigste Information steht im Vordergrund. Farben, Oberflächen, Abstände und Fokusdarstellung stammen aus dem gemeinsamen `VisualizationThemeConfigurationHelper`; standardmäßig folgt die Kachel den nativen Symcon-Farben einschließlich Light-/Dark-Umschaltung. Im Konfigurationsabschnitt **Symcon-Kachel** können Text-, Überschriften-, Hintergrund-, Akzent- und Statusfarben optional überschrieben werden. Nur tatsächlich vom Standard abweichende Farben werden fest vorgegeben; alle unveränderten Rollen passen sich weiterhin dem nativen Symcon-Schema an.
 
@@ -582,54 +849,144 @@ Statusquelle bleibt unverändert die öffentliche Bedien-API: `OHA_GetControlSta
 
 Die partitions- und durchgangsfähige Struktur verwendet `ApiVersion` 3. `DefaultPartition` enthält immer `main`; `Partitions` ist nach den Bereichs-IDs indiziert. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
 
-### 15. PHP-Befehlsreferenz
+## 17. PHP-Befehlsreferenz
 
-Folgende für Anwender und Automationen vorgesehene Modulbefehle stehen zur Verfügung. Weitere öffentliche Methoden dienen ausschließlich Symcon-internen Lebenszyklus-, Timer-, Formular- und Visualisierungsaufrufen.
+Die folgenden `OHA_*`-Befehle bilden die unterstützte öffentliche API für
+eigene Skripte und Automationen. Alle Beispiel-Objekt-IDs sind fünfstellig und
+müssen durch die IDs der eigenen Installation ersetzt werden.
+
+### Gemeinsame Parameter
+
+| Parameter | Bedeutung |
+| --- | --- |
+| `$InstanzID` | Objekt-ID der OpenHomeAlarm-Instanz, beispielsweise `12345` |
+| `$BereichID` | Technische Bereichs-ID wie `main` oder `garage`; keine Objekt-ID |
+| `$VariableID` | Objekt-ID der als Sensor konfigurierten Symcon-Variable, beispielsweise `23456` |
+| `$Modus` | `home`, `away` oder `night` |
+| `$Verzögerung` | `null` verwendet die konfigurierte Ausgangsverzögerung, `0` schaltet sofort, ein positiver Wert überschreibt sie einmalig |
+| `$Still` | `null` verwendet die Bereichsvorgabe, `true` schaltet still, `false` normal |
+| `$AktiveSensorenÜberbrücken` | `true` überbrückt nur bereits ausgelöste Sensoren, die dies ausdrücklich erlauben |
+
+Ein `bool`-Befehl liefert `true`, wenn die Aktion angenommen beziehungsweise
+erfolgreich ausgeführt wurde. `false` bedeutet eine sichere Ablehnung, etwa
+wegen eines falschen Zustands, ungültiger Parameter, fehlender Bereitschaft
+oder eines falschen Codes.
+
+### Status, Diagnose und Sicherung
 
 | PHP-Befehl | Rückgabe | Bedeutung |
 | --- | --- | --- |
-| `OHA_GetControlState($InstanzID)` | `string` | Liefert den versionierten, strukturierten Bedienzustand als JSON; `Partitions[$BereichID]` enthält Modus, Zustand und Laufzeitdaten jedes aktiven Bereichs und ist die Statusquelle für eigene Skripte und Visualisierungen |
-| `OHA_GetPartitions($InstanzID)` | `string` | Liefert die konfigurierten Partitionsmetadaten als JSON |
-| `OHA_GetDiagnostics($InstanzID)` | `string` | Liefert einen rein lesenden Diagnose-Snapshot aller konfigurierten Sensoren und Störungseingänge als JSON |
-| `OHA_ExportDiagnostics($InstanzID, $Format)` | `string` | Exportiert den aktuellen Diagnose-Snapshot als `json` oder `csv` |
-| `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert sämtliche Moduleinstellungen als versioniertes JSON; das Ergebnis kann Unscharfschaltcodes und Pushover-Zugangsdaten enthalten und muss vertraulich gespeichert werden |
-| `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her; bei einem Fehler wird die vorherige Konfiguration zurückgespielt |
-| `OHA_TestPushover($InstanzID)` | `bool` | Sendet über die eingetragenen direkten Pushover-Zugangsdaten eine normale Testnachricht ohne Notfall-Wiederholung |
-| `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet einen Alarmbereich scharf; die letzte Option überbrückt nur einzeln freigegebene, bereits ausgelöste Sensoren; `main` schaltet alle Bereiche gemeinsam |
-| `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen aktiven Alarmbereich unscharf; bei `main` werden alle aktiven Bereiche gemeinsam unscharf geschaltet |
-| `OHA_Arm($InstanzID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet alle aktiven Bereiche mit `home`, `away` oder `night` scharf; die letzte Option gilt nur für einzeln freigegebene aktive Sensoren |
-| `OHA_ArmHome($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Komfortbefehl für **Zuhause** für alle aktiven Bereiche |
-| `OHA_ArmAway($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Komfortbefehl für **Abwesend** für alle aktiven Bereiche |
-| `OHA_ArmNight($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Komfortbefehl für **Nacht** für alle aktiven Bereiche |
-| `OHA_BypassSensor($InstanzID, $VariableID)` | `bool` | Überbrückt einen normalen konfigurierten Scharfsensor temporär; nur im Zustand **Unscharf** möglich |
-| `OHA_GrantPassage($InstanzID, $VariableID, $Frist = 60)` | `bool` | Gibt einen dafür zugelassenen Sensor im scharfen Hauptbereich für genau einen Auslöse-/Normalzyklus frei; Frist 1 bis 3600 Sekunden |
-| `OHA_GrantPassagePartition($InstanzID, $BereichID, $VariableID, $Frist = 60)` | `bool` | Gibt einen dafür zugelassenen Sensor ausschließlich im angegebenen scharfen Alarmbereich einmalig frei |
-| `OHA_RemoveSensorBypass($InstanzID, $VariableID)` | `bool` | Entfernt eine einzelne temporäre Sensorüberbrückung; nur im Zustand **Unscharf** möglich |
-| `OHA_BypassSensorPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Überbrückt einen Sensor ausschließlich im angegebenen unscharfen Alarmbereich |
-| `OHA_RemoveSensorBypassPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Entfernt die Überbrückung ausschließlich im angegebenen unscharfen Alarmbereich |
-| `OHA_ClearSensorBypasses($InstanzID)` | `bool` | Entfernt alle temporären Sensorüberbrückungen; nur im Zustand **Unscharf** möglich |
-| `OHA_Disarm($InstanzID)` | `bool` | Schaltet die Anlage als vertrauenswürdige direkte API ohne Code-Prüfung unscharf und setzt den Scharfmodus zurück |
-| `OHA_DisarmWithCode($InstanzID, $Code)` | `bool` | Prüft den optionalen Unscharfschaltcode und schaltet bei Erfolg unscharf |
-| `OHA_StopSignalGenerator($InstanzID)` | `bool` | Führt während eines aktiven Alarms nur die Rücksetzaktionen der als **Signalgeber** markierten Eskalationsaktionen aus |
-| `OHA_ResetAlarmOutput($InstanzID)` | `bool` | Setzt während eines aktiven Alarms nur den Alarmausgang zurück; Alarmzustand und Alarmgedächtnis bleiben erhalten |
-| `OHA_ResetAlarmOutputPartition($InstanzID, $BereichID)` | `bool` | Setzt nur den Ausgang eines alarmierenden Bereichs zurück; andere aktive Bereichsausgänge halten die Gesamtausgabe aktiv |
-| `OHA_ResetFalseAlarm($InstanzID)` | `bool` | Setzt einen Fehlalarm der Gesamtanlage zurück, löscht das Alarmgedächtnis und schaltet nur bei voller Bereitschaft im vorherigen Modus wieder scharf |
-| `OHA_ResetFalseAlarmPartition($InstanzID, $BereichID)` | `bool` | Entspricht `OHA_ResetFalseAlarm()` für einen einzelnen Bereich |
-| `OHA_ClearAlarmMemory($InstanzID)` | `bool` | Quittiert das gespeicherte Alarmgedächtnis; während eines aktiven Alarms wird `false` zurückgegeben |
-| `OHA_ClearAlarmMemoryPartition($InstanzID, $BereichID)` | `bool` | Quittiert das Alarmgedächtnis eines einzelnen Bereichs nach dessen Unscharfschaltung |
-| `OHA_ClearSensorBypassesPartition($InstanzID, $BereichID)` | `bool` | Entfernt alle temporären Sensorüberbrückungen eines unscharfen Bereichs |
-| `OHA_GetEventHistory($InstanzID)` | `string` | Liefert das persistente Sicherheits-Ereignisprotokoll als JSON, neuester Eintrag zuerst |
-| `OHA_ExportEventHistory($InstanzID, $Format, $VonZeitstempel, $BisZeitstempel, $Ereignistyp)` | `string` | Exportiert die Historie als `json` oder `csv`; Zeitstempel `0` und ein leerer Ereignistyp deaktivieren den jeweiligen Filter |
-| `OHA_ClearEventHistory($InstanzID)` | `bool` | Leert das persistente Sicherheits-Ereignisprotokoll |
-| `OHA_CheckSensorIntegrity($InstanzID)` | `void` | Prüft konfigurierte Sensor- und Störungsvariablen sofort auf Verfügbarkeit und aktualisiert Systemstörung sowie Scharfschaltbereitschaft |
+| `OHA_GetControlState($InstanzID)` | `string` | Liefert den versionierten Bedienzustand als JSON. `Partitions[$BereichID]` enthält Modus, Zustand, Bereitschaft, Verzögerungen, Alarm, Überbrückungen und Durchgangsfreigabe jedes aktiven Bereichs. |
+| `OHA_GetPartitions($InstanzID)` | `string` | Liefert die konfigurierten Bereichsmetadaten als JSON. |
+| `OHA_GetDiagnostics($InstanzID)` | `string` | Liefert einen lesenden Diagnose-Snapshot aller Sensoren und Störungseingänge als JSON. |
+| `OHA_ExportDiagnostics($InstanzID, $Format = 'json')` | `string` | Exportiert die Diagnose als `json` oder `csv`; andere Formate werden abgewiesen. |
+| `OHA_GetEventHistory($InstanzID)` | `string` | Liefert das persistente Sicherheits-Ereignisprotokoll als JSON, neuester Eintrag zuerst. |
+| `OHA_ExportEventHistory($InstanzID, $Format = 'json', $VonZeitstempel = 0, $BisZeitstempel = 0, $Ereignistyp = '')` | `string` | Exportiert die gefilterte Historie als `json` oder `csv`. `0` beziehungsweise ein leerer Ereignistyp deaktivieren den Filter. |
+| `OHA_ClearEventHistory($InstanzID)` | `bool` | Leert das vollständige persistente Ereignisprotokoll. |
+| `OHA_CheckSensorIntegrity($InstanzID)` | `void` | Prüft sofort alle konfigurierten Sensor- und Störungsvariablen und aktualisiert Bereitschaft und Systemstörung. |
+| `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert alle Moduleinstellungen als versioniertes JSON. Das Ergebnis kann Codes, Pushover-Zugangsdaten und andere Geheimnisse enthalten. |
+| `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her. Fehler führen zur Rückkehr auf die vorherige Konfiguration. |
+| `OHA_TestPushover($InstanzID)` | `bool` | Sendet über die direkten Pushover-Zugangsdaten eine normale Testnachricht ohne Notfall-Wiederholung. |
 
-Bei den vier Scharfschaltbefehlen muss die Verzögerung im von Symcon erzeugten
-`OHA_*`-Wrapper auch
-dann explizit als `null` übergeben werden, wenn die konfigurierte
-Ausgangsverzögerung gelten soll. Bei den beiden Durchgangsbefehlen kann die
-Frist dagegen entfallen; dann gelten 60 Sekunden. Die Scharfschaltbefehle liefern `false`, wenn
-das System nicht **Unscharf** ist oder mindestens ein für den Zielmodus
-relevanter, nicht überbrückbarer Sensor bzw. eine blockierende Systemstörung die Scharfschaltung
-verhindert. In diesem Fall bleiben `Mode` und `State` unverändert. Für neue
-benutzerseitige Oberflächen ist `OHA_Arm()` die bevorzugte Schnittstelle; die
-drei modusspezifischen Befehle bleiben kompatibel erhalten.
+Beispiel für eine Statusabfrage:
+
+```php
+$state = json_decode(
+    OHA_GetControlState(12345),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+
+$garageState = $state['Partitions']['garage']['State']['Name'] ?? 'disarmed';
+```
+
+### Scharf- und Unscharfschalten
+
+| PHP-Befehl | Rückgabe | Bedeutung |
+| --- | --- | --- |
+| `OHA_Arm($InstanzID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet alle aktiven Bereiche im angegebenen Modus scharf. Bei einem Blocker bleibt die Gesamtanlage unverändert. |
+| `OHA_ArmHome($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Komfortbefehl für **Zuhause**. |
+| `OHA_ArmAway($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Komfortbefehl für **Abwesend**. |
+| `OHA_ArmNight($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Komfortbefehl für **Nacht**. |
+| `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet einen einzelnen Bereich scharf. `main` steht für alle aktiven Bereiche. |
+| `OHA_Disarm($InstanzID)` | `bool` | Schaltet alle Bereiche als vertrauenswürdige Automation ohne Code-Prüfung unscharf. |
+| `OHA_DisarmWithCode($InstanzID, $Code)` | `bool` | Prüft Code und Sperrstatus und schaltet bei Erfolg alle Bereiche unscharf. Für benutzerseitige Oberflächen verwenden. |
+| `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen Bereich als vertrauenswürdige Automation unscharf. `main` schaltet alle Bereiche unscharf. |
+
+Im von Symcon erzeugten `OHA_*`-Wrapper muss `$Verzögerung` bei den
+Scharfschaltbefehlen ausdrücklich übergeben werden. Verwenden Sie `null`, wenn
+die konfigurierte Ausgangsverzögerung gelten soll:
+
+```php
+// Gesamtanlage mit der konfigurierten Verzögerung scharfschalten
+OHA_ArmAway(12345, null);
+
+// Garage sofort und still scharfschalten
+OHA_ArmPartition(12345, 'garage', 'away', 0, true);
+
+// Bereits ausgelöste, dafür freigegebene Sensoren einmalig überbrücken
+OHA_ArmPartition(12345, 'garage', 'night', null, null, true);
+```
+
+Für neue allgemeine Automationen ist `OHA_Arm()` der bevorzugte Einstieg. Die
+drei modusspezifischen Befehle bleiben als Komfort- und
+Kompatibilitätsschnittstellen erhalten.
+
+### Sensorüberbrückung und Durchgang
+
+| PHP-Befehl | Rückgabe | Bedeutung |
+| --- | --- | --- |
+| `OHA_BypassSensor($InstanzID, $VariableID)` | `bool` | Überbrückt einen normalen Sensor im Hauptbereich bis zum Ende des nächsten Scharfschaltzyklus; nur unscharf zulässig. |
+| `OHA_BypassSensorPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Überbrückt einen Sensor nur im angegebenen unscharfen Bereich. |
+| `OHA_RemoveSensorBypass($InstanzID, $VariableID)` | `bool` | Entfernt eine einzelne Überbrückung im Hauptbereich; nur unscharf zulässig. |
+| `OHA_RemoveSensorBypassPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Entfernt eine einzelne Überbrückung im angegebenen unscharfen Bereich. |
+| `OHA_ClearSensorBypasses($InstanzID)` | `bool` | Entfernt alle Überbrückungen, wenn alle Bereiche unscharf sind. |
+| `OHA_ClearSensorBypassesPartition($InstanzID, $BereichID)` | `bool` | Entfernt alle Überbrückungen eines einzelnen unscharfen Bereichs. |
+| `OHA_GrantPassage($InstanzID, $VariableID, $Frist = 60)` | `bool` | Gibt einen dafür zugelassenen Sensor im scharfen Hauptbereich für einen Auslöse-/Normalzyklus frei. |
+| `OHA_GrantPassagePartition($InstanzID, $BereichID, $VariableID, $Frist = 60)` | `bool` | Gibt den Sensor ausschließlich im angegebenen scharfen Bereich frei. |
+
+Manuelle Überbrückung und Durchgangsfreigabe haben unterschiedliche Aufgaben:
+Eine Überbrückung wird unscharf vorbereitet und gilt für den folgenden
+Scharfschaltzyklus. Eine Durchgangsfreigabe wird im scharfen Zustand durch eine
+vertrauenswürdige Automation für genau ein Öffnen und Schließen erteilt.
+
+### Alarm, Signalgeber und Alarmgedächtnis
+
+| PHP-Befehl | Rückgabe | Bedeutung |
+| --- | --- | --- |
+| `OHA_StopSignalGenerator($InstanzID)` | `bool` | Stoppt als vertrauenswürdige Automation nur die als Signalgeber markierten Aktionen. Andere Aktionen, Alarmausgang und Alarmgedächtnis bleiben aktiv. |
+| `OHA_StopSignalGeneratorWithCode($InstanzID, $Code)` | `bool` | Stoppt die Signalgeber erst nach erfolgreicher Code-Prüfung. Für benutzerseitige Oberflächen verwenden. |
+| `OHA_ResetAlarmOutput($InstanzID)` | `bool` | Setzt den Alarmausgang der Gesamtanlage zurück, ohne den Alarmzustand oder das Gedächtnis zu löschen. |
+| `OHA_ResetAlarmOutputPartition($InstanzID, $BereichID)` | `bool` | Setzt nur den Ausgang des angegebenen alarmierenden Bereichs zurück. |
+| `OHA_ResetFalseAlarm($InstanzID)` | `bool` | Behandelt den Alarm von `main` als Fehlalarm, setzt Aktionen und Gedächtnis zurück und schaltet nur bei voller Bereitschaft im vorherigen Modus wieder scharf. |
+| `OHA_ResetFalseAlarmPartition($InstanzID, $BereichID)` | `bool` | Setzt einen Fehlalarm eines einzelnen Bereichs als vertrauenswürdige Automation zurück. |
+| `OHA_ResetFalseAlarmPartitionWithCode($InstanzID, $BereichID, $Code)` | `bool` | Prüft zuerst den Code und setzt danach den Fehlalarm des angegebenen Bereichs zurück. Für benutzerseitige Oberflächen verwenden. |
+| `OHA_ClearAlarmMemory($InstanzID)` | `bool` | Quittiert das Alarmgedächtnis von `main`; während eines aktiven Alarms wird abgelehnt. |
+| `OHA_ClearAlarmMemoryPartition($InstanzID, $BereichID)` | `bool` | Quittiert das Gedächtnis eines einzelnen Bereichs, wenn dieser nicht mehr im Alarmzustand ist. |
+
+Die Varianten ohne `WithCode` sind ausschließlich für vertrauenswürdige
+Automationen gedacht. Eine selbst erstellte Benutzeroberfläche muss für
+codegeschützte Aktionen die jeweilige `WithCode`-Funktion verwenden.
+
+### Symcon-interne öffentliche Methoden
+
+Einige Methoden müssen wegen des Symcon-Modulmodells als `public` deklariert
+sein, gehören aber nicht zur unterstützten Benutzer-API. Sie werden von Symcon,
+Timern, dem Konfigurationsformular oder den Visualisierungen aufgerufen und
+sollten nicht in eigenen Automationen verwendet werden.
+
+Dazu gehören:
+
+- Lebenszyklus und Laufzeit: `Create()`, `Migrate()`, `ApplyChanges()`,
+  `MessageSink()` und `RequestAction()`
+- Darstellung und Formular: `GetConfigurationForm()`, `GetVisualizationTile()`,
+  `GetIPSViewHTML()`, die Methoden `Get*EditForm()`, `Update*Form()` sowie
+  `SetSensorTriggerValue()` und `SetFaultTriggerValue()`
+- interne Timer: `UpdatePartitionRuntime()`, `CheckAutomaticArming()`,
+  `UpdatePassageRuntime()`, `CompleteAlarmDuration()`,
+  `ProcessAlarmEscalation()`, `CompleteExitDelay()`, `CompleteEntryDelay()` und
+  `UpdateDelayStatus()`
+
+Nur die in den vorherigen Tabellen aufgeführten `OHA_*`-Befehle sind für
+eigene Skripte und Automationen als Benutzervertrag vorgesehen.

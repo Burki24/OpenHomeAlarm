@@ -75,8 +75,8 @@ freigegeben wurden, zum Beispiel
 
 Für einen ausdrücklich zugelassenen normalen Sensor kann eine vertrauenswürdige
 Automation einen einmaligen Durchgang freigeben, ohne den Bereich
-unscharfzuschalten: `OHA_GrantPassage(12345, 4711, 90)` für den Hauptbereich
-oder `OHA_GrantPassagePartition(12345, 'garage', 4711, 90)` für einen einzelnen
+unscharfzuschalten: `OHA_GrantPassage(12345, 23456, 90)` für den Hauptbereich
+oder `OHA_GrantPassagePartition(12345, 'garage', 23456, 90)` für einen einzelnen
 Bereich. Die Freigabe endet nach Öffnen und Schließen oder spätestens nach der
 Frist; andere und 24/7-Sensoren bleiben aktiv.
 
