@@ -185,6 +185,7 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | H-16 | Eine Sicherung ohne eine erst in einer neueren Modulversion eingeführte Eigenschaft einspielen | Die fehlende Eigenschaft behält ihren aktuellen Standard- beziehungsweise Konfigurationswert | Offen | |
 | H-17 | Einen mehrwertigen Integer-Sensor auf „Abweichung vom Normalwert“ konfigurieren und als normalen sowie als 24/7-Sensor prüfen | Der Normalwert ist bereit; jeder andere gültige Wert blockiert die Scharfschaltung beziehungsweise löst im überwachten Zustand Alarm aus; fehlende oder nicht auswertbare Werte bleiben sicherheitsgerichtet gestört | Offen | |
 | H-18 | Einen ausgelösten Türsensor als Ausgangsweg für Zuhause, Abwesend und Nacht konfigurieren und die drei Scharfmodi nacheinander anfordern | Zuhause und Nacht werden sofort mit sichtbarem Blocker abgewiesen; nur Abwesend darf die Ausgangsverzögerung starten und wird bei weiterhin ausgelöstem Kontakt am Countdown-Ende abgebrochen | Offen | |
+| H-19 | Zwei Störungen gleichzeitig aktivieren, anschließend zuerst eine und danach die letzte Störung beheben | Jede neue Störung wird einzeln gemeldet; die Aktion nach Behebung aller Störungen bleibt beim ersten Teilübergang aus und läuft erst nach Behebung der letzten Störung genau einmal | Offen | |
 
 ## Automatisierte Vorprüfung
 

@@ -5455,7 +5455,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->WriteUnavailableSensorVariableIDs($currentUnavailableIDs);
-        $this->UpdateSystemFaultStatus($this->ReadConfiguredFaultInputs(), $sensors);
+        $allFaultsCleared = $this->UpdateSystemFaultStatus($this->ReadConfiguredFaultInputs(), $sensors);
 
         foreach ($transitions['NewUnavailableIDs'] as $variableID) {
             $sourceName = $this->FormatUnavailableSensorName($variableID, $sensors);
@@ -5470,6 +5470,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 self::EVENT_FAULT_CLEARED,
                 $this->FormatUnavailableSensorName($variableID, $sensors)
             );
+        }
+
+        if ($allFaultsCleared) {
             $this->RunConfiguredAction(self::PROPERTY_FAULT_CLEARED_ACTION);
         }
     }
@@ -5478,8 +5481,9 @@ class OpenHomeAlarm extends IPSModuleStrict
      * @param list<array<string,mixed>> $faultInputs
      * @param list<array<string,mixed>> $sensors
      */
-    private function UpdateSystemFaultStatus(array $faultInputs, array $sensors): void
+    private function UpdateSystemFaultStatus(array $faultInputs, array $sensors): bool
     {
+        $wasActive = $this->GetValue(self::IDENT_SYSTEM_FAULT) === true;
         $activeFaultIDs = $this->ReadActiveFaultVariableIDs();
         $unavailableSensorIDs = $this->ReadUnavailableSensorVariableIDs();
         $activeNames = [];
@@ -5491,9 +5495,12 @@ class OpenHomeAlarm extends IPSModuleStrict
             $activeNames[] = $this->FormatUnavailableSensorName($variableID, $sensors);
         }
 
-        $this->SetSystemFault($activeFaultIDs !== [] || $unavailableSensorIDs !== []);
+        $isActive = $activeFaultIDs !== [] || $unavailableSensorIDs !== [];
+        $this->SetSystemFault($isActive);
         $this->SetActiveFaults(implode(', ', array_values(array_unique($activeNames))));
         $this->SetBlockingFaults(implode(', ', $this->ResolveBlockingFaultNames($faultInputs)));
+
+        return $wasActive && !$isActive;
     }
 
     /**
@@ -5540,7 +5547,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
 
         $this->WriteActiveFaultVariableIDs($transitions['ActiveIDs']);
-        $this->UpdateSystemFaultStatus($faultInputs, $this->ReadConfiguredSensors());
+        $allFaultsCleared = $this->UpdateSystemFaultStatus($faultInputs, $this->ReadConfiguredSensors());
 
         foreach ($transitions['NewlyActiveInputs'] as [$faultInput, $triggerState]) {
             $sourceName = $this->ResolveFaultDisplayName($faultInput);
@@ -5576,6 +5583,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         foreach ($transitions['ClearedIDs'] as $variableID) {
             $sourceName = $this->ResolveFaultNameByVariableID($variableID, $faultInputs);
             $this->AppendEvent(self::EVENT_FAULT_CLEARED, $sourceName);
+        }
+
+        if ($allFaultsCleared) {
             $this->RunConfiguredAction(self::PROPERTY_FAULT_CLEARED_ACTION);
         }
     }

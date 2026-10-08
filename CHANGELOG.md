@@ -44,6 +44,10 @@ beispielsweise `v1.109.0`.
 
 ### Fixed
 
+- Die konfigurierte Entstörungsaktion wird bei mehreren gleichzeitigen
+  Störungen erst ausgeführt, nachdem die letzte Störung behoben wurde. Einzelne
+  Behebungen bleiben im Ereignisprotokoll sichtbar, lösen aber keine vorzeitige
+  Entwarnung mehr aus.
 - Das Ziel nativer Symcon-Push-Nachrichten wird als Kachel-Visualisierung direkt
   aus dem Instanzbaum gewählt, statt eine fehleranfällige numerische ID zu
   verlangen.

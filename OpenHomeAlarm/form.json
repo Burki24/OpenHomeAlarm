@@ -829,7 +829,7 @@
                 {
                     "type": "List",
                     "name": "FaultClearedAction",
-                    "caption": "Actions on fault cleared",
+                    "caption": "Actions after all faults are cleared",
                     "rowCount": 2,
                     "add": true,
                     "delete": true,
@@ -859,7 +859,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Optional: Add an action that runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action."
+                    "caption": "Optional: Add an action that runs once after the last active fault has been cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action."
                 },
                 {
                     "type": "List",

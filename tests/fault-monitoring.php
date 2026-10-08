@@ -442,6 +442,65 @@ assertFaultMonitoring(
     'The configured fault-cleared action must be preserved.'
 );
 
+// Clearing one of several active faults must not signal an all-clear prematurely.
+$testValues[9002] = 'OK';
+$testValues[9003] = false;
+$multipleFaults = new OpenHomeAlarm();
+$multipleFaults->Create();
+$multipleFaults->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$multipleFaults->TestSetPropertyString('FaultAction', $faultAction);
+$multipleFaults->TestSetPropertyString('FaultClearedAction', $faultClearedAction);
+$multipleFaults->TestSetPropertyString(
+    'FaultInputs',
+    json_encode([
+        faultInput(9002, 'Funkverbindung', 2, 'FAULT', false, false),
+        faultInput(9003, 'Batterie Fenster', 1, 'true', false, false)
+    ], JSON_THROW_ON_ERROR)
+);
+$multipleFaults->ApplyChanges();
+$testActions = [];
+
+$testValues[9002] = 'FAULT';
+$multipleFaults->MessageSink(10, 9002, VM_UPDATE, ['FAULT', true, false]);
+$testValues[9003] = true;
+$multipleFaults->MessageSink(11, 9003, VM_UPDATE, [true, true, false]);
+assertFaultMonitoring(count($testActions) === 2, 'Every newly active fault must still run the configured fault action.');
+
+$testValues[9002] = 'OK';
+$multipleFaults->TestClearWrittenValues();
+$multipleFaults->MessageSink(12, 9002, VM_UPDATE, ['OK', true, true]);
+$multipleWritten = $multipleFaults->TestWrittenValues();
+assertFaultMonitoring(
+    ($multipleWritten['SystemFault'] ?? null) === true
+    && ($multipleWritten['ActiveFaults'] ?? null) === 'Batterie Fenster',
+    'Clearing one of several active faults must keep the aggregate system fault active.'
+);
+assertFaultMonitoring(
+    count($testActions) === 2,
+    'Clearing one of several active faults must not run the configured all-clear action.'
+);
+
+$multipleFaults->ApplyChanges();
+assertFaultMonitoring(
+    count($testActions) === 2,
+    'ApplyChanges with a remaining active fault must not run the configured all-clear action.'
+);
+
+$testValues[9003] = false;
+$multipleFaults->TestClearWrittenValues();
+$multipleFaults->MessageSink(13, 9003, VM_UPDATE, [false, true, true]);
+$multipleWritten = $multipleFaults->TestWrittenValues();
+assertFaultMonitoring(
+    ($multipleWritten['SystemFault'] ?? null) === false
+    && ($multipleWritten['ActiveFaults'] ?? null) === '',
+    'Clearing the last active fault must clear the aggregate system fault.'
+);
+assertFaultMonitoring(
+    count($testActions) === 3
+    && $testActions[2]['actionID'] === '{BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB}',
+    'Clearing the last active fault must run the configured all-clear action exactly once.'
+);
+
 // A tamper input configured for alarm is 24/7 and alarms even while disarmed.
 $testValues[9001] = true;
 $instance->TestClearWrittenValues();

@@ -1534,11 +1534,11 @@ foreach ([
     'Countdown output',
     'Countdown actions',
     'Actions on new fault',
-    'Actions on fault cleared',
+    'Actions after all faults are cleared',
     'Configured action',
     'Optional: Add an action for output on every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. An empty list runs no action. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API.',
     'Optional: Add an action that runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. An empty list runs no action.',
-    'Optional: Add an action that runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action.'
+    'Optional: Add an action that runs once after the last active fault has been cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action.'
 ] as $translationKey) {
     assertAlarmAction(isset($translations[$translationKey]), 'Missing German translation for ' . $translationKey . '.');
 }

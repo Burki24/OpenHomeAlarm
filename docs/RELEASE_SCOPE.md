@@ -27,7 +27,7 @@ Der Release umfasst verbindlich:
 5. modusabhängige Bereitschaft, Blockierlisten und sicherheitsgerichtete Behandlung nicht verfügbarer Sensoren,
 6. temporäre Sensorüberbrückungen für genau einen Scharfschaltzyklus,
 7. Manipulations- und technische Störungseingänge mit konfigurierbarer Blockade oder Alarmauslösung,
-8. konfigurierbare Symcon-Aktionen für Alarm, Alarmrücksetzung, Unscharfschaltung nach Alarm sowie Auftreten und Behebung einer Störung,
+8. konfigurierbare Symcon-Aktionen für Alarm, Alarmrücksetzung, Unscharfschaltung nach Alarm sowie das Auftreten einzelner Störungen und die Behebung aller Störungen,
 9. manuelle und zeitgesteuerte Rücksetzung des Alarmausgangs,
 10. optionalen Unscharfschaltcode mit Fehlversuchszähler und wiederanlaufsicherer Sperrzeit,
 11. Alarmgedächtnis und begrenzte persistente Sicherheits-Ereignishistorie,
