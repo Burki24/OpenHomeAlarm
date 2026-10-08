@@ -10,6 +10,10 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Gleichnamige Sensoren und Störungseingänge bleiben in Blockierungs-, Störungs-
+  und Überbrückungslisten intern anhand ihrer Variablen-IDs getrennt. Sichtbar
+  bleiben konfigurierte oder aktuelle Symcon-Namen ohne ID-Zusatz.
+
 - Sensoren können weiterhin auf einen einzelnen Auslösewert oder neu auf jede
   Abweichung von einem festgelegten Normalwert reagieren. Dadurch lassen sich
   mehrwertige Zustandsvariablen etwa von Fenstergriffen, Türschlössern oder

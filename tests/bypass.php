@@ -355,6 +355,20 @@ assertBypass(
     'Multiple bypasses must be published in deterministic sensor order.'
 );
 
+$sameNames = new OpenHomeAlarm();
+$sameNames->Create();
+$sameNames->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Fenster', armHome: true),
+    bypassSensor(7003, 'Fenster', armAway: true)
+], JSON_THROW_ON_ERROR));
+$sameNames->ApplyChanges();
+assertBypass($sameNames->BypassSensor(7001), 'The first equally named sensor must be bypassable by ID.');
+assertBypass($sameNames->BypassSensor(7003), 'The second equally named sensor must be bypassable by ID.');
+assertBypass(
+    $sameNames->TestValue('BypassedSensors') === 'Fenster (main), Fenster (main)',
+    'Equal sensor names must not hide different bypassed sources or expose IDs.'
+);
+
 assertBypass($instance->BypassSensor(7002) === false, 'A 24/7 sensor must never be bypassable.');
 assertBypass($instance->ArmHome() === true, 'Home arming must succeed with its blocker bypassed.');
 assertBypass($instance->TestValue('State') === 2, 'The system must enter Armed after successful bypass-assisted arming.');

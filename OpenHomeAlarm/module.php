@@ -1258,7 +1258,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 if ($state['State'] === self::STATE_ENTRY_DELAY && $advanced['State'] === self::STATE_ALARM) {
                     $newAlarms[$partitionID] = $state['DelaySource'] !== ''
                         ? $state['DelaySource']
-                        : ($state['PendingSourceID'] > 0 ? sprintf($this->Translate('Variable #%d'), $state['PendingSourceID']) : '');
+                        : ($state['PendingSourceID'] > 0 ? $this->ResolveVariableDisplayName($state['PendingSourceID']) : '');
                 }
                 $states[$partitionID] = $advanced;
             }
@@ -5320,7 +5320,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             return $faultInput['Name'];
         }
 
-        return sprintf($this->Translate('Variable #%d'), $faultInput['VariableID']);
+        return $this->ResolveVariableDisplayName($faultInput['VariableID']);
     }
 
     /**
@@ -5342,7 +5342,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
 
-        return sprintf($this->Translate('Variable #%d'), $variableID);
+        return $this->ResolveVariableDisplayName($variableID);
     }
 
     /**
@@ -5489,15 +5489,21 @@ class OpenHomeAlarm extends IPSModuleStrict
         $activeNames = [];
 
         foreach ($activeFaultIDs as $variableID) {
-            $activeNames[] = $this->ResolveFaultNameByVariableID($variableID, $faultInputs);
+            $activeNames[] = [
+                'VariableID' => $variableID,
+                'Name'       => $this->ResolveFaultNameByVariableID($variableID, $faultInputs)
+            ];
         }
         foreach ($unavailableSensorIDs as $variableID) {
-            $activeNames[] = $this->FormatUnavailableSensorName($variableID, $sensors);
+            $activeNames[] = [
+                'VariableID' => $variableID,
+                'Name'       => $this->FormatUnavailableSensorName($variableID, $sensors)
+            ];
         }
 
         $isActive = $activeFaultIDs !== [] || $unavailableSensorIDs !== [];
         $this->SetSystemFault($isActive);
-        $this->SetActiveFaults(implode(', ', array_values(array_unique($activeNames))));
+        $this->SetActiveFaults(implode(', ', $this->DistinctVariableLabels($activeNames)));
         $this->SetBlockingFaults(implode(', ', $this->ResolveBlockingFaultNames($faultInputs)));
 
         return $wasActive && !$isActive;
@@ -5619,10 +5625,35 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
-            $blockingFaults[] = $this->ResolveFaultDisplayName($faultInput);
+            $blockingFaults[] = [
+                'VariableID' => $faultInput['VariableID'],
+                'Name'       => $this->ResolveFaultDisplayName($faultInput)
+            ];
         }
 
-        return array_values(array_unique($blockingFaults));
+        return $this->DistinctVariableLabels($blockingFaults);
+    }
+
+    /**
+     * Keeps equal display names separate when they refer to different Symcon variables.
+     *
+     * @param list<array{VariableID:int,Name:string}> $sources
+     * @return list<string>
+     */
+    private function DistinctVariableLabels(array $sources): array
+    {
+        $labels = [];
+        $seen = [];
+        foreach ($sources as $source) {
+            $key = $source['VariableID'] . "\0" . $source['Name'];
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $labels[] = $source['Name'];
+        }
+
+        return $labels;
     }
 
     /**
@@ -5768,15 +5799,18 @@ class OpenHomeAlarm extends IPSModuleStrict
                 continue;
             }
 
-            $sensorName = $this->ResolveSensorDisplayName($sensor);
+            $sensorLabel = [
+                'VariableID' => $variableID,
+                'Name'       => $this->ResolveSensorDisplayName($sensor)
+            ];
             if ($sensor['AlwaysActive']) {
                 $readiness['global'] = false;
                 $readiness['home'] = false;
                 $readiness['away'] = false;
                 $readiness['night'] = false;
-                $blockingHome[] = $sensorName;
-                $blockingAway[] = $sensorName;
-                $blockingNight[] = $sensorName;
+                $blockingHome[] = $sensorLabel;
+                $blockingAway[] = $sensorLabel;
+                $blockingNight[] = $sensorLabel;
 
                 continue;
             }
@@ -5806,23 +5840,23 @@ class OpenHomeAlarm extends IPSModuleStrict
             $readiness['global'] = false;
             if ($blocksHome) {
                 $readiness['home'] = false;
-                $blockingHome[] = $sensorName;
+                $blockingHome[] = $sensorLabel;
             }
             if ($blocksAway) {
                 $readiness['away'] = false;
-                $blockingAway[] = $sensorName;
+                $blockingAway[] = $sensorLabel;
             }
             if ($blocksNight) {
                 $readiness['night'] = false;
-                $blockingNight[] = $sensorName;
+                $blockingNight[] = $sensorLabel;
             }
         }
 
         return [
             'readiness'     => $readiness,
-            'blockingHome'  => array_values(array_unique($blockingHome)),
-            'blockingAway'  => array_values(array_unique($blockingAway)),
-            'blockingNight' => array_values(array_unique($blockingNight))
+            'blockingHome'  => $this->DistinctVariableLabels($blockingHome),
+            'blockingAway'  => $this->DistinctVariableLabels($blockingAway),
+            'blockingNight' => $this->DistinctVariableLabels($blockingNight)
         ];
     }
 
@@ -5861,7 +5895,25 @@ class OpenHomeAlarm extends IPSModuleStrict
             return $sensor['Name'];
         }
 
-        return sprintf($this->Translate('Variable #%d'), $sensor['VariableID']);
+        return $this->ResolveVariableDisplayName($sensor['VariableID']);
+    }
+
+    private function ResolveVariableDisplayName(int $variableID): string
+    {
+        if ($variableID > 0 && IPS_VariableExists($variableID)
+            && function_exists('IPS_ObjectExists') && IPS_ObjectExists($variableID)
+        ) {
+            try {
+                $name = trim(IPS_GetName($variableID));
+                if ($name !== '') {
+                    return $name;
+                }
+            } catch (Throwable) {
+                // A deleted or temporarily unavailable object has no reliable display name.
+            }
+        }
+
+        return $this->Translate('Unknown source');
     }
 
     /**
@@ -5887,7 +5939,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
 
-        return sprintf($this->Translate('Variable #%d'), $variableID);
+        return $this->ResolveVariableDisplayName($variableID);
     }
 
     /**
@@ -6656,16 +6708,22 @@ class OpenHomeAlarm extends IPSModuleStrict
                     continue;
                 }
 
-                $names[] = $this->ResolveSensorDisplayName($sensor) . ' (' . $partitionID . ')';
+                $names[] = [
+                    'VariableID' => $variableID,
+                    'Name'       => $this->ResolveSensorDisplayName($sensor) . ' (' . $partitionID . ')'
+                ];
                 $matched = true;
             }
 
             if (!$matched) {
-                $names[] = sprintf($this->Translate('Variable #%d'), $variableID) . ' (' . $partitionID . ')';
+                $names[] = [
+                    'VariableID' => $variableID,
+                    'Name'       => $this->ResolveVariableDisplayName($variableID) . ' (' . $partitionID . ')'
+                ];
             }
         }
 
-        $this->SetBypassedSensors(implode(', ', array_values(array_unique($names))));
+        $this->SetBypassedSensors(implode(', ', $this->DistinctVariableLabels($names)));
     }
 
     private function ClearSensorBypassesInternal(): void
@@ -7183,7 +7241,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $fallbackVariableID = $sourceSensor['VariableID'];
         }
         if ($sourceName === '' && $fallbackVariableID > 0) {
-            $sourceName = sprintf($this->Translate('Variable #%d'), $fallbackVariableID);
+            $sourceName = $this->ResolveVariableDisplayName($fallbackVariableID);
         }
         if ($sourceName === '') {
             $sourceName = $this->Translate('Unknown trigger');
@@ -7916,7 +7974,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->SetDelaySource(
                 $sourceSensor !== null
                     ? $this->ResolveSensorDisplayName($sourceSensor)
-                    : ($pendingSourceID > 0 ? sprintf($this->Translate('Variable #%d'), $pendingSourceID) : '')
+                    : ($pendingSourceID > 0 ? $this->ResolveVariableDisplayName($pendingSourceID) : '')
             );
             $this->RestoreDelayTimer(
                 self::TIMER_ENTRY_DELAY,

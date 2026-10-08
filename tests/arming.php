@@ -512,6 +512,32 @@ assertArming(
     'A transition away from the configured normal value must alarm while armed.'
 );
 
+$sameNames = new OpenHomeAlarm();
+$sameNames->Create();
+$sameNames->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$sameNameSensors = [
+    armingSensor(2001, 'true', armAway: true),
+    armingSensor(2002, 'true', armAway: true)
+];
+$sameNameSensors[0]['Name'] = 'Fenster';
+$sameNameSensors[1]['Name'] = 'Fenster';
+$sameNames->TestSetPropertyString('Sensors', json_encode($sameNameSensors, JSON_THROW_ON_ERROR));
+$testValues[2001] = true;
+$testValues[2002] = true;
+assertArming($sameNames->ArmAway() === false, 'Both equally named sensor IDs must block arming.');
+assertArming(
+    ($sameNames->TestWrittenValues()['BlockingAwaySensors'] ?? null) === 'Fenster, Fenster',
+    'Equal sensor names must remain separate without exposing internal IDs.'
+);
+$sameNameSensors[0]['Name'] = 'Terrassenfenster';
+$sameNames->TestSetPropertyString('Sensors', json_encode($sameNameSensors, JSON_THROW_ON_ERROR));
+$sameNames->TestClearWrittenValues();
+assertArming($sameNames->ArmAway() === false, 'Renaming a sensor must not change its source ID.');
+assertArming(
+    ($sameNames->TestWrittenValues()['BlockingAwaySensors'] ?? null) === 'Terrassenfenster, Fenster',
+    'Renaming one sensor must only change its label, not its source assignment.'
+);
+
 $moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
 $rootReadme = (string) file_get_contents(dirname(__DIR__) . '/README.md');
 assertArming(

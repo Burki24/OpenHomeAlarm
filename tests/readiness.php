@@ -327,8 +327,8 @@ $unnamedMissingSensor = readinessSensor(9999, armAway: true);
 $unnamedMissingSensor['Name'] = '';
 $updateReadiness->invoke($instance, [$unnamedMissingSensor]);
 assertReadiness(
-    $instance->TestValue('BlockingAwaySensors') === 'Variable #9999',
-    'Unnamed blockers must fall back to their Symcon variable ID.'
+    $instance->TestValue('BlockingAwaySensors') === 'Unknown source',
+    'Missing unnamed blockers must not expose internal IDs.'
 );
 assertReadiness(
     $instance->TestValue('BlockingHomeSensors') === ''

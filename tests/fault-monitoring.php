@@ -532,6 +532,29 @@ assertFaultMonitoring(($missingWritten['SystemFault'] ?? null) === true, 'A miss
 assertFaultMonitoring(($missingWritten['BlockingFaults'] ?? null) === 'Gateway nicht erreichbar', 'A missing blocking fault input must block arming.');
 assertFaultMonitoring(!array_key_exists('State', $missingWritten), 'An unreadable fault input must not trigger the main alarm by itself.');
 
+// Different source IDs with the same name must stay visible as separate faults.
+$sameNames = new OpenHomeAlarm();
+$sameNames->Create();
+$sameNames->TestSetPropertyString(
+    'FaultInputs',
+    json_encode([
+        faultInput(9002, 'Funkverbindung', 2, 'FAULT', true, false),
+        faultInput(9003, 'Funkverbindung', 1, 'true', true, false)
+    ], JSON_THROW_ON_ERROR)
+);
+$testValues[9002] = 'FAULT';
+$testValues[9003] = true;
+$sameNames->ApplyChanges();
+$sameNamesWritten = $sameNames->TestWrittenValues();
+assertFaultMonitoring(
+    ($sameNamesWritten['ActiveFaults'] ?? null) === 'Funkverbindung, Funkverbindung',
+    'Different fault variable IDs with the same label must remain separate without visible IDs.'
+);
+assertFaultMonitoring(
+    ($sameNamesWritten['BlockingFaults'] ?? null) === 'Funkverbindung, Funkverbindung',
+    'Different blocking fault IDs with the same label must not collapse into one entry.'
+);
+
 // Duplicate positive variable IDs are rejected to keep transition tracking unambiguous.
 $duplicate = new OpenHomeAlarm();
 $duplicate->Create();
