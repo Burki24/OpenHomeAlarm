@@ -29,6 +29,7 @@ final class AlarmConfigurationNormalizer
      *     ArmNight: bool,
      *     AlwaysActive: bool,
      *     AllowAutomaticBypass: bool,
+     *     AllowPassage: bool,
      *     ExitDelay: bool,
      *     EntryDelay: bool,
      *     RetriggerAlarm: bool
@@ -96,6 +97,7 @@ final class AlarmConfigurationNormalizer
 
             $alwaysActive = self::booleanField($sensor, 'AlwaysActive', false, 'Sensor');
             $allowAutomaticBypass = self::booleanField($sensor, 'AllowAutomaticBypass', false, 'Sensor');
+            $allowPassage = self::booleanField($sensor, 'AllowPassage', false, 'Sensor');
             $armHome = self::booleanField($sensor, 'ArmHome', false, 'Sensor');
             $armAway = self::booleanField($sensor, 'ArmAway', true, 'Sensor');
             $armNight = self::booleanField($sensor, 'ArmNight', false, 'Sensor');
@@ -115,6 +117,7 @@ final class AlarmConfigurationNormalizer
                 'ArmNight'             => !$alwaysActive && $armNight,
                 'AlwaysActive'         => $alwaysActive,
                 'AllowAutomaticBypass' => !$alwaysActive && $allowAutomaticBypass,
+                'AllowPassage'         => !$alwaysActive && $allowPassage,
                 'ExitDelay'            => !$alwaysActive && $exitDelay,
                 'EntryDelay'           => !$alwaysActive && $entryDelay,
                 'RetriggerAlarm'       => self::booleanField($sensor, 'RetriggerAlarm', false, 'Sensor')

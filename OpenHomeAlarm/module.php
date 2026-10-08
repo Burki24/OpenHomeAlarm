@@ -70,7 +70,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     use \Burki24\SymconModuleHelper\VisualizationAssetHelper;
     use \Burki24\SymconModuleHelper\VisualizationThemeConfigurationHelper;
 
-    private const CONTROL_API_VERSION = 2;
+    private const CONTROL_API_VERSION = 3;
     private const STATUS_ACTIVE = 102;
     private const STATUS_INVALID_PARTITIONS = 201;
     private const STATUS_INVALID_CONFIGURATION = 202;
@@ -121,6 +121,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_SENSOR_AUTO_BYPASS_RESTORED = 'sensor_auto_bypass_restored';
     private const EVENT_SENSOR_BYPASS_REMOVED = 'sensor_bypass_removed';
     private const EVENT_SENSOR_BYPASSES_CLEARED = 'sensor_bypasses_cleared';
+    private const EVENT_PASSAGE_GRANTED = 'passage_granted';
+    private const EVENT_PASSAGE_STARTED = 'passage_started';
+    private const EVENT_PASSAGE_COMPLETED = 'passage_completed';
+    private const EVENT_PASSAGE_EXPIRED = 'passage_expired';
     private const EVENT_ALARM_MEMORY_CLEARED = 'alarm_memory_cleared';
     private const EVENT_FAULT_ACTIVATED = 'fault_activated';
     private const EVENT_FAULT_CLEARED = 'fault_cleared';
@@ -132,6 +136,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const DEFAULT_DISARM_LOCKOUT_SECONDS = 60;
     private const MAX_DISARM_ATTEMPTS = 20;
     private const MAX_DISARM_LOCKOUT_SECONDS = 3600;
+    private const MAX_PASSAGE_TIMEOUT_SECONDS = 3600;
+    private const PASSAGE_PHASE_WAITING = 'waiting';
+    private const PASSAGE_PHASE_TRIGGERED = 'triggered';
 
     private const VALID_SENSOR_TYPES = [
         self::SENSOR_TYPE_OPENING,
@@ -259,6 +266,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT = 'PushoverEmergencyReceipt';
     private const ATTRIBUTE_PARTITION_RUNTIME = 'PartitionRuntime';
     private const ATTRIBUTE_PARTITION_ALARMS = 'PartitionAlarms';
+    private const ATTRIBUTE_PASSAGE_RUNTIME = 'PassageRuntime';
     private const ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION = 'AppliedSecurityConfiguration';
 
     private const SECURITY_CONFIGURATION_SNAPSHOT_PREFIX = 'v2:';
@@ -275,6 +283,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const TIMER_AUTOMATIC_ARMING = 'AutomaticArming';
     private const TIMER_ALARM_ESCALATION = 'AlarmEscalation';
     private const TIMER_PARTITION_RUNTIME = 'PartitionRuntime';
+    private const TIMER_PASSAGE_RUNTIME = 'PassageRuntime';
     private const IDENT_MODE = 'Mode';
     private const IDENT_STATE = 'State';
     private const IDENT_DELAY_REMAINING = 'DelayRemaining';
@@ -369,6 +378,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
         $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
+        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PASSAGE_RUNTIME);
         $this->RegisterAttributeString(self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION, '');
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_1, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_2, 0);
@@ -419,6 +429,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::TIMER_PARTITION_RUNTIME,
             0,
             'OHA_UpdatePartitionRuntime($_IPS[\'TARGET\']);'
+        );
+        $this->RegisterTimer(
+            self::TIMER_PASSAGE_RUNTIME,
+            0,
+            'OHA_UpdatePassageRuntime($_IPS[\'TARGET\']);'
         );
 
         $modeCreated = $this->RegisterVariableInteger(
@@ -986,6 +1001,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'LockoutRemaining'   => $codeProtection['LockoutRemaining']
             ],
             'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors),
+            'Passage'         => $this->BuildControlPassageState($defaultPartition['ID'], $sensors),
             'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, 6)
         ];
         $partitionPayload = [];
@@ -1049,6 +1065,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $current['Faults']['Active'] = $current['Faults']['Items'] !== [];
             $current['Faults']['Blocking'] = $this->BuildControlFaultDetails($partitionFaults, true);
             $current['BypassedSensors'] = $this->BuildControlBypassedSensorDetails($partitionSensors);
+            $current['Passage'] = $this->BuildControlPassageState($partition['ID'], $partitionSensors);
             $current['RecentEvents'] = array_slice(array_values(array_filter(
                 $this->ReadEventHistory(),
                 static fn (array $event): bool => $event['PartitionID'] === $partition['ID']
@@ -1351,6 +1368,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->EvaluateSensorAvailability($sensors);
                 $this->EvaluateFaultInputs($faultInputs);
                 $this->RefreshAutomaticSensorBypasses($sensors);
+                $this->NormalizePassageRuntime($sensors);
                 $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
                 $this->PublishVisualizationState();
             }
@@ -1364,6 +1382,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($isSensorVariable) {
             $this->EvaluateSensorAvailability($sensors);
             $this->RefreshAutomaticSensorBypasses($sensors);
+            $this->ProcessExpiredPassageGrants($sensors);
+            $this->ProcessPassageSensorUpdate($SenderID, $sensors);
         }
         $this->UpdateReadinessFromSensors(
             $this->SensorsForPartition($sensors, $this->DefaultPartitionID())
@@ -1483,6 +1503,108 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $this->DisarmInternal($userName);
+    }
+
+    /**
+     * Temporarily releases one explicitly approved sensor in the main area for
+     * exactly one trigger-and-restore cycle while the area remains armed.
+     */
+    public function GrantPassage(int $variableID, int $timeoutSeconds = 60): bool
+    {
+        return $this->GrantPassagePartition($this->DefaultPartitionID(), $variableID, $timeoutSeconds);
+    }
+
+    /** Temporarily releases one explicitly approved sensor in one alarm partition. */
+    public function GrantPassagePartition(
+        string $partitionID,
+        int $variableID,
+        int $timeoutSeconds = 60
+    ): bool {
+        if ($variableID <= 0 || $timeoutSeconds < 1 || $timeoutSeconds > self::MAX_PASSAGE_TIMEOUT_SECONDS) {
+            return false;
+        }
+        try {
+            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+        } catch (UnexpectedValueException) {
+            return false;
+        }
+
+        $sensors = $this->ReadConfiguredSensors();
+        $this->ProcessExpiredPassageGrants($sensors);
+        $runtime = $this->ReadPartitionRuntime();
+        $partitionState = $runtime[$partitionID];
+        if (!in_array($partitionState['State'], [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)
+            || !AlarmStateMachine::isArmingMode($partitionState['Mode'])) {
+            return false;
+        }
+
+        $passages = $this->ReadPassageRuntime();
+        if (array_key_exists($partitionID, $passages)) {
+            return false;
+        }
+
+        $sensor = $this->FindPassageSensorInList(
+            $sensors,
+            $partitionID,
+            $variableID,
+            $partitionState['Mode']
+        );
+        if ($sensor === null) {
+            return false;
+        }
+        $triggered = $this->GetSensorTriggerState($sensor);
+        if ($triggered === null) {
+            return false;
+        }
+        if ($partitionState['State'] === self::STATE_ENTRY_DELAY
+            && $partitionState['PendingSourceID'] !== $variableID) {
+            return false;
+        }
+
+        $acknowledgesEntryDelay = $partitionState['State'] === self::STATE_ENTRY_DELAY;
+        if ($acknowledgesEntryDelay) {
+            $this->CancelPartitionEntryDelayForPassage($partitionID, $runtime);
+        }
+        $phase = $triggered || $acknowledgesEntryDelay
+            ? self::PASSAGE_PHASE_TRIGGERED
+            : self::PASSAGE_PHASE_WAITING;
+        $passages[$partitionID] = [
+            'VariableID' => $variableID,
+            'Phase'      => $phase,
+            'Deadline'   => time() + $timeoutSeconds
+        ];
+        $this->WritePassageRuntime($passages);
+        $this->SchedulePassageRuntimeTimer($passages);
+        $source = $this->ResolveSensorDisplayName($sensor);
+        $this->AppendEvent(
+            self::EVENT_PASSAGE_GRANTED,
+            $source,
+            $partitionState['Mode'],
+            self::STATE_ARMED,
+            $partitionID
+        );
+        if ($phase === self::PASSAGE_PHASE_TRIGGERED) {
+            $this->AppendEvent(
+                self::EVENT_PASSAGE_STARTED,
+                $source,
+                $partitionState['Mode'],
+                self::STATE_ARMED,
+                $partitionID
+            );
+        }
+        if ($phase === self::PASSAGE_PHASE_TRIGGERED && !$triggered) {
+            $this->ProcessPassageSensorUpdate($variableID, $sensors);
+        }
+        $this->PublishVisualizationState();
+
+        return true;
+    }
+
+    /** Processes expired passage releases; called by the persistent timer. */
+    public function UpdatePassageRuntime(): void
+    {
+        $this->ProcessExpiredPassageGrants($this->ReadConfiguredSensors());
+        $this->PublishVisualizationState();
     }
 
     /**
@@ -2294,6 +2416,17 @@ class OpenHomeAlarm extends IPSModuleStrict
             ],
             [
                 'type'    => 'CheckBox',
+                'name'    => 'AllowPassage',
+                'caption' => $this->Translate('Allow temporary passage'),
+                'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'AllowPassage', false),
+                'enabled' => !$alwaysActive
+            ],
+            [
+                'type'    => 'Label',
+                'caption' => $this->Translate('Trusted automations may release this sensor for one passage while its alarm partition remains armed.')
+            ],
+            [
+                'type'    => 'CheckBox',
                 'name'    => 'ExitDelay',
                 'caption' => $this->Translate('Exit route (Away only)'),
                 'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ExitDelay', false),
@@ -2321,7 +2454,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             ],
             [
                 'type'    => 'Label',
-                'caption' => $this->Translate('24/7 sensors trigger immediately as normal alarms in every system state. Arming modes and entry/exit delays do not apply.')
+                'caption' => $this->Translate('24/7 sensors trigger immediately as normal alarms in every system state. Arming modes, entry/exit delays and temporary passage do not apply.')
             ]
         ];
     }
@@ -2515,7 +2648,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     /** Removes arming-mode and delay choices when a sensor monitors around the clock. */
     public function UpdateSensorAlwaysActiveForm(bool $alwaysActive): void
     {
-        foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay', 'AllowAutomaticBypass'] as $fieldName) {
+        foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay', 'AllowAutomaticBypass', 'AllowPassage'] as $fieldName) {
             if ($alwaysActive) {
                 $this->UpdateFormField($fieldName, 'value', false);
             }
@@ -2936,6 +3069,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->WritePartitionRuntime($states);
         $this->SchedulePartitionRuntimeTimer($states);
         $this->ClearSensorBypassesPartitionInternal($partitionID);
+        $this->ClearPassageGrant($partitionID);
         if ($hadActiveState) {
             $this->AppendEvent(self::EVENT_DISARMED, $userName, self::MODE_NONE, self::STATE_DISARMED, $partitionID);
         }
@@ -3020,6 +3154,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SetAlarmMode(self::MODE_NONE);
         $this->WriteAttributeInteger(self::ATTRIBUTE_MAIN_SILENT_ARMING, 0);
         $this->ClearSensorBypassesPartitionInternal($this->DefaultPartitionID());
+        $this->ClearPassageGrant($this->DefaultPartitionID());
         $this->ResetDisarmCodeProtection();
 
         if ($hadActiveState) {
@@ -3219,6 +3354,248 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->SetTimerInterval(self::TIMER_PARTITION_RUNTIME, $active ? 1000 : 0);
     }
 
+    /** @return array<string,array{VariableID:int,Phase:string,Deadline:int}> */
+    private function ReadPassageRuntime(): array
+    {
+        $stored = $this->ReadPersistentJsonCache(self::ATTRIBUTE_PASSAGE_RUNTIME);
+        $result = [];
+        foreach ($stored as $partitionID => $passage) {
+            if (!is_string($partitionID) || !is_array($passage)) {
+                continue;
+            }
+            $variableID = $passage['VariableID'] ?? null;
+            $phase = $passage['Phase'] ?? null;
+            $deadline = $passage['Deadline'] ?? null;
+            if (!is_int($variableID) || $variableID <= 0
+                || !in_array($phase, [self::PASSAGE_PHASE_WAITING, self::PASSAGE_PHASE_TRIGGERED], true)
+                || !is_int($deadline) || $deadline <= 0) {
+                continue;
+            }
+            $result[$partitionID] = [
+                'VariableID' => $variableID,
+                'Phase'      => $phase,
+                'Deadline'   => $deadline
+            ];
+        }
+
+        return $result;
+    }
+
+    /** @param array<string,array{VariableID:int,Phase:string,Deadline:int}> $passages */
+    private function WritePassageRuntime(array $passages): void
+    {
+        ksort($passages);
+        $this->WritePersistentJsonCache(self::ATTRIBUTE_PASSAGE_RUNTIME, $passages);
+    }
+
+    /** @param array<string,array{VariableID:int,Phase:string,Deadline:int}> $passages */
+    private function SchedulePassageRuntimeTimer(array $passages): void
+    {
+        $this->SetTimerInterval(self::TIMER_PASSAGE_RUNTIME, $passages === [] ? 0 : 1000);
+    }
+
+    /**
+     * Keeps persisted releases only while their partition, sensor and armed mode
+     * still match the explicit configuration.
+     *
+     * @param list<array<string,mixed>> $sensors
+     */
+    private function NormalizePassageRuntime(array $sensors): void
+    {
+        $passages = $this->ReadPassageRuntime();
+        $runtime = $this->ReadPartitionRuntime();
+        foreach ($passages as $partitionID => $passage) {
+            $state = $runtime[$partitionID] ?? null;
+            if (!is_array($state)
+                || !in_array($state['State'], [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)
+                || !AlarmStateMachine::isArmingMode($state['Mode'])
+                || $this->FindPassageSensorInList(
+                    $sensors,
+                    $partitionID,
+                    $passage['VariableID'],
+                    $state['Mode']
+                ) === null) {
+                unset($passages[$partitionID]);
+            }
+        }
+        $this->WritePassageRuntime($passages);
+        $this->SchedulePassageRuntimeTimer($passages);
+    }
+
+    /** Reconciles sensor values that may have changed while the module was not running. */
+    private function RestorePassageRuntime(array $sensors): void
+    {
+        $variableIDs = [];
+        foreach ($this->ReadPassageRuntime() as $passage) {
+            $variableIDs[$passage['VariableID']] = true;
+        }
+        foreach (array_keys($variableIDs) as $variableID) {
+            $this->ProcessPassageSensorUpdate((int) $variableID, $sensors);
+        }
+    }
+
+    /** @param list<array<string,mixed>> $sensors
+     * @return array<string,mixed>|null */
+    private function FindPassageSensorInList(
+        array $sensors,
+        string $partitionID,
+        int $variableID,
+        int $mode
+    ): ?array {
+        foreach ($sensors as $sensor) {
+            if ($sensor['PartitionID'] === $partitionID
+                && $sensor['Enabled']
+                && !$sensor['AlwaysActive']
+                && $sensor['AllowPassage']
+                && $sensor['VariableID'] === $variableID
+                && $this->IsSensorRelevantForMode($sensor, $mode)
+                && $this->IsExistingVariable($variableID)) {
+                return $sensor;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param array<string,array<string,mixed>> $runtime */
+    private function CancelPartitionEntryDelayForPassage(string $partitionID, array $runtime): void
+    {
+        if ($partitionID === $this->DefaultPartitionID()) {
+            $this->CancelDelayTimers();
+            $this->SetAlarmState(self::STATE_ARMED);
+
+            return;
+        }
+        $runtime[$partitionID] = AlarmPartitionRuntime::cancelEntryDelay($runtime[$partitionID]);
+        $this->WritePartitionRuntime($runtime);
+        $this->SchedulePartitionRuntimeTimer($runtime);
+    }
+
+    /** Returns whether this exact sensor update remains suppressed by a passage release. */
+    private function ProcessPassageSensorUpdate(int $variableID, array $sensors): void
+    {
+        $passages = $this->ReadPassageRuntime();
+        if ($passages === []) {
+            return;
+        }
+        $runtime = $this->ReadPartitionRuntime();
+        $changed = false;
+        foreach ($passages as $partitionID => &$passage) {
+            if ($passage['VariableID'] !== $variableID) {
+                continue;
+            }
+            $mode = $runtime[$partitionID]['Mode'] ?? self::MODE_NONE;
+            $sensor = $this->FindPassageSensorInList($sensors, $partitionID, $variableID, $mode);
+            if ($sensor === null) {
+                unset($passages[$partitionID]);
+                $changed = true;
+                continue;
+            }
+            $triggered = $this->GetSensorTriggerState($sensor);
+            if ($triggered === true && $passage['Phase'] === self::PASSAGE_PHASE_WAITING) {
+                $passage['Phase'] = self::PASSAGE_PHASE_TRIGGERED;
+                $this->AppendEvent(
+                    self::EVENT_PASSAGE_STARTED,
+                    $this->ResolveSensorDisplayName($sensor),
+                    $mode,
+                    self::STATE_ARMED,
+                    $partitionID
+                );
+                $changed = true;
+            } elseif ($triggered === false && $passage['Phase'] === self::PASSAGE_PHASE_TRIGGERED) {
+                unset($passages[$partitionID]);
+                $this->AppendEvent(
+                    self::EVENT_PASSAGE_COMPLETED,
+                    $this->ResolveSensorDisplayName($sensor),
+                    $mode,
+                    self::STATE_ARMED,
+                    $partitionID
+                );
+                $changed = true;
+            }
+        }
+        unset($passage);
+        if ($changed) {
+            $this->WritePassageRuntime($passages);
+            $this->SchedulePassageRuntimeTimer($passages);
+        }
+    }
+
+    private function IsPassageReleased(string $partitionID, int $variableID): bool
+    {
+        $passage = $this->ReadPassageRuntime()[$partitionID] ?? null;
+
+        return is_array($passage) && $passage['VariableID'] === $variableID;
+    }
+
+    /** @param list<array<string,mixed>> $sensors */
+    private function ProcessExpiredPassageGrants(array $sensors): void
+    {
+        $passages = $this->ReadPassageRuntime();
+        $runtime = $this->ReadPartitionRuntime();
+        $now = time();
+        $alarms = [];
+        foreach ($passages as $partitionID => $passage) {
+            if ($passage['Deadline'] > $now) {
+                continue;
+            }
+            $mode = $runtime[$partitionID]['Mode'] ?? self::MODE_NONE;
+            $sensor = $this->FindPassageSensorInList(
+                $sensors,
+                $partitionID,
+                $passage['VariableID'],
+                $mode
+            );
+            $source = $sensor !== null ? $this->ResolveSensorDisplayName($sensor) : '';
+            $triggered = $sensor !== null ? $this->GetSensorTriggerState($sensor) : null;
+            unset($passages[$partitionID]);
+            $this->AppendEvent(
+                self::EVENT_PASSAGE_EXPIRED,
+                $source,
+                $mode,
+                $runtime[$partitionID]['State'] ?? self::STATE_DISARMED,
+                $partitionID
+            );
+            if ($passage['Phase'] === self::PASSAGE_PHASE_TRIGGERED && $triggered === true) {
+                $alarms[$partitionID] = ['Sensor' => $sensor, 'Source' => $source];
+            }
+        }
+        $this->WritePassageRuntime($passages);
+        $this->SchedulePassageRuntimeTimer($passages);
+        foreach ($alarms as $partitionID => $alarm) {
+            if ($partitionID === $this->DefaultPartitionID()) {
+                $this->EnterAlarmState($alarm['Sensor'], $alarm['Sensor']['VariableID'] ?? 0, $alarm['Source']);
+                continue;
+            }
+            $states = $this->ReadPartitionRuntime();
+            if (!isset($states[$partitionID]) || !AlarmStateMachine::monitorsArmedSensors($states[$partitionID]['State'])) {
+                continue;
+            }
+            $states[$partitionID] = AlarmPartitionRuntime::alarm($states[$partitionID]);
+            $this->WritePartitionRuntime($states);
+            $this->SchedulePartitionRuntimeTimer($states);
+            $this->RecordPartitionAlarm($partitionID, $alarm['Source']);
+            $this->AppendEvent(
+                self::EVENT_ALARM,
+                $alarm['Source'],
+                $states[$partitionID]['Mode'],
+                self::STATE_ALARM,
+                $partitionID
+            );
+        }
+    }
+
+    private function ClearPassageGrant(string $partitionID): void
+    {
+        $passages = $this->ReadPassageRuntime();
+        if (!array_key_exists($partitionID, $passages)) {
+            return;
+        }
+        unset($passages[$partitionID]);
+        $this->WritePassageRuntime($passages);
+        $this->SchedulePassageRuntimeTimer($passages);
+    }
+
     private function SensorsForPartition(array $sensors, string $partitionID): array
     {
         return array_values(array_filter($sensors, static fn (array $sensor): bool => $sensor['PartitionID'] === $partitionID));
@@ -3282,6 +3659,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function RecordPartitionAlarm(string $partitionID, string $source, bool $forceNormal = false): void
     {
+        $this->ClearPassageGrant($partitionID);
         $states = $this->ReadPartitionAlarmStates();
         $before = AlarmPartitionAlarmRegistry::aggregate($states);
         $partitionAlreadyActive = $states[$partitionID]['OutputActive'];
@@ -3515,6 +3893,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         $partitionAlarmStates = $this->ReadPartitionAlarmStates();
         $this->WritePartitionAlarmStates($partitionAlarmStates);
         $this->SynchronizePartitionAlarmSummary($partitionAlarmStates);
+        $this->NormalizePassageRuntime($sensors);
+        $this->RestorePassageRuntime($sensors);
+        $this->ProcessExpiredPassageGrants($sensors);
         $this->EvaluateArmedSensorsAfterApplyChanges($defaultSensors);
         foreach ($sensors as $sensor) {
             if ($sensor['VariableID'] > 0 && $sensor['PartitionID'] !== $this->DefaultPartitionID()) {
@@ -4445,6 +4826,32 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return array_values($details);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $sensors
+     * @return array{Active:bool,Phase:string,Sensor:string,RemainingSeconds:int}
+     */
+    private function BuildControlPassageState(string $partitionID, array $sensors): array
+    {
+        $passage = $this->ReadPassageRuntime()[$partitionID] ?? null;
+        if (!is_array($passage)) {
+            return ['Active' => false, 'Phase' => '', 'Sensor' => '', 'RemainingSeconds' => 0];
+        }
+        $sensorName = '';
+        foreach ($sensors as $sensor) {
+            if ($sensor['VariableID'] === $passage['VariableID']) {
+                $sensorName = $this->ResolveSensorDisplayName($sensor);
+                break;
+            }
+        }
+
+        return [
+            'Active'           => true,
+            'Phase'            => $passage['Phase'],
+            'Sensor'           => $sensorName,
+            'RemainingSeconds' => max(0, $passage['Deadline'] - time())
+        ];
     }
 
     /**
@@ -6817,7 +7224,6 @@ class OpenHomeAlarm extends IPSModuleStrict
             if ($this->GetSensorTriggerState($sensor) !== true) {
                 continue;
             }
-
             if ($alreadyAlarming) {
                 $source = $this->ResolveSensorDisplayName($sensor);
                 $this->RecordPartitionAlarm($this->DefaultPartitionID(), $source, true);
@@ -6969,6 +7375,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $changed = true;
                 continue;
             }
+            if ($this->IsPassageReleased($partitionID, $variableID)) {
+                continue;
+            }
             if (!AlarmStateMachine::monitorsArmedSensors($state['State'])
                 || !AlarmStateMachine::isArmingMode($state['Mode'])
                 || $this->IsSensorBypassed($sensor)
@@ -7113,6 +7522,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 || $this->IsSensorBypassed($sensor)
                 || $sensor['VariableID'] !== $variableID
                 || !$this->IsSensorRelevantForMode($sensor, $mode)
+                || $this->IsPassageReleased($this->DefaultPartitionID(), $variableID)
             ) {
                 continue;
             }

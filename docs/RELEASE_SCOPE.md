@@ -47,7 +47,9 @@ Der Release umfasst verbindlich:
 25. eine sensorbezogene Auswertung wahlweise auf einen einzelnen Auslösewert
     oder auf jede Abweichung von einem festgelegten Normalwert,
 26. eine auf den Scharfmodus Abwesend begrenzte Ausgangsweg-Ausnahme; Zuhause
-    und Nacht behandeln dieselben Sensoren ohne Ausnahme als Blocker.
+    und Nacht behandeln dieselben Sensoren ohne Ausnahme als Blocker,
+27. eine explizit freizugebende, zeitlich begrenzte Durchgangsfreigabe für
+    genau einen Auslöse-/Normalzyklus eines normalen Sensors im scharfen Bereich.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -67,6 +69,9 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 - Alarmaktionen werden pro vorgesehenem Zustandsübergang höchstens einmal ausgeführt.
 - Unscharfschalten beendet laufende Verzögerungen und setzt einen aktiven Alarmausgang kontrolliert zurück.
 - Bypässe sind nur unscharf zulässig, gelten nicht für 24/7-Sensoren und werden nach einem Scharfschaltzyklus gelöscht.
+- Eine Durchgangsfreigabe gilt nur für einen ausdrücklich freigegebenen Sensor
+  im scharfen Bereich. Andere Sensoren und 24/7-Sensoren bleiben aktiv; ein bei
+  Fristablauf noch ausgelöster freigegebener Sensor führt unmittelbar zum Alarm.
 - Alarmgedächtnis, Ereignishistorie, Sperrzeit und laufende Fristen verhalten sich über `ApplyChanges()` und Neustarts wie dokumentiert.
 - Fehlende Sensor- oder Störungsvariablen werden sichtbar und sicherheitsgerichtet behandelt.
 
@@ -119,7 +124,7 @@ erwartet kompatibel, aber nicht als für diesen Release nachgewiesen.
 
 ### Öffentliche Schnittstellen
 
-- Die dokumentierten `OHA_*`-Funktionen und `ApiVersion` 1 bilden den öffentlichen Vertrag des ersten Releases.
+- Die dokumentierten `OHA_*`-Funktionen und `ApiVersion` 3 bilden den öffentlichen Vertrag des aktuellen Release-Kandidaten.
 - Änderungen an Parametern, Rückgabewerten, maschinenlesbaren Namen oder gespeicherten Eigenschaften benötigen eine dokumentierte Migration oder eine neue API-Hauptversion.
 - Bestehende Instanzkonfigurationen dürfen durch ein kompatibles Update nicht stillschweigend umgedeutet werden.
 
@@ -158,7 +163,8 @@ Der Betreiber ist verantwortlich für:
 - verschlüsselte Verbindung bei Zugriff außerhalb eines vertrauenswürdigen Netzes,
 - zuverlässige Strom-, Netzwerk- und Geräteversorgung,
 - regelmäßige Funktionsprüfungen aller Sensoren, Aktoren und Alarmwege,
-- sichere Konfiguration der vertrauenswürdigen `OHA_Disarm()`-Automationsschnittstelle,
+- sichere Konfiguration der vertrauenswürdigen Automationsschnittstellen
+  `OHA_Disarm()`, `OHA_GrantPassage()` und `OHA_GrantPassagePartition()`,
 - Sicherung und kontrollierte Wiederherstellung der Symcon-Installation.
 
 Weitere Einzelheiten stehen in der [Sicherheitsrichtlinie](../SECURITY.md).

@@ -87,6 +87,10 @@ function ohaEventCaption(eventName) {
         sensor_auto_bypass_restored: 'Automatic sensor bypass ended',
         sensor_bypass_removed: 'Sensor bypass restored',
         sensor_bypasses_cleared: 'All bypasses cleared',
+        passage_granted: 'Passage granted',
+        passage_started: 'Passage started',
+        passage_completed: 'Passage completed',
+        passage_expired: 'Passage expired',
         alarm_memory_cleared: 'Alarm memory acknowledged',
         fault_activated: 'System fault detected',
         fault_cleared: 'System fault cleared'
@@ -567,6 +571,25 @@ function ohaRenderBypasses(state) {
     document.getElementById('clearBypassesLabel').textContent = ohaTranslate('Restore all');
 }
 
+function ohaRenderPassage(state) {
+    const panel = document.getElementById('passagePanel');
+    const passage = state.Passage && typeof state.Passage === 'object' ? state.Passage : {};
+
+    panel.hidden = !passage.Active;
+    if (panel.hidden) {
+        return;
+    }
+
+    document.getElementById('passageTitle').textContent = ohaTranslate('Temporary passage');
+    const phase = passage.Phase === 'triggered' ? 'Passage in progress' : 'Waiting for passage';
+    const remaining = Math.max(0, Number(passage.RemainingSeconds) || 0);
+    document.getElementById('passageDetail').textContent = [
+        passage.Sensor || ohaTranslate('Unknown sensor'),
+        ohaTranslate(phase),
+        `${remaining} ${ohaTranslate('seconds')}`
+    ].join(' · ');
+}
+
 function ohaCollectSensorOperations(state) {
     const operations = new Map();
     for (const modeName of ['home', 'away', 'night']) {
@@ -924,7 +947,7 @@ function ohaRenderStaticText() {
 }
 
 function ohaRender() {
-    if (!ohaState || Number(ohaState.ApiVersion) !== 2) {
+    if (!ohaState || Number(ohaState.ApiVersion) !== 3) {
         return;
     }
 
@@ -936,6 +959,7 @@ function ohaRender() {
     ohaRenderAlarmMemory(selectedState);
     ohaRenderFaults(selectedState);
     ohaRenderBypasses(selectedState);
+    ohaRenderPassage(selectedState);
     ohaRenderSensorManagement(selectedState);
     ohaRenderEventHistory(selectedState);
     ohaRenderDiagnostics(selectedState);
@@ -1469,7 +1493,7 @@ function ohaIsControlStatePayload(state) {
     return Boolean(
         state
         && typeof state === 'object'
-        && Number(state.ApiVersion) === 2
+        && Number(state.ApiVersion) === 3
         && typeof state.State?.Name === 'string'
         && typeof state.Mode?.Name === 'string'
         && state.Capabilities

@@ -70,6 +70,21 @@ final class AlarmPartitionRuntime
         return $state;
     }
 
+    /** Cancels a matching entry delay without changing the active arming mode. */
+    public static function cancelEntryDelay(array $state): array
+    {
+        $state = self::normalize($state);
+        if ($state['State'] !== AlarmStateMachine::STATE_ENTRY_DELAY) {
+            throw new InvalidArgumentException('Alarm partition is not in entry delay.');
+        }
+        $state['State'] = AlarmStateMachine::STATE_ARMED;
+        $state['Deadline'] = 0;
+        $state['DelaySource'] = '';
+        $state['PendingSourceID'] = 0;
+
+        return $state;
+    }
+
     /** @param array<string,mixed> $state */
     public static function disarm(array $state): array
     {

@@ -34,6 +34,15 @@ $states['house'] = AlarmPartitionRuntime::advance($states['house'], 110);
 assertPartitionRuntime($states['house']['State'] === AlarmStateMachine::STATE_ARMED, 'Expired exit delay must arm its partition.');
 $states['garage'] = AlarmPartitionRuntime::startEntryDelay($states['garage'], 120, 5, 'Garage door', 42);
 assertPartitionRuntime($states['garage']['Deadline'] === 125 && $states['house']['State'] === AlarmStateMachine::STATE_ARMED, 'Entry delay must not change another partition.');
+$cancelledEntryDelay = AlarmPartitionRuntime::cancelEntryDelay($states['garage']);
+assertPartitionRuntime(
+    $cancelledEntryDelay['State'] === AlarmStateMachine::STATE_ARMED
+    && $cancelledEntryDelay['Mode'] === AlarmStateMachine::MODE_AWAY
+    && $cancelledEntryDelay['Deadline'] === 0
+    && $cancelledEntryDelay['DelaySource'] === ''
+    && $cancelledEntryDelay['PendingSourceID'] === 0,
+    'Passage acknowledgement must retain the armed mode and clear the matching entry delay.'
+);
 $states['garage'] = AlarmPartitionRuntime::advance($states['garage'], 125);
 assertPartitionRuntime($states['garage']['State'] === AlarmStateMachine::STATE_ALARM, 'Expired entry delay must alarm its partition.');
 $states['house'] = AlarmPartitionRuntime::disarm($states['house']);

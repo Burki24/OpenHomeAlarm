@@ -443,7 +443,11 @@ $testValues[2001] = true;
 $testValues[2002] = false;
 
 $state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-assertControlApi(($state['ApiVersion'] ?? null) === 2, 'The partition-aware control API must expose schema version 2.');
+assertControlApi(($state['ApiVersion'] ?? null) === 3, 'The passage-aware control API must expose schema version 3.');
+assertControlApi(
+    ($state['Passage'] ?? null) === ['Active' => false, 'Phase' => '', 'Sensor' => '', 'RemainingSeconds' => 0],
+    'The control API must expose an inactive passage state without internal variable IDs.'
+);
 assertControlApi(($state['DefaultPartition'] ?? null) === 'main', 'The control API must identify the default partition.');
 assertControlApi(
     ($state['Partitions']['main']['ID'] ?? null) === 'main'

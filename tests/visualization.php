@@ -104,15 +104,21 @@ assertVisualization(
 assertVisualization(str_contains($javascript, 'function handleMessage(data)'), 'HTML-SDK handleMessage must be implemented.');
 assertVisualization(
     substr_count($javascript, 'Number(') >= 2
-        && str_contains($javascript, 'Number(ohaState.ApiVersion) !== 2')
-        && str_contains($javascript, 'Number(state.ApiVersion) === 2')
+        && str_contains($javascript, 'Number(ohaState.ApiVersion) !== 3')
+        && str_contains($javascript, 'Number(state.ApiVersion) === 3')
         && !str_contains($javascript, 'ApiVersion) === 1')
         && !str_contains($javascript, 'ApiVersion) !== 1'),
-    'Native and IPSView rendering must accept the partition-aware control API version 2.'
+    'Native and IPSView rendering must accept the passage-aware control API version 3.'
 );
 assertVisualization(
     !str_contains($javascript, '.innerHTML ='),
     'Visualization state must be rendered without assigning HTML strings.'
+);
+assertVisualization(
+    str_contains($html, 'id="passagePanel"')
+    && str_contains($javascript, 'function ohaRenderPassage(state)')
+    && str_contains($javascript, 'ohaRenderPassage(selectedState);'),
+    'Tile and IPSView must visibly identify an active temporary passage release.'
 );
 assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('ArmPartition'"), 'Visualization must arm the selected partition through RequestAction.');
 assertVisualization(str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition'"), 'Visualization must disarm the selected partition through RequestAction.');

@@ -155,8 +155,8 @@ foreach ([$moduleReadme, $rootReadme] as $readme) {
 
 $moduleSource = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/module.php');
 assertPartition(
-    str_contains($moduleSource, 'private const CONTROL_API_VERSION = 2;'),
-    'Partition-aware control state must use API version 2.'
+    str_contains($moduleSource, 'private const CONTROL_API_VERSION = 3;'),
+    'Passage-aware control state must use API version 3.'
 );
 assertPartition(
     str_contains($moduleSource, 'public function GetPartitions(): string'),

@@ -4,7 +4,7 @@
 
 OpenHomeAlarm ist eine herstellerunabhängige Alarm- und Sicherheitszentrale für die Hausautomation auf Basis von Symcon.
 
-Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als Sensoren, 24/7-Auslöser oder technische Störungseingänge verwendet werden. Das Modul stellt unabhängige Alarmbereiche, wiederanlaufsichere Verzögerungen mit optionaler Countdown-Ausgabe, Sensorüberbrückungen, wöchentliche automatische Scharfschaltung, Alarm-Eskalationsstufen, native Symcon- und direkte Pushover-Benachrichtigungen, benutzerbezogene Unscharfschaltcodes, Alarmgedächtnis, Ereignis- und Diagnoseexporte sowie eine versionierte Konfigurationssicherung bereit. Bedient wird es über die öffentliche API, eine responsive HTML-SDK-Kachel oder die IPSView-WebContent-Seite.
+Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als Sensoren, 24/7-Auslöser oder technische Störungseingänge verwendet werden. Das Modul stellt unabhängige Alarmbereiche, wiederanlaufsichere Verzögerungen mit optionaler Countdown-Ausgabe, Sensorüberbrückungen, einmalige zeitbegrenzte Durchgangsfreigaben, wöchentliche automatische Scharfschaltung, Alarm-Eskalationsstufen, native Symcon- und direkte Pushover-Benachrichtigungen, benutzerbezogene Unscharfschaltcodes, Alarmgedächtnis, Ereignis- und Diagnoseexporte sowie eine versionierte Konfigurationssicherung bereit. Bedient wird es über die öffentliche API, eine responsive HTML-SDK-Kachel oder die IPSView-WebContent-Seite.
 
 Gleichnamige Sensor- und Störungsvariablen bleiben anhand ihrer Variablen-IDs
 intern getrennt. In Ansichten stehen konfigurierte Namen beziehungsweise die
@@ -72,6 +72,13 @@ bereits ausgelöste Sensoren, die unter **Sensoren und Auslöser** einzeln dafü
 freigegeben wurden, zum Beispiel
 `OHA_ArmPartition(12345, 'garage', 'away', null, null, true)`. Sobald ein so
 überbrückter Sensor wieder normal ist, wird er erneut überwacht.
+
+Für einen ausdrücklich zugelassenen normalen Sensor kann eine vertrauenswürdige
+Automation einen einmaligen Durchgang freigeben, ohne den Bereich
+unscharfzuschalten: `OHA_GrantPassage(12345, 4711, 90)` für den Hauptbereich
+oder `OHA_GrantPassagePartition(12345, 'garage', 4711, 90)` für einen einzelnen
+Bereich. Die Freigabe endet nach Öffnen und Schließen oder spätestens nach der
+Frist; andere und 24/7-Sensoren bleiben aktiv.
 
 Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
 `OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,

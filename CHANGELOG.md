@@ -10,6 +10,13 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Normale Sensoren können einzeln für eine vertrauenswürdige, zeitlich begrenzte
+  Durchgangsfreigabe zugelassen werden. Die neuen PHP-Funktionen geben genau
+  einen Öffnen-/Schließen-Zyklus frei, lassen den Bereich scharf und beenden
+  eine passende Eingangsverzögerung. Andere und 24/7-Sensoren bleiben aktiv;
+  eine bei Fristablauf noch offene Freigabe löst Alarm aus. Laufzeit und
+  Restfrist sind neustartsicher im Bedienzustand der API-Version 3 enthalten.
+
 - Gleichnamige Sensoren und Störungseingänge bleiben in Blockierungs-, Störungs-
   und Überbrückungslisten intern anhand ihrer Variablen-IDs getrennt. Sichtbar
   bleiben konfigurierte oder aktuelle Symcon-Namen ohne ID-Zusatz.

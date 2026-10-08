@@ -1161,6 +1161,15 @@
                     }
                 },
                 {
+                    "caption": "Allow temporary passage",
+                    "name": "AllowPassage",
+                    "width": "165px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
                     "caption": "Exit route (Away only)",
                     "name": "ExitDelay",
                     "width": "115px",
@@ -1189,7 +1198,7 @@
         },
         {
             "type": "Label",
-            "caption": "24/7 sensors trigger immediately as normal alarms in every system state. Arming modes and entry/exit delays do not apply."
+            "caption": "24/7 sensors trigger immediately as normal alarms in every system state. Arming modes, entry/exit delays and temporary passage do not apply."
         }
     ],
     "actions": []

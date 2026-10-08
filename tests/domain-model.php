@@ -357,6 +357,7 @@ assertDomainSame(
             'ArmNight'             => false,
             'AlwaysActive'         => false,
             'AllowAutomaticBypass' => false,
+            'AllowPassage'         => false,
             'ExitDelay'            => false,
             'EntryDelay'           => false,
             'RetriggerAlarm'       => false
@@ -373,6 +374,15 @@ assertDomainSame(
         0
     ), 'AllowAutomaticBypass'),
     'Only normal sensors may opt in to automatic bypasses.'
+);
+assertDomainSame(
+    [true, false],
+    array_column(AlarmConfigurationNormalizer::sensors(
+        '[{"AllowPassage":true},{"AlwaysActive":true,"AllowPassage":true}]',
+        [0],
+        0
+    ), 'AllowPassage'),
+    'Only normal sensors may opt in to temporary passage.'
 );
 assertDomainSame(
     ['house', 'garage'],
