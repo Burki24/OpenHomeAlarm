@@ -123,6 +123,14 @@ Konfigurationen:
 7. Benachrichtigungen und Visualisierungen erst danach ergänzen.
 8. Änderungen übernehmen und alle vorgesehenen Zustände praktisch testen.
 
+Die Instanzkonfiguration bündelt die seltener benötigten Einstellungen in
+aufklappbaren Abschnitten. **Sensoren und Auslöser** bleiben darunter direkt
+sichtbar, damit Zuordnungen und Bereitschaftsregeln schnell kontrolliert werden
+können. Die folgende Abbildung zeigt eine Beispielkonfiguration; Namen und
+Bereichs-IDs sind installationsabhängig.
+
+![Übersicht der OpenHomeAlarm-Instanzkonfiguration](../docs/images/openhomealarm-configuration-overview.png)
+
 | Konfigurationsbereich | Aufgabe | Wichtige Vorgabe |
 | --- | --- | --- |
 | Alarmbereiche | Gesamtanlage und getrennt schaltbare Bereiche | `main` bleibt als Gesamtanlage aktiv. |
@@ -158,6 +166,8 @@ In der Instanzkonfiguration unter **Alarmbereiche** auf **Hinzufügen** klicken 
 | Name | `Garage` | Frei wählbarer Anzeigename |
 
 Danach **Änderungen übernehmen**. Der vorhandene Bereich `main` muss aktiv bleiben; er wird nicht ausgewählt, sondern ist fest die Gesamtanlage.
+
+![Alarmbereiche in der Instanzkonfiguration](../docs/images/openhomealarm-configuration-areas.png)
 
 **2. Sensoren zuordnen**
 
@@ -757,6 +767,13 @@ Für die benutzerseitige Bedienung können im Konfigurationsformular mehrere akt
 4. Übernehmen Sie die Konfiguration und prüfen Sie die Bedienung zunächst bei
    unscharfer beziehungsweise gefahrloser Testkonfiguration.
 
+Der bisherige einzelne Code steht oberhalb der Benutzerliste. Neue
+Installationen legen die persönlichen Codes über **Hinzufügen** in der
+Benutzerliste an; die darunter stehenden Werte begrenzen Fehlversuche und
+bestimmen die Dauer einer temporären Sperre.
+
+![Code-Schutz mit Benutzerliste und Sperreinstellungen](../docs/images/openhomealarm-configuration-code-protection.png)
+
 Der Legacy-Code sollte nur noch für bestehende Installationen verwendet werden.
 Neue Installationen verwenden vorzugsweise benannte Benutzer, damit im
 Ereignisprotokoll erkennbar ist, wer die Anlage unscharf geschaltet hat.
@@ -931,6 +948,12 @@ Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, Start der Ei
 
 `OHA_GetEventHistory($InstanzID)` liefert das Protokoll als JSON. `OHA_ExportEventHistory()` exportiert es als JSON oder CSV und kann den Zeitraum sowie den Ereignistyp filtern. Die Schaltflächen **JSON** und **CSV** im Systemprotokoll laden den vollständig gespeicherten Bestand direkt aus der Kachel oder IPSView herunter. Mit `OHA_ClearEventHistory($InstanzID)` kann das Protokoll gezielt geleert werden. Das Ereignisprotokoll ist ein Bedien- und Diagnoseprotokoll und kein manipulationssicheres Audit-Log.
 
+Die kompakten Statuskarten stehen unmittelbar über dem Systemprotokoll. Die
+neuesten Ereignisse werden zuerst angezeigt; **JSON** und **CSV** exportieren
+den vollständigen gespeicherten Bestand und nicht nur die sichtbaren Zeilen.
+
+![Statuskarten und Sicherheits-Ereignisprotokoll in der Kachel](../docs/images/openhomealarm-tile-history.png)
+
 Die Diagnoseansicht führt alle konfigurierten Sensoren und Störungseingänge mit Alarmbereich, Anzeigename und den Zeitpunkten der letzten Änderung und Aktualisierung auf. Die Variablen-ID dient intern der Zuordnung und steht nur im strukturierten Diagnose-Snapshot für technische Weiterverarbeitung. Mögliche Zustände sind **bereit**, **ausgelöst**, **fehlend**, **unlesbar** und **deaktiviert**. Die zusammengefasste Problemanzahl zählt fehlende oder unlesbare Eingänge sowie ausgelöste Störungseingänge. Ein ausgelöster normaler Alarmsensor wird angezeigt, erhöht diese technische Problemanzahl aber nicht. Kachel, IPSView und `OHA_GetDiagnostics()` verwenden denselben versionierten Diagnose-Snapshot.
 
 Die Diagnose kann über die Schaltflächen **JSON** und **CSV** oder mit `OHA_ExportDiagnostics()` heruntergeladen werden. JSON enthält den vollständigen Snapshot einschließlich Zusammenfassung und Erstellungszeitpunkt. CSV enthält pro Eingang eine maschinenlesbare Zeile in derselben Reihenfolge wie die Diagnoseansicht. Rohwerte, Unscharfschaltcodes und andere Geheimnisse sind nicht Bestandteil des Diagnoseexports.
@@ -960,6 +983,13 @@ Repository.
 ## 16. Kachel und IPSView
 
 OpenHomeAlarm besitzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Das Dashboard ist zustandsorientiert aufgebaut: **Unscharf**, **Scharf**, **Ein-/Ausgangsverzögerung** und **Alarm** werden als zentraler Hauptzustand dargestellt. Countdown, Alarmgedächtnis, aktive Systemstörungen, temporär überbrückte Sensoren und eine laufende Durchgangsfreigabe erscheinen nur dann als zusätzliche Hinweise, wenn sie tatsächlich relevant sind. Dadurch bleibt die Normalansicht kompakt und die jeweils wichtigste Information steht im Vordergrund. Farben, Oberflächen, Abstände und Fokusdarstellung stammen aus dem gemeinsamen `VisualizationThemeConfigurationHelper`; standardmäßig folgt die Kachel den nativen Symcon-Farben einschließlich Light-/Dark-Umschaltung. Im Konfigurationsabschnitt **Symcon-Kachel** können Text-, Überschriften-, Hintergrund-, Akzent- und Statusfarben optional überschrieben werden. Nur tatsächlich vom Standard abweichende Farben werden fest vorgegeben; alle unveränderten Rollen passen sich weiterhin dem nativen Symcon-Schema an.
+
+Im unscharfen Grundzustand folgen auf den Sicherheitsstatus die Auswahl der
+Alarmbereiche und die Scharfmodi. Der Außenrahmen markiert den angezeigten
+Bereich, der Haken das Ziel der nächsten gemeinsamen Scharfschaltung. Nicht
+bereite Modi nennen den blockierenden Sensor direkt in ihrer Moduskarte.
+
+![OpenHomeAlarm-Kachel im unscharfen Grundzustand](../docs/images/openhomealarm-tile-overview.png)
 
 ### Alarmbereiche anzeigen und gemeinsam scharfschalten
 

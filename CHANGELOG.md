@@ -10,6 +10,10 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die ausführliche Modulanleitung zeigt die zentralen Konfigurationsschritte,
+  die Kachelbedienung und das Sicherheits-Ereignisprotokoll jetzt zusätzlich
+  anhand geprüfter Screenshots aus einer Symcon-9-Testinstallation.
+
 - Beim gemeinsamen Scharfschalten einer Teilmenge folgt die Detailanzeige nun
   einem beteiligten Bereich, sodass Ausgangsverzögerung und Countdown sichtbar
   bleiben. Auch eine einzelne Markierung wird zuverlässig an den tatsächlich
