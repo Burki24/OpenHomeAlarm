@@ -147,6 +147,10 @@ assertVisualization(
     'Tile and IPSView must arm an explicitly selected subset through the existing partition-state helper.'
 );
 assertVisualization(
+    preg_match('/<nav[^>]+id="partitionNav"[\s\S]*?id="partitionTabs"[\s\S]*?id="armTargets"[\s\S]*?<\/nav>\s*<section[^>]+id="armingSection"/', $html) === 1,
+    'The multi-area arming selector must sit directly below the area tabs inside the framed area selector.'
+);
+assertVisualization(
     str_contains($javascript, 'function ohaRenderArmTargets(canSelectTargets)')
         && str_contains($javascript, 'targetPanel.hidden = partitions.length < 3 || !canSelectTargets;')
         && str_contains($javascript, 'ohaRenderArmTargets(isDisarmed);'),

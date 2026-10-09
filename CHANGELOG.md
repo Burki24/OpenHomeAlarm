@@ -10,6 +10,9 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Mehrbereichsauswahl von Kachel und IPSView steht jetzt direkt unter der
+  normalen Bereichsauswahl im gemeinsamen Rahmen **Alarmbereich**.
+
 - Kachel und IPSView zeigen bei einem bereits geschalteten Bereich wieder die
   tatsächliche Sensorbereitschaft statt pauschal „Nicht bereit“. Die nur zum
   Scharfschalten bestimmte Mehrbereichsauswahl wird währenddessen ausgeblendet.

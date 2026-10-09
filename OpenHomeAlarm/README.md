@@ -226,8 +226,9 @@ die Gesamtanlage; für eine echte Teilmenge darf `main` deshalb nicht in der
 Liste stehen.
 
 In Kachel und IPSView erscheint bei mindestens drei verfügbaren Bereichen und
-vollständig unscharfen ausgewählten Zielbereichen im Rahmen **Scharfmodi** die
-Auswahl **Ausgewählte Bereiche gemeinsam scharfschalten**. Dort lassen sich
+vollständig unscharfen ausgewählten Zielbereichen direkt unter der normalen
+Bereichsauswahl im Rahmen **Alarmbereich** die Auswahl **Ausgewählte Bereiche
+gemeinsam scharfschalten**. Dort lassen sich
 mehrere einzelne Bereiche markieren. Sobald einer dieser Zielbereiche bereits
 geschaltet wird oder scharf ist, wird die Auswahl ausgeblendet; der angezeigte
 Bereich behält trotzdem seine tatsächliche Sensorbereitschaft. Über die obere
