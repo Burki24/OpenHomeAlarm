@@ -147,6 +147,18 @@ assertVisualization(
     'Tile and IPSView must arm an explicitly selected subset through the existing partition-state helper.'
 );
 assertVisualization(
+    str_contains($javascript, 'function ohaRenderArmTargets(canSelectTargets)')
+        && str_contains($javascript, 'targetPanel.hidden = partitions.length < 3 || !canSelectTargets;')
+        && str_contains($javascript, 'ohaRenderArmTargets(isDisarmed);'),
+    'The multi-area arming selector must only be visible while all selected target areas are disarmed.'
+);
+assertVisualization(
+    str_contains($javascript, 'const ready = modeStates.length > 0 && modeStates.every((modeState) => modeState.Ready);')
+        && str_contains($javascript, 'Ready: ready,')
+        && !str_contains($javascript, 'Ready: canArm,'),
+    'An active area must retain its real readiness instead of being shown as not ready only because re-arming is unavailable.'
+);
+assertVisualization(
     preg_match('/<div class="oha-arming-controls">\s*<div class="oha-section-heading oha-section-heading-compact">[\s\S]*?<div class="oha-arm-delivery"[\s\S]*?<div class="oha-mode-grid">/', $html) === 1
         && str_contains($css, '.oha-arming-controls {')
         && str_contains($css, 'html.oha-ipsview .oha-arming-controls {'),

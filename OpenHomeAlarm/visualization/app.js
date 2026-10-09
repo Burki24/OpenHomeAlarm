@@ -328,11 +328,11 @@ function ohaArmTargetStates() {
         .filter((partition) => partition && typeof partition === 'object');
 }
 
-function ohaRenderArmTargets() {
+function ohaRenderArmTargets(canSelectTargets) {
     const targetPanel = document.getElementById('armTargets');
     const targetList = document.getElementById('armTargetList');
     const partitions = ohaAvailablePartitions(ohaState);
-    targetPanel.hidden = partitions.length < 3;
+    targetPanel.hidden = partitions.length < 3 || !canSelectTargets;
     if (targetPanel.hidden) {
         return;
     }
@@ -541,7 +541,7 @@ function ohaRenderArming(state) {
     bypassSwitch.disabled = !isDisarmed;
     document.getElementById('armBypassValue').textContent = ohaTranslate(bypassEnabled ? 'Enabled' : 'Disabled');
 
-    ohaRenderArmTargets();
+    ohaRenderArmTargets(isDisarmed);
 
     for (const modeName of ['home', 'away', 'night']) {
         const button = document.querySelector(`.oha-mode-button[data-mode="${modeName}"]`);
@@ -551,6 +551,7 @@ function ohaRenderArming(state) {
         }
         const modeStates = targetStates.map((target) => target.Modes?.[modeName]).filter(Boolean);
         const blockers = modeStates.flatMap((modeState) => Array.isArray(modeState.Blockers) ? modeState.Blockers : []);
+        const ready = modeStates.length > 0 && modeStates.every((modeState) => modeState.Ready);
         const canArm = modeStates.length > 0 && modeStates.every((modeState) => {
             if (modeState.CanArm) {
                 return true;
@@ -561,7 +562,7 @@ function ohaRenderArming(state) {
                 && modeBlockers.every((blocker) => blocker.Bypassable === true);
         });
         ohaRenderMode(modeName, {
-            Ready: canArm,
+            Ready: ready,
             CanArm: canArm,
             Blockers: blockers
         });
@@ -1547,6 +1548,9 @@ function ohaHandleInteractiveClick(event) {
     }
 
     if (control.matches('[data-arm-target-id]')) {
+        if (!ohaArmTargetStates().every((target) => target.State?.Name === 'disarmed')) {
+            return;
+        }
         const partitionID = control.dataset.armTargetId ?? '';
         const defaultID = ohaState?.DefaultPartition ?? '';
         if (partitionID === defaultID) {

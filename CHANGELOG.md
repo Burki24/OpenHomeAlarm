@@ -10,6 +10,10 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Kachel und IPSView zeigen bei einem bereits geschalteten Bereich wieder die
+  tatsächliche Sensorbereitschaft statt pauschal „Nicht bereit“. Die nur zum
+  Scharfschalten bestimmte Mehrbereichsauswahl wird währenddessen ausgeblendet.
+
 - Kachel und IPSView brechen den Aufbau des Scharfmodus-Bereichs nach der
   Einführung der Mehrbereichsauswahl nicht mehr wegen eines ungültigen
   JavaScript-Hilfsfunktionsaufrufs ab.

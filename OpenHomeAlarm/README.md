@@ -225,14 +225,19 @@ verarbeitet. Sobald die Liste `main` enthält, gilt der Auftrag absichtlich für
 die Gesamtanlage; für eine echte Teilmenge darf `main` deshalb nicht in der
 Liste stehen.
 
-In Kachel und IPSView erscheint bei mindestens drei verfügbaren Bereichen im
-Rahmen **Scharfmodi** die Auswahl **Ausgewählte Bereiche gemeinsam
-scharfschalten**. Dort lassen sich mehrere einzelne Bereiche markieren. Die
-obere Bereichsauswahl bestimmt weiterhin, welcher Bereich im Detail angezeigt
-und später einzeln unscharf geschaltet wird. Die Auswahl `main` steht auch hier
-für alle Bereiche. Das Unscharfschalten über die Oberfläche bleibt
-bereichsbezogen und verwendet weiterhin den eingerichteten Code; die
-codefreie Funktion `OHA_DisarmPartitions()` ist ausschließlich für
+In Kachel und IPSView erscheint bei mindestens drei verfügbaren Bereichen und
+vollständig unscharfen ausgewählten Zielbereichen im Rahmen **Scharfmodi** die
+Auswahl **Ausgewählte Bereiche gemeinsam scharfschalten**. Dort lassen sich
+mehrere einzelne Bereiche markieren. Sobald einer dieser Zielbereiche bereits
+geschaltet wird oder scharf ist, wird die Auswahl ausgeblendet; der angezeigte
+Bereich behält trotzdem seine tatsächliche Sensorbereitschaft. Über die obere
+Bereichsauswahl kann weiterhin ein anderer noch unscharfer Bereich ausgewählt
+und anschließend einzeln oder zusammen mit weiteren unscharfen Bereichen
+geschaltet werden. Die obere Bereichsauswahl bestimmt außerdem, welcher
+Bereich im Detail angezeigt und später einzeln unscharf geschaltet wird. Die
+Auswahl `main` steht auch hier für alle Bereiche. Das Unscharfschalten über die
+Oberfläche bleibt bereichsbezogen und verwendet weiterhin den eingerichteten
+Code; die codefreie Funktion `OHA_DisarmPartitions()` ist ausschließlich für
 vertrauenswürdige eigene Automationen gedacht.
 
 Bei `OHA_ArmPartition()`, `OHA_ArmHome()`, `OHA_ArmAway()` und `OHA_ArmNight()`
