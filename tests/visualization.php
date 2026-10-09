@@ -142,9 +142,12 @@ assertVisualization(
         && str_contains($javascript, 'function ohaResolvedArmPartitionIDs()')
         && !str_contains($javascript, 'ohaPartitionList(')
         && str_contains($javascript, 'ohaAvailablePartitions(ohaState)')
+        && str_contains($javascript, 'payload.PartitionID = targetIDs[0];')
+        && str_contains($javascript, 'if (!targetIDs.includes(partitionID))')
+        && str_contains($javascript, 'ohaSelectedPartitionID = targetIDs[0];')
         && str_contains($javascript, "action = 'ArmPartitions'")
         && str_contains($module, "case 'ArmPartitions':"),
-    'Tile and IPSView must arm an explicitly selected subset through the existing partition-state helper.'
+    'Tile and IPSView must arm the exact selected targets and follow a participating area for its countdown.'
 );
 assertVisualization(
     preg_match('/<nav[^>]+id="partitionNav"[\s\S]*?id="partitionTabs"[\s\S]*?id="armTargets"[\s\S]*?<\/nav>\s*<section[^>]+id="armingSection"/', $html) === 1,

@@ -287,6 +287,12 @@ function ohaRequestPartitionAction(action, value = null) {
     const payload = { PartitionID: partitionID, Value: value };
     if (action === 'ArmPartition') {
         const targetIDs = ohaResolvedArmPartitionIDs();
+        if (targetIDs.length > 0) {
+            payload.PartitionID = targetIDs[0];
+            if (!targetIDs.includes(partitionID)) {
+                ohaSelectedPartitionID = targetIDs[0];
+            }
+        }
         if (targetIDs.length > 1) {
             action = 'ArmPartitions';
             payload.PartitionIDs = targetIDs;

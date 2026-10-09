@@ -10,6 +10,11 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Beim gemeinsamen Scharfschalten einer Teilmenge folgt die Detailanzeige nun
+  einem beteiligten Bereich, sodass Ausgangsverzögerung und Countdown sichtbar
+  bleiben. Auch eine einzelne Markierung wird zuverlässig an den tatsächlich
+  gewählten statt an den zuvor angezeigten Bereich gesendet.
+
 - Die Mehrbereichsauswahl von Kachel und IPSView steht jetzt direkt unter der
   normalen Bereichsauswahl im gemeinsamen Rahmen **Alarmbereich**.
 

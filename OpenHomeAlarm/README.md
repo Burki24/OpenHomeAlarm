@@ -234,12 +234,16 @@ geschaltet wird oder scharf ist, wird die Auswahl ausgeblendet; der angezeigte
 Bereich behält trotzdem seine tatsächliche Sensorbereitschaft. Über die obere
 Bereichsauswahl kann weiterhin ein anderer noch unscharfer Bereich ausgewählt
 und anschließend einzeln oder zusammen mit weiteren unscharfen Bereichen
-geschaltet werden. Die obere Bereichsauswahl bestimmt außerdem, welcher
-Bereich im Detail angezeigt und später einzeln unscharf geschaltet wird. Die
-Auswahl `main` steht auch hier für alle Bereiche. Das Unscharfschalten über die
-Oberfläche bleibt bereichsbezogen und verwendet weiterhin den eingerichteten
-Code; die codefreie Funktion `OHA_DisarmPartitions()` ist ausschließlich für
-vertrauenswürdige eigene Automationen gedacht.
+geschaltet werden. Gehört der oben angezeigte Bereich beim Scharfschalten nicht
+zur gewählten Teilmenge, folgt die Detailanzeige automatisch dem ersten
+Zielbereich und zeigt dessen Ausgangsverzögerung und Countdown. Ein bereits
+beteiligter angezeigter Bereich bleibt ausgewählt. Die obere Bereichsauswahl
+bestimmt außerdem, welcher Bereich im Detail angezeigt und später einzeln
+unscharf geschaltet wird. Die Auswahl `main` steht auch hier für alle Bereiche.
+Das Unscharfschalten über die Oberfläche bleibt bereichsbezogen und verwendet
+weiterhin den eingerichteten Code; die codefreie Funktion
+`OHA_DisarmPartitions()` ist ausschließlich für vertrauenswürdige eigene
+Automationen gedacht.
 
 Bei `OHA_ArmPartition()`, `OHA_ArmHome()`, `OHA_ArmAway()` und `OHA_ArmNight()`
 muss der Parameter für die Ausgangsverzögerung im von Symcon erzeugten
