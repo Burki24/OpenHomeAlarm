@@ -139,9 +139,14 @@ assertVisualization(
 );
 assertVisualization(
     str_contains($html, 'id="armTargets"')
+        && !str_contains($html, 'id="armTargetList"')
         && str_contains($javascript, 'function ohaResolvedArmPartitionIDs()')
         && !str_contains($javascript, 'ohaPartitionList(')
         && str_contains($javascript, 'ohaAvailablePartitions(ohaState)')
+        && str_contains($javascript, "const control = document.createElement('div');")
+        && str_contains($javascript, "targetToggle.className = 'oha-partition-target-toggle';")
+        && str_contains($javascript, 'targetToggle.dataset.armTargetId = partition.ID;')
+        && str_contains($javascript, 'control.append(button, targetToggle);')
         && str_contains($javascript, 'payload.PartitionID = targetIDs[0];')
         && str_contains($javascript, 'if (!targetIDs.includes(partitionID))')
         && str_contains($javascript, 'ohaSelectedPartitionID = targetIDs[0];')
@@ -156,8 +161,10 @@ assertVisualization(
 assertVisualization(
     str_contains($javascript, 'function ohaRenderArmTargets(canSelectTargets)')
         && str_contains($javascript, 'targetPanel.hidden = partitions.length < 3 || !canSelectTargets;')
+        && str_contains($javascript, "document.querySelectorAll('[data-arm-target-id]')")
+        && str_contains($javascript, 'toggle.hidden = targetPanel.hidden;')
         && str_contains($javascript, 'ohaRenderArmTargets(isDisarmed);'),
-    'The multi-area arming selector must only be visible while all selected target areas are disarmed.'
+    'Integrated multi-area selectors must only be visible while all selected target areas are disarmed.'
 );
 assertVisualization(
     str_contains($javascript, 'const ready = modeStates.length > 0 && modeStates.every((modeState) => modeState.Ready);')
@@ -170,6 +177,11 @@ assertVisualization(
         && str_contains($css, '.oha-arming-controls {')
         && str_contains($css, 'html.oha-ipsview .oha-arming-controls {'),
     'Arming heading, alarm response and mode cards must share one styled control group in tile and IPSView.'
+);
+assertVisualization(
+    preg_match('/<div class="oha-arm-options">[\s\S]*?id="armDelivery"[\s\S]*?id="armBypass"[\s\S]*?<\/div>\s*<div class="oha-mode-grid">/', $html) === 1
+        && preg_match('/\.oha-arm-options \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(min\(320px, 100%\), 1fr\)\);/s', $css) === 1,
+    'Alarm response and optional sensor bypass must share a responsive two-column row on wide views.'
 );
 assertVisualization(
     str_contains($javascript, "control.matches('[data-delivery-switch]')")
@@ -213,6 +225,13 @@ assertVisualization(
         && str_contains($css, '.oha-partition-badge-fault')
         && str_contains($css, '.oha-partition-badge-memory'),
     'Partition tabs must expose armed, delay, alarm, fault and alarm-memory states without relying on color alone.'
+);
+assertVisualization(
+    str_contains($css, '.oha-partition-control {')
+        && str_contains($css, '.oha-partition-control[data-active="true"]')
+        && str_contains($css, '.oha-partition-target-toggle[aria-pressed="true"]')
+        && str_contains($css, '.oha-arm-target-legend {'),
+    'Each area pill must distinguish the displayed area from its independent shared-arming selection.'
 );
 assertVisualization(
     str_contains($javascript, "ohaRequestPartitionAction('DisarmPartitionWithCode', code);")
@@ -457,6 +476,9 @@ foreach ([
     'Reset alarm output',
     'Alarm output reset',
     'System disarmed',
+    'Outline = displayed area',
+    'Check = arm together',
+    'Include %s when arming',
     'Sensor bypassed',
     'Alarm memory acknowledged',
     'System fault detected',

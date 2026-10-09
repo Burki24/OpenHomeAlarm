@@ -31,8 +31,11 @@ aktuellen Symcon-Namen, keine automatisch ergänzten IDs.
    **Nacht**) aktivieren. Bei mehrwertigen Zustandsvariablen kann alternativ
    ein sicherer Normalwert gewählt werden; jede Abweichung gilt dann als
    Auslösung.
-4. In der Kachel einen Modus auswählen. `main` schaltet alle aktiven Bereiche,
-   ein anderer Bereich nur diesen Bereich.
+4. In Kachel oder IPSView den gewünschten Bereich über Namen beziehungsweise
+   Status anzeigen. Bei mindestens drei Bereichen können über den separaten
+   Auswahlkreis im selben Bereichsbutton auch mehrere Bereiche für die nächste
+   gemeinsame Scharfschaltung markiert werden. `main` steht dabei für alle
+   aktiven Bereiche und ersetzt einzelne Markierungen.
 5. Mit einem Testlauf prüfen, ob Sensorblocker, Unscharfschaltung und Aktionen
    wie erwartet funktionieren.
 
@@ -80,7 +83,9 @@ freigegeben wurden, zum Beispiel
 gewählter Bereich blockiert oder ungültig, wird keiner der Bereiche
 scharfgeschaltet. `main` in der Liste bedeutet weiterhin Gesamtanlage; für
 eine Teilmenge wird `main` deshalb weggelassen. Kachel und IPSView bieten bei
-mehreren Einzelbereichen dieselbe Auswahl im Rahmen **Scharfmodi** an.
+mindestens drei Bereichen dieselbe Auswahl direkt in den Bereichsbuttons an:
+Der Außenrahmen markiert den angezeigten Bereich, der Auswahlkreis mit Haken
+die Bereiche für die nächste gemeinsame Scharfschaltung.
 
 Für einen ausdrücklich zugelassenen normalen Sensor kann eine vertrauenswürdige
 Automation einen einmaligen Durchgang freigeben, ohne den Bereich

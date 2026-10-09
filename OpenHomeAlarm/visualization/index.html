@@ -41,13 +41,11 @@
                 <span class="oha-partition-kicker" id="partitionKicker"></span>
                 <h2 class="oha-partition-title" id="partitionLabel"></h2>
             </div>
-            <div class="oha-partition-tabs" id="partitionTabs" role="tablist"></div>
-            <div class="oha-arm-targets" id="armTargets" hidden>
-                <div class="oha-arm-delivery-copy">
-                    <strong class="oha-arm-delivery-label" id="armTargetsLabel"></strong>
-                    <span class="oha-arm-delivery-default" id="armTargetsHint"></span>
-                </div>
-                <div class="oha-arm-target-list" id="armTargetList"></div>
+            <div class="oha-partition-tabs" id="partitionTabs" role="group"></div>
+            <div class="oha-arm-target-legend" id="armTargets" hidden>
+                <span id="armTargetsLabel"></span>
+                <span aria-hidden="true">·</span>
+                <span id="armTargetsHint"></span>
             </div>
         </nav>
 
@@ -61,26 +59,28 @@
                     <span class="oha-section-hint" id="armingHint"></span>
                 </div>
 
-                <div class="oha-arm-delivery" id="armDelivery">
-                    <div class="oha-arm-delivery-copy">
-                        <strong class="oha-arm-delivery-label" id="armDeliveryLabel"></strong>
-                        <span class="oha-arm-delivery-default" id="armDeliveryDefault"></span>
+                <div class="oha-arm-options">
+                    <div class="oha-arm-delivery" id="armDelivery">
+                        <div class="oha-arm-delivery-copy">
+                            <strong class="oha-arm-delivery-label" id="armDeliveryLabel"></strong>
+                            <span class="oha-arm-delivery-default" id="armDeliveryDefault"></span>
+                        </div>
+                        <button class="oha-delivery-switch" data-delivery-switch type="button" role="switch" aria-checked="false" aria-describedby="armDeliveryDefault">
+                            <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
+                            <span class="oha-delivery-switch-value" id="armDeliveryValue"></span>
+                        </button>
                     </div>
-                    <button class="oha-delivery-switch" data-delivery-switch type="button" role="switch" aria-checked="false" aria-describedby="armDeliveryDefault">
-                        <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
-                        <span class="oha-delivery-switch-value" id="armDeliveryValue"></span>
-                    </button>
-                </div>
 
-                <div class="oha-arm-delivery" id="armBypass" hidden>
-                    <div class="oha-arm-delivery-copy">
-                        <strong class="oha-arm-delivery-label" id="armBypassLabel"></strong>
-                        <span class="oha-arm-delivery-default" id="armBypassHint"></span>
+                    <div class="oha-arm-delivery" id="armBypass" hidden>
+                        <div class="oha-arm-delivery-copy">
+                            <strong class="oha-arm-delivery-label" id="armBypassLabel"></strong>
+                            <span class="oha-arm-delivery-default" id="armBypassHint"></span>
+                        </div>
+                        <button class="oha-delivery-switch" data-bypass-switch type="button" role="switch" aria-checked="false" aria-describedby="armBypassHint">
+                            <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
+                            <span class="oha-delivery-switch-value" id="armBypassValue"></span>
+                        </button>
                     </div>
-                    <button class="oha-delivery-switch" data-bypass-switch type="button" role="switch" aria-checked="false" aria-describedby="armBypassHint">
-                        <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
-                        <span class="oha-delivery-switch-value" id="armBypassValue"></span>
-                    </button>
                 </div>
 
                 <div class="oha-mode-grid">

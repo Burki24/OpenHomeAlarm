@@ -225,21 +225,23 @@ verarbeitet. Sobald die Liste `main` enthält, gilt der Auftrag absichtlich für
 die Gesamtanlage; für eine echte Teilmenge darf `main` deshalb nicht in der
 Liste stehen.
 
-In Kachel und IPSView erscheint bei mindestens drei verfügbaren Bereichen und
-vollständig unscharfen ausgewählten Zielbereichen direkt unter der normalen
-Bereichsauswahl im Rahmen **Alarmbereich** die Auswahl **Ausgewählte Bereiche
-gemeinsam scharfschalten**. Dort lassen sich
-mehrere einzelne Bereiche markieren. Sobald einer dieser Zielbereiche bereits
-geschaltet wird oder scharf ist, wird die Auswahl ausgeblendet; der angezeigte
-Bereich behält trotzdem seine tatsächliche Sensorbereitschaft. Über die obere
-Bereichsauswahl kann weiterhin ein anderer noch unscharfer Bereich ausgewählt
-und anschließend einzeln oder zusammen mit weiteren unscharfen Bereichen
-geschaltet werden. Gehört der oben angezeigte Bereich beim Scharfschalten nicht
-zur gewählten Teilmenge, folgt die Detailanzeige automatisch dem ersten
+In Kachel und IPSView vereint bei mindestens drei verfügbaren Bereichen jeder
+Bereichsbutton zwei getrennte Bedienziele: Ein Klick auf Namen beziehungsweise
+Status wählt den Bereich für die Detailanzeige; der türkisfarbene Außenrahmen
+kennzeichnet diese Auswahl. Der eigene Auswahlkreis rechts im selben Button
+nimmt den Bereich in die nächste gemeinsame Scharfschaltung auf oder entfernt
+ihn daraus; ein Haken kennzeichnet die gewählten Zielbereiche. Bis erstmals
+ein Auswahlkreis bedient wird, folgt das einzelne Schaltziel weiterhin der
+gewohnten Detailauswahl. Die Auswahl `main` bedeutet auch im Auswahlkreis
+Gesamtanlage und ersetzt deshalb einzelne Markierungen.
+
+Sobald einer der gewählten Zielbereiche geschaltet wird oder scharf ist,
+werden die Auswahlkreise ausgeblendet; die Bereichsbuttons bleiben für die
+Detailauswahl verfügbar. Gehört der angezeigte Bereich beim Scharfschalten
+nicht zur gewählten Teilmenge, folgt die Detailanzeige automatisch dem ersten
 Zielbereich und zeigt dessen Ausgangsverzögerung und Countdown. Ein bereits
-beteiligter angezeigter Bereich bleibt ausgewählt. Die obere Bereichsauswahl
-bestimmt außerdem, welcher Bereich im Detail angezeigt und später einzeln
-unscharf geschaltet wird. Die Auswahl `main` steht auch hier für alle Bereiche.
+beteiligter angezeigter Bereich bleibt ausgewählt. Die Detailauswahl bestimmt
+außerdem, welcher Bereich später einzeln unscharf geschaltet wird.
 Das Unscharfschalten über die Oberfläche bleibt bereichsbezogen und verwendet
 weiterhin den eingerichteten Code; die codefreie Funktion
 `OHA_DisarmPartitions()` ist ausschließlich für vertrauenswürdige eigene
@@ -309,7 +311,11 @@ Auch dieser Befehl verändert keinen anderen Alarmbereich.
 | `main` | Feste Gesamtanlage. Die Befehle ohne Bereichsangabe sowie die Auswahl `main` in Kachel und IPSView schalten alle aktiven Bereiche gemeinsam; Kachel und IPSView können weiterhin einzelne Bereiche auswählen |
 | Scharfgeschaltet | Laufzeitzustand eines Bereichs; seine zugeordneten Sensoren werden entsprechend dem gewählten Modus überwacht |
 
-Die HTML-SDK-Kachel und die IPSView-Seite zeigen oberhalb des Sicherheitsstatus eine Bereichsauswahl. Scharf-/Unscharfschaltung, Bereitschaft, Diagnose, Alarmgedächtnis und Sensorüberbrückungen beziehen sich auf den dort gewählten Bereich. Die öffentlichen PHP-Funktionen stehen zusätzlich für Automationen zur Verfügung.
+Die HTML-SDK-Kachel und die IPSView-Seite zeigen unterhalb des
+Sicherheitsstatus eine Bereichsauswahl. Scharf-/Unscharfschaltung,
+Bereitschaft, Diagnose, Alarmgedächtnis und Sensorüberbrückungen beziehen sich
+auf den dort für die Detailansicht gewählten Bereich. Die öffentlichen
+PHP-Funktionen stehen zusätzlich für Automationen zur Verfügung.
 
 Vor dem Scharfschalten zeigt ein Switch in Kachel und IPSView zunächst die
 Bereichsvorgabe für normalen oder stillen Alarm. Ein Klick wechselt die
@@ -330,6 +336,10 @@ Sensoren bleiben Blocker. Bei `main` werden alle erfassten Bereiche geprüft;
 bei einer Mehrfachauswahl nur die gewählten Bereiche. Erreicht ein automatisch
 überbrückter Sensor später seinen Normalzustand, wird er sofort wieder normal
 überwacht.
+
+Auf ausreichend breiten Ansichten stehen die Schalter für Alarmierungsart und
+automatische Überbrückung platzsparend nebeneinander. Bei geringerer Breite
+ordnet die gemeinsame responsive Darstellung sie automatisch untereinander an.
 
 ### Regeln für die Bereichs-ID
 
@@ -950,6 +960,42 @@ Repository.
 ## 16. Kachel und IPSView
 
 OpenHomeAlarm besitzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Das Dashboard ist zustandsorientiert aufgebaut: **Unscharf**, **Scharf**, **Ein-/Ausgangsverzögerung** und **Alarm** werden als zentraler Hauptzustand dargestellt. Countdown, Alarmgedächtnis, aktive Systemstörungen, temporär überbrückte Sensoren und eine laufende Durchgangsfreigabe erscheinen nur dann als zusätzliche Hinweise, wenn sie tatsächlich relevant sind. Dadurch bleibt die Normalansicht kompakt und die jeweils wichtigste Information steht im Vordergrund. Farben, Oberflächen, Abstände und Fokusdarstellung stammen aus dem gemeinsamen `VisualizationThemeConfigurationHelper`; standardmäßig folgt die Kachel den nativen Symcon-Farben einschließlich Light-/Dark-Umschaltung. Im Konfigurationsabschnitt **Symcon-Kachel** können Text-, Überschriften-, Hintergrund-, Akzent- und Statusfarben optional überschrieben werden. Nur tatsächlich vom Standard abweichende Farben werden fest vorgegeben; alle unveränderten Rollen passen sich weiterhin dem nativen Symcon-Schema an.
+
+### Alarmbereiche anzeigen und gemeinsam scharfschalten
+
+Kachel und IPSView verwenden dieselbe Bereichsbedienung. Bei mindestens drei
+verfügbaren Bereichen enthält jeder Bereichsbutton zwei bewusst getrennte
+Bedienflächen:
+
+- Ein Klick auf **Namen oder Status** zeigt diesen Bereich an. Der
+  türkisfarbene **Außenrahmen** kennzeichnet den aktuell angezeigten Bereich.
+- Ein Klick auf den **Auswahlkreis rechts im Bereichsbutton** nimmt den Bereich
+  in die nächste Scharfschaltung auf oder entfernt ihn daraus. Ein sichtbarer
+  **Haken** kennzeichnet jeden gemeinsam zu schaltenden Bereich.
+
+Für eine gemeinsame Scharfschaltung gehen Sie wie folgt vor:
+
+1. Markieren Sie über die Auswahlkreise alle gewünschten Einzelbereiche.
+2. Lassen Sie `main` unmarkiert, wenn nur diese Teilmenge geschaltet werden
+   soll. Wird `main` gewählt, löscht OpenHomeAlarm die Einzelmarkierungen und
+   behandelt den Auftrag als Gesamtanlage.
+3. Stellen Sie bei Bedarf **Alarmierungsart** und **Mit erlaubten aktiven
+   Sensoren scharfschalten** ein. Auf breiten Ansichten stehen diese beiden
+   Optionen nebeneinander, auf schmalen Ansichten automatisch untereinander.
+4. Wählen Sie **Zuhause**, **Abwesend** oder **Nacht**. OpenHomeAlarm prüft
+   zuerst sämtliche markierten Bereiche. Ist einer davon nicht bereit, wird
+   kein Bereich des gemeinsamen Auftrags teilweise scharfgeschaltet.
+5. Beginnt eine Ausgangsverzögerung, folgt die Detailanzeige automatisch einem
+   beteiligten Bereich und zeigt dessen Countdown. Die Auswahlkreise werden
+   während Schaltung und Scharfzustand ausgeblendet.
+
+Der Außenrahmen und der Auswahlhaken dürfen deshalb unterschiedliche Bereiche
+kennzeichnen: Der Rahmen bestimmt ausschließlich, welchen Bereich die Ansicht
+und eine spätere bereichsbezogene Deaktivierung betreffen. Die Haken bestimmen
+ausschließlich den nächsten gemeinsamen Scharfschaltauftrag. Vor der ersten
+Mehrfachauswahl folgt das einzelne Schaltziel wie gewohnt dem angezeigten
+Bereich. Das Unscharfschalten in der Oberfläche bleibt absichtlich auf den
+angezeigten Bereich begrenzt und verwendet den eingerichteten Code.
 
 Direkt unter dem zentralen Sicherheitsstatus stehen **Zuhause**, **Abwesend** und **Nacht** als vollständige Modus-Schaltflächen. Im unscharfen Zustand lassen sich bereite Modi über die gesamte Schaltfläche aktivieren; während eines laufenden Scharfzustands bleiben sie als deutlich hervorgehobene Statusanzeige sichtbar und folgen der vom Backend veröffentlichten Bedienfreigabe. Offene oder nicht verfügbare Sensoren können – sofern zulässig – direkt einmalig überbrückt werden. Bestehende Überbrückungen lassen sich einzeln oder gemeinsam aufheben. Ein gespeichertes Alarmgedächtnis kann quittiert und ein aktiver Alarmausgang ohne Unscharfschaltung gestoppt werden. Die letzten sechs Einträge des persistenten Sicherheitsprotokolls werden als kompakte Ereignisliste angezeigt.
 

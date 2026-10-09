@@ -15,6 +15,7 @@ const ohaIPSViewConfig = ohaVisualization.mode === 'ipsview'
 let ohaState = ohaVisualization.state ?? null;
 let ohaSelectedPartitionID = '';
 let ohaArmPartitionIDs = [];
+let ohaArmTargetSelectionExplicit = false;
 let ohaCodeBuffer = '';
 let ohaCodeBusy = false;
 let ohaCodeAction = 'DisarmPartitionWithCode';
@@ -225,20 +226,24 @@ function ohaRenderPartitions(state) {
     document.getElementById('partitionKicker').textContent = ohaTranslate('Alarm partition');
     document.getElementById('partitionLabel').textContent = ohaTranslate('Select alarm partition');
     for (const partition of partitions) {
+        const control = document.createElement('div');
         const button = document.createElement('button');
+        const targetToggle = document.createElement('button');
         const stateName = partition.State?.Name ?? 'disarmed';
         const hasFault = Boolean(partition.Faults?.Active);
         const hasAlarmMemory = Boolean(partition.Alarm?.MemoryActive);
         const partitionName = partition.Name || partition.ID;
+        control.className = 'oha-partition-control';
+        control.dataset.active = partition.ID === ohaSelectedPartitionID ? 'true' : 'false';
+        control.dataset.state = stateName;
         button.className = 'oha-partition-tab';
         button.type = 'button';
-        button.role = 'tab';
         button.dataset.partitionId = partition.ID;
         button.dataset.active = partition.ID === ohaSelectedPartitionID ? 'true' : 'false';
         button.dataset.state = stateName;
         button.dataset.fault = hasFault ? 'true' : 'false';
         button.dataset.alarmMemory = hasAlarmMemory ? 'true' : 'false';
-        button.setAttribute('aria-selected', button.dataset.active);
+        button.setAttribute('aria-pressed', button.dataset.active);
         const statusDescription = [partitionName, ohaStateCaption(stateName)];
         if (hasFault) {
             statusDescription.push(ohaTranslate('System fault active'));
@@ -256,6 +261,7 @@ function ohaRenderPartitions(state) {
         stateIcon.className = `fa-light ${ohaStateIcon(stateName)}`;
         indicator.appendChild(stateIcon);
         const label = document.createElement('span');
+        label.className = 'oha-partition-name';
         label.textContent = partitionName;
         const badges = document.createElement('span');
         badges.className = 'oha-partition-badges';
@@ -277,7 +283,17 @@ function ohaRenderPartitions(state) {
             badges.appendChild(memoryBadge);
         }
         button.append(indicator, label, badges);
-        tabs.appendChild(button);
+        targetToggle.className = 'oha-partition-target-toggle';
+        targetToggle.type = 'button';
+        targetToggle.dataset.armTargetId = partition.ID;
+        targetToggle.setAttribute('aria-pressed', 'false');
+        targetToggle.hidden = true;
+        const targetIcon = document.createElement('i');
+        targetIcon.className = 'fa-light fa-check';
+        targetIcon.setAttribute('aria-hidden', 'true');
+        targetToggle.appendChild(targetIcon);
+        control.append(button, targetToggle);
+        tabs.appendChild(control);
     }
     ohaSchedulePartitionNavHeight();
 }
@@ -336,24 +352,25 @@ function ohaArmTargetStates() {
 
 function ohaRenderArmTargets(canSelectTargets) {
     const targetPanel = document.getElementById('armTargets');
-    const targetList = document.getElementById('armTargetList');
     const partitions = ohaAvailablePartitions(ohaState);
     targetPanel.hidden = partitions.length < 3 || !canSelectTargets;
-    if (targetPanel.hidden) {
-        return;
-    }
-    document.getElementById('armTargetsLabel').textContent = ohaTranslate('Arm selected areas together');
-    document.getElementById('armTargetsHint').textContent = ohaTranslate('Select one or more areas. Main area means all areas.');
     const selected = new Set(ohaResolvedArmPartitionIDs());
-    targetList.replaceChildren();
-    for (const partition of partitions) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'oha-arm-target';
-        button.dataset.armTargetId = partition.ID;
-        button.setAttribute('aria-pressed', selected.has(partition.ID) ? 'true' : 'false');
-        button.textContent = partition.Name || partition.ID;
-        targetList.appendChild(button);
+    document.getElementById('armTargetsLabel').textContent = ohaTranslate('Outline = displayed area');
+    document.getElementById('armTargetsHint').textContent = ohaTranslate('Check = arm together');
+    for (const toggle of document.querySelectorAll('[data-arm-target-id]')) {
+        const partitionID = toggle.dataset.armTargetId ?? '';
+        const isSelected = selected.has(partitionID);
+        const control = toggle.closest('.oha-partition-control');
+        toggle.hidden = targetPanel.hidden;
+        toggle.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        toggle.setAttribute(
+            'aria-label',
+            ohaTranslate('Include %s when arming').replace('%s', ohaPartitionName(partitionID))
+        );
+        if (control) {
+            control.dataset.targetVisible = targetPanel.hidden ? 'false' : 'true';
+            control.dataset.targetSelected = isSelected ? 'true' : 'false';
+        }
     }
 }
 
@@ -1568,13 +1585,16 @@ function ohaHandleInteractiveClick(event) {
                 : [...selected, partitionID];
             ohaArmPartitionIDs = selected.length > 0 ? selected : [partitionID];
         }
-        ohaRenderArming(ohaSelectedState());
+        ohaArmTargetSelectionExplicit = true;
+        ohaRender();
         return;
     }
 
     if (control.matches('[data-partition-id]')) {
         ohaSelectedPartitionID = control.dataset.partitionId ?? '';
-        ohaArmPartitionIDs = ohaSelectedPartitionID ? [ohaSelectedPartitionID] : [];
+        if (!ohaArmTargetSelectionExplicit) {
+            ohaArmPartitionIDs = ohaSelectedPartitionID ? [ohaSelectedPartitionID] : [];
+        }
         ohaCloseCodepad();
         ohaRender();
         return;

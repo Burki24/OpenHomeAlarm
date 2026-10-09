@@ -287,6 +287,14 @@ html:not(.oha-ipsview) .oha-shell {
     scrollbar-width: thin;
 }
 
+.oha-partition-control {
+    position: relative;
+    display: inline-flex;
+    min-width: 0;
+    flex: 0 0 auto;
+    border-radius: 999px;
+}
+
 .oha-partition-tab {
     --oha-partition-color: var(--oha-muted);
     --oha-partition-background: var(--oha-surface);
@@ -304,6 +312,51 @@ html:not(.oha-ipsview) .oha-shell {
     cursor: pointer;
     font-size: 0.76rem;
     font-weight: 700;
+}
+
+.oha-partition-control[data-target-visible="true"] .oha-partition-tab {
+    padding-right: 45px;
+}
+
+.oha-partition-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oha-partition-target-toggle {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    right: 6px;
+    display: grid;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    transform: translateY(-50%);
+    place-items: center;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: 50%;
+    background: var(--oha-surface-strong);
+    color: transparent;
+    cursor: pointer;
+    font-size: 0.7rem;
+}
+
+.oha-partition-target-toggle[aria-pressed="true"] {
+    border-color: var(--oha-accent);
+    background: var(--oha-accent);
+    color: var(--oha-accent-contrast, #ffffff);
+}
+
+.oha-partition-target-toggle:hover {
+    filter: brightness(1.08);
+}
+
+.oha-partition-target-toggle:focus-visible {
+    outline: 2px solid var(--oha-focus);
+    outline-offset: 2px;
 }
 
 .oha-partition-tab[data-state="armed"] {
@@ -366,7 +419,7 @@ html:not(.oha-ipsview) .oha-shell {
     filter: brightness(1.04);
 }
 
-.oha-partition-tab[data-active="true"] {
+.oha-partition-control[data-active="true"] {
     box-shadow: 0 0 0 2px var(--oha-bg), 0 0 0 4px var(--oha-accent);
 }
 
@@ -719,6 +772,12 @@ html:not(.oha-ipsview) .oha-shell {
     background: color-mix(in srgb, var(--oha-surface) 35%, var(--oha-bg));
 }
 
+.oha-arm-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    gap: 10px;
+}
+
 .oha-arm-delivery {
     display: flex;
     align-items: center;
@@ -732,43 +791,15 @@ html:not(.oha-ipsview) .oha-shell {
     background: var(--oha-surface-soft);
 }
 
-.oha-arm-targets {
-    display: grid;
-    gap: 8px;
-    padding: 8px 10px;
-    border: var(--oha-border-width) solid var(--oha-border);
-    border-radius: var(--symc-radius-small);
-    background: var(--oha-surface-soft);
-}
-
-.oha-arm-target-list {
+.oha-arm-target-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
-}
-
-.oha-arm-target {
-    min-height: 32px;
-    padding: 5px 11px;
-    border: var(--oha-border-width) solid var(--oha-border);
-    border-radius: 999px;
-    background: var(--oha-surface);
-    color: var(--oha-text);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 700;
-}
-
-.oha-arm-target[aria-pressed="true"] {
-    border-color: var(--oha-accent);
-    background: var(--oha-accent-soft);
-    color: var(--oha-text-active);
-}
-
-.oha-arm-target:focus-visible {
-    outline: 2px solid var(--oha-focus);
-    outline-offset: 2px;
+    gap: 4px 10px;
+    padding: 7px 6px 0;
+    border-top: var(--oha-border-width) solid var(--oha-border);
+    color: var(--oha-muted);
+    font-size: 0.69rem;
+    font-weight: 650;
 }
 
 .oha-arm-delivery-copy {
@@ -1561,6 +1592,10 @@ html:not(.oha-ipsview) .oha-shell {
         max-width: 100%;
         justify-content: flex-start;
         white-space: normal;
+    }
+
+    html:not(.oha-ipsview) .oha-partition-control {
+        width: 100%;
     }
 
     .oha-section-hint {

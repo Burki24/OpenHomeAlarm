@@ -15,8 +15,10 @@ beispielsweise `v1.109.0`.
   bleiben. Auch eine einzelne Markierung wird zuverlässig an den tatsächlich
   gewählten statt an den zuvor angezeigten Bereich gesendet.
 
-- Die Mehrbereichsauswahl von Kachel und IPSView steht jetzt direkt unter der
-  normalen Bereichsauswahl im gemeinsamen Rahmen **Alarmbereich**.
+- Die Bereichsbuttons von Kachel und IPSView vereinen Detailauswahl und
+  Mehrbereichs-Scharfschaltung platzsparend in einer Zeile, kennzeichnen beide
+  Zustände jedoch getrennt durch Außenrahmen und Auswahlhaken. Alarmierungsart
+  und optionale Sensorüberbrückung stehen auf breiten Ansichten nebeneinander.
 
 - Kachel und IPSView zeigen bei einem bereits geschalteten Bereich wieder die
   tatsächliche Sensorbereitschaft statt pauschal „Nicht bereit“. Die nur zum
