@@ -973,6 +973,58 @@ Bedienflächen:
   in die nächste Scharfschaltung auf oder entfernt ihn daraus. Ein sichtbarer
   **Haken** kennzeichnet jeden gemeinsam zu schaltenden Bereich.
 
+![Bedienelemente eines Bereichsbuttons](../docs/images/openhomealarm-area-selection-explained.png)
+
+Die beiden Markierungen sind unabhängig voneinander. Die folgenden Beispiele
+zeigen die möglichen Zustände:
+
+**Nur Detailansicht:** Der Außenrahmen ist türkis, der Auswahlkreis bleibt leer.
+
+![Bereich wird in der Detailansicht angezeigt](../docs/images/openhomealarm-area-displayed.png)
+
+**Nur Schaltziel:** Der Außenrahmen bleibt neutral, der Auswahlkreis enthält
+einen Haken.
+
+![Bereich ist für die gemeinsame Scharfschaltung gewählt](../docs/images/openhomealarm-area-arm-target.png)
+
+**Detailansicht und Schaltziel:** Außenrahmen und Haken sind gleichzeitig aktiv.
+
+![Bereich wird angezeigt und gemeinsam geschaltet](../docs/images/openhomealarm-area-displayed-and-target.png)
+
+**Gesamtanlage:** Wird `main` als Schaltziel gewählt, entfernt OpenHomeAlarm
+vorherige Einzelmarkierungen. `main` steht immer für alle aktiven Bereiche.
+
+![Main ersetzt die Auswahl einzelner Bereiche](../docs/images/openhomealarm-area-main-selection.png)
+
+#### Statussymbol und Zustandsfarben
+
+Das Symbol links im Bereichsbutton zeigt unabhängig von Außenrahmen und
+Auswahlhaken den tatsächlichen Laufzeitzustand dieses Bereichs:
+
+| Symbol | Farbfunktion | Bedeutung |
+| --- | --- | --- |
+| Schild | Neutral | Der Bereich ist unscharf. |
+| Timer | Warnung | Die Ausgangsverzögerung läuft. |
+| Schloss | Positiv | Der Bereich ist scharfgeschaltet. |
+| Schlüssel | Warnung | Die Eingangsverzögerung läuft. |
+| Glocke | Kritisch | Im Bereich wurde ein Alarm ausgelöst. |
+
+![Statussymbole und Farben der Bereichszustände](../docs/images/openhomealarm-area-status-colors.png)
+
+Die Abbildungen verwenden die Standardrollen Neutral, Warnung, Positiv und
+Kritisch. Das konkrete Farberscheinungsbild kann sich durch Hell-/Dunkelmodus,
+IPSView-Stil oder eigene Farbvorgaben ändern. Symbol und fachliche Bedeutung
+bleiben dabei unverändert.
+
+Im Alarmzustand werden Bereichsbutton, Glocke, Schrift und Rand mit der
+kritischen Farbrolle dargestellt. Das Glockensymbol pulsiert, damit der Alarm
+nicht ausschließlich über die Farbe erkennbar ist. Die Auswahlkreise für einen
+neuen Scharfschaltauftrag werden während des aktiven Zustands ausgeblendet. Die
+zentrale Bedienansicht nennt zusätzlich den alarmierenden Bereich und den
+auslösenden Sensor, sofern dieser bekannt ist.
+
+![Darstellung eines ausgelösten Bereichsalarms](../docs/images/openhomealarm-area-alarm-state.png)
+
 Für eine gemeinsame Scharfschaltung gehen Sie wie folgt vor:
 
 1. Markieren Sie über die Auswahlkreise alle gewünschten Einzelbereiche.
