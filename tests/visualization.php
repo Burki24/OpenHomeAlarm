@@ -140,9 +140,11 @@ assertVisualization(
 assertVisualization(
     str_contains($html, 'id="armTargets"')
         && str_contains($javascript, 'function ohaResolvedArmPartitionIDs()')
+        && !str_contains($javascript, 'ohaPartitionList(')
+        && str_contains($javascript, 'ohaAvailablePartitions(ohaState)')
         && str_contains($javascript, "action = 'ArmPartitions'")
         && str_contains($module, "case 'ArmPartitions':"),
-    'Tile and IPSView must be able to arm an explicitly selected subset of alarm partitions.'
+    'Tile and IPSView must arm an explicitly selected subset through the existing partition-state helper.'
 );
 assertVisualization(
     preg_match('/<div class="oha-arming-controls">\s*<div class="oha-section-heading oha-section-heading-compact">[\s\S]*?<div class="oha-arm-delivery"[\s\S]*?<div class="oha-mode-grid">/', $html) === 1

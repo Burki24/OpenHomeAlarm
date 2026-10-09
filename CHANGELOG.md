@@ -10,6 +10,10 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Kachel und IPSView brechen den Aufbau des Scharfmodus-Bereichs nach der
+  Einführung der Mehrbereichsauswahl nicht mehr wegen eines ungültigen
+  JavaScript-Hilfsfunktionsaufrufs ab.
+
 - Mehrere frei gewählte Alarmbereiche können über die neue atomare API und die
   gemeinsame Kachel-/IPSView-Auswahl zusammen scharfgeschaltet werden. Ein
   Blocker oder eine ungültige Bereichs-ID verhindert den gesamten Auftrag;

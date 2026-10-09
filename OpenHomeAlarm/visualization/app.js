@@ -302,7 +302,7 @@ function ohaRequestPartitionAction(action, value = null) {
 }
 
 function ohaResolvedArmPartitionIDs() {
-    const partitions = ohaPartitionList(ohaState);
+    const partitions = ohaAvailablePartitions(ohaState);
     const valid = new Set(partitions.map((partition) => partition.ID));
     let selected = ohaArmPartitionIDs.filter((partitionID) => valid.has(partitionID));
     if (selected.length === 0) {
@@ -319,7 +319,7 @@ function ohaResolvedArmPartitionIDs() {
 function ohaArmTargetStates() {
     const targetIDs = ohaResolvedArmPartitionIDs();
     if (targetIDs.includes(ohaState?.DefaultPartition ?? '')) {
-        return ohaPartitionList(ohaState)
+        return ohaAvailablePartitions(ohaState)
             .map((partition) => ohaState?.Partitions?.[partition.ID])
             .filter((partition) => partition && typeof partition === 'object');
     }
@@ -331,7 +331,7 @@ function ohaArmTargetStates() {
 function ohaRenderArmTargets() {
     const targetPanel = document.getElementById('armTargets');
     const targetList = document.getElementById('armTargetList');
-    const partitions = ohaPartitionList(ohaState);
+    const partitions = ohaAvailablePartitions(ohaState);
     targetPanel.hidden = partitions.length < 3;
     if (targetPanel.hidden) {
         return;
