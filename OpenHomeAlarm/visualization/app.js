@@ -127,6 +127,24 @@ function ohaDiagnosticStatusCaption(status) {
     return ohaTranslate(captions[status] ?? status);
 }
 
+function ohaDiagnosticProblemCount(items) {
+    return items.filter((item) => (
+        ['missing', 'unreadable'].includes(item.Status)
+        || (item.Kind === 'fault' && item.Status === 'triggered')
+    )).length;
+}
+
+function ohaDiagnosticProblemCaption(count) {
+    if (count === 0) {
+        return ohaTranslate('No problems');
+    }
+    if (count === 1) {
+        return ohaTranslate('1 problem');
+    }
+
+    return ohaTranslate('%s problems').replace('%s', String(count));
+}
+
 function ohaStateIcon(name) {
     const icons = {
         disarmed: 'fa-shield',
@@ -174,7 +192,7 @@ function ohaSelectedState(state = ohaState) {
     const diagnosticItems = Array.isArray(state.Diagnostics?.Items)
         ? state.Diagnostics.Items.filter((item) => item.PartitionID === partition.ID)
         : [];
-    const diagnosticProblems = diagnosticItems.filter((item) => ['missing', 'unreadable'].includes(item.Status)).length;
+    const diagnosticProblems = ohaDiagnosticProblemCount(diagnosticItems);
 
     return {
         ...partition,
@@ -890,10 +908,13 @@ function ohaRenderDiagnostics(state) {
 
     document.getElementById('diagnosticsKicker').textContent = ohaTranslate('System diagnostics');
     document.getElementById('diagnosticsTitle').textContent = ohaTranslate('Inputs and communication');
-    document.getElementById('diagnosticsCount').textContent = String(diagnostics.Summary?.Problems ?? 0);
-    document.getElementById('diagnosticsCount').dataset.problems = Number(diagnostics.Summary?.Problems) > 0
-        ? 'true'
-        : 'false';
+    const problemCount = Math.max(0, Number(diagnostics.Summary?.Problems) || 0);
+    const problemCaption = ohaDiagnosticProblemCaption(problemCount);
+    const problemIndicator = document.getElementById('diagnosticsCount');
+    problemIndicator.textContent = problemCaption;
+    problemIndicator.dataset.problems = problemCount > 0 ? 'true' : 'false';
+    problemIndicator.setAttribute('aria-label', problemCaption);
+    problemIndicator.title = problemCaption;
 
     for (const item of items) {
         const row = document.createElement('div');

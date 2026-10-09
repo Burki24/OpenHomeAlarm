@@ -10,6 +10,11 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Systemdiagnose von Kachel und IPSView beschreibt ihren Problemzähler nun
+  als „Keine Probleme“, „1 Problem“ oder „n Probleme“. Die bereichsbezogene
+  Anzeige zählt ausgelöste Störungseingänge jetzt ebenso wie das zentrale
+  Diagnosemodell.
+
 - Die ausführliche Modulanleitung zeigt die zentralen Konfigurationsschritte,
   die Kachelbedienung und das Sicherheits-Ereignisprotokoll jetzt zusätzlich
   anhand geprüfter Screenshots aus einer Symcon-9-Testinstallation.

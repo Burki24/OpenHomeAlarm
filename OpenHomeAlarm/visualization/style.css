@@ -1168,11 +1168,13 @@ html:not(.oha-ipsview) .oha-shell {
     min-width: 28px;
     height: 28px;
     place-items: center;
+    padding: 0 9px;
     border-radius: 999px;
     background: var(--oha-surface-strong);
     color: var(--oha-muted);
     font-size: 0.72rem;
     font-weight: 800;
+    white-space: nowrap;
 }
 
 .oha-operation-count[data-problems="true"] {
@@ -2337,6 +2339,7 @@ html.oha-ipsview .oha-operation-head h2 {
 html.oha-ipsview .oha-operation-count {
     min-width: 24px;
     height: 24px;
+    padding: 0 7px;
     font-size: 0.64rem;
 }
 

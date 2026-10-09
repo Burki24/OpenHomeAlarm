@@ -356,6 +356,14 @@ assertVisualization(
     'Native and IPSView dashboards must render the shared diagnostics payload and highlight unavailable inputs.'
 );
 assertVisualization(
+    str_contains($javascript, 'function ohaDiagnosticProblemCount(items)')
+        && str_contains($javascript, "item.Kind === 'fault' && item.Status === 'triggered'")
+        && str_contains($javascript, 'function ohaDiagnosticProblemCaption(count)')
+        && str_contains($javascript, "ohaTranslate('No problems')")
+        && str_contains($javascript, "ohaTranslate('%s problems')"),
+    'Partition diagnostics must count active fault inputs and describe the problem count in plain language.'
+);
+assertVisualization(
     str_contains($module, "case 'ExportEventHistory':")
         && str_contains($javascript, 'function ohaDownloadEventHistory(interaction)')
         && str_contains($javascript, 'new Blob([content], { type: mimeType })')
@@ -464,6 +472,9 @@ foreach ([
     'Recent activity',
     'System diagnostics',
     'Inputs and communication',
+    'No problems',
+    '1 problem',
+    '%s problems',
     'Missing',
     'Unreadable',
     'Disabled',
