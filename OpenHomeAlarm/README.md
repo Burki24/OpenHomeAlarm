@@ -474,6 +474,15 @@ Die temporäre Durchgangsfreigabe erlaubt einer überwachten Tür genau einen
 für berechtigte Zutritte oder ein berechtigtes Verlassen gedacht, wenn
 beispielsweise der Modus **Zuhause** aktiv bleiben soll.
 
+Die mit `PassageTimeout` beziehungsweise dem Parameter `Frist` angegebene
+Dauer wird in Sekunden übergeben. Ohne Angabe gelten **60 Sekunden**; zulässig
+sind **1 bis 3.600 Sekunden**. Werte außerhalb dieses Bereichs werden
+abgewiesen. Die Frist ist eine Sicherheitsgrenze für einen kurzen Durchgang
+und nicht für stundenlange Betriebszustände vorgesehen. Ein erneuter Aufruf
+verlängert eine bereits laufende Freigabe nicht. Ist der Sensor nach Beginn
+des Durchgangs beim Fristablauf noch ausgelöst, erfolgt die normale
+Alarmauslösung.
+
 Die Durchgangsfreigabe ist keine allgemeine Sensorüberbrückung:
 
 - Sie gilt nur für den ausdrücklich angegebenen Sensor und Alarmbereich.
@@ -1222,6 +1231,11 @@ Kompatibilitätsschnittstellen erhalten.
 | `OHA_GrantPassage($InstanzID, $VariableID, $Frist = 60)` | `bool` | Gibt einen dafür zugelassenen Sensor im scharfen Hauptbereich für einen Auslöse-/Normalzyklus frei. |
 | `OHA_GrantPassagePartition($InstanzID, $BereichID, $VariableID, $Frist = 60)` | `bool` | Gibt den Sensor ausschließlich im angegebenen scharfen Bereich frei. |
 | `OHA_GrantPassagePartitions($InstanzID, $BereichIDs, $VariableID, $Frist = 60)` | `bool` | Gibt denselben Sensor in allen genannten scharfen Bereichen atomar frei. Ist eine Zuordnung unzulässig, entsteht nirgends eine Teilfreigabe. |
+
+Für alle drei Durchgangsbefehle wird `Frist` in Sekunden angegeben. Der
+Standardwert beträgt `60`, der zulässige Bereich `1` bis `3600`. Ein
+ungültiger Wert oder der Versuch, eine laufende Freigabe zu verlängern, liefert
+`false`.
 
 Manuelle Überbrückung und Durchgangsfreigabe haben unterschiedliche Aufgaben:
 Eine Überbrückung wird unscharf vorbereitet und gilt für den folgenden
