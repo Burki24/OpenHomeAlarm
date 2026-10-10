@@ -946,7 +946,12 @@ function ohaRenderEventHistory(state) {
         const copy = document.createElement('div');
         copy.className = 'oha-history-copy';
         const title = document.createElement('strong');
-        title.textContent = ohaEventCaption(event.Event);
+        const partitionName = typeof event.PartitionID === 'string'
+            && event.PartitionID !== ''
+            && event.PartitionID !== state.DefaultPartition
+            ? ohaPartitionName(event.PartitionID, state)
+            : '';
+        title.textContent = [partitionName, ohaEventCaption(event.Event)].filter(Boolean).join(': ');
         const detail = document.createElement('span');
         detail.textContent = [event.Source, ohaFormatEventTime(event.Time)].filter(Boolean).join(' · ');
         copy.append(title, detail);

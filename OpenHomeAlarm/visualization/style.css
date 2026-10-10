@@ -1542,6 +1542,17 @@ html:not(.oha-ipsview) .oha-shell {
         padding: 11px;
     }
 
+    .oha-operation-head-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .oha-operation-head-actions .oha-history-actions {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
     html:not(.oha-ipsview) .oha-shell {
         grid-template-rows: 38px minmax(0, 1fr);
         gap: 0;

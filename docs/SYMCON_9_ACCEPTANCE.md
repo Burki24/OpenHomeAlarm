@@ -196,6 +196,9 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | H-27 | Ein- und Ausgangsverzögerung in der iOS-Kachel und in IPSView beobachten; die Ansicht während des Countdowns kurz in den Hintergrund und wieder nach vorn bringen | Der sichtbare Countdown läuft anhand der Backend-Deadline ohne Sprünge durch verzögert zugestellte Einzelupdates weiter und zeigt nach der Rückkehr sofort die korrekte Restzeit; der fachliche Zustandswechsel bleibt backendgesteuert | Offen | |
 | H-28 | Zwei einzelne Bereiche scharfschalten, während `main` selbst unscharf bleibt; anschließend `main` auswählen und mit aktiviertem Codeschutz deaktivieren | Die Oberfläche bietet „Alle Bereiche deaktivieren“ an; eine einzige gültige Code-Eingabe schaltet alle Bereiche unscharf, eine ungültige Eingabe verändert keinen Bereich | Offen | |
 | H-29 | Einen ausgelösten Sensor mehreren Bereichen zuordnen und in der unscharfen Gesamtansicht `main` als Schaltziel wählen | Der Sensor wird in jeder betroffenen Bereichsprüfung berücksichtigt, erscheint in der zusammengefassten Blockerliste jedoch nur einmal | Offen | |
+| H-30 | In der nativen Kachel einen wegen eines Blockers abgewiesenen Schaltversuch auslösen, ohne danach eine weitere Aktion auszuführen | Der neue Eintrag „Scharfschaltung abgelehnt“ erscheint sofort im Systemprotokoll | Offen | |
+| H-31 | Je einen Schaltvorgang im Hauptbereich und in einem benannten Zusatzbereich ausführen | Der Hauptbereich bleibt kompakt beschriftet; beim Zusatzbereich beginnt der Protokolleintrag mit dessen benutzerdefiniertem Namen | Offen | |
+| H-32 | Systemprotokoll und Systemdiagnose in einer schmalen mobilen Kachel sowie IPSView öffnen | Diagnosezähler, JSON- und CSV-Schaltflächen bleiben vollständig sichtbar, bedienbar und ohne horizontales Abschneiden | Offen | |
 
 ## Automatisierte Vorprüfung
 

@@ -10,6 +10,19 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Native Kachelaktionen veröffentlichen nach ihrer vollständigen Verarbeitung
+  immer noch einmal den aktuellen Bedienzustand. Dadurch erscheinen insbesondere
+  abgelehnte Schaltversuche sofort im Systemprotokoll statt erst nach der
+  nächsten Bedienaktion.
+
+- Einträge des Systemprotokolls tragen bei zusätzlichen Alarmbereichen jetzt
+  den benutzerdefinierten Bereichsnamen, während Meldungen des Hauptbereichs
+  unverändert kompakt bleiben.
+
+- Auf schmalen Kachel- und IPSView-Darstellungen stehen Diagnosezähler sowie
+  JSON- und CSV-Export in einer eigenen umbrechenden Aktionszeile und werden
+  nicht mehr am rechten Rand abgeschnitten.
+
 - Kachel und IPSView berechnen den sichtbaren Ein-/Ausgangs-Countdown nun
   zwischen den Backend-Aktualisierungen aus der veröffentlichten Frist. Das
   verhindert insbesondere in iOS-WebViews stockende Sekundenanzeigen, ohne die

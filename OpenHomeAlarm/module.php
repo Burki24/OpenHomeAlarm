@@ -916,9 +916,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $interaction = $this->ExecuteVisualizationAction($Ident, $Value);
-        if ($Ident === 'RefreshVisualization' || $interaction !== null) {
-            $this->PublishVisualizationState($interaction);
-        }
+        $this->PublishVisualizationState($interaction);
     }
 
     /**

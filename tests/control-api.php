@@ -85,6 +85,8 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $writtenValues = [];
 
+    private mixed $visualizationValue = null;
+
     private int $status = 102;
 
     public function Create(): void
@@ -130,6 +132,11 @@ class IPSModuleStrict
         return $this->status;
     }
 
+    public function TestVisualizationValue(): mixed
+    {
+        return $this->visualizationValue;
+    }
+
     protected function SetStatus(int $status): bool
     {
         $this->status = $status;
@@ -144,6 +151,8 @@ class IPSModuleStrict
 
     protected function UpdateVisualizationValue(mixed $data): bool
     {
+        $this->visualizationValue = $data;
+
         return true;
     }
 
@@ -671,6 +680,17 @@ assertControlApi(
         && ($partitionEvents[0]['Mode'] ?? null) === 2
         && ($partitionEvents[0]['State'] ?? null) === 0,
     'A rejected non-default partition arming must be retained in its event history.'
+);
+$partitionInstance->RequestAction('ArmPartition', '{"PartitionID":"garage","Value":"away"}');
+$publishedPartitionState = json_decode(
+    (string) $partitionInstance->TestVisualizationValue(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($publishedPartitionState['Partitions']['garage']['RecentEvents'][0]['Event'] ?? null) === 'arm_rejected',
+    'A rejected visualization action must immediately publish its newly appended history entry.'
 );
 $testValues[2002] = false;
 assertControlApi($partitionInstance->ArmPartition('main', 'home'), 'The main/default partition must arm all ready areas.');

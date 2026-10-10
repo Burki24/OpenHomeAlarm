@@ -343,6 +343,23 @@ assertVisualization(
     'Sensor operations and recent security events must be rendered from the backend control state.'
 );
 assertVisualization(
+    str_contains($module, '$interaction = $this->ExecuteVisualizationAction($Ident, $Value);')
+        && str_contains($module, '$this->PublishVisualizationState($interaction);')
+        && !str_contains($module, 'if ($Ident === \'RefreshVisualization\' || $interaction !== null)'),
+    'Every native visualization action must publish its final state so newly appended history entries appear immediately.'
+);
+assertVisualization(
+    str_contains($javascript, "event.PartitionID !== state.DefaultPartition")
+        && str_contains($javascript, 'ohaPartitionName(event.PartitionID, state)')
+        && str_contains($javascript, "join(': ')"),
+    'Recent events from a non-default alarm area must include its user-defined area name.'
+);
+assertVisualization(
+    str_contains($html, 'class="oha-operation-head oha-operation-head-actions"')
+        && preg_match('/@media \(max-width: 620px\).*?\.oha-operation-head-actions\s*\{.*?flex-direction:\s*column;.*?\.oha-operation-head-actions \.oha-history-actions\s*\{.*?width:\s*100%;.*?flex-wrap:\s*wrap;/s', $css) === 1,
+    'Narrow dashboard headers must wrap diagnostics and export actions instead of clipping the CSV control.'
+);
+assertVisualization(
     str_contains($javascript, 'button.dataset.operationValue = String(value);')
         && str_contains($javascript, 'ohaRequestAction(action, control.dataset.operationValue ?? true);')
         && !str_contains($javascript, 'const variableID = Number(control.dataset.variableId) || 0;'),
