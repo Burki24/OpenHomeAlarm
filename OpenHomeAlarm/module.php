@@ -163,6 +163,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_FAULT_INPUTS = 'FaultInputs';
     private const PROPERTY_EXIT_DELAY_SECONDS = 'ExitDelaySeconds';
     private const PROPERTY_ENTRY_DELAY_SECONDS = 'EntryDelaySeconds';
+    private const PROPERTY_COUNTDOWN_START_ACTION = 'CountdownStartAction';
     private const PROPERTY_COUNTDOWN_ACTION = 'CountdownAction';
     private const PROPERTY_COUNTDOWN_END_ACTION = 'CountdownEndAction';
     private const PROPERTY_ALARM_DURATION_SECONDS = 'AlarmDurationSeconds';
@@ -192,6 +193,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_AUTOMATIC_ARMING_SCHEDULES = 'AutomaticArmingSchedules';
 
     private const OPTIONAL_ACTION_PROPERTIES = [
+        self::PROPERTY_COUNTDOWN_START_ACTION,
         self::PROPERTY_COUNTDOWN_ACTION,
         self::PROPERTY_COUNTDOWN_END_ACTION,
         self::PROPERTY_FAULT_ACTION,
@@ -251,6 +253,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_EXIT_DELAY_DEADLINE = 'ExitDelayDeadline';
     private const ATTRIBUTE_ENTRY_DELAY_DEADLINE = 'EntryDelayDeadline';
     private const ATTRIBUTE_COUNTDOWN_ACTION_STEP = 'CountdownActionStep';
+    private const ATTRIBUTE_PARTITION_COUNTDOWN_ACTION_RUNTIME = 'PartitionCountdownActionRuntime';
     private const ATTRIBUTE_ALARM_DURATION_DEADLINE = 'AlarmDurationDeadline';
     private const ATTRIBUTE_ALARM_OUTPUT_ACTIVE = 'AlarmOutputActive';
     private const ATTRIBUTE_PENDING_ALARM_SOURCE_ID = 'PendingAlarmSourceID';
@@ -324,6 +327,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyString(self::PROPERTY_FAULT_INPUTS, '[]');
         $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
         $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
+        $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_START_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_END_ACTION, 'false');
         $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
@@ -364,6 +368,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
         $this->RegisterAttributeString(self::ATTRIBUTE_COUNTDOWN_ACTION_STEP, '');
+        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_COUNTDOWN_ACTION_RUNTIME);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
         $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
@@ -1288,7 +1293,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             );
         }
         $this->WritePartitionRuntime($states);
-        $this->SchedulePartitionRuntimeTimer($states);
+        $this->SchedulePartitionRuntimeTimer($states, true);
         $this->RecordAutomaticSensorBypasses($proposedBypasses, $allSensors, $modeValue);
         foreach ($partitionIDs as $partitionID) {
             $this->AppendEvent(
@@ -3537,8 +3542,16 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /** @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states */
-    private function SchedulePartitionRuntimeTimer(array $states): void
-    {
+    private function SchedulePartitionRuntimeTimer(
+        array $states,
+        bool $startNewCountdownActions = false,
+        bool $restoreMissingCountdownActions = false
+    ): void {
+        $this->SynchronizePartitionCountdownActions(
+            $states,
+            $startNewCountdownActions,
+            $restoreMissingCountdownActions
+        );
         $active = false;
         foreach ($states as $partitionID => $state) {
             if ($partitionID !== $this->DefaultPartitionID() && $state['Deadline'] > 0) {
@@ -3547,6 +3560,98 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
         $this->SetTimerInterval(self::TIMER_PARTITION_RUNTIME, $active ? 1000 : 0);
+    }
+
+    /**
+     * Runs optional countdown actions for independently controlled areas.
+     * Areas sharing the same state and deadline belong to one jointly started
+     * countdown, so their actions are deliberately executed only once.
+     *
+     * @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states
+     */
+    private function SynchronizePartitionCountdownActions(
+        array $states,
+        bool $startNewCountdownActions,
+        bool $restoreMissingCountdownActions
+    ): void {
+        $activeCountdowns = $this->ActivePartitionCountdowns($states);
+        $runtime = $this->ReadPersistentJsonCache(self::ATTRIBUTE_PARTITION_COUNTDOWN_ACTION_RUNTIME);
+        $startActions = 0;
+        $stepActions = 0;
+        $endActions = 0;
+
+        foreach ($activeCountdowns as $key => $countdown) {
+            $remainingSeconds = max(0, $countdown['Deadline'] - time());
+            $stored = $runtime[$key] ?? null;
+            if (!is_array($stored) || !isset($stored['LastRemaining'])) {
+                if (!$startNewCountdownActions && !$restoreMissingCountdownActions) {
+                    continue;
+                }
+                $runtime[$key] = ['LastRemaining' => $remainingSeconds];
+                if ($startNewCountdownActions) {
+                    ++$startActions;
+                    if ($remainingSeconds > 0) {
+                        ++$stepActions;
+                    }
+                }
+                continue;
+            }
+
+            if ($remainingSeconds > 0 && (int) $stored['LastRemaining'] !== $remainingSeconds) {
+                $runtime[$key]['LastRemaining'] = $remainingSeconds;
+                ++$stepActions;
+            }
+        }
+
+        foreach (array_keys($runtime) as $key) {
+            if (!array_key_exists((string) $key, $activeCountdowns)) {
+                unset($runtime[$key]);
+                ++$endActions;
+            }
+        }
+
+        // Persist before invoking external actions so ApplyChanges or a restart
+        // cannot repeat the same start, second or completion transition.
+        $this->WritePersistentJsonCache(self::ATTRIBUTE_PARTITION_COUNTDOWN_ACTION_RUNTIME, $runtime);
+        for ($index = 0; $index < $startActions; ++$index) {
+            $this->RunConfiguredAction(self::PROPERTY_COUNTDOWN_START_ACTION);
+        }
+        for ($index = 0; $index < $stepActions; ++$index) {
+            $this->RunConfiguredAction(self::PROPERTY_COUNTDOWN_ACTION);
+        }
+        for ($index = 0; $index < $endActions; ++$index) {
+            $this->RunConfiguredAction(self::PROPERTY_COUNTDOWN_END_ACTION);
+        }
+    }
+
+    /**
+     * @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states
+     * @return array<string,array{Deadline:int}>
+     */
+    private function ActivePartitionCountdowns(array $states): array
+    {
+        $defaultPartitionID = $this->DefaultPartitionID();
+        $defaultState = $states[$defaultPartitionID] ?? null;
+        if (is_array($defaultState)
+            && in_array($defaultState['State'], [self::STATE_EXIT_DELAY, self::STATE_ENTRY_DELAY], true)
+            && $defaultState['Deadline'] > 0) {
+            // The non-default states mirror a main countdown and must not execute
+            // the globally configured actions a second time.
+            return [];
+        }
+
+        $countdowns = [];
+        foreach ($states as $partitionID => $state) {
+            if ($partitionID === $defaultPartitionID
+                || !in_array($state['State'], [self::STATE_EXIT_DELAY, self::STATE_ENTRY_DELAY], true)
+                || $state['Deadline'] <= 0) {
+                continue;
+            }
+            $key = sprintf('%d:%d', $state['State'], $state['Deadline']);
+            $countdowns[$key] = ['Deadline' => $state['Deadline']];
+        }
+
+        return $countdowns;
     }
 
     /** @return array<string,array{VariableID:int,Phase:string,Deadline:int}> */
@@ -4084,7 +4189,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RestoreDelayTimers();
         $partitionRuntime = $this->ReadPartitionRuntime();
         $this->WritePartitionRuntime($partitionRuntime);
-        $this->SchedulePartitionRuntimeTimer($partitionRuntime);
+        $this->SchedulePartitionRuntimeTimer($partitionRuntime, false, true);
         $partitionAlarmStates = $this->ReadPartitionAlarmStates();
         $this->WritePartitionAlarmStates($partitionAlarmStates);
         $this->SynchronizePartitionAlarmSummary($partitionAlarmStates);
@@ -4481,7 +4586,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::PROPERTY_FAULT_INPUTS                        => $this->ReadPropertyString(self::PROPERTY_FAULT_INPUTS),
             self::PROPERTY_EXIT_DELAY_SECONDS                  => $this->ReadPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS),
             self::PROPERTY_ENTRY_DELAY_SECONDS                 => $this->ReadPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS),
+            self::PROPERTY_COUNTDOWN_START_ACTION              => $this->ReadPropertyString(self::PROPERTY_COUNTDOWN_START_ACTION),
             self::PROPERTY_COUNTDOWN_ACTION                    => $this->ReadPropertyString(self::PROPERTY_COUNTDOWN_ACTION),
+            self::PROPERTY_COUNTDOWN_END_ACTION                => $this->ReadPropertyString(self::PROPERTY_COUNTDOWN_END_ACTION),
             self::PROPERTY_ALARM_DURATION_SECONDS              => $this->ReadPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS),
             self::PROPERTY_AUTO_REARM_AFTER_ALARM              => $this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM),
             self::PROPERTY_ALARM_ESCALATION_STEPS              => $this->ReadPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS),
@@ -6760,7 +6867,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $silent ?? $this->SilentByDefaultForPartition($partitionID)
         );
         $this->WritePartitionRuntime($states);
-        $this->SchedulePartitionRuntimeTimer($states);
+        $this->SchedulePartitionRuntimeTimer($states, true);
         $this->RecordAutomaticSensorBypasses($proposedBypasses, $sensors, $modeValue);
         $this->AppendEvent(
             $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
@@ -7627,7 +7734,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
         if ($changed) {
             $this->WritePartitionRuntime($states);
-            $this->SchedulePartitionRuntimeTimer($states);
+            $this->SchedulePartitionRuntimeTimer($states, $entryDelays !== []);
             foreach ($entryDelays as $partitionID => $entryDelay) {
                 $this->AppendEvent(
                     self::EVENT_ENTRY_DELAY_STARTED,
@@ -8512,6 +8619,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->WriteAttributeInteger($deadlineAttribute, $schedule['Deadline']);
         $this->SetTimerInterval($timerName, $schedule['IntervalMilliseconds']);
         $this->SetDelayRemaining($seconds);
+        $this->RunConfiguredAction(self::PROPERTY_COUNTDOWN_START_ACTION);
         $this->RunCountdownActionStep($schedule['Deadline'], $seconds);
         $this->SetTimerInterval(self::TIMER_DELAY_STATUS, 1000);
     }

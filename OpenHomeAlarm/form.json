@@ -168,6 +168,41 @@
                 },
                 {
                     "type": "List",
+                    "name": "CountdownStartAction",
+                    "caption": "Actions when countdown starts",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $CountdownStartAction);"
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Optional: Add an action that runs exactly once when an entry or exit countdown starts. Use this for a single beep, gong, spoken notice or status pulse. An empty list runs no action."
+                },
+                {
+                    "type": "List",
                     "name": "CountdownAction",
                     "caption": "Countdown actions",
                     "rowCount": 2,

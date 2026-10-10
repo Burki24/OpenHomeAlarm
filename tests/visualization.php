@@ -349,7 +349,7 @@ assertVisualization(
     'Every native visualization action must publish its final state so newly appended history entries appear immediately.'
 );
 assertVisualization(
-    str_contains($javascript, "event.PartitionID !== state.DefaultPartition")
+    str_contains($javascript, 'event.PartitionID !== state.DefaultPartition')
         && str_contains($javascript, 'ohaPartitionName(event.PartitionID, state)')
         && str_contains($javascript, "join(': ')"),
     'Recent events from a non-default alarm area must include its user-defined area name.'

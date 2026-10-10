@@ -10,6 +10,11 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Konfigurierte Countdown-Aktionen laufen jetzt auch bei einzeln oder gemeinsam
+  geschalteten Zusatzbereichen. Eine neue optionale Startaktion ermöglicht einen
+  einmaligen Signalton oder Hinweis; gemeinsam gestartete Bereiche führen Start-,
+  Sekunden- und Abschlussaktionen jeweils nur einmal aus.
+
 - Native Kachelaktionen veröffentlichen nach ihrer vollständigen Verarbeitung
   immer noch einmal den aktuellen Bedienzustand. Dadurch erscheinen insbesondere
   abgelehnte Schaltversuche sofort im Systemprotokoll statt erst nach der

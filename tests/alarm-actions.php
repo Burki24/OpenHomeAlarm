@@ -522,6 +522,15 @@ $alarmAction = json_encode([
         'VALUE'       => true
     ]
 ], JSON_THROW_ON_ERROR);
+$countdownStartAction = json_encode([
+    'actionID'   => '{33333333-3333-3333-3333-222222222222}',
+    'parameters' => [
+        'TARGET'      => 5002,
+        'ENVIRONMENT' => 'Default',
+        'PARENT'      => 6001,
+        'VALUE'       => true
+    ]
+], JSON_THROW_ON_ERROR);
 $countdownAction = json_encode([
     'actionID'   => '{33333333-3333-3333-3333-333333333333}',
     'parameters' => [
@@ -583,6 +592,163 @@ assertAlarmAction(
 );
 $delayedInstance->Disarm();
 assertAlarmAction(count($testActions) === 3, 'A completed countdown must not execute its end action again while disarming.');
+
+// A dedicated start action supports one-shot feedback without enabling the
+// action that deliberately runs on every positive countdown second.
+$testActions = [];
+$startOnlyCountdown = new OpenHomeAlarm();
+$startOnlyCountdown->Create();
+$startOnlyCountdown->TestSetPropertyInteger('ExitDelaySeconds', 5);
+$startOnlyCountdown->TestSetPropertyString('CountdownStartAction', $countdownStartAction);
+$startOnlyCountdown->TestSetPropertyString('Sensors', json_encode([
+    alarmActionSensor(4001, false)
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($startOnlyCountdown->ArmAway(), 'A countdown with only a start action must begin.');
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{33333333-3333-3333-3333-222222222222}'],
+    'The optional countdown start action must run exactly once without enabling per-second output.'
+);
+$startOnlyCountdown->ApplyChanges();
+assertAlarmAction(count($testActions) === 1, 'ApplyChanges must not repeat a countdown start action.');
+$startOnlyCountdown->Disarm();
+assertAlarmAction(count($testActions) === 1, 'A start-only countdown must not invent a completion action.');
+
+// Independently controlled areas use the same start, per-second and end
+// actions as main. Areas started together form one shared countdown action run.
+$testActions = [];
+$partitionCountdown = new OpenHomeAlarm();
+$partitionCountdown->Create();
+$partitionCountdown->TestSetPropertyInteger('ExitDelaySeconds', 5);
+$partitionCountdown->TestSetPropertyString('CountdownStartAction', $countdownStartAction);
+$partitionCountdown->TestSetPropertyString('CountdownAction', $countdownAction);
+$partitionCountdown->TestSetPropertyString('CountdownEndAction', $countdownEndAction);
+$partitionCountdown->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage'],
+    ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+], JSON_THROW_ON_ERROR));
+assertAlarmAction(
+    $partitionCountdown->ArmPartitions(['garage', 'shed'], 'away', 5),
+    'A jointly selected area countdown must begin.'
+);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === [
+        '{33333333-3333-3333-3333-222222222222}',
+        '{33333333-3333-3333-3333-333333333333}'
+    ],
+    'Jointly started areas must execute one start action and one first countdown step, not one pair per area.'
+);
+$partitionCountdown->ApplyChanges();
+assertAlarmAction(count($testActions) === 2, 'ApplyChanges must not repeat active area countdown actions.');
+$partitionCountdownRuntime = json_decode(
+    (string) ($partitionCountdown->TestAttributes()['PartitionCountdownActionRuntime'] ?? '[]'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+foreach ($partitionCountdownRuntime as &$countdownRuntime) {
+    ++$countdownRuntime['LastRemaining'];
+}
+unset($countdownRuntime);
+$partitionCountdown->TestSetAttributeString(
+    'PartitionCountdownActionRuntime',
+    json_encode($partitionCountdownRuntime, JSON_THROW_ON_ERROR)
+);
+$partitionCountdown->UpdatePartitionRuntime();
+assertAlarmAction(
+    count($testActions) === 3
+    && $testActions[2]['actionID'] === '{33333333-3333-3333-3333-333333333333}',
+    'A new positive second of an area countdown must execute the configured countdown action once.'
+);
+$partitionCountdown->DisarmPartitions(['garage', 'shed']);
+assertAlarmAction(
+    count($testActions) === 4
+    && $testActions[3]['actionID'] === '{33333333-3333-3333-3333-444444444444}',
+    'Cancelling a jointly started area countdown must execute its end action exactly once.'
+);
+$partitionCountdown->DisarmPartitions(['garage', 'shed']);
+assertAlarmAction(count($testActions) === 4, 'Repeated area disarming must not duplicate the countdown end action.');
+assertAlarmAction(
+    $partitionCountdown->ArmPartition('garage', 'away', 5),
+    'A single area countdown must be restartable after controlled cancellation.'
+);
+$partitionRuntime = json_decode(
+    (string) ($partitionCountdown->TestAttributes()['PartitionRuntime'] ?? '[]'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$partitionRuntime['garage']['Deadline'] = time() - 1;
+$partitionCountdown->TestSetAttributeString(
+    'PartitionRuntime',
+    json_encode($partitionRuntime, JSON_THROW_ON_ERROR)
+);
+$partitionCountdown->UpdatePartitionRuntime();
+assertAlarmAction(
+    count($testActions) === 7
+    && array_column(array_slice($testActions, 4), 'actionID') === [
+        '{33333333-3333-3333-3333-222222222222}',
+        '{33333333-3333-3333-3333-333333333333}',
+        '{33333333-3333-3333-3333-444444444444}'
+    ],
+    'A regularly completed single area countdown must run start, first step and end action exactly once.'
+);
+
+$testActions = [];
+$mainAreaCountdown = new OpenHomeAlarm();
+$mainAreaCountdown->Create();
+$mainAreaCountdown->TestSetPropertyString('CountdownStartAction', $countdownStartAction);
+$mainAreaCountdown->TestSetPropertyString('CountdownAction', $countdownAction);
+$mainAreaCountdown->TestSetPropertyString('CountdownEndAction', $countdownEndAction);
+$mainAreaCountdown->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage'],
+    ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($mainAreaCountdown->ArmAway(5), 'A main countdown with mirrored areas must begin.');
+$mainAreaCountdown->Disarm();
+assertAlarmAction(
+    array_column($testActions, 'actionID') === [
+        '{33333333-3333-3333-3333-222222222222}',
+        '{33333333-3333-3333-3333-333333333333}',
+        '{33333333-3333-3333-3333-444444444444}'
+    ],
+    'Mirrored area states must not duplicate the main countdown actions while disarming.'
+);
+
+$testActions = [];
+$partitionEntryCountdown = new OpenHomeAlarm();
+$partitionEntryCountdown->Create();
+$partitionEntryCountdown->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$partitionEntryCountdown->TestSetPropertyInteger('EntryDelaySeconds', 5);
+$partitionEntryCountdown->TestSetPropertyString('CountdownStartAction', $countdownStartAction);
+$partitionEntryCountdown->TestSetPropertyString('CountdownAction', $countdownAction);
+$partitionEntryCountdown->TestSetPropertyString('CountdownEndAction', $countdownEndAction);
+$partitionEntryCountdown->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage']
+], JSON_THROW_ON_ERROR));
+$partitionEntryCountdown->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, true), ['PartitionID' => 'garage'])
+], JSON_THROW_ON_ERROR));
+$testValues[4001] = false;
+assertAlarmAction($partitionEntryCountdown->ArmPartition('garage', 'away', 0), 'The area must arm before its entry-delay test.');
+$testValues[4001] = true;
+$partitionEntryCountdown->MessageSink(70, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === [
+        '{33333333-3333-3333-3333-222222222222}',
+        '{33333333-3333-3333-3333-333333333333}'
+    ],
+    'A single area entry delay must execute one start action and its first countdown step.'
+);
+$partitionEntryCountdown->DisarmPartition('garage');
+assertAlarmAction(
+    count($testActions) === 3
+    && $testActions[2]['actionID'] === '{33333333-3333-3333-3333-444444444444}',
+    'Cancelling a single area entry delay must execute its end action exactly once.'
+);
+$testValues[4001] = false;
 
 $testActions = [];
 $cancelledCountdown = new OpenHomeAlarm();
@@ -1246,6 +1412,7 @@ assertAlarmAction(
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') !== null
     && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') !== null
+    && findAlarmActionFormField($form['elements'] ?? [], 'CountdownStartAction') !== null
     && findAlarmActionFormField($form['elements'] ?? [], 'CountdownAction') !== null
     && findAlarmActionFormField($form['elements'] ?? [], 'CountdownEndAction') !== null,
     'Removed global alarm-action selectors must be absent from the configuration form.'
@@ -1256,7 +1423,7 @@ assertAlarmAction(
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmActionEnabled') === null,
     'Global alarm-action configuration must be removed completely.'
 );
-foreach (['FaultAction', 'FaultClearedAction', 'CountdownAction', 'CountdownEndAction'] as $actionName) {
+foreach (['FaultAction', 'FaultClearedAction', 'CountdownStartAction', 'CountdownAction', 'CountdownEndAction'] as $actionName) {
     $action = findAlarmActionFormField($form['elements'] ?? [], $actionName);
     assertAlarmAction(
         is_array($action)
@@ -1269,6 +1436,7 @@ foreach (['FaultAction', 'FaultClearedAction', 'CountdownAction', 'CountdownEndA
 
 $dynamicFormInstance = new OpenHomeAlarm();
 $dynamicFormInstance->Create();
+$dynamicFormInstance->TestSetPropertyString('CountdownStartAction', $countdownStartAction);
 $dynamicFormInstance->TestSetPropertyString('CountdownAction', $countdownAction);
 $dynamicFormInstance->TestSetPropertyString('CountdownEndAction', $countdownEndAction);
 $dynamicFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
@@ -1488,8 +1656,13 @@ assertAlarmAction(
     'The module README must document direct Pushover setup, priorities, testing and credential handling.'
 );
 $dynamicCountdownAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'CountdownAction');
+$dynamicCountdownStartAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'CountdownStartAction');
 assertAlarmAction(
-    is_array($dynamicCountdownAction)
+    is_array($dynamicCountdownStartAction)
+    && ($dynamicCountdownStartAction['type'] ?? null) === 'List'
+    && ($dynamicCountdownStartAction['values'][0]['Name'] ?? null) === 'Configured action'
+    && ($dynamicCountdownStartAction['values'][0]['Action'] ?? null) === $countdownStartAction
+    && is_array($dynamicCountdownAction)
     && ($dynamicCountdownAction['type'] ?? null) === 'List'
     && ($dynamicCountdownAction['values'][0]['Name'] ?? null) === 'Configured action'
     && ($dynamicCountdownAction['values'][0]['Action'] ?? null) === $countdownAction,
@@ -1501,7 +1674,7 @@ $lockedFormInstance->Create();
 $lockedFormInstance->TestSetCurrentValue('Mode', 2);
 $lockedFormInstance->TestSetCurrentValue('State', 2);
 $lockedForm = json_decode($lockedFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
-foreach (['Partitions', 'ExitDelaySeconds', 'CountdownAction', 'CountdownEndAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushNotificationApplicableTo', 'PushoverNotificationMode', 'PushoverNotificationApplicableTo'] as $fieldName) {
+foreach (['Partitions', 'ExitDelaySeconds', 'CountdownStartAction', 'CountdownAction', 'CountdownEndAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushNotificationApplicableTo', 'PushoverNotificationMode', 'PushoverNotificationApplicableTo'] as $fieldName) {
     $field = findAlarmActionFormField($lockedForm['elements'] ?? [], $fieldName);
     assertAlarmAction(
         is_array($field) && ($field['enabled'] ?? null) === false,
@@ -1570,10 +1743,12 @@ foreach ([
     'Tile visualization',
     'Notify for alarm response',
     'Countdown output',
+    'Actions when countdown starts',
     'Countdown actions',
     'Actions on new fault',
     'Actions after all faults are cleared',
     'Configured action',
+    'Optional: Add an action that runs exactly once when an entry or exit countdown starts. Use this for a single beep, gong, spoken notice or status pulse. An empty list runs no action.',
     'Optional: Add an action for output on every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. An empty list runs no action. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API.',
     'Optional: Add an action that runs once when a configured fault or a monitored sensor becomes faulty. Typical uses are a notification, spoken warning or warning light. An empty list runs no action.',
     'Optional: Add an action that runs once after the last active fault has been cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action.'

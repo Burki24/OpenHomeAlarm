@@ -56,6 +56,10 @@ Der Release umfasst verbindlich:
     Alarmbereichen,
 30. eine optionale Abschlussaktion, die nach jedem begonnenen Ein- oder
     Ausgangs-Countdown genau einmal ausgeführt wird.
+31. eine optionale Startaktion, die beim Beginn eines Ein- oder
+    Ausgangs-Countdowns genau einmal ausgeführt wird; Countdown-Aktionen gelten
+    gleichermaßen für die Gesamtanlage, einzelne Bereiche und gemeinsam
+    geschaltete Bereichsmengen.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -83,6 +87,10 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 - Eine konfigurierte Countdown-Abschlussaktion läuft nach regulärem Ende und
   nach kontrolliertem Abbruch eines begonnenen Countdowns genau einmal. Ein
   Neustart oder erneutes `ApplyChanges()` darf sie weder verlieren noch doppeln.
+- Eine konfigurierte Countdown-Startaktion läuft pro gemeinsam begonnenem
+  Countdown genau einmal. Die sekündliche Countdown-Aktion und die
+  Abschlussaktion dürfen bei gemeinsam geschalteten Bereichen nicht pro Bereich
+  vervielfacht werden.
 - Alarmgedächtnis, Ereignishistorie, Sperrzeit und laufende Fristen verhalten sich über `ApplyChanges()` und Neustarts wie dokumentiert.
 - Fehlende Sensor- oder Störungsvariablen werden sichtbar und sicherheitsgerichtet behandelt.
 

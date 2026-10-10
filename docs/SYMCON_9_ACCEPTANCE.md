@@ -199,6 +199,7 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | H-30 | In der nativen Kachel einen wegen eines Blockers abgewiesenen Schaltversuch auslösen, ohne danach eine weitere Aktion auszuführen | Der neue Eintrag „Scharfschaltung abgelehnt“ erscheint sofort im Systemprotokoll | Offen | |
 | H-31 | Je einen Schaltvorgang im Hauptbereich und in einem benannten Zusatzbereich ausführen | Der Hauptbereich bleibt kompakt beschriftet; beim Zusatzbereich beginnt der Protokolleintrag mit dessen benutzerdefiniertem Namen | Offen | |
 | H-32 | Systemprotokoll und Systemdiagnose in einer schmalen mobilen Kachel sowie IPSView öffnen | Diagnosezähler, JSON- und CSV-Schaltflächen bleiben vollständig sichtbar, bedienbar und ohne horizontales Abschneiden | Offen | |
+| H-33 | Ausgangs- und Eingangsverzögerung für einen einzelnen Zusatzbereich sowie eine gemeinsam gewählte Bereichsmenge mit Start-, Sekunden- und Abschlussaktion durchlaufen; einen Lauf kontrolliert abbrechen und einen laufenden Countdown über ApplyChanges/Neustart wiederherstellen | Die Startaktion läuft je gemeinsam begonnenem Countdown genau einmal, die Sekundenaktion je positivem Restwert höchstens einmal und die Abschlussaktion bei Ablauf oder Abbruch genau einmal; gemeinsam gestartete Bereiche vervielfachen keine Aktion | Offen | |
 
 ## Automatisierte Vorprüfung
 
