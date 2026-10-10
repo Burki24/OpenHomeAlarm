@@ -13,7 +13,9 @@ beispielsweise `v1.109.0`.
 - Konfigurierte Countdown-Aktionen laufen jetzt auch bei einzeln oder gemeinsam
   geschalteten Zusatzbereichen. Eine neue optionale Startaktion ermöglicht einen
   einmaligen Signalton oder Hinweis; gemeinsam gestartete Bereiche führen Start-,
-  Sekunden- und Abschlussaktionen jeweils nur einmal aus.
+  Sekunden- und Endaktionen jeweils nur einmal aus. Das Formular trennt
+  diese drei Zeitpunkte jetzt eindeutig und zeigt den jeweiligen Hilfetext direkt
+  vor der zugehörigen Aktionsliste.
 
 - Native Kachelaktionen veröffentlichen nach ihrer vollständigen Verarbeitung
   immer noch einmal den aktuellen Bedienzustand. Dadurch erscheinen insbesondere
@@ -28,7 +30,7 @@ beispielsweise `v1.109.0`.
   JSON- und CSV-Export in einer eigenen umbrechenden Aktionszeile und werden
   nicht mehr am rechten Rand abgeschnitten.
 
-- Kachel und IPSView berechnen den sichtbaren Ein-/Ausgangs-Countdown nun
+- Kachel und IPSView berechnen den sichtbaren Countdown einer Eingangs- oder Ausgangsverzögerung nun
   zwischen den Backend-Aktualisierungen aus der veröffentlichten Frist. Das
   verhindert insbesondere in iOS-WebViews stockende Sekundenanzeigen, ohne die
   sicherheitsrelevante Zeitsteuerung aus dem Modul zu verlagern.
@@ -86,7 +88,7 @@ beispielsweise `v1.109.0`.
   Nuki-Verriegelungszustands, wenn kein separater Türkontakt vorhanden ist.
 
 - Neben der Aktion für jeden positiven Countdown-Schritt kann eine getrennte
-  Abschlussaktion konfiguriert werden. Sie läuft nach regulärem Ende oder
+  Endaktion konfiguriert werden. Sie läuft nach regulärem Ende oder
   kontrolliertem Abbruch eines begonnenen Countdowns genau einmal und eignet
   sich zum ausdrücklichen Ausschalten von Ton, Licht oder Statusausgaben.
 
@@ -187,7 +189,7 @@ beispielsweise `v1.109.0`.
   Fehlversuchs- und Sperrzeitbehandlung.
 - Wöchentliche automatische Scharfschaltung über die regulären
   Bereitschaftsprüfungen.
-- Optionale Countdown-Aktion für Ein- und Ausgangsverzögerungen sowie
+- Optionale Countdown-Aktion für Eingangs- und Ausgangsverzögerungen sowie
   zeitgesteuerte Alarm-Eskalationsstufen.
 - JSON- und CSV-Export für Ereignishistorie und Systemdiagnose.
 - Gemeinsame Diagnoseansicht für HTML-SDK-Kachel und IPSView mit Sensor-,

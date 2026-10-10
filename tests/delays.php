@@ -643,13 +643,13 @@ $form = json_decode(
 );
 $delayPanel = null;
 foreach ($form['elements'] ?? [] as $element) {
-    if (($element['type'] ?? null) === 'ExpansionPanel' && ($element['caption'] ?? null) === 'Arming delays') {
+    if (($element['type'] ?? null) === 'ExpansionPanel' && ($element['caption'] ?? null) === 'Delays and countdown actions') {
         $delayPanel = $element;
         break;
     }
 }
-assertDelay(is_array($delayPanel), 'Configuration form must contain a dedicated Arming delays section.');
-assertDelay(($delayPanel['expanded'] ?? true) === false, 'Arming delays section must be collapsed by default.');
+assertDelay(is_array($delayPanel), 'Configuration form must contain a dedicated delays and countdown actions section.');
+assertDelay(($delayPanel['expanded'] ?? true) === false, 'Delays and countdown actions section must be collapsed by default.');
 
 $delayFields = [];
 foreach ($delayPanel['items'] ?? [] as $item) {
@@ -664,7 +664,37 @@ foreach ($delayPanel['items'] ?? [] as $item) {
 }
 assertDelay(
     $delayFields === ['ExitDelaySeconds', 'EntryDelaySeconds'],
-    'Arming delays section must contain both configured delay fields.'
+    'Delays and countdown actions section must contain both configured delay fields.'
+);
+
+$countdownGuidance = [];
+foreach ($delayPanel['items'] ?? [] as $item) {
+    if (($item['type'] ?? null) === 'Label' && str_starts_with((string) ($item['caption'] ?? ''), 'Optional.')) {
+        $countdownGuidance[] = ['type' => 'Label', 'caption' => $item['caption']];
+    }
+    if (($item['type'] ?? null) === 'List' && in_array($item['name'] ?? '', ['CountdownStartAction', 'CountdownAction', 'CountdownEndAction'], true)) {
+        $countdownGuidance[] = ['type' => 'List', 'name' => $item['name'], 'caption' => $item['caption'] ?? ''];
+    }
+}
+assertDelay(
+    $countdownGuidance === [
+        [
+            'type'    => 'Label',
+            'caption' => 'Optional. Runs exactly once when an entry or exit delay starts. Use it for a single beep, an announcement or to switch on a continuous signal. If the list is empty, no start action runs.'
+        ],
+        ['type' => 'List', 'name' => 'CountdownStartAction', 'caption' => 'One-time action at countdown start'],
+        [
+            'type'    => 'Label',
+            'caption' => 'Optional. Runs once for every remaining second while an entry or exit delay is active. Use it for a remaining-time announcement or a repeating signal. Scripts can read the remaining time, triggering sensor, arming mode and state through OHA_GetControlState(). If the list is empty, no per-second action runs.'
+        ],
+        ['type' => 'List', 'name' => 'CountdownAction', 'caption' => 'Action during countdown (every second)'],
+        [
+            'type'    => 'Label',
+            'caption' => 'Optional. Runs exactly once when a started entry or exit delay ends, both after normal expiry and after controlled cancellation by disarming or granting passage. Use it to switch off a continuous signal, light or status output. If the list is empty, no end action runs.'
+        ],
+        ['type' => 'List', 'name' => 'CountdownEndAction', 'caption' => 'One-time action at countdown end']
+    ],
+    'Each countdown help text must appear directly before the correctly named action list.'
 );
 
 $locale = json_decode(
@@ -674,8 +704,22 @@ $locale = json_decode(
     JSON_THROW_ON_ERROR
 );
 assertDelay(
-    ($locale['translations']['de']['Arming delays'] ?? null) === 'Einschaltverzögerungen',
-    'Arming delays section must have a German translation.'
+    ($locale['translations']['de']['Delays and countdown actions'] ?? null) === 'Verzögerungen und Countdown-Aktionen',
+    'Delays and countdown actions section must have a German translation.'
 );
+$countdownTranslations = [
+    'One-time action at countdown start'                                                                                                                                                                                                                                                                                   => 'Einmalige Aktion beim Countdown-Start',
+    'Action during countdown (every second)'                                                                                                                                                                                                                                                                               => 'Aktion während des Countdowns (jede Sekunde)',
+    'One-time action at countdown end'                                                                                                                                                                                                                                                                                     => 'Einmalige Aktion beim Countdown-Ende',
+    'Optional. Runs exactly once when an entry or exit delay starts. Use it for a single beep, an announcement or to switch on a continuous signal. If the list is empty, no start action runs.'                                                                                                                           => 'Optional. Wird beim Start einer Eingangs- oder Ausgangsverzögerung genau einmal ausgeführt. Geeignet für einen einzelnen Signalton, eine Ansage oder zum Einschalten eines Dauersignals. Ohne Eintrag wird keine Startaktion ausgeführt.',
+    'Optional. Runs once for every remaining second while an entry or exit delay is active. Use it for a remaining-time announcement or a repeating signal. Scripts can read the remaining time, triggering sensor, arming mode and state through OHA_GetControlState(). If the list is empty, no per-second action runs.' => 'Optional. Wird während einer laufenden Eingangs- oder Ausgangsverzögerung einmal pro verbleibender Sekunde ausgeführt. Geeignet für eine Restzeitansage oder ein wiederkehrendes Signal. Skripte können Restzeit, auslösenden Sensor, Scharfmodus und Zustand über OHA_GetControlState() lesen. Ohne Eintrag wird keine sekündliche Aktion ausgeführt.',
+    'Optional. Runs exactly once when a started entry or exit delay ends, both after normal expiry and after controlled cancellation by disarming or granting passage. Use it to switch off a continuous signal, light or status output. If the list is empty, no end action runs.'                                        => 'Optional. Wird beim Ende einer gestarteten Eingangs- oder Ausgangsverzögerung genau einmal ausgeführt – sowohl nach regulärem Ablauf als auch nach einem kontrollierten Abbruch durch Unscharfschalten oder eine Durchgangsfreigabe. Geeignet zum Ausschalten eines Dauersignals, einer Leuchte oder einer Statusausgabe. Ohne Eintrag wird keine Endaktion ausgeführt.'
+];
+foreach ($countdownTranslations as $source => $translation) {
+    assertDelay(
+        ($locale['translations']['de'][$source] ?? null) === $translation,
+        'Countdown form text must have an unambiguous German translation: ' . $source
+    );
+}
 
 fwrite(STDOUT, "OpenHomeAlarm delay checks passed.\n");
