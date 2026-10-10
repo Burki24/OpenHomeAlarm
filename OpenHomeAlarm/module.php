@@ -938,6 +938,11 @@ class OpenHomeAlarm extends IPSModuleStrict
         $readiness = $this->ApplyFaultBlockingToReadiness($sensorReadiness['readiness'], $faultInputs);
         $state = $this->ReadAlarmState();
         $mode = $this->ReadAlarmMode();
+        $delayDeadline = match ($state) {
+            self::STATE_EXIT_DELAY  => $this->ReadAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE),
+            self::STATE_ENTRY_DELAY => $this->ReadAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE),
+            default                 => 0
+        };
         $isDisarmed = $state === self::STATE_DISARMED;
         $alarmMemory = $this->GetValue(self::IDENT_ALARM_MEMORY) === true;
         $alarmOutputActive = $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true;
@@ -976,6 +981,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             ],
             'Delay' => [
                 'Remaining' => max(0, (int) $this->GetValue(self::IDENT_DELAY_REMAINING)),
+                'Deadline'  => max(0, $delayDeadline),
                 'Source'    => (string) $this->GetValue(self::IDENT_DELAY_SOURCE)
             ],
             'Alarm' => [
@@ -1050,6 +1056,9 @@ class OpenHomeAlarm extends IPSModuleStrict
             ];
             $current['Delay'] = [
                 'Remaining' => max(0, $runtime['Deadline'] - time()),
+                'Deadline'  => in_array($runtime['State'], [self::STATE_EXIT_DELAY, self::STATE_ENTRY_DELAY], true)
+                    ? max(0, $runtime['Deadline'])
+                    : 0,
                 'Source'    => $runtime['DelaySource']
             ];
             $current['Alarm'] = [

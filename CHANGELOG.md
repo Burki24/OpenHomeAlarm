@@ -10,6 +10,21 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Kachel und IPSView berechnen den sichtbaren Ein-/Ausgangs-Countdown nun
+  zwischen den Backend-Aktualisierungen aus der veröffentlichten Frist. Das
+  verhindert insbesondere in iOS-WebViews stockende Sekundenanzeigen, ohne die
+  sicherheitsrelevante Zeitsteuerung aus dem Modul zu verlagern.
+
+- Sind nur einzelne Alarmbereiche scharf, kann über den ausgewählten
+  Hauptbereich jetzt mit einer einzigen Aktion und gegebenenfalls einer
+  einzigen Code-Eingabe die gesamte Anlage deaktiviert werden. Die gezielte
+  Deaktivierung eines einzelnen ausgewählten Bereichs bleibt erhalten.
+
+- In der zusammengefassten Bereitschaftsanzeige des Hauptbereichs erscheint
+  ein physischer Sensor nur noch einmal, auch wenn er mehreren ausgewählten
+  Alarmbereichen zugeordnet ist. Die Sicherheitsprüfung jedes Bereichs bleibt
+  davon unberührt.
+
 - Die Systemdiagnose von Kachel und IPSView beschreibt ihren Problemzähler nun
   als „Keine Probleme“, „1 Problem“ oder „n Probleme“. Die bereichsbezogene
   Anzeige zählt ausgelöste Störungseingänge jetzt ebenso wie das zentrale

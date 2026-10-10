@@ -450,6 +450,24 @@ assertVisualization(
     'Mobile countdown states must keep responsive status text and the remaining time together in the visible hero row.'
 );
 assertVisualization(
+    str_contains($javascript, 'function ohaStartCountdownDisplay(state)')
+        && str_contains($javascript, 'Number(state.Delay?.Deadline)')
+        && str_contains($javascript, 'ohaCountdownDeadlineMilliseconds - Date.now()')
+        && str_contains($javascript, "document.addEventListener('visibilitychange', ohaRefreshVisibleCountdown)"),
+    'The visible countdown must advance locally from the backend deadline and resynchronize after iOS visibility changes.'
+);
+assertVisualization(
+    str_contains($javascript, 'function ohaUniqueBlockers(blockers)')
+        && str_contains($javascript, 'ohaUniqueBlockers(modeStates.flatMap('),
+    'The combined main-area readiness view must display a shared physical blocker only once.'
+);
+assertVisualization(
+    str_contains($javascript, 'function ohaCanDisarmAllPartitions(state)')
+        && str_contains($javascript, "ohaTranslate('Deactivate all areas')")
+        && str_contains($javascript, "ohaRequestPartitionAction('DisarmPartition')"),
+    'Selecting main must expose the existing global disarm action whenever any alarm area is active.'
+);
+assertVisualization(
     str_contains($javascript, 'function ohaSchedulePartitionNavHeight()')
         && str_contains($javascript, 'Math.ceil(nav.scrollHeight)')
         && str_contains($javascript, 'nav.style.height = `${measuredHeight}px`;')
@@ -472,6 +490,7 @@ foreach ([
     'Recent activity',
     'System diagnostics',
     'Inputs and communication',
+    'Deactivate all areas',
     'No problems',
     '1 problem',
     '%s problems',

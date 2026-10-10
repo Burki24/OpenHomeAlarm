@@ -251,9 +251,13 @@ Detailauswahl verfügbar. Gehört der angezeigte Bereich beim Scharfschalten
 nicht zur gewählten Teilmenge, folgt die Detailanzeige automatisch dem ersten
 Zielbereich und zeigt dessen Ausgangsverzögerung und Countdown. Ein bereits
 beteiligter angezeigter Bereich bleibt ausgewählt. Die Detailauswahl bestimmt
-außerdem, welcher Bereich später einzeln unscharf geschaltet wird.
-Das Unscharfschalten über die Oberfläche bleibt bereichsbezogen und verwendet
-weiterhin den eingerichteten Code; die codefreie Funktion
+außerdem, welcher Einzelbereich später unscharf geschaltet wird. Eine bewusste
+Ausnahme ist `main`: Sobald mindestens ein Bereich aktiv ist, bietet die
+Oberfläche bei ausgewähltem Hauptbereich **Alle Bereiche deaktivieren** an.
+Damit lassen sich beliebige zuvor gemeinsam oder einzeln scharfgeschaltete
+Teilbereiche mit einer Aktion und – falls eingerichtet – einer einzigen
+Code-Eingabe unscharf schalten. Bei Auswahl eines Einzelbereichs bleibt die
+Deaktivierung auf genau diesen Bereich begrenzt. Die codefreie Funktion
 `OHA_DisarmPartitions()` ist ausschließlich für vertrauenswürdige eigene
 Automationen gedacht.
 
@@ -1073,17 +1077,33 @@ Für eine gemeinsame Scharfschaltung gehen Sie wie folgt vor:
 
 Der Außenrahmen und der Auswahlhaken dürfen deshalb unterschiedliche Bereiche
 kennzeichnen: Der Rahmen bestimmt ausschließlich, welchen Bereich die Ansicht
-und eine spätere bereichsbezogene Deaktivierung betreffen. Die Haken bestimmen
-ausschließlich den nächsten gemeinsamen Scharfschaltauftrag. Vor der ersten
-Mehrfachauswahl folgt das einzelne Schaltziel wie gewohnt dem angezeigten
-Bereich. Das Unscharfschalten in der Oberfläche bleibt absichtlich auf den
-angezeigten Bereich begrenzt und verwendet den eingerichteten Code.
+und eine spätere Deaktivierung betreffen. Die Haken bestimmen ausschließlich
+den nächsten gemeinsamen Scharfschaltauftrag. Vor der ersten Mehrfachauswahl
+folgt das einzelne Schaltziel wie gewohnt dem angezeigten Bereich. Ein
+angezeigter Einzelbereich wird gezielt deaktiviert; bei angezeigtem `main`
+lautet die Aktion **Alle Bereiche deaktivieren** und erfasst alle derzeit
+aktiven Bereiche. Ein eingerichteter Code wird dabei nur einmal abgefragt.
+
+Zeigt `main` die zusammengefasste Bereitschaft mehrerer Zielbereiche, fasst die
+Oberfläche identische Blocker anhand ihrer Variablen-ID zusammen. Ein Tür- oder
+Bewegungssensor, der mehreren Bereichen zugeordnet ist, wird daher nur einmal
+genannt. Intern prüft OpenHomeAlarm ihn weiterhin für jeden betroffenen
+Bereich; die Zusammenfassung verändert keine Sicherheitsentscheidung.
 
 Direkt unter dem zentralen Sicherheitsstatus stehen **Zuhause**, **Abwesend** und **Nacht** als vollständige Modus-Schaltflächen. Im unscharfen Zustand lassen sich bereite Modi über die gesamte Schaltfläche aktivieren; während eines laufenden Scharfzustands bleiben sie als deutlich hervorgehobene Statusanzeige sichtbar und folgen der vom Backend veröffentlichten Bedienfreigabe. Offene oder nicht verfügbare Sensoren können – sofern zulässig – direkt einmalig überbrückt werden. Bestehende Überbrückungen lassen sich einzeln oder gemeinsam aufheben. Ein gespeichertes Alarmgedächtnis kann quittiert und ein aktiver Alarmausgang ohne Unscharfschaltung gestoppt werden. Die letzten sechs Einträge des persistenten Sicherheitsprotokolls werden als kompakte Ereignisliste angezeigt.
 
 Auf ausreichend breiten Kacheln erscheint das Codepad als fester Bestandteil der Alarmzentrale, sobald eine Code-Eingabe tatsächlich zum Unscharfschalten benötigt wird. Im normalen unscharfen Zustand bleibt der Platz für Sensorverwaltung und Ereignisse frei. Unterhalb einer Kachelbreite von 900 Pixeln öffnet **Mit Code deaktivieren** das kompakte Popup-Codepad. Ist kein Unscharfschaltcode konfiguriert, steht unabhängig von der Breite die direkte Deaktivierung zur Verfügung. Die Code-Eingabe bleibt ausschließlich temporär im JavaScript-Speicher der geöffneten Darstellung, wird nicht in einer Symcon-Variable abgelegt und nach Absenden, Abbrechen oder erfolgreichem Deaktivieren sofort verworfen. Falsche Codes werden direkt am aktiven Codepad gemeldet, ohne den eingegebenen Code anzuzeigen oder zu protokollieren. Während einer temporären Sperre werden beide Codepads deaktiviert und nach Ablauf automatisch wieder aus dem Backend aktualisiert.
 
 Die native Symcon-Kachel verwendet für die Kommunikation ausschließlich das HTML-SDK: Benutzeraktionen werden über `requestAction()` an `RequestAction()` des Moduls gesendet, während Statusänderungen über `UpdateVisualizationValue()` live an geöffnete Kacheln übertragen werden. Die statischen Dateien liegen unter `OpenHomeAlarm/visualization/` und werden über den zentralen `VisualizationAssetHelper` geladen. Native Kachel und IPSView-WebContent-Seite werden aus denselben Assets und demselben versionierten Bootstrap-Vertrag durch den `IPSViewHTMLPageHelper` erzeugt. Das gemeinsame Symcon-Design wird durch den vendorten `VisualizationThemeHelper` eingebettet; der vollständige IPSView-Stil mit Farben, Typografie, Rahmen, Schatten, Deckkraft und Verläufen wird zentral durch den `IPSViewStyleConfigurationHelper` erzeugt.
+
+Während einer Ein- oder Ausgangsverzögerung bleibt die im Modul gespeicherte
+Frist maßgeblich. Kachel und IPSView erhalten diese Frist mit dem
+Bedienzustand und berechnen daraus nur die sichtbare Sekundenanzeige lokal
+weiter. Dadurch läuft der Countdown auch in iOS-WebViews flüssig, wenn einzelne
+Backend-Nachrichten verzögert zugestellt werden. Nach Rückkehr aus dem
+Hintergrund wird die Anzeige sofort aus derselben Frist neu berechnet; Ablauf,
+Scharfschaltung und Alarmentscheidung erfolgen weiterhin ausschließlich im
+Modul.
 
 Sind Sensorverwaltung, Systemprotokoll und Systemdiagnose gleichzeitig sichtbar, werden sie bis zum Mobil-Breakpoint als drei gleich breite Bereiche dargestellt und wechseln anschließend direkt in eine einspaltige Anordnung. In der schmalen IPSView-Ansicht scrollt das vollständige Dashboard; die Detaillisten bilden dort keine verschachtelten Scrollbereiche, sodass ihre Kopfbereiche auf Touch-Geräten jederzeit wieder erreichbar bleiben.
 
@@ -1095,7 +1115,7 @@ Für die Darstellung stehen gemeinsame Stilquellen zur Verfügung: **Benutzerdef
 
 Da IPSView keine HTML-SDK-`requestAction()`-Brücke bereitstellt, kommuniziert die Seite über einen instanzbezogenen Symcon-WebHook. Das Modul erzeugt dafür ein zufälliges, persistentes Zugriffstoken und akzeptiert ausschließlich die fest freigegebenen Visualisierungsaktionen per POST. Der Deaktivierungscode wird nur im Request-Body übertragen, weder in einer URL noch in einer Symcon-Variable gespeichert und nicht protokolliert. Der aktuelle Zustand wird zyklisch vom Modul gelesen; während Ein-/Ausgangsverzögerungen und Code-Sperren erfolgt die Aktualisierung häufiger. Für einen Zugriff außerhalb des eigenen Netzes sollte ausschließlich eine verschlüsselte HTTPS-/Connect-Verbindung verwendet werden.
 
-Statusquelle bleibt unverändert die öffentliche Bedien-API: `OHA_GetControlState($InstanzID)` liefert einen versionierten JSON-Snapshot mit Modus, Zustand, verfügbaren Bedienmöglichkeiten, Code-Sperrstatus, Scharfschaltbereitschaft, strukturierten Blockierern samt Variablen-ID, temporären Überbrückungen, Durchgangsfreigabe, Verzögerungsstatus, Alarmgedächtnis und Systemstörungen. Die Visualisierung bildet keine Alarmregeln nach.
+Statusquelle bleibt unverändert die öffentliche Bedien-API: `OHA_GetControlState($InstanzID)` liefert einen versionierten JSON-Snapshot mit Modus, Zustand, verfügbaren Bedienmöglichkeiten, Code-Sperrstatus, Scharfschaltbereitschaft, strukturierten Blockierern samt Variablen-ID, temporären Überbrückungen, Durchgangsfreigabe, Verzögerungsstatus einschließlich der Unix-Frist `Delay.Deadline`, Alarmgedächtnis und Systemstörungen. Die Visualisierung bildet keine Alarmregeln nach.
 
 Die partitions- und durchgangsfähige Struktur verwendet `ApiVersion` 3. `DefaultPartition` enthält immer `main`; `Partitions` ist nach den Bereichs-IDs indiziert. Maschinenlesbare Modusnamen sind `none`, `home`, `away`, `night`; Zustandsnamen sind `disarmed`, `exit_delay`, `armed`, `entry_delay` und `alarm`.
 

@@ -459,6 +459,10 @@ assertControlApi(
     ($state['Partitions']['main']['State']['Name'] ?? null) === 'disarmed',
     'Slice 1 must publish the existing runtime as the default partition state.'
 );
+assertControlApi(
+    ($state['Partitions']['main']['Delay']['Deadline'] ?? null) === 0,
+    'A disarmed partition must expose an inactive countdown deadline.'
+);
 $partitionMetadata = json_decode($instance->GetPartitions(), true, 512, JSON_THROW_ON_ERROR);
 assertControlApi(
     ($partitionMetadata[0]['ID'] ?? null) === 'main'
@@ -749,6 +753,7 @@ assertControlApi(
 $multiPartitionInstance = new OpenHomeAlarm();
 $multiPartitionInstance->Create();
 $multiPartitionInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$multiPartitionInstance->TestSetPropertyString('DisarmCode', '2468');
 $multiPartitionInstance->TestSetPropertyString(
     'Partitions',
     '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false},{"Enabled":true,"ID":"shed","Name":"Shed","Default":false}]'
@@ -801,6 +806,28 @@ assertControlApi(
         && ($multiPartitionState['Partitions']['shed']['Mode']['Name'] ?? null) === 'night',
     'The shared visualization bridge must arm the selected subset through the same atomic API.'
 );
+$multiPartitionInstance->RequestAction(
+    'DisarmPartitionWithCode',
+    '{"PartitionID":"main","Value":"0000"}'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed'
+        && ($multiPartitionState['Partitions']['shed']['State']['Name'] ?? null) === 'armed',
+    'An invalid main-area code must not disarm any member of an armed subset.'
+);
+$multiPartitionInstance->RequestAction(
+    'DisarmPartitionWithCode',
+    '{"PartitionID":"main","Value":"2468"}'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['shed']['State']['Name'] ?? null) === 'disarmed',
+    'One valid main-area code must disarm every member of an armed subset.'
+);
 
 $partitionDelayInstance = new OpenHomeAlarm();
 $partitionDelayInstance->Create();
@@ -835,6 +862,10 @@ $partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), t
 assertControlApi(
     ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'exit_delay',
     'A positive partition exit-delay override must start the exit delay for the selected partition.'
+);
+assertControlApi(
+    ($partitionDelayState['Partitions']['garage']['Delay']['Deadline'] ?? 0) > time(),
+    'A running partition delay must expose its absolute deadline for smooth client-side rendering.'
 );
 $partitionDelayEvents = json_decode($partitionDelayInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
 assertControlApi(

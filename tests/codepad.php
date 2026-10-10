@@ -152,10 +152,10 @@ assertCodepad(
     'The visualization must refresh automatically after a temporary code lockout.'
 );
 assertCodepad(
-    str_contains($javascript, 'function ohaCanDisarm(state = ohaState)')
-        && str_contains($javascript, "return stateName !== 'disarmed' || modeName !== 'none';")
+    str_contains($javascript, 'function ohaCanDisarm(state = ohaSelectedState())')
+        && str_contains($javascript, "return stateName !== 'disarmed' || modeName !== 'none' || ohaCanDisarmAllPartitions(state);")
         && !str_contains($javascript, 'Capabilities?.CanDisarm'),
-    'Disarming controls must stay available for every active alarm state even if a timer-driven capability update is stale.'
+    'Disarming controls must stay available for every active alarm state and for active subareas selected through main, even if a timer-driven capability update is stale.'
 );
 assertCodepad(
     str_contains($javascript, 'function ohaIsControlStatePayload(state)')

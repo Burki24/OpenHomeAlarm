@@ -85,7 +85,10 @@ scharfgeschaltet. `main` in der Liste bedeutet weiterhin Gesamtanlage; für
 eine Teilmenge wird `main` deshalb weggelassen. Kachel und IPSView bieten bei
 mindestens drei Bereichen dieselbe Auswahl direkt in den Bereichsbuttons an:
 Der Außenrahmen markiert den angezeigten Bereich, der Auswahlkreis mit Haken
-die Bereiche für die nächste gemeinsame Scharfschaltung.
+die Bereiche für die nächste gemeinsame Scharfschaltung. Sind nur einzelne
+Bereiche scharf, kann anschließend `main` angezeigt und über **Alle Bereiche
+deaktivieren** die gesamte aktive Teilmenge mit einer Aktion beziehungsweise
+einer Code-Eingabe unscharf geschaltet werden.
 
 Für einen ausdrücklich zugelassenen normalen Sensor kann eine vertrauenswürdige
 Automation einen einmaligen Durchgang freigeben, ohne den Bereich

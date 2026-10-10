@@ -24,6 +24,8 @@ let ohaCodeLockTimer = null;
 let ohaIPSViewPollTimer = null;
 let ohaIPSViewPendingRequests = 0;
 let ohaPartitionLayoutFrame = null;
+let ohaCountdownDisplayTimer = null;
+let ohaCountdownDeadlineMilliseconds = 0;
 
 function ohaTranslate(text) {
     if (typeof translate === 'function') {
@@ -446,6 +448,47 @@ function ohaHeroEyebrow(state) {
     return ohaTranslate('Security status');
 }
 
+function ohaClearCountdownDisplayTimer() {
+    if (ohaCountdownDisplayTimer !== null) {
+        window.clearTimeout(ohaCountdownDisplayTimer);
+        ohaCountdownDisplayTimer = null;
+    }
+}
+
+function ohaRefreshCountdownDisplay() {
+    ohaClearCountdownDisplayTimer();
+    if (ohaCountdownDeadlineMilliseconds <= 0) {
+        return;
+    }
+
+    const remaining = Math.max(0, Math.ceil((ohaCountdownDeadlineMilliseconds - Date.now()) / 1000));
+    document.getElementById('delayRemaining').textContent = String(remaining);
+    if (remaining > 0) {
+        ohaCountdownDisplayTimer = window.setTimeout(ohaRefreshCountdownDisplay, 200);
+    }
+}
+
+function ohaStartCountdownDisplay(state) {
+    ohaClearCountdownDisplayTimer();
+    const deadline = Math.max(0, Number(state.Delay?.Deadline) || 0);
+    const remaining = Math.max(0, Number(state.Delay?.Remaining) || 0);
+    ohaCountdownDeadlineMilliseconds = deadline > 0
+        ? deadline * 1000
+        : Date.now() + (remaining * 1000);
+    ohaRefreshCountdownDisplay();
+}
+
+function ohaRefreshVisibleCountdown() {
+    if (document.visibilityState === 'hidden') {
+        return;
+    }
+
+    const state = ohaSelectedState();
+    if (['exit_delay', 'entry_delay'].includes(state?.State?.Name)) {
+        ohaStartCountdownDisplay(state);
+    }
+}
+
 function ohaRenderHero(state) {
     const root = document.getElementById('ohaRoot');
     const stateName = state.State.Name;
@@ -464,8 +507,11 @@ function ohaRenderHero(state) {
     const countdown = document.getElementById('heroCountdown');
     countdown.hidden = !countdownActive;
     if (countdownActive) {
-        document.getElementById('delayRemaining').textContent = String(Math.max(0, Number(state.Delay?.Remaining) || 0));
+        ohaStartCountdownDisplay(state);
         document.getElementById('countdownUnit').textContent = ohaTranslate('Seconds');
+    } else {
+        ohaClearCountdownDisplayTimer();
+        ohaCountdownDeadlineMilliseconds = 0;
     }
 }
 
@@ -526,6 +572,21 @@ function ohaRenderMode(modeName, modeState) {
             action.textContent = ohaTranslate('Deactivate first to change mode');
         }
     }
+}
+
+function ohaUniqueBlockers(blockers) {
+    const seen = new Set();
+    return blockers.filter((blocker) => {
+        const variableID = Number(blocker.VariableID) || 0;
+        const identity = variableID > 0
+            ? `${blocker.Kind ?? 'sensor'}:${variableID}:${blocker.Reason ?? ''}`
+            : `${blocker.Kind ?? 'sensor'}:${blocker.Name ?? ''}:${blocker.Reason ?? ''}`;
+        if (seen.has(identity)) {
+            return false;
+        }
+        seen.add(identity);
+        return true;
+    });
 }
 
 function ohaRenderArming(state) {
@@ -591,7 +652,9 @@ function ohaRenderArming(state) {
             button.setAttribute('aria-pressed', button.dataset.active);
         }
         const modeStates = targetStates.map((target) => target.Modes?.[modeName]).filter(Boolean);
-        const blockers = modeStates.flatMap((modeState) => Array.isArray(modeState.Blockers) ? modeState.Blockers : []);
+        const blockers = ohaUniqueBlockers(modeStates.flatMap(
+            (modeState) => Array.isArray(modeState.Blockers) ? modeState.Blockers : []
+        ));
         const ready = modeStates.length > 0 && modeStates.every((modeState) => modeState.Ready);
         const canArm = modeStates.length > 0 && modeStates.every((modeState) => {
             if (modeState.CanArm) {
@@ -956,11 +1019,30 @@ function ohaUpdateOperationsLayout() {
     grid.dataset.visiblePanels = String(visiblePanels);
 }
 
-function ohaCanDisarm(state = ohaState) {
+function ohaCanDisarmAllPartitions(state) {
+    const defaultID = ohaState?.DefaultPartition ?? '';
+    if (!defaultID || state?.ID !== defaultID) {
+        return false;
+    }
+
+    return ohaAvailablePartitions(ohaState).some((partition) => {
+        const stateName = partition.State?.Name ?? 'disarmed';
+        const modeName = partition.Mode?.Name ?? 'none';
+        return stateName !== 'disarmed' || modeName !== 'none';
+    });
+}
+
+function ohaCanDisarm(state = ohaSelectedState()) {
     const stateName = state?.State?.Name ?? 'disarmed';
     const modeName = state?.Mode?.Name ?? 'none';
 
-    return stateName !== 'disarmed' || modeName !== 'none';
+    return stateName !== 'disarmed' || modeName !== 'none' || ohaCanDisarmAllPartitions(state);
+}
+
+function ohaDisarmCaption(state) {
+    return state?.ID === (ohaState?.DefaultPartition ?? '')
+        ? ohaTranslate('Deactivate all areas')
+        : ohaTranslate('Deactivate');
 }
 
 function ohaCodeProtectionLocked(state = ohaState) {
@@ -1001,7 +1083,9 @@ function ohaRenderInlineCodepad(state) {
         document.getElementById('inlineCodepadHint').textContent = ohaTranslate('Code protection is not enabled.');
     }
 
-    document.getElementById('inlineDisarmLabel').textContent = ohaTranslate('Deactivate');
+    const disarmCaption = ohaDisarmCaption(state);
+    document.getElementById('inlineDisarmLabel').textContent = disarmCaption;
+    document.getElementById('inlineCodepadConfirm').setAttribute('aria-label', disarmCaption);
     const canStopSignalGenerator = Boolean(state.Capabilities?.CanStopSignalGenerator);
     const inlineStopSignalGenerator = document.getElementById('inlineStopSignalGenerator');
     inlineStopSignalGenerator.hidden = !canStopSignalGenerator;
@@ -1031,6 +1115,7 @@ function ohaRenderDisarm(state) {
     const canStopSignalGenerator = Boolean(state.Capabilities?.CanStopSignalGenerator);
     const modalStopSignalGenerator = document.getElementById('codepadStopSignalGenerator');
     const modalResetFalseAlarm = document.getElementById('codepadResetFalseAlarm');
+    const disarmCaption = ohaDisarmCaption(state);
 
     bar.hidden = !canDisarm;
     bar.dataset.codeRequired = codeRequired ? 'true' : 'false';
@@ -1061,7 +1146,10 @@ function ohaRenderDisarm(state) {
     button.dataset.enabled = codeLocked ? 'false' : 'true';
     button.setAttribute('aria-disabled', codeLocked ? 'true' : 'false');
     button.dataset.codeRequired = codeRequired ? 'true' : 'false';
-    label.textContent = ohaTranslate('Deactivate');
+    button.setAttribute('aria-label', disarmCaption);
+    label.textContent = disarmCaption;
+    document.getElementById('modalDisarmLabel').textContent = disarmCaption;
+    document.getElementById('codepadConfirm').setAttribute('aria-label', disarmCaption);
 }
 
 function ohaRenderStaticText() {
@@ -1768,6 +1856,9 @@ window.addEventListener('resize', ohaSchedulePartitionNavHeight, { passive: true
 if (document.fonts?.ready) {
     document.fonts.ready.then(ohaSchedulePartitionNavHeight);
 }
+
+document.addEventListener('visibilitychange', ohaRefreshVisibleCountdown);
+window.addEventListener('focus', ohaRefreshVisibleCountdown);
 
 if (ohaIPSViewConfig) {
     document.addEventListener('visibilitychange', () => ohaScheduleIPSViewPoll(100));
