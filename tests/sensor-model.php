@@ -288,7 +288,7 @@ $testVariableProfiles = [
     ]
 ];
 
-final class IPSList implements ArrayAccess
+final class IPSList implements ArrayAccess, JsonSerializable
 {
     /**
      * @param array<string,mixed> $row
@@ -315,6 +315,12 @@ final class IPSList implements ArrayAccess
     public function offsetUnset(mixed $offset): void
     {
         throw new LogicException('Test IPSList is read-only.');
+    }
+
+    /** @return array<string,mixed> */
+    public function jsonSerialize(): array
+    {
+        return $this->row;
     }
 }
 
@@ -744,6 +750,25 @@ assertSensorModel(
         && ($orphanedEditFields['Partition_schuppen']['value'] ?? null) === true
         && ($orphanedEditFields['Partition_schuppen']['enabled'] ?? false) === true,
     'Sensor editor must expose an orphaned partition assignment so the user can remove it.'
+);
+$modernOrphanedEditForm = $instance->GetSensorEditForm(new IPSList([
+    'PartitionID'        => 'main',
+    'Partition_main'     => true,
+    'Partition_schuppen' => true,
+    'VariableID'         => 12345,
+    'TriggerValue'       => 'true'
+]));
+$modernOrphanedEditFields = [];
+foreach ($modernOrphanedEditForm as $field) {
+    if (isset($field['name'])) {
+        $modernOrphanedEditFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($modernOrphanedEditFields['Partition_schuppen']['type'] ?? null) === 'CheckBox'
+        && ($modernOrphanedEditFields['Partition_schuppen']['value'] ?? null) === true
+        && ($modernOrphanedEditFields['Partition_schuppen']['enabled'] ?? false) === true,
+    'Sensor editor must expose every orphaned modern multi-area assignment even when the legacy area remains main.'
 );
 assertSensorModel(
     ($editFields['AlwaysActive']['type'] ?? null) === 'CheckBox',

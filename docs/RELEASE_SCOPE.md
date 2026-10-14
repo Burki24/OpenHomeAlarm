@@ -27,7 +27,7 @@ Der Release umfasst verbindlich:
 5. modusabhängige Bereitschaft, Blockierlisten und sicherheitsgerichtete Behandlung nicht verfügbarer Sensoren,
 6. temporäre Sensorüberbrückungen für genau einen Scharfschaltzyklus,
 7. Manipulations- und technische Störungseingänge mit konfigurierbarer Blockade oder Alarmauslösung,
-8. konfigurierbare Symcon-Aktionen für Alarm, Alarmrücksetzung, Unscharfschaltung nach Alarm sowie das Auftreten einzelner Störungen und die Behebung aller Störungen,
+8. konfigurierbare Symcon-Aktionen für Alarm, Alarmrücksetzung, das vollständige Unscharfschalten der Anlage sowie das Auftreten einzelner Störungen und die Behebung aller Störungen,
 9. manuelle und zeitgesteuerte Rücksetzung des Alarmausgangs,
 10. optionalen Unscharfschaltcode mit Fehlversuchszähler und wiederanlaufsicherer Sperrzeit,
 11. Alarmgedächtnis und begrenzte persistente Sicherheits-Ereignishistorie,
@@ -59,7 +59,12 @@ Der Release umfasst verbindlich:
 31. eine optionale Startaktion, die beim Beginn einer Eingangs- oder
     Ausgangsverzögerung genau einmal ausgeführt wird; Countdown-Aktionen gelten
     gleichermaßen für die Gesamtanlage, einzelne Bereiche und gemeinsam
-    geschaltete Bereichsmengen.
+    geschaltete Bereichsmengen,
+32. eine optionale Aktion, die beim erfolgreichen Übergang vom mindestens
+    teilweise aktiven System zur vollständig unscharfen Anlage genau einmal
+    ausgeführt wird,
+33. die sichtbare Bereinigung verwaister Sensorzuordnungen, nachdem ein zuvor
+    zugeordneter Alarmbereich gelöscht oder deaktiviert wurde.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -78,6 +83,10 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 - Ein Sofortalarm darf durch parallel laufende Verzögerungen nicht unterdrückt werden.
 - Alarmaktionen werden pro vorgesehenem Zustandsübergang höchstens einmal ausgeführt.
 - Unscharfschalten beendet laufende Verzögerungen und setzt einen aktiven Alarmausgang kontrolliert zurück.
+- Die optionale Aktion nach vollständigem Unscharfschalten läuft erst, wenn
+  kein Alarmbereich mehr aktiv ist, und pro erfolgreichem Gesamtübergang
+  höchstens einmal. Bereits vollständig unscharfe Aufrufe und interne
+  Scharfschaltabbrüche führen sie nicht aus.
 - Bypässe sind nur unscharf zulässig, gelten nicht für 24/7-Sensoren und werden nach einem Scharfschaltzyklus gelöscht.
 - Eine Durchgangsfreigabe gilt nur für einen ausdrücklich freigegebenen Sensor
   im scharfen Bereich. Andere Sensoren und 24/7-Sensoren bleiben aktiv; ein bei

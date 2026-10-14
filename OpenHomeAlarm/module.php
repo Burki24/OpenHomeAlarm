@@ -185,6 +185,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS = 'PushoverEmergencyExpireSeconds';
     private const PROPERTY_FAULT_ACTION = 'FaultAction';
     private const PROPERTY_FAULT_CLEARED_ACTION = 'FaultClearedAction';
+    private const PROPERTY_FULLY_DISARMED_ACTION = 'FullyDisarmedAction';
     private const PROPERTY_DISARM_CODE = 'DisarmCode';
     private const PROPERTY_DISARM_USERS = 'DisarmUsers';
     private const PROPERTY_DISARM_MAX_ATTEMPTS = 'DisarmMaxAttempts';
@@ -197,7 +198,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         self::PROPERTY_COUNTDOWN_ACTION,
         self::PROPERTY_COUNTDOWN_END_ACTION,
         self::PROPERTY_FAULT_ACTION,
-        self::PROPERTY_FAULT_CLEARED_ACTION
+        self::PROPERTY_FAULT_CLEARED_ACTION,
+        self::PROPERTY_FULLY_DISARMED_ACTION
     ];
 
     private const LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES = [
@@ -349,6 +351,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS, 1800);
         $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, 'false');
+        $this->RegisterPropertyString(self::PROPERTY_FULLY_DISARMED_ACTION, 'false');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
         $this->RegisterPropertyString(self::PROPERTY_DISARM_USERS, '[]');
         $this->RegisterPropertyInteger(
@@ -1325,7 +1328,11 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($partitionID === $this->DefaultPartitionID()) {
             return $this->Disarm();
         }
-        return $this->DisarmPartitionInternal($partitionID, '');
+        $hadActivePartition = $this->HasActivePartitionState($this->ReadPartitionRuntime());
+        $succeeded = $this->DisarmPartitionInternal($partitionID, '');
+        $this->RunFullyDisarmedActionAfterTransition($hadActivePartition);
+
+        return $succeeded;
     }
 
     /**
@@ -1344,9 +1351,11 @@ class OpenHomeAlarm extends IPSModuleStrict
         if (in_array($this->DefaultPartitionID(), $partitionIDs, true)) {
             return $this->Disarm();
         }
+        $hadActivePartition = $this->HasActivePartitionState($this->ReadPartitionRuntime());
         foreach ($partitionIDs as $partitionID) {
             $this->DisarmPartitionInternal($partitionID, '');
         }
+        $this->RunFullyDisarmedActionAfterTransition($hadActivePartition);
 
         return true;
     }
@@ -2427,9 +2436,24 @@ class OpenHomeAlarm extends IPSModuleStrict
         if ($legacyPartitionID === '') {
             $legacyPartitionID = AlarmPartitionRegistry::defaultPartition($partitions)['ID'];
         }
+        $sensorEditRow = $this->ReadSensorEditRow($sensor);
         $hasExplicitAssignments = false;
-        foreach ($partitions as $partition) {
-            if ($this->SensorEditHasKey($sensor, 'Partition_' . $partition['ID'])) {
+        $explicitPartitionIDs = [];
+        foreach ($sensorEditRow as $key => $value) {
+            if (!is_string($key) || !str_starts_with($key, 'Partition_')) {
+                continue;
+            }
+            $hasExplicitAssignments = true;
+            $partitionID = strtolower(substr($key, strlen('Partition_')));
+            if ($value === true && preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $partitionID) === 1) {
+                $explicitPartitionIDs[] = $partitionID;
+            }
+        }
+        if (!$hasExplicitAssignments) {
+            foreach ($partitions as $partition) {
+                if (!$this->SensorEditHasKey($sensor, 'Partition_' . $partition['ID'])) {
+                    continue;
+                }
                 $hasExplicitAssignments = true;
                 break;
             }
@@ -2446,6 +2470,17 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'Default' => false
                 ];
             }
+        }
+        foreach (array_values(array_unique($explicitPartitionIDs)) as $partitionID) {
+            if (in_array($partitionID, $knownPartitionIDs, true) || $partitionID === $legacyPartitionID) {
+                continue;
+            }
+            $partitions[] = [
+                'Enabled' => true,
+                'ID'      => $partitionID,
+                'Name'    => sprintf($this->Translate('Missing alarm partition: %s'), $partitionID),
+                'Default' => false
+            ];
         }
         $partitionFields = [];
         foreach ($partitions as $partition) {
@@ -3314,12 +3349,17 @@ class OpenHomeAlarm extends IPSModuleStrict
             return $this->DisarmInternal($userName);
         }
 
+        $hadActivePartition = $this->HasActivePartitionState($this->ReadPartitionRuntime());
         $this->ResetDisarmCodeProtection();
-        return $this->DisarmPartitionInternal($partitionID, $userName);
+        $succeeded = $this->DisarmPartitionInternal($partitionID, $userName);
+        $this->RunFullyDisarmedActionAfterTransition($hadActivePartition);
+
+        return $succeeded;
     }
 
     private function DisarmInternal(string $userName): bool
     {
+        $hadActivePartition = $this->HasActivePartitionState($this->ReadPartitionRuntime());
         $previousState = $this->ReadAlarmState();
         $previousMode = $this->ReadAlarmMode();
         $wasAlarm = $previousState === self::STATE_ALARM;
@@ -3349,8 +3389,32 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $this->PublishVisualizationState();
+        $this->RunFullyDisarmedActionAfterTransition($hadActivePartition);
 
         return true;
+    }
+
+    /**
+     * @param array<string,array{Mode:int,State:int}> $states
+     */
+    private function HasActivePartitionState(array $states): bool
+    {
+        foreach ($states as $state) {
+            if ($state['State'] !== self::STATE_DISARMED || $state['Mode'] !== self::MODE_NONE) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function RunFullyDisarmedActionAfterTransition(bool $hadActivePartition): void
+    {
+        if (!$hadActivePartition || $this->HasActivePartitionState($this->ReadPartitionRuntime())) {
+            return;
+        }
+
+        $this->RunConfiguredAction(self::PROPERTY_FULLY_DISARMED_ACTION);
     }
 
     /**
@@ -4608,6 +4672,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS   => $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS),
             self::PROPERTY_FAULT_ACTION                        => $this->ReadPropertyString(self::PROPERTY_FAULT_ACTION),
             self::PROPERTY_FAULT_CLEARED_ACTION                => $this->ReadPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION),
+            self::PROPERTY_FULLY_DISARMED_ACTION               => $this->ReadPropertyString(self::PROPERTY_FULLY_DISARMED_ACTION),
             self::PROPERTY_DISARM_CODE                         => $this->ReadPropertyString(self::PROPERTY_DISARM_CODE),
             self::PROPERTY_DISARM_USERS                        => $this->ReadPropertyString(self::PROPERTY_DISARM_USERS),
             self::PROPERTY_DISARM_MAX_ATTEMPTS                 => $this->ReadPropertyInteger(self::PROPERTY_DISARM_MAX_ATTEMPTS),
@@ -5471,6 +5536,25 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function SensorEditHasKey(mixed $sensor, string $key): bool
     {
         return (is_array($sensor) || is_object($sensor)) && isset($sensor[$key]);
+    }
+
+    /** @return array<string,mixed> */
+    private function ReadSensorEditRow(mixed $sensor): array
+    {
+        if (is_array($sensor)) {
+            return $sensor;
+        }
+        if (!$sensor instanceof \JsonSerializable) {
+            return [];
+        }
+
+        try {
+            $row = $sensor->jsonSerialize();
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return is_array($row) ? $row : [];
     }
 
     /**

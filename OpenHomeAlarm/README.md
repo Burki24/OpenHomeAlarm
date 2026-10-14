@@ -44,7 +44,7 @@ aktivierte Anlage.
 7. [Sensoren und Auslöser](#7-sensoren-und-auslöser)
 8. [Temporäre Durchgangsfreigabe](#8-temporäre-durchgangsfreigabe)
 9. [Systemüberwachung](#9-systemüberwachung)
-10. [Code-Schutz](#10-code-schutz)
+10. [Unscharfschalten und Code-Schutz](#10-unscharfschalten-und-code-schutz)
 11. [Automatische Scharfschaltung](#11-automatische-scharfschaltung)
 12. [Alarmaktionen und Benachrichtigungen](#12-alarmaktionen-und-benachrichtigungen)
 13. [Alarmgedächtnis](#13-alarmgedächtnis)
@@ -55,7 +55,7 @@ aktivierte Anlage.
 
 ## 2. Funktionsumfang und Zustandsmodell
 
-Das Modul stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, einmalige zeitbegrenzte Durchgangsfreigaben im scharfen Zustand, dauerhaft aktive 24/7-Sensoren, timerbasierte Eingangs- und Ausgangsverzögerungen mit laufendem Countdown-Status und getrennten Aktionen für Countdown-Start, jede Countdown-Sekunde und Countdown-Ende, Ausgangsweg-Sensoren, konfigurierbare Alarm-Eskalationsaktionen mit optionaler automatischer Alarmdauer und separatem Stoppen von Signalgebern, eine 24/7-Systemüberwachung für Manipulation, Batterie-/Stromversorgung, Kommunikation und Gerätestörungen mit optionaler Scharfschaltblockade oder Alarmauslösung, eine optionale Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll sowie eine versionierte öffentliche Bedien-API bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
+Das Modul stellt das grundlegende Zustandsmodell der Alarmanlage, ein herstellerunabhängiges Sensor-/Trigger-Datenmodell, die aktive Sensorüberwachung, die globale und modusabhängige Scharfschaltbereitschaft inklusive der jeweils blockierenden Sensoren, die zielmodusabhängige Scharf-/Unscharf-Logik, temporäre Sensorüberbrückungen für einen Scharfschaltzyklus, einmalige zeitbegrenzte Durchgangsfreigaben im scharfen Zustand, dauerhaft aktive 24/7-Sensoren, timerbasierte Eingangs- und Ausgangsverzögerungen mit laufendem Countdown-Status und getrennten Aktionen für Countdown-Start, jede Countdown-Sekunde und Countdown-Ende, eine optionale Aktion nach dem vollständigen Unscharfschalten, Ausgangsweg-Sensoren, konfigurierbare Alarm-Eskalationsaktionen mit optionaler automatischer Alarmdauer und separatem Stoppen von Signalgebern, eine 24/7-Systemüberwachung für Manipulation, Batterie-/Stromversorgung, Kommunikation und Gerätestörungen mit optionaler Scharfschaltblockade oder Alarmauslösung, eine optionale Code-Prüfung zum Unscharfschalten, ein quittierbares Alarmgedächtnis, ein persistentes Sicherheits-Ereignisprotokoll sowie eine versionierte öffentliche Bedien-API bereit. Betriebsmodus und Systemzustand werden bewusst getrennt geführt, damit beispielsweise ein Alarm weiterhin erkennen lässt, ob zuvor Zuhause-, Abwesend- oder Nachtbetrieb aktiv war.
 
 Symcon-Variablen können als Sensor oder Auslöser hinterlegt und den Scharfmodi Zuhause, Abwesend und Nacht zugeordnet werden. Zusätzlich kann ein Sensor als **24/7 aktiv** markiert werden und löst dann unabhängig vom Scharfmodus sofort aus. Sensortyp, Auswertung sowie die Nutzung als Ausgangsweg und der Eingangsverzögerung werden ebenfalls gespeichert. Die Auswertung erfolgt wahlweise beim ausgewählten **Auslösewert** oder bei jeder **Abweichung vom Normalwert**. Boolean-, String- und numerische Zustände werden dabei einheitlich als Auswahlliste mit den in Symcon hinterlegten Beschriftungen angeboten. Für Bewegungsmelder oder vergleichbare Sensoren kann zusätzlich **Alarm bei erneuter Auslösung verlängern** aktiviert werden. Löst ein solcher Sensor während eines laufenden Alarms erneut aus, beginnt die Alarmdauer erneut und die Eskalationsaktionen werden noch einmal ausgeführt.
 
@@ -139,6 +139,7 @@ Bereichs-IDs sind installationsabhängig.
 | Einmalige Aktion beim Countdown-Start | Wird beim Beginn genau einmal ausgeführt | Geeignet für einen einzelnen Signalton, eine Ansage oder zum Einschalten eines Dauersignals. |
 | Aktion während des Countdowns (jede Sekunde) | Wird einmal pro positiver Restsekunde ausgeführt | Geeignet für Restzeitansagen oder ein wiederkehrendes Signal. |
 | Einmalige Aktion beim Countdown-Ende | Wird nach regulärem Ende oder kontrolliertem Abbruch genau einmal ausgeführt | Geeignet zum Ausschalten eines Dauersignals, einer Leuchte oder einer Statusausgabe. |
+| Unscharfschalten | Optionale Aktion nach dem vollständigen Unscharfschalten | Wird erst ausgeführt, wenn kein Alarmbereich mehr aktiv ist. |
 | Sensoren und Auslöser | Alarmquellen, Scharfmodi und Sonderverhalten | Sensoren werden über ihre Variablen-ID identifiziert. |
 | Systemüberwachung | Manipulation, Batterie, Kommunikation und Gerätestörung | Störungen können blockieren oder 24/7 Alarm auslösen. |
 | Code-Schutz | Geschützte Benutzerbedienung | Vier bis acht Ziffern; direkte vertrauenswürdige APIs bleiben codefrei. |
@@ -174,6 +175,13 @@ Danach **Änderungen übernehmen**. Der vorhandene Bereich `main` muss aktiv ble
 **2. Sensoren zuordnen**
 
 Den gewünschten Eintrag unter **Sensoren und Auslöser** bearbeiten. Im Editor werden alle aktiven Alarmbereiche als Checkboxen angezeigt. **Garage** aktivieren und die Änderungen übernehmen. Ein Sensor kann gleichzeitig mehreren Bereichen zugeordnet werden; sein Zustand beeinflusst dann die Bereitschaft jedes zugeordneten Bereichs und löst nur in den jeweils scharfgeschalteten beziehungsweise bei 24/7-Sensoren in allen zugeordneten Bereichen aus. Neue Sensoren sind automatisch `main` zugeordnet. Störungseingänge bleiben einem einzelnen Bereich zugeordnet und verwenden bei neuen Einträgen ebenfalls automatisch `main`.
+
+Wird ein noch zugeordneter Zusatzbereich versehentlich gelöscht oder
+deaktiviert, bleibt diese verwaiste Zuordnung im Sensor-Editor als markierte
+Checkbox **Fehlender Alarmbereich: _ID_** sichtbar. Sie kann dort direkt
+abgewählt werden; der Bereich muss dafür nicht erneut angelegt werden. Erst
+nachdem alle verwaisten Sensor- und Störungszuordnungen korrigiert wurden, kann
+die Sicherheitskonfiguration wieder erfolgreich übernommen werden.
 
 Temporäre Überbrückungen gelten immer nur für den aktuell ausgewählten Bereich. Ist derselbe Sensor beispielsweise **Haus** und **Garage** zugeordnet, lässt eine Überbrückung in **Garage** seine Überwachung in **Haus** unverändert.
 
@@ -465,7 +473,7 @@ Manuelle Sensorüberbrückungen können ausschließlich im Zustand **Unscharf** 
 
 24/7 aktive Sensoren sind von den Scharfmodi unabhängig. Sie lösen sowohl im Zustand **Unscharf** als auch während Ausgangsverzögerung, **Scharf** oder Eingangsverzögerung unmittelbar einen **normalen Alarm** aus. Dies gilt auch, wenn der zugeordnete Bereich still scharfgeschaltet wurde; ein laufender stiller Alarm wird dann zum normalen Alarm mit Signalgebern hochgestuft. Für solche Sensoren sind die Auswahlen Zuhause, Abwesend und Nacht sowie `AllowAutomaticBypass`, `AllowPassage`, `ExitDelay` und `EntryDelay` deaktiviert. Bereits gespeicherte Werte für diese Felder werden ignoriert. Ist ein 24/7-Sensor bei `ApplyChanges()` oder nach einem Symcon-Neustart bereits ausgelöst, wird dieser Zustand unmittelbar erkannt, sodass keine Überwachungslücke bis zur nächsten Variablenänderung entsteht. Typische Anwendungsfälle sind Rauch-, Wasser-, CO/CO₂- oder Panikauslöser; die Aktivierung bleibt jedoch bewusst eine explizite Benutzereinstellung.
 
-Beim Unscharfschalten werden laufende Eingangs- und Ausgangsverzögerungen immer beendet. Ist der Alarmausgang zu diesem Zeitpunkt noch aktiv, wird er zuerst zurückgesetzt. Wird ein bereits aktiver Alarm unscharf geschaltet, wird anschließend einmalig die konfigurierte Aktion **Beim Unscharfschalten nach Alarm** ausgeführt. Ein Abbruch während einer Eingangs- oder Ausgangsverzögerung löst diese Aktion nicht aus. Die Timer für Eingangs- und Ausgangsverzögerung sowie die Alarmdauer verwenden persistierte Ablaufzeitpunkte und werden nach `ApplyChanges()` bzw. einem Symcon-Neustart mit der verbleibenden Zeit wiederhergestellt.
+Beim Unscharfschalten werden laufende Eingangs- und Ausgangsverzögerungen immer beendet. Ist der Alarmausgang zu diesem Zeitpunkt noch aktiv, wird er zuerst zurückgesetzt. Die optionale **Einmalige Aktion nach vollständigem Unscharfschalten** wird anschließend genau einmal ausgeführt, sobald der letzte zuvor aktive Alarmbereich erfolgreich unscharf ist. Dabei ist unerheblich, ob zuvor eine Verzögerung, ein Scharfzustand oder ein Alarm aktiv war. Bleibt ein anderer Bereich aktiv, war die Anlage bereits vollständig unscharf oder wurde eine Scharfschaltung intern wegen fehlender Bereitschaft abgebrochen, bleibt die Aktion aus. Werden mehrere Bereiche gemeinsam oder über `main` deaktiviert, wird sie nicht pro Bereich vervielfacht. Die Timer für Eingangs- und Ausgangsverzögerung sowie die Alarmdauer verwenden persistierte Ablaufzeitpunkte und werden nach `ApplyChanges()` bzw. einem Symcon-Neustart mit der verbleibenden Zeit wiederhergestellt.
 
 Für eine einmalig gewählte Scharfschaltung darf ein bereits ausgelöster Sensor nur dann automatisch überbrückt werden, wenn am Sensor **Automatische Überbrückung erlauben** aktiviert wurde. Die Freigabe allein bewirkt nichts. Sobald ein so überbrückter Sensor seinen Normalzustand erreicht, wird er wieder überwacht und kann beim nächsten Auslösen Alarm geben. Nicht verfügbare Sensoren, 24/7-Sensoren und blockierende Störungen sind ausgeschlossen. Diese automatische Überbrückung bleibt über Neustarts erhalten, endet spätestens beim Unscharfschalten und wird in Status, Kachel, IPSView und Ereignisprotokoll sichtbar. Die bisherige manuelle Überbrückung bleibt dagegen bis zum Unscharfschalten bestehen. Hat ein Sensor während eines Symcon-Ausfalls geschlossen und wieder geöffnet, ist dieser Zwischenzustand nicht zuverlässig erkennbar; bei einem weiterhin ausgelösten Wert bleibt seine automatische Überbrückung deshalb bestehen.
 
@@ -769,7 +777,31 @@ Dasselbe Störungsmodell überwacht die Verfügbarkeit aller aktiv genutzten Ala
 
 Die generische Prüfung kann erkennen, ob eine Symcon-Variable fehlt oder nicht gelesen werden kann. Bleibt eine Variable vorhanden und liefert lediglich einen veralteten letzten Wert, ist das ohne anbieterspezifisches Kommunikations- oder Zeitkriterium nicht zuverlässig feststellbar. Für solche Geräte sollte ein separater Kommunikations- oder Gerätestörungswert als Störungseingang konfiguriert werden.
 
-## 10. Code-Schutz
+## 10. Unscharfschalten und Code-Schutz
+
+### Aktion nach vollständigem Unscharfschalten
+
+Im Konfigurationsabschnitt **Unscharfschalten** können mehrere native
+Symcon-Aktionen hinterlegt werden. Jede aktive Zeile wird ausgeführt, nachdem
+der letzte aktive Alarmbereich erfolgreich unscharf geschaltet wurde. Geeignete
+Anwendungsfälle sind eine Statusansage, das Einschalten einer Beleuchtung oder
+ein vom Anwender verantwortetes Skript zum Entriegeln einer Tür.
+
+1. **Unscharfschalten** öffnen.
+2. Unter **Einmalige Aktion nach vollständigem Unscharfschalten** auf
+   **Hinzufügen** klicken.
+3. Die Zeile aktivieren, einen Namen vergeben und die gewünschte native
+   Symcon-Aktion auswählen.
+4. Konfiguration übernehmen und den Ablauf zunächst in einer sicheren
+   Testkonfiguration prüfen.
+
+Die Aktion ist an den Gesamtübergang gebunden: Das gezielte Unscharfschalten
+eines Bereichs führt sie nicht aus, solange ein anderer Bereich aktiv bleibt.
+Ein erneuter Unscharfschaltbefehl bei bereits vollständig unscharfer Anlage
+führt sie ebenfalls nicht aus. Ein Fehler der externen Aktion macht das
+erfolgreiche Unscharfschalten nicht rückgängig.
+
+### Code-Schutz
 
 Für die benutzerseitige Bedienung können im Konfigurationsformular mehrere aktivierbare Benutzer mit Namen und individuellem vier- bis achtstelligem Zahlencode hinterlegt werden. Doppelte aktive Codes werden abgelehnt. Der bisherige einzelne Unscharfschaltcode bleibt als kompatibler Legacy-Code erhalten; sind weder ein Legacy-Code noch aktive Benutzercodes konfiguriert, ist die Code-Prüfung deaktiviert.
 

@@ -275,6 +275,48 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Disarming",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Optional. Runs exactly once when the last active alarm area has been successfully disarmed. It does not run when the system was already fully disarmed, while another area remains active, or after an internal arming cancellation."
+                },
+                {
+                    "type": "List",
+                    "name": "FullyDisarmedAction",
+                    "caption": "One-time action after fully disarming",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $FullyDisarmedAction);"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "Code protection",
             "expanded": false,
             "items": [

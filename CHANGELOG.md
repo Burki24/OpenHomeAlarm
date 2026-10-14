@@ -10,6 +10,15 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Unter **Unscharfschalten** kann jetzt eine optionale Aktion hinterlegt werden,
+  die genau einmal nach dem erfolgreichen Übergang des letzten aktiven Bereichs
+  zur vollständig unscharfen Anlage ausgeführt wird. Teilweises oder wiederholtes
+  Unscharfschalten vervielfacht die Aktion nicht.
+
+- Nach dem Löschen oder Deaktivieren eines noch zugeordneten Alarmbereichs zeigt
+  der Sensor-Editor die verwaiste Zuordnung weiterhin als markierte Checkbox an.
+  Sie kann dadurch direkt entfernt werden, ohne den Bereich erneut anzulegen.
+
 - Konfigurierte Countdown-Aktionen laufen jetzt auch bei einzeln oder gemeinsam
   geschalteten Zusatzbereichen. Eine neue optionale Startaktion ermöglicht einen
   einmaligen Signalton oder Hinweis; gemeinsam gestartete Bereiche führen Start-,

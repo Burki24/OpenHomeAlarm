@@ -549,6 +549,67 @@ $countdownEndAction = json_encode([
         'VALUE'       => false
     ]
 ], JSON_THROW_ON_ERROR);
+$fullyDisarmedAction = json_encode([
+    'actionID'   => '{77777777-7777-7777-7777-777777777777}',
+    'parameters' => [
+        'TARGET'      => 5003,
+        'ENVIRONMENT' => 'Default',
+        'PARENT'      => 6001,
+        'VALUE'       => true
+    ]
+], JSON_THROW_ON_ERROR);
+
+// The post-disarm action belongs to the complete-system transition, not to
+// every area command. It therefore runs once only after the last active area
+// has become disarmed.
+$testActions = [];
+$fullyDisarmed = new OpenHomeAlarm();
+$fullyDisarmed->Create();
+$fullyDisarmed->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$fullyDisarmed->TestSetPropertyString('FullyDisarmedAction', $fullyDisarmedAction);
+$fullyDisarmed->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage'],
+    ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+], JSON_THROW_ON_ERROR));
+assertAlarmAction(
+    $fullyDisarmed->ArmPartitions(['garage', 'shed'], 'away', 0),
+    'Two areas must arm before testing the complete-system disarm transition.'
+);
+$fullyDisarmed->DisarmPartition('garage');
+assertAlarmAction(
+    $testActions === [],
+    'Disarming one area must not run the post-disarm action while another area remains active.'
+);
+$fullyDisarmed->DisarmPartition('garage');
+assertAlarmAction(
+    $testActions === [],
+    'Repeatedly disarming an already disarmed area must not run the post-disarm action.'
+);
+$fullyDisarmed->DisarmPartition('shed');
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{77777777-7777-7777-7777-777777777777}'],
+    'Disarming the last active area must run the post-disarm action exactly once.'
+);
+$fullyDisarmed->DisarmPartition('shed');
+assertAlarmAction(count($testActions) === 1, 'An already fully disarmed system must not repeat the action.');
+assertAlarmAction(
+    $fullyDisarmed->ArmPartitions(['garage', 'shed'], 'away', 0),
+    'The area group must arm again for grouped disarming.'
+);
+$fullyDisarmed->DisarmPartitions(['garage', 'shed']);
+assertAlarmAction(
+    count($testActions) === 2,
+    'Disarming several areas together must run the post-disarm action only once.'
+);
+assertAlarmAction($fullyDisarmed->ArmAway(0), 'Main must arm before testing global disarming.');
+$fullyDisarmed->Disarm();
+assertAlarmAction(
+    count($testActions) === 3,
+    'Global disarming of main and mirrored areas must run the post-disarm action only once.'
+);
+$fullyDisarmed->Disarm();
+assertAlarmAction(count($testActions) === 3, 'Repeated global disarming must not run the action.');
 
 // Countdown actions remain independent of escalation actions.
 $testActions = [];
@@ -1412,6 +1473,7 @@ assertAlarmAction(
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmAction') === null
     && findAlarmActionFormField($form['elements'] ?? [], 'FaultAction') !== null
     && findAlarmActionFormField($form['elements'] ?? [], 'FaultClearedAction') !== null
+    && findAlarmActionFormField($form['elements'] ?? [], 'FullyDisarmedAction') !== null
     && findAlarmActionFormField($form['elements'] ?? [], 'CountdownStartAction') !== null
     && findAlarmActionFormField($form['elements'] ?? [], 'CountdownAction') !== null
     && findAlarmActionFormField($form['elements'] ?? [], 'CountdownEndAction') !== null,
@@ -1423,7 +1485,7 @@ assertAlarmAction(
     && findAlarmActionFormField($form['elements'] ?? [], 'DisarmAfterAlarmActionEnabled') === null,
     'Global alarm-action configuration must be removed completely.'
 );
-foreach (['FaultAction', 'FaultClearedAction', 'CountdownStartAction', 'CountdownAction', 'CountdownEndAction'] as $actionName) {
+foreach (['FaultAction', 'FaultClearedAction', 'FullyDisarmedAction', 'CountdownStartAction', 'CountdownAction', 'CountdownEndAction'] as $actionName) {
     $action = findAlarmActionFormField($form['elements'] ?? [], $actionName);
     assertAlarmAction(
         is_array($action)
@@ -1439,6 +1501,7 @@ $dynamicFormInstance->Create();
 $dynamicFormInstance->TestSetPropertyString('CountdownStartAction', $countdownStartAction);
 $dynamicFormInstance->TestSetPropertyString('CountdownAction', $countdownAction);
 $dynamicFormInstance->TestSetPropertyString('CountdownEndAction', $countdownEndAction);
+$dynamicFormInstance->TestSetPropertyString('FullyDisarmedAction', $fullyDisarmedAction);
 $dynamicFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
     'Enabled'      => true,
     'Name'         => 'Legacy step',
@@ -1657,6 +1720,7 @@ assertAlarmAction(
 );
 $dynamicCountdownAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'CountdownAction');
 $dynamicCountdownStartAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'CountdownStartAction');
+$dynamicFullyDisarmedAction = findAlarmActionFormField($dynamicForm['elements'] ?? [], 'FullyDisarmedAction');
 assertAlarmAction(
     is_array($dynamicCountdownStartAction)
     && ($dynamicCountdownStartAction['type'] ?? null) === 'List'
@@ -1668,13 +1732,20 @@ assertAlarmAction(
     && ($dynamicCountdownAction['values'][0]['Action'] ?? null) === $countdownAction,
     'GetConfigurationForm must migrate a previously configured optional action into its editable List.'
 );
+assertAlarmAction(
+    is_array($dynamicFullyDisarmedAction)
+    && ($dynamicFullyDisarmedAction['type'] ?? null) === 'List'
+    && ($dynamicFullyDisarmedAction['values'][0]['Name'] ?? null) === 'Configured action'
+    && ($dynamicFullyDisarmedAction['values'][0]['Action'] ?? null) === $fullyDisarmedAction,
+    'GetConfigurationForm must expose the configured post-disarm action as an editable List.'
+);
 
 $lockedFormInstance = new OpenHomeAlarm();
 $lockedFormInstance->Create();
 $lockedFormInstance->TestSetCurrentValue('Mode', 2);
 $lockedFormInstance->TestSetCurrentValue('State', 2);
 $lockedForm = json_decode($lockedFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
-foreach (['Partitions', 'ExitDelaySeconds', 'CountdownStartAction', 'CountdownAction', 'CountdownEndAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushNotificationApplicableTo', 'PushoverNotificationMode', 'PushoverNotificationApplicableTo'] as $fieldName) {
+foreach (['Partitions', 'ExitDelaySeconds', 'CountdownStartAction', 'CountdownAction', 'CountdownEndAction', 'FullyDisarmedAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushNotificationApplicableTo', 'PushoverNotificationMode', 'PushoverNotificationApplicableTo'] as $fieldName) {
     $field = findAlarmActionFormField($lockedForm['elements'] ?? [], $fieldName);
     assertAlarmAction(
         is_array($field) && ($field['enabled'] ?? null) === false,
