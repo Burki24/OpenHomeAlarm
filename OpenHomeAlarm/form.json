@@ -8,7 +8,7 @@
         {
             "code": 202,
             "icon": "error",
-            "caption": "Invalid sensor or fault configuration. Reassign entries from missing or disabled alarm partitions and remove duplicate fault variables."
+            "caption": "Invalid sensor or fault configuration. Reassign entries from missing or disabled alarm partitions and remove duplicate sensor or fault entries."
         }
     ],
     "elements": [

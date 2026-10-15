@@ -616,6 +616,34 @@ assertFaultMonitoring(
     'Duplicate fault input variable IDs must produce a controlled invalid-configuration status.'
 );
 
+// Functionally identical sensor rows are rejected without crashing ApplyChanges.
+$duplicateSensors = new OpenHomeAlarm();
+$duplicateSensors->Create();
+$duplicateSensors->TestSetPropertyString(
+    'Sensors',
+    json_encode([
+        [
+            'Name'           => 'Front door',
+            'VariableID'     => 9001,
+            'Partition_main' => true,
+            'ArmAway'        => true,
+            'EntryDelay'     => true
+        ],
+        [
+            'Name'           => 'Renamed front door',
+            'VariableID'     => 9001,
+            'Partition_main' => true,
+            'ArmAway'        => true,
+            'EntryDelay'     => true
+        ]
+    ], JSON_THROW_ON_ERROR)
+);
+$duplicateSensors->ApplyChanges();
+assertFaultMonitoring(
+    $duplicateSensors->TestStatus() === 202,
+    'Functionally identical sensor rows must produce a controlled invalid-configuration status.'
+);
+
 // Configuration form and dynamic fault-value selection must expose the new system-monitoring controls.
 $form = json_decode($instance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
 $systemPanel = null;

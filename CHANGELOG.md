@@ -20,6 +20,11 @@ beispielsweise `v1.109.0`.
   kontrolliert ungültige Konfiguration, sodass das sichtbare Duplikat entfernt
   werden kann.
 
+- Funktional identische Sensorzeilen werden ebenfalls kontrolliert als
+  ungültige Konfiguration gemeldet. Dieselbe Variable darf weiterhin mehrfach
+  verwendet werden, wenn sich Alarmbereiche, Auswertung, Scharfmodi,
+  Verzögerungen oder Sonderoptionen tatsächlich unterscheiden.
+
 - In breiten Kachel- und IPSView-Darstellungen wird der zusätzliche
   Deaktivierungsbutton ausgeblendet, sobald das fest eingeblendete Codepad
   dessen Funktion übernimmt. In schmalen Ansichten bleibt der Button als

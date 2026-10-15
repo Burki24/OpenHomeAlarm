@@ -445,6 +445,25 @@ assertDomainThrows(
     ),
     'Unsupported sensor trigger condition.'
 );
+assertDomainThrows(
+    static fn (): array => AlarmConfigurationNormalizer::sensors(
+        '[{"Name":"Front door","VariableID":2001,"Partition_house":true,"Partition_garage":true,"ArmHome":true},'
+        . '{"Name":"Renamed front door","VariableID":2001,"Partition_garage":true,"Partition_house":true,"ArmHome":true}]',
+        [0],
+        0
+    ),
+    'An identical sensor configuration can only be configured once.'
+);
+assertDomainSame(
+    2,
+    count(AlarmConfigurationNormalizer::sensors(
+        '[{"VariableID":2001,"Partition_house":true,"ArmAway":true,"EntryDelay":true},'
+        . '{"VariableID":2001,"Partition_house":true,"ArmAway":true,"EntryDelay":false}]',
+        [0],
+        0
+    )),
+    'The same sensor variable must remain valid when its functional configuration differs.'
+);
 
 assertDomainSame(
     [],

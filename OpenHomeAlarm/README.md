@@ -467,6 +467,15 @@ horizontales Hin- und Herscrollen erreichbar bleiben. Die vollständigen
 Bezeichnungen und alle Einstellungen stehen unverändert im Editor hinter dem
 Zahnrad der jeweiligen Zeile zur Verfügung.
 
+Dieselbe Symcon-Variable darf weiterhin mehrfach als Sensor verwendet werden,
+wenn sich ihre fachliche Konfiguration unterscheidet, beispielsweise durch
+andere Alarmbereiche, Scharfmodi, Auswertungen, Verzögerungen oder
+Sonderfreigaben. Zwei funktional identische Zeilen sind dagegen ungültig und
+werden beim Anwenden kontrolliert als fehlerhafte Konfiguration gemeldet. Eine
+abweichende sichtbare Bezeichnung allein macht aus einer identischen
+Sensorzeile keine eigene Konfiguration. Entwurfszeilen mit `VariableID = 0`
+bleiben von dieser Prüfung ausgenommen.
+
 Jeder konfigurierte Eintrag enthält folgende Daten:
 
 | Feld | Bedeutung |

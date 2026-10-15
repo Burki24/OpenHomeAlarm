@@ -34,7 +34,7 @@
             "Configure the Symcon variables that can act as alarm sensors or triggers.": "Konfigurieren Sie die Symcon-Variablen, die als Alarmsensoren oder Auslöser dienen können.",
             "Alarm partitions": "Alarmbereiche",
             "Invalid alarm partition configuration. The main area must exist and be enabled.": "Ungültige Alarmbereichskonfiguration. Der Bereich main muss vorhanden und aktiv sein.",
-            "Invalid sensor or fault configuration. Reassign entries from missing or disabled alarm partitions and remove duplicate fault variables.": "Ungültige Sensor- oder Störungskonfiguration. Ordnen Sie Einträge aus fehlenden oder deaktivierten Alarmbereichen neu zu und entfernen Sie doppelt verwendete Störungsvariablen.",
+            "Invalid sensor or fault configuration. Reassign entries from missing or disabled alarm partitions and remove duplicate sensor or fault entries.": "Ungültige Sensor- oder Störungskonfiguration. Ordnen Sie Einträge aus fehlenden oder deaktivierten Alarmbereichen neu zu und entfernen Sie doppelte Sensor- oder Störungseinträge.",
             "Alarm partition": "Alarmbereich",
             "Main area": "Hauptbereich",
             "Missing alarm partition: %s": "Fehlender Alarmbereich: %s",

@@ -116,7 +116,7 @@ assertPartition(
     ($form['status'][1]['code'] ?? null) === 202
         && ($form['status'][1]['icon'] ?? null) === 'error'
         && str_contains($form['status'][1]['caption'] ?? '', 'missing or disabled alarm partitions')
-        && str_contains($form['status'][1]['caption'] ?? '', 'remove duplicate fault variables'),
+        && str_contains($form['status'][1]['caption'] ?? '', 'remove duplicate sensor or fault entries'),
     'Invalid sensor and fault assignments must have a user-facing Symcon status instead of producing an uncaught exception.'
 );
 

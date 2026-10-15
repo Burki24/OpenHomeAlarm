@@ -51,6 +51,7 @@ final class AlarmConfigurationNormalizer
         }
 
         $normalizedSensors = [];
+        $usedConfigurations = [];
         foreach ($sensors as $sensor) {
             if (!is_array($sensor)) {
                 throw new UnexpectedValueException('Every sensor configuration must be an object.');
@@ -103,7 +104,7 @@ final class AlarmConfigurationNormalizer
             $armNight = self::booleanField($sensor, 'ArmNight', false, 'Sensor');
             $exitDelay = self::booleanField($sensor, 'ExitDelay', false, 'Sensor');
             $entryDelay = self::booleanField($sensor, 'EntryDelay', false, 'Sensor');
-            $normalizedSensors[] = [
+            $normalized = [
                 'Enabled'              => self::booleanField($sensor, 'Enabled', true, 'Sensor'),
                 'PartitionID'          => $legacyPartitionID,
                 'PartitionIDs'         => array_values(array_unique($partitionIDs)),
@@ -122,6 +123,32 @@ final class AlarmConfigurationNormalizer
                 'EntryDelay'           => !$alwaysActive && $entryDelay,
                 'RetriggerAlarm'       => self::booleanField($sensor, 'RetriggerAlarm', false, 'Sensor')
             ];
+            if ($normalized['VariableID'] > 0) {
+                $signaturePartitionIDs = $normalized['PartitionIDs'];
+                sort($signaturePartitionIDs, SORT_STRING);
+                $signature = json_encode([
+                    'Enabled'              => $normalized['Enabled'],
+                    'PartitionIDs'         => $signaturePartitionIDs,
+                    'VariableID'           => $normalized['VariableID'],
+                    'SensorType'           => $normalized['SensorType'],
+                    'TriggerCondition'     => $normalized['TriggerCondition'],
+                    'TriggerValue'         => $normalized['TriggerValue'],
+                    'ArmHome'              => $normalized['ArmHome'],
+                    'ArmAway'              => $normalized['ArmAway'],
+                    'ArmNight'             => $normalized['ArmNight'],
+                    'AlwaysActive'         => $normalized['AlwaysActive'],
+                    'AllowAutomaticBypass' => $normalized['AllowAutomaticBypass'],
+                    'AllowPassage'         => $normalized['AllowPassage'],
+                    'ExitDelay'            => $normalized['ExitDelay'],
+                    'EntryDelay'           => $normalized['EntryDelay'],
+                    'RetriggerAlarm'       => $normalized['RetriggerAlarm']
+                ], JSON_THROW_ON_ERROR);
+                if (isset($usedConfigurations[$signature])) {
+                    throw new UnexpectedValueException('An identical sensor configuration can only be configured once.');
+                }
+                $usedConfigurations[$signature] = true;
+            }
+            $normalizedSensors[] = $normalized;
         }
 
         return $normalizedSensors;
