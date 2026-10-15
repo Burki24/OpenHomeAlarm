@@ -1134,6 +1134,14 @@ Bedienflächen:
   in die nächste Scharfschaltung auf oder entfernt ihn daraus. Ein sichtbarer
   **Haken** kennzeichnet jeden gemeinsam zu schaltenden Bereich.
 
+Auf schmalen Darstellungen brechen die Bereichsbuttons in Kachel und IPSView
+automatisch auf mehrere Zeilen um. Der umgebende Alarmbereichsrahmen wächst
+mit und umfasst auch die bei einer Mehrfachauswahl eingeblendete Legende. Ein
+horizontales Verschieben der Bereichsauswahl ist daher nicht erforderlich.
+Die Schalter für **Alarmierungsart** und **Mit erlaubten aktiven Sensoren
+scharfschalten** bleiben auch bei wenig Platz am rechten Rand ihrer jeweiligen
+Zeile stehen, damit der Scharfmodibereich möglichst kompakt bleibt.
+
 ![Bedienelemente eines Bereichsbuttons](../docs/images/openhomealarm-area-selection-explained.png)
 
 Die beiden Markierungen sind unabhängig voneinander. Die folgenden Beispiele
@@ -1193,8 +1201,8 @@ Für eine gemeinsame Scharfschaltung gehen Sie wie folgt vor:
    soll. Wird `main` gewählt, löscht OpenHomeAlarm die Einzelmarkierungen und
    behandelt den Auftrag als Gesamtanlage.
 3. Stellen Sie bei Bedarf **Alarmierungsart** und **Mit erlaubten aktiven
-   Sensoren scharfschalten** ein. Auf breiten Ansichten stehen diese beiden
-   Optionen nebeneinander, auf schmalen Ansichten automatisch untereinander.
+   Sensoren scharfschalten** ein. Der jeweilige Schalter bleibt unabhängig von
+   der Darstellungsbreite rechts neben seiner Beschreibung ausgerichtet.
 4. Wählen Sie **Zuhause**, **Abwesend** oder **Nacht**. OpenHomeAlarm prüft
    zuerst sämtliche markierten Bereiche. Ist einer davon nicht bereit, wird
    kein Bereich des gemeinsamen Auftrags teilweise scharfgeschaltet.

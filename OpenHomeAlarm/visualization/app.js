@@ -392,6 +392,7 @@ function ohaRenderArmTargets(canSelectTargets) {
             control.dataset.targetSelected = isSelected ? 'true' : 'false';
         }
     }
+    ohaSchedulePartitionNavHeight();
 }
 
 function ohaAllModesReady(state) {

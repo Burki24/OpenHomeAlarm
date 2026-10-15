@@ -10,6 +10,12 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Alarmbereichsbuttons brechen in schmalen Kachel- und IPSView-Ansichten
+  nun automatisch auf mehrere Zeilen um. Der Bereichsrahmen berücksichtigt
+  dabei auch die eingeblendete Mehrfachauswahl vollständig. Die Schalter für
+  Alarmierungsart und automatische Überbrückung bleiben platzsparend am
+  rechten Rand ihrer jeweiligen Zeile ausgerichtet.
+
 - Über die Mehrfachsuche hinzugefügte Sensoren erhalten automatisch den Namen
   **Variablenname (Parentname)**. Nach erfolgreicher Übernahme schließt das
   jeweilige Sensor- oder Störungssuchfenster unmittelbar; bei einem Fehler

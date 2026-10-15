@@ -779,10 +779,9 @@ html:not(.oha-ipsview) .oha-shell {
 }
 
 .oha-arm-delivery {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
     gap: 8px 12px;
     min-height: 40px;
     padding: 8px 10px;
@@ -1583,14 +1582,14 @@ html:not(.oha-ipsview) .oha-shell {
         touch-action: pan-y;
     }
 
-    html:not(.oha-ipsview) .oha-partition-nav {
+    .oha-partition-nav {
         height: auto;
         min-height: 68px;
         gap: 5px;
         padding: 10px;
     }
 
-    html:not(.oha-ipsview) .oha-partition-tabs {
+    .oha-partition-tabs {
         display: grid;
         width: 100%;
         min-height: 46px;
@@ -1604,14 +1603,14 @@ html:not(.oha-ipsview) .oha-shell {
         scroll-padding-inline: 4px;
     }
 
-    html:not(.oha-ipsview) .oha-partition-tab {
+    .oha-partition-tab {
         width: 100%;
         max-width: 100%;
         justify-content: flex-start;
         white-space: normal;
     }
 
-    html:not(.oha-ipsview) .oha-partition-control {
+    .oha-partition-control {
         width: 100%;
     }
 

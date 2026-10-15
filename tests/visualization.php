@@ -180,8 +180,10 @@ assertVisualization(
 );
 assertVisualization(
     preg_match('/<div class="oha-arm-options">[\s\S]*?id="armDelivery"[\s\S]*?id="armBypass"[\s\S]*?<\/div>\s*<div class="oha-mode-grid">/', $html) === 1
-        && preg_match('/\.oha-arm-options \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(min\(320px, 100%\), 1fr\)\);/s', $css) === 1,
-    'Alarm response and optional sensor bypass must share a responsive two-column row on wide views.'
+        && preg_match('/\.oha-arm-options \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(min\(320px, 100%\), 1fr\)\);/s', $css) === 1
+        && preg_match('/\.oha-arm-delivery \{[^}]*display: grid;[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/s', $css) === 1
+        && preg_match('/\.oha-arm-delivery \{[^}]*flex-wrap:/s', $css) !== 1,
+    'Alarm response and optional sensor bypass must share a responsive row while keeping every switch aligned at the right edge.'
 );
 assertVisualization(
     str_contains($javascript, "control.matches('[data-delivery-switch]')")
@@ -452,13 +454,17 @@ assertVisualization(
     preg_match('/@media \(max-width: 620px\) \{.*?html:not\(\.oha-ipsview\) \.oha-shell \{.*?overflow: hidden;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-topbar-actions \{\s+position: static;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-scroll-content \{.*?overflow-y: auto;/s', $css) === 1
-        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-nav \{\s+height: auto;\s+min-height: 68px;/s', $css) === 1
-        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tabs \{.*?display: grid;.*?grid-template-columns: repeat\(auto-fit, minmax\(130px, 1fr\)\);.*?grid-auto-rows: minmax\(34px, auto\);.*?overflow: visible;/s', $css) === 1
-        && preg_match('/html:not\(\.oha-ipsview\) \.oha-partition-tab \{.*?width: 100%;.*?max-width: 100%;.*?white-space: normal;/s', $css) === 1
+        && preg_match('/\.oha-partition-nav \{\s+height: auto;\s+min-height: 68px;/s', $css) === 1
+        && preg_match('/\.oha-partition-tabs \{.*?display: grid;.*?grid-template-columns: repeat\(auto-fit, minmax\(130px, 1fr\)\);.*?grid-auto-rows: minmax\(34px, auto\);.*?overflow: visible;/s', $css) === 1
+        && preg_match('/\.oha-partition-tab \{.*?width: 100%;.*?max-width: 100%;.*?white-space: normal;/s', $css) === 1
         && preg_match('/html:not\(\.oha-ipsview\) \.oha-hero \{\s+min-height: 154px;/s', $css) === 1
         && str_contains($css, 'min-height: 46px;')
         && str_contains($css, 'scroll-padding-inline: 4px;'),
-    'Mobile tiles must keep the fixed title outside the content scroll region, grow wrapped area controls dynamically and reserve space for security status.'
+    'Mobile tiles and IPSView must grow wrapped area controls dynamically without horizontal scrolling while tiles reserve space for security status.'
+);
+assertVisualization(
+    preg_match('/function ohaRenderArmTargets\(canSelectTargets\) \{[\s\S]*?ohaSchedulePartitionNavHeight\(\);\s*\}/', $javascript) === 1,
+    'Showing or hiding the multi-area legend must remeasure the mobile partition frame after its content changes.'
 );
 assertVisualization(
     preg_match('/@media \(max-width: 620px\) \{.*?\.oha-shell\[data-state="exit_delay"\] \.oha-hero.*?grid-template-columns: 42px minmax\(0, 1fr\) auto;/s', $css) === 1
