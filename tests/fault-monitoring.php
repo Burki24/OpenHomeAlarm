@@ -668,8 +668,12 @@ assertFaultMonitoring(is_array($faultList), 'System monitoring must contain the 
 assertFaultMonitoring(
     is_array($faultImporter)
         && ($faultImporter['caption'] ?? null) === 'Find and add fault inputs'
-        && str_contains(json_encode($faultImporter, JSON_THROW_ON_ERROR), 'FaultImportCandidates'),
-    'System monitoring must offer bulk variable search for fault inputs.'
+        && str_contains(json_encode($faultImporter, JSON_THROW_ON_ERROR), 'FaultImportCandidates')
+        && str_contains(
+            (string) ($faultImporter['popup']['buttons'][0]['onClick'] ?? ''),
+            'OHA_AddFaultInputCandidates'
+        ),
+    'System monitoring must offer bulk variable search with its add action in the popup footer.'
 );
 assertFaultMonitoring(
     in_array('PartitionID', array_column($faultList['columns'] ?? [], 'name'), true),

@@ -12,7 +12,9 @@ beispielsweise `v1.109.0`.
 
 - Über die Mehrfachsuche hinzugefügte Sensoren erhalten automatisch den Namen
   **Variablenname (Parentname)**. Nach erfolgreicher Übernahme schließt das
-  Suchfenster unmittelbar; bei einem Fehler bleibt es zur Korrektur geöffnet.
+  jeweilige Sensor- oder Störungssuchfenster unmittelbar; bei einem Fehler
+  bleibt es zur Korrektur geöffnet. Die Übernahmeschaltfläche der
+  Störungssuche steht nun konsistent in der Fußleiste neben **Abbrechen**.
   Der gewählte Auslöse- beziehungsweise Störwert ist außerdem bereits vor dem
   Speichern beim Bearbeiten einer neuen Sensor- oder Störungszeile verfügbar.
 

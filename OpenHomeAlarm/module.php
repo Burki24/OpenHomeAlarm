@@ -2719,10 +2719,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             $this->UpdateFormField('FaultInputs', 'values', json_encode($faultInputs, JSON_THROW_ON_ERROR));
 
-            return 'MESSAGE:' . sprintf(
-                $this->Translate('%d fault inputs added. Review them and apply the form to save.'),
-                count($selectedVariableIDs)
-            );
+            return '';
         } catch (Throwable $exception) {
             return $this->Translate($exception->getMessage());
         }

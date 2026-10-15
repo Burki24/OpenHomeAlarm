@@ -801,6 +801,8 @@ Grenzlogik wie die Sensorsuche. Bereits in der Störungsliste verwendete
 Variablen werden nicht erneut angeboten. Für alle ausgewählten Treffer werden
 Alarmbereich, Störungstyp, Störwert sowie die Optionen **Scharfschaltung
 blockieren** und **Alarm sofort und 24/7 auslösen** gemeinsam festgelegt. Die
+Schaltfläche **Auswahl hinzufügen** steht in der Fußleiste direkt neben
+**Abbrechen** und schließt das Suchfenster nach erfolgreicher Übernahme. Die
 erzeugten Zeilen bleiben bis **Änderungen übernehmen** bearbeitbare Entwürfe.
 
 Ein einzelner Eingang wird folgendermaßen eingerichtet:

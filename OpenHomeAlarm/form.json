@@ -1208,9 +1208,10 @@
                             {
                                 "type": "Label",
                                 "caption": "The shared fault value is stored as a raw value for every selected variable. Review variables with profiles or special states in the normal fault input list after adding."
-                            },
+                            }
+                        ],
+                        "buttons": [
                             {
-                                "type": "Button",
                                 "caption": "Add selected",
                                 "onClick": "$settings = ['Enabled' => $FaultImportEnabled, 'PartitionID' => $FaultImportPartitionID, 'FaultType' => $FaultImportFaultType, 'TriggerValue' => $FaultImportTriggerValue, 'BlockArming' => $FaultImportBlockArming, 'TriggerAlarm' => $FaultImportTriggerAlarm]; $partitionRows = []; foreach ($Partitions as $partitionRow) { $partitionRows[] = $partitionRow; } $faultRows = []; foreach ($FaultInputs as $faultRow) { $faultRows[] = $faultRow; } $candidateRows = []; foreach ($FaultImportCandidates as $candidateRow) { $candidateRows[] = $candidateRow; } return OHA_AddFaultInputCandidates($id, $FaultImportName, $FaultImportType, $FaultImportRootObjectID, $FaultImportIncludeHidden, json_encode($settings), json_encode($partitionRows), json_encode($faultRows), json_encode($candidateRows));"
                             }

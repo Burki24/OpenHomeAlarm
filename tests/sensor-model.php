@@ -971,7 +971,7 @@ $addedFaultRows = json_decode(
     JSON_THROW_ON_ERROR
 );
 assertSensorModel(
-    str_starts_with($faultAddResult, 'MESSAGE:')
+    $faultAddResult === ''
         && ($addedFaultRows[1]['VariableID'] ?? null) === 67890
         && ($addedFaultRows[1]['Name'] ?? null) === 'Door garage'
         && ($addedFaultRows[1]['PartitionID'] ?? null) === 'garage'

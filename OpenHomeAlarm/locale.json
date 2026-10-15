@@ -88,7 +88,6 @@
             "Add selected": "Auswahl hinzufügen",
             "%d matching variables; %d already configured.": "%d passende Variablen; %d bereits konfiguriert.",
             "The search limit was reached; select a narrower root or use a more specific name.": "Die Suchgrenze wurde erreicht; wählen Sie eine engere Wurzel oder einen genaueren Namen.",
-            "%d fault inputs added. Review them and apply the form to save.": "%d Störungseingänge hinzugefügt. Prüfen Sie die Einträge und übernehmen Sie das Formular zum Speichern.",
             "Select a valid variable type.": "Wählen Sie einen gültigen Variablentyp.",
             "Enter a variable name of at most 120 characters.": "Geben Sie einen Variablennamen mit höchstens 120 Zeichen ein.",
             "Select a valid search root.": "Wählen Sie eine gültige Suchwurzel.",
