@@ -1484,6 +1484,10 @@ html:not(.oha-ipsview) .oha-shell {
         box-shadow: var(--oha-shadow);
     }
 
+    .oha-shell[data-codepad-visible="true"] .oha-disarm-button {
+        display: none;
+    }
+
 }
 
 @media (min-width: 900px) and (max-width: 1250px) {

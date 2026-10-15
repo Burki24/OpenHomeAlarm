@@ -125,8 +125,11 @@ assertCodepad(str_contains($css, '.oha-inline-codepad'), 'The permanently integr
 assertCodepad(str_contains($css, '.oha-inline-disarm-button'), 'The integrated codepad must style its explicit disarm button.');
 assertCodepad(str_contains($css, '@media (min-width: 900px)'), 'The integrated codepad must use a tile-width breakpoint.');
 assertCodepad(
-    !str_contains($css, '.oha-control-bar[data-code-required="true"]'),
-    'The Deactivate control must remain visible on wide code-protected views.'
+    str_contains(
+        $css,
+        ".oha-shell[data-codepad-visible=\"true\"] .oha-disarm-button {\n        display: none;\n    }"
+    ),
+    'The duplicate Deactivate control must be hidden while the integrated codepad is visible.'
 );
 assertCodepad(
     strpos($html, 'id="armingSection"') < strpos($html, 'id="controlBar"')

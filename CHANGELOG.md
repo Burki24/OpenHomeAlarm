@@ -10,6 +10,11 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- In breiten Kachel- und IPSView-Darstellungen wird der zusätzliche
+  Deaktivierungsbutton ausgeblendet, sobald das fest eingeblendete Codepad
+  dessen Funktion übernimmt. In schmalen Ansichten bleibt der Button als
+  Auslöser für das Popup-Codepad erhalten.
+
 - Die Sensorliste verwendet kompaktere Spaltenbreiten und kurze, eindeutige
   Überschriften. Dadurch bleiben Bearbeiten und Löschen auf üblichen
   Bildschirmbreiten ohne horizontales Hin- und Herscrollen erreichbar.
