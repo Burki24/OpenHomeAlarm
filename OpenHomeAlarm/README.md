@@ -861,9 +861,23 @@ Mit **Ausführen bei Alarmierungsart** wird für eine gewöhnliche Aktion zwisch
 Sicherheitsgründen ausschließlich bei normalem Alarm. Bestehende
 Signalgeber-Aktionen behalten diese Wirkung auch dann, wenn zuvor **Immer**
 gespeichert war; bestehende andere Aktionen gelten weiterhin für beide
-Alarmierungsarten. Sind mehrere Bereiche gleichzeitig im
-Alarm, wird eine Aktion fällig, sobald mindestens ein aktiver Bereich ihre
-Alarmierungsart erfüllt. Signalgeber laufen nur, solange mindestens ein normal
+Alarmierungsarten. Zusätzlich bestimmt die Auslösekategorie-Matrix
+**Zuhause**, **Abwesend**, **Nacht** und **24/7**, auf welche Alarmursachen die
+Aktion reagieren darf. **24/7** bezeichnet dabei ausdrücklich die Herkunft aus
+einem als 24/7 aktiv konfigurierten Sensor oder einem alarmierenden
+Störungseingang – nicht den gerade gewählten Scharfmodus. Bestehende Aktionen
+ohne diese vier Einstellungen bleiben kompatibel und gelten für alle
+Auslösekategorien.
+
+Alarmierungsart und Auslösekategorie werden immer gemeinsam für denselben
+aktiven Alarmausgang geprüft. Eine Aktion **Nur normal + Zuhause** wird deshalb
+nicht durch die Kombination eines stillen Zuhause-Alarms mit einem normalen
+Abwesend-Alarm ausgelöst. Sind mehrere Bereiche oder unterschiedliche Ursachen
+gleichzeitig im Alarm, wird eine Aktion fällig, sobald mindestens eine aktive
+Ursache beide Bedingungen erfüllt. Kommt während eines laufenden Alarmzyklus
+eine weitere Kategorie hinzu, werden deren noch nicht ausgeführte passende
+Aktionen nachgeholt; bereits ausgeführte Aktionen werden nicht wiederholt.
+Signalgeber laufen nur, solange mindestens ein normal
 alarmierender Bereich aktiv ist. Endet dessen Alarmausgang, werden reversible
 normale Aktionen zurückgesetzt, während stille Aktionen aktiv bleiben. Jede
 Aktion läuft pro gemeinsamem Alarmzyklus höchstens einmal.
@@ -883,8 +897,13 @@ Da die Zielauswahl Bestandteil der nativen Symcon-Aktion ist, können einzelne G
 7. Nur bei **Eigene Rücksetzaktion verwenden** erscheint das Feld **Eigene Rücksetzaktion**. Wählen Sie dort das gewünschte Ziel und den exakten Rückgabewert, beispielsweise `Auf` für einen zuvor auf `Zu` gefahrenen Rollladen. Bei **Keine Rücksetzung** und **Boolean automatisch umkehren** ist dieses Aktionsfeld nicht vorhanden und muss daher auch nicht ausgefüllt werden.
 8. Kennzeichnen Sie eine Sirene oder einen anderen akustischen Alarmgeber zusätzlich als **Signalgeber**. Ein Signalgeber benötigt zwingend eine automatische Boolean-Rücksetzung oder eine eigene Rücksetzaktion.
 9. Wählen Sie bei gewöhnlichen Aktionen unter **Ausführen bei Alarmierungsart** zwischen **Nur normal**, **Nur still** und **Normal und still**. Für eine stille Eskalation legen Sie eine eigene Aktion mit **Nur still** an. Bei einem aktivierten **Signalgeber** erscheint stattdessen der Hinweis, dass er nur bei normalem Alarm läuft.
-10. Bestätigen Sie den Bearbeitungsdialog. Weitere Aktionen werden jeweils als eigene Tabellenzeile hinzugefügt.
-11. Übernehmen Sie abschließend die Änderungen der Instanzkonfiguration.
+10. Wählen Sie unter **Ausführen bei Auslösekategorie** mindestens eine der
+    Kategorien **Zuhause**, **Abwesend**, **Nacht** oder **24/7**. Mehrere
+    Haken sind möglich. Für eine Außensirene könnten beispielsweise Zuhause,
+    Abwesend und Nacht aktiv sein, während ein eigener Piezosummer nur auf
+    24/7-Auslöser reagiert.
+11. Bestätigen Sie den Bearbeitungsdialog. Weitere Aktionen werden jeweils als eigene Tabellenzeile hinzugefügt.
+12. Übernehmen Sie abschließend die Änderungen der Instanzkonfiguration.
 
 Eine Eskalationsstufe entsteht durch die eingetragene Verzögerung: Alle aktiven Zeilen mit derselben Verzögerung gehören funktional zur gleichen Stufe und werden beim Erreichen dieses Zeitpunkts nacheinander ausgeführt. Beispielsweise können drei Zeilen mit `0` Sekunden gleichzeitig Licht, Innensirene und Außensirene einschalten. Eine weitere Zeile mit `60` Sekunden kann nach einer Minute eine zusätzliche Benachrichtigung auslösen. Für mehrere Aktionen derselben Stufe muss deshalb keine Unterliste geöffnet werden.
 

@@ -582,6 +582,10 @@
                     "caption": "Add one row for each escalation action. Actions with the same delay run together. Use the gear button to select the Symcon action."
                 },
                 {
+                    "type": "Label",
+                    "caption": "Use the Home, Away, Night and 24/7 source matrix to decide which alarm origins may run each action. Existing actions remain enabled for all four categories."
+                },
+                {
                     "type": "List",
                     "name": "AlarmEscalationSteps",
                     "caption": "Alarm escalation actions",
@@ -671,6 +675,42 @@
                                         "value": "always"
                                     }
                                 ]
+                            }
+                        },
+                        {
+                            "caption": "Home",
+                            "name": "ApplyHome",
+                            "width": "85px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Away",
+                            "name": "ApplyAway",
+                            "width": "85px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Night",
+                            "name": "ApplyNight",
+                            "width": "85px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "24/7",
+                            "name": "ApplyAlwaysActive",
+                            "width": "85px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
                             }
                         }
                     ],

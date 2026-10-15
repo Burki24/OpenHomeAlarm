@@ -39,17 +39,36 @@ assertPartitionAlarm(
     $restored['garage']['OutputActive']
         && $restored['garage']['OutputDeadline'] === 150
         && $restored['garage']['ForceNormal'] === false
+        && $restored['garage']['AlarmSources'] === []
         && $restored['garage']['LastSource'] === 'Garage door'
         && !array_key_exists('shed', $restored),
     'Enabled partition alarm state must survive synchronization while disabled partitions are removed.'
 );
 
-$forcedNormal = AlarmPartitionAlarmRegistry::alarm($states['house'], 'Smoke detector', 100, 30, null, true);
-assertPartitionAlarm($forcedNormal['ForceNormal'] === true, 'A 24/7 alarm must persist its normal response.');
-$forcedNormal = AlarmPartitionAlarmRegistry::alarm($forcedNormal, 'Another sensor', 101);
-assertPartitionAlarm($forcedNormal['ForceNormal'] === true, 'Other triggers must not downgrade an active 24/7 alarm.');
+$forcedNormal = AlarmPartitionAlarmRegistry::alarm(
+    $states['house'],
+    'Smoke detector',
+    100,
+    30,
+    null,
+    true,
+    'always_active'
+);
+assertPartitionAlarm(
+    $forcedNormal['ForceNormal'] === true && $forcedNormal['AlarmSources'] === ['always_active'],
+    'A 24/7 alarm must persist its normal response and source category.'
+);
+$forcedNormal = AlarmPartitionAlarmRegistry::alarm($forcedNormal, 'Another sensor', 101, 0, null, false, 'away');
+assertPartitionAlarm(
+    $forcedNormal['ForceNormal'] === true
+        && $forcedNormal['AlarmSources'] === ['always_active', 'away'],
+    'Other triggers must not downgrade an active 24/7 alarm and must add their source category.'
+);
 $forcedNormal = AlarmPartitionAlarmRegistry::resetOutput($forcedNormal);
-assertPartitionAlarm($forcedNormal['ForceNormal'] === false, 'Resetting the alarm output must clear its 24/7 normal override.');
+assertPartitionAlarm(
+    $forcedNormal['ForceNormal'] === false && $forcedNormal['AlarmSources'] === [],
+    'Resetting the alarm output must clear its 24/7 normal override and active source categories.'
+);
 
 $states['house'] = AlarmPartitionAlarmRegistry::alarm($states['house'], 'Front door', 100, 30);
 $states['garage'] = AlarmPartitionAlarmRegistry::alarm($states['garage'], 'Garage door', 110, 10);

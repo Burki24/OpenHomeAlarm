@@ -10,6 +10,12 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Alarm-Eskalationsaktionen lassen sich zusätzlich zur Alarmierungsart gezielt
+  den Auslösekategorien **Zuhause**, **Abwesend**, **Nacht** und **24/7**
+  zuordnen. Bestehende Aktionen gelten weiterhin für alle Kategorien. Mehrere
+  gleichzeitig aktive Alarmursachen werden paarweise ausgewertet und führen
+  keine bereits ausgeführte Aktion ein zweites Mal aus.
+
 - Unter **Unscharfschalten** kann jetzt eine optionale Aktion hinterlegt werden,
   die genau einmal nach dem erfolgreichen Übergang des letzten aktiven Bereichs
   zur vollständig unscharfen Anlage ausgeführt wird. Teilweises oder wiederholtes

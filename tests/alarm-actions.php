@@ -1521,7 +1521,11 @@ assertAlarmAction(
     && ($dynamicEscalationValues[0]['Action'] ?? null) === $alarmAction
     && ($dynamicEscalationValues[0]['ResetMode'] ?? null) === 0
     && ($dynamicEscalationValues[0]['ResetAction'] ?? null) === ''
-    && ($dynamicEscalationValues[0]['ApplicableTo'] ?? null) === 'always',
+    && ($dynamicEscalationValues[0]['ApplicableTo'] ?? null) === 'always'
+    && ($dynamicEscalationValues[0]['ApplyHome'] ?? null) === true
+    && ($dynamicEscalationValues[0]['ApplyAway'] ?? null) === true
+    && ($dynamicEscalationValues[0]['ApplyNight'] ?? null) === true
+    && ($dynamicEscalationValues[0]['ApplyAlwaysActive'] ?? null) === true,
     'GetConfigurationForm must expose a legacy single action as one directly editable escalation row.'
 );
 $legacySignalFormInstance = new OpenHomeAlarm();
@@ -1591,7 +1595,8 @@ assertAlarmAction(
 );
 $normalActionForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
     'SignalGenerator' => false,
-    'ApplicableTo'    => 'silent'
+    'ApplicableTo'    => 'silent',
+    'ApplyAway'       => false
 ]);
 $normalApplicability = findAlarmActionFormField($normalActionForm, 'ApplicableTo');
 assertAlarmAction(
@@ -1602,6 +1607,13 @@ assertAlarmAction(
     ]
     && (findAlarmActionFormField($normalActionForm, 'SignalGeneratorApplicabilityHint')['visible'] ?? null) === false,
     'Non-signal actions must offer explicit normal, silent and shared applicability choices.'
+);
+assertAlarmAction(
+    (findAlarmActionFormField($normalActionForm, 'ApplyHome')['value'] ?? null) === true
+    && (findAlarmActionFormField($normalActionForm, 'ApplyAway')['value'] ?? null) === false
+    && (findAlarmActionFormField($normalActionForm, 'ApplyNight')['value'] ?? null) === true
+    && (findAlarmActionFormField($normalActionForm, 'ApplyAlwaysActive')['value'] ?? null) === true,
+    'The escalation editor must preserve every source-category checkbox and default missing legacy fields to enabled.'
 );
 $signalActionForm = $dynamicFormInstance->GetAlarmEscalationEditForm([
     'SignalGenerator' => true,
@@ -2139,6 +2151,66 @@ assertAlarmAction(
     array_column($testActions, 'actionID') === ['{SIREN}']
     && json_decode($safetyInSeparateArea->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['garage']['Silent'] === false,
     'A 24/7 sensor in a separate silent-default area must still cause a normal alarm without arming.'
+);
+
+$testActions = [];
+$testValues[4001] = false;
+$testValues[4002] = false;
+$sourceCategoryRouting = new OpenHomeAlarm();
+$sourceCategoryRouting->Create();
+$sourceCategoryRouting->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$sourceCategoryRouting->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$sourceCategoryRouting->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main'],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage']
+], JSON_THROW_ON_ERROR));
+$sourceCategoryRouting->TestSetPropertyString('Sensors', json_encode([
+    alarmActionSensor(4001, false),
+    array_merge(alarmActionSensor(4002, false), [
+        'PartitionID' => 'garage', 'AlwaysActive' => true,
+        'ArmHome'     => false, 'ArmAway' => false, 'ArmNight' => false
+    ])
+], JSON_THROW_ON_ERROR));
+$sourceCategoryRouting->TestSetPropertyString('AlarmEscalationSteps', json_encode([
+    [
+        'Enabled'   => true, 'Name' => 'Away output', 'DelaySeconds' => 0,
+        'Action'    => ['actionID' => '{AWAY}', 'parameters' => ['VALUE' => true]],
+        'ApplyHome' => false, 'ApplyAway' => true, 'ApplyNight' => false, 'ApplyAlwaysActive' => false
+    ],
+    [
+        'Enabled'   => true, 'Name' => '24/7 output', 'DelaySeconds' => 0,
+        'Action'    => ['actionID' => '{ALWAYS}', 'parameters' => ['VALUE' => true]],
+        'ApplyHome' => false, 'ApplyAway' => false, 'ApplyNight' => false, 'ApplyAlwaysActive' => true
+    ]
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($sourceCategoryRouting->ArmPartition('main', 'away', 0), 'The source-routing test must arm main in Away mode.');
+$testValues[4001] = true;
+$sourceCategoryRouting->MessageSink(57, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{AWAY}'],
+    'An Away sensor must execute only escalation actions assigned to Away.'
+);
+$testValues[4002] = true;
+$sourceCategoryRouting->MessageSink(58, 4002, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{AWAY}', '{ALWAYS}'],
+    'A later 24/7 alarm must add its matching action without repeating the already executed Away action.'
+);
+$persistedSourceCategories = json_decode(
+    (string) $sourceCategoryRouting->TestAttributes()['PartitionAlarms'],
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertAlarmAction(
+    ($persistedSourceCategories['main']['AlarmSources'] ?? null) === ['away']
+    && ($persistedSourceCategories['garage']['AlarmSources'] ?? null) === ['always_active'],
+    'Every alarm area must persist its active source categories for restart-safe routing.'
+);
+$sourceCategoryRouting->ApplyChanges();
+assertAlarmAction(
+    array_column($testActions, 'actionID') === ['{AWAY}', '{ALWAYS}'],
+    'ApplyChanges must restore source-category routing without repeating completed actions.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm alarm action checks passed.\n");

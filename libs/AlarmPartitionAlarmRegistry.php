@@ -10,12 +10,13 @@ namespace Burki24\OpenHomeAlarm;
  */
 final class AlarmPartitionAlarmRegistry
 {
-    /** @return array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int} */
+    /** @return array{OutputActive:bool,ForceNormal:bool,AlarmSources:list<string>,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int} */
     public static function initial(): array
     {
         return [
             'OutputActive'   => false,
             'ForceNormal'    => false,
+            'AlarmSources'   => [],
             'OutputDeadline' => 0,
             'MemoryActive'   => false,
             'LastSource'     => '',
@@ -27,7 +28,7 @@ final class AlarmPartitionAlarmRegistry
      * @param list<array{Enabled:bool,ID:string,Name:string,Default:bool}> $partitions
      * @param array<string,mixed>                                        $stored
      *
-     * @return array<string,array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}>
+     * @return array<string,array{OutputActive:bool,ForceNormal:bool,AlarmSources:list<string>,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}>
      */
     public static function synchronize(array $partitions, array $stored): array
     {
@@ -50,11 +51,16 @@ final class AlarmPartitionAlarmRegistry
         int $timestamp,
         int $durationSeconds = 0,
         ?int $outputStartedAt = null,
-        bool $forceNormal = false
+        bool $forceNormal = false,
+        string $alarmSource = ''
     ): array {
         $state = self::normalize($state);
         $state['OutputActive'] = true;
         $state['ForceNormal'] = $state['ForceNormal'] || $forceNormal;
+        if (in_array($alarmSource, ['home', 'away', 'night', 'always_active'], true)
+            && !in_array($alarmSource, $state['AlarmSources'], true)) {
+            $state['AlarmSources'][] = $alarmSource;
+        }
         $state['OutputDeadline'] = $durationSeconds > 0
             ? max(0, $outputStartedAt ?? $timestamp) + $durationSeconds
             : 0;
@@ -71,6 +77,7 @@ final class AlarmPartitionAlarmRegistry
         $state = self::normalize($state);
         $state['OutputActive'] = false;
         $state['ForceNormal'] = false;
+        $state['AlarmSources'] = [];
         $state['OutputDeadline'] = 0;
 
         return $state;
@@ -91,7 +98,7 @@ final class AlarmPartitionAlarmRegistry
     }
 
     /**
-     * @param array<string,array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $states
+     * @param array<string,array{OutputActive:bool,ForceNormal:bool,AlarmSources:list<string>,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $states
      *
      * @return array{
      *     OutputActive:bool,
@@ -138,7 +145,7 @@ final class AlarmPartitionAlarmRegistry
     }
 
     /**
-     * @param array<string,array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $states
+     * @param array<string,array{OutputActive:bool,ForceNormal:bool,AlarmSources:list<string>,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $states
      *
      * @return list<string>
      */
@@ -158,13 +165,24 @@ final class AlarmPartitionAlarmRegistry
     /**
      * @param array<string,mixed> $state
      *
-     * @return array{OutputActive:bool,ForceNormal:bool,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}
+     * @return array{OutputActive:bool,ForceNormal:bool,AlarmSources:list<string>,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}
      */
     private static function normalize(array $state): array
     {
+        $alarmSources = [];
+        $storedAlarmSources = is_array($state['AlarmSources'] ?? null) ? $state['AlarmSources'] : [];
+        foreach ($storedAlarmSources as $alarmSource) {
+            if (is_string($alarmSource)
+                && in_array($alarmSource, ['home', 'away', 'night', 'always_active'], true)
+                && !in_array($alarmSource, $alarmSources, true)) {
+                $alarmSources[] = $alarmSource;
+            }
+        }
+
         return [
             'OutputActive'   => is_bool($state['OutputActive'] ?? null) ? $state['OutputActive'] : false,
             'ForceNormal'    => is_bool($state['ForceNormal'] ?? null) ? $state['ForceNormal'] : false,
+            'AlarmSources'   => $alarmSources,
             'OutputDeadline' => max(0, is_int($state['OutputDeadline'] ?? null) ? $state['OutputDeadline'] : 0),
             'MemoryActive'   => is_bool($state['MemoryActive'] ?? null) ? $state['MemoryActive'] : false,
             'LastSource'     => is_string($state['LastSource'] ?? null) ? trim($state['LastSource']) : '',

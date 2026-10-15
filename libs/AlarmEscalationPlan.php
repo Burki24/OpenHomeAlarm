@@ -11,6 +11,7 @@ use UnexpectedValueException;
 final class AlarmEscalationPlan
 {
     public const MAX_DELAY_SECONDS = 86400;
+    public const ALARM_SOURCES = ['home', 'away', 'night', 'always_active'];
 
     /** @return list<array{Enabled:bool,Name:string,DelaySeconds:int,Actions:list<array{Enabled:bool,Name:string,Action:string,ResetMode:int,ResetAction:string,SignalGenerator:bool}>}> */
     public static function steps(string $encodedSteps): array
@@ -56,6 +57,10 @@ final class AlarmEscalationPlan
                 $step['ResetAction'] ?? '',
                 $step['SignalGenerator'] ?? false,
                 $step['ApplicableTo'] ?? null,
+                $step['ApplyHome'] ?? true,
+                $step['ApplyAway'] ?? true,
+                $step['ApplyNight'] ?? true,
+                $step['ApplyAlwaysActive'] ?? true,
                 $index,
                 $enabled,
                 $name
@@ -146,6 +151,9 @@ final class AlarmEscalationPlan
             if (!is_bool($executedAction['SignalGenerator'])) {
                 throw new UnexpectedValueException('Invalid alarm signal generator flag.');
             }
+            $executedAction['ApplicableSources'] = self::normalizeApplicableSources(
+                $executedAction['ApplicableSources'] ?? self::ALARM_SOURCES
+            );
             $executedActions[] = $executedAction;
         }
 
@@ -172,6 +180,9 @@ final class AlarmEscalationPlan
         if (($action['ApplicableTo'] ?? $legacyDefault) === $legacyDefault) {
             unset($action['ApplicableTo']);
         }
+        if (($action['ApplicableSources'] ?? self::ALARM_SOURCES) === self::ALARM_SOURCES) {
+            unset($action['ApplicableSources']);
+        }
 
         return hash('sha256', json_encode([$stepIndex, $step['Name'], $step['DelaySeconds'], $actionIndex, $action], JSON_THROW_ON_ERROR));
     }
@@ -182,15 +193,20 @@ final class AlarmEscalationPlan
      *
      * @return list<array{Key:string,Step:array<string,mixed>,Action:array<string,mixed>}>
      */
-    public static function dueSteps(array $steps, array $runtime, int $timestamp, array $activeModes = ['normal']): array
-    {
+    public static function dueSteps(
+        array $steps,
+        array $runtime,
+        int $timestamp,
+        array $activeModes = ['normal'],
+        ?array $activeContexts = null
+    ): array {
         $due = [];
         foreach ($steps as $index => $step) {
             if (!$step['Enabled'] || $runtime['StartedAt'] + $step['DelaySeconds'] > $timestamp) {
                 continue;
             }
             foreach ($step['Actions'] as $actionIndex => $action) {
-                if (!$action['Enabled'] || !self::appliesTo($action, $activeModes)) {
+                if (!$action['Enabled'] || !self::appliesTo($action, $activeModes, $activeContexts)) {
                     continue;
                 }
                 $key = self::actionKey($step, $index, $action, $actionIndex);
@@ -207,8 +223,12 @@ final class AlarmEscalationPlan
      * @param list<array<string,mixed>> $steps
      * @param array<string,mixed>       $runtime
      */
-    public static function nextDeadline(array $steps, array $runtime, array $activeModes = ['normal']): int
-    {
+    public static function nextDeadline(
+        array $steps,
+        array $runtime,
+        array $activeModes = ['normal'],
+        ?array $activeContexts = null
+    ): int {
         $deadline = 0;
         foreach ($steps as $index => $step) {
             if (!$step['Enabled']) {
@@ -216,7 +236,7 @@ final class AlarmEscalationPlan
             }
             $pending = false;
             foreach ($step['Actions'] as $actionIndex => $action) {
-                if ($action['Enabled'] && self::appliesTo($action, $activeModes)
+                if ($action['Enabled'] && self::appliesTo($action, $activeModes, $activeContexts)
                     && !in_array(self::actionKey($step, $index, $action, $actionIndex), $runtime['ExecutedStepKeys'], true)) {
                     $pending = true;
                     break;
@@ -234,17 +254,37 @@ final class AlarmEscalationPlan
         return $deadline;
     }
 
-    /** @param array<string,mixed> $action @param list<string> $activeModes */
-    public static function appliesTo(array $action, array $activeModes): bool
+    /**
+     * @param array<string,mixed>                                    $action
+     * @param list<string>                                           $activeModes
+     * @param list<array{Response:string,Source:string}>|null         $activeContexts
+     */
+    public static function appliesTo(array $action, array $activeModes, ?array $activeContexts = null): bool
     {
-        if (($action['SignalGenerator'] ?? false) && !in_array('normal', $activeModes, true)) {
-            return false;
+        $applicableTo = $action['ApplicableTo'] ?? (($action['SignalGenerator'] ?? false) ? 'normal' : 'always');
+        if ($activeContexts === null) {
+            if (($action['SignalGenerator'] ?? false) && !in_array('normal', $activeModes, true)) {
+                return false;
+            }
+
+            return $applicableTo === 'always'
+                || in_array($applicableTo, $activeModes, true);
         }
 
-        $applicableTo = $action['ApplicableTo'] ?? (($action['SignalGenerator'] ?? false) ? 'normal' : 'always');
+        $applicableSources = self::normalizeApplicableSources($action['ApplicableSources'] ?? self::ALARM_SOURCES);
+        foreach ($activeContexts as $context) {
+            $response = $context['Response'] ?? '';
+            $source = $context['Source'] ?? '';
+            if (($action['SignalGenerator'] ?? false) && $response !== 'normal') {
+                continue;
+            }
+            if (($applicableTo === 'always' || $applicableTo === $response)
+                && in_array($source, $applicableSources, true)) {
+                return true;
+            }
+        }
 
-        return $applicableTo === 'always'
-            || in_array($applicableTo, $activeModes, true);
+        return false;
     }
 
     public static function inverseAction(string $encodedAction): string
@@ -278,6 +318,10 @@ final class AlarmEscalationPlan
         mixed $flatResetAction,
         mixed $flatSignalGenerator,
         mixed $flatApplicableTo,
+        mixed $flatApplyHome,
+        mixed $flatApplyAway,
+        mixed $flatApplyNight,
+        mixed $flatApplyAlwaysActive,
         int $stepIndex,
         bool $stepEnabled,
         string $stepName
@@ -291,14 +335,18 @@ final class AlarmEscalationPlan
                 return [];
             }
             $configured = [[
-                'Enabled'         => true,
-                'Name'            => trim($stepName) !== '' ? trim($stepName) : sprintf('Action %d', $stepIndex + 1),
-                'Action'          => $normalizedFlatAction,
-                'ResetEnabled'    => $flatLegacyResetEnabled,
-                'ResetMode'       => $flatResetMode ?? ($flatLegacyResetEnabled ? 1 : 0),
-                'ResetAction'     => $flatResetAction,
-                'SignalGenerator' => $flatSignalGenerator,
-                'ApplicableTo'    => $flatApplicableTo
+                'Enabled'           => true,
+                'Name'              => trim($stepName) !== '' ? trim($stepName) : sprintf('Action %d', $stepIndex + 1),
+                'Action'            => $normalizedFlatAction,
+                'ResetEnabled'      => $flatLegacyResetEnabled,
+                'ResetMode'         => $flatResetMode ?? ($flatLegacyResetEnabled ? 1 : 0),
+                'ResetAction'       => $flatResetAction,
+                'SignalGenerator'   => $flatSignalGenerator,
+                'ApplicableTo'      => $flatApplicableTo,
+                'ApplyHome'         => $flatApplyHome,
+                'ApplyAway'         => $flatApplyAway,
+                'ApplyNight'        => $flatApplyNight,
+                'ApplyAlwaysActive' => $flatApplyAlwaysActive
             ]];
         }
         if (is_string($configured)) {
@@ -322,7 +370,13 @@ final class AlarmEscalationPlan
             $resetMode = $entry['ResetMode'] ?? ($legacyResetEnabled ? 1 : 0);
             $signalGenerator = $entry['SignalGenerator'] ?? false;
             $applicableTo = $entry['ApplicableTo'] ?? ($signalGenerator ? 'normal' : 'always');
-            if (!is_bool($enabled) || !is_string($name) || !is_bool($legacyResetEnabled) || !is_int($resetMode) || !is_bool($signalGenerator) || !is_string($applicableTo)) {
+            $applyHome = $entry['ApplyHome'] ?? true;
+            $applyAway = $entry['ApplyAway'] ?? true;
+            $applyNight = $entry['ApplyNight'] ?? true;
+            $applyAlwaysActive = $entry['ApplyAlwaysActive'] ?? true;
+            if (!is_bool($enabled) || !is_string($name) || !is_bool($legacyResetEnabled) || !is_int($resetMode)
+                || !is_bool($signalGenerator) || !is_string($applicableTo) || !is_bool($applyHome)
+                || !is_bool($applyAway) || !is_bool($applyNight) || !is_bool($applyAlwaysActive)) {
                 throw new UnexpectedValueException('Invalid alarm escalation action field type.');
             }
             if (!in_array($resetMode, [0, 1, 2], true)) {
@@ -350,14 +404,24 @@ final class AlarmEscalationPlan
             if ($stepEnabled && $enabled && $signalGenerator && $resetMode === 0) {
                 throw new UnexpectedValueException('Signal generators require an automatic or custom reset action.');
             }
+            $applicableSources = array_values(array_filter([
+                $applyHome ? 'home' : null,
+                $applyAway ? 'away' : null,
+                $applyNight ? 'night' : null,
+                $applyAlwaysActive ? 'always_active' : null
+            ]));
+            if ($stepEnabled && $enabled && $applicableSources === []) {
+                throw new UnexpectedValueException('Enabled alarm escalation actions require at least one alarm source category.');
+            }
             $actions[] = [
-                'Enabled'         => $enabled,
-                'Name'            => trim($name) !== '' ? trim($name) : sprintf('Action %d.%d', $stepIndex + 1, $index + 1),
-                'Action'          => $action,
-                'ResetMode'       => $resetMode,
-                'ResetAction'     => $resetAction,
-                'SignalGenerator' => $signalGenerator,
-                'ApplicableTo'    => $applicableTo
+                'Enabled'           => $enabled,
+                'Name'              => trim($name) !== '' ? trim($name) : sprintf('Action %d.%d', $stepIndex + 1, $index + 1),
+                'Action'            => $action,
+                'ResetMode'         => $resetMode,
+                'ResetAction'       => $resetAction,
+                'SignalGenerator'   => $signalGenerator,
+                'ApplicableTo'      => $applicableTo,
+                'ApplicableSources' => $applicableSources
             ];
         }
         return $actions;
@@ -378,6 +442,25 @@ final class AlarmEscalationPlan
                 $normalized[] = $key;
             }
         }
+        return $normalized;
+    }
+
+    /** @return list<string> */
+    private static function normalizeApplicableSources(mixed $sources): array
+    {
+        if (!is_array($sources) || !array_is_list($sources)) {
+            throw new UnexpectedValueException('Invalid alarm source category list.');
+        }
+        $normalized = [];
+        foreach ($sources as $source) {
+            if (!is_string($source) || !in_array($source, self::ALARM_SOURCES, true)) {
+                throw new UnexpectedValueException('Unsupported alarm source category.');
+            }
+            if (!in_array($source, $normalized, true)) {
+                $normalized[] = $source;
+            }
+        }
+
         return $normalized;
     }
 

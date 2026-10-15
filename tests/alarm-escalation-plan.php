@@ -29,6 +29,10 @@ assertEscalationPlan(
     $steps[0]['Actions'][0]['ResetMode'] === 0 && $steps[0]['Actions'][0]['ResetAction'] === '',
     'Migrated single actions must not unexpectedly enable automatic reset.'
 );
+assertEscalationPlan(
+    $steps[0]['Actions'][0]['ApplicableSources'] === ['home', 'away', 'night', 'always_active'],
+    'Existing actions must continue to apply to every alarm source category.'
+);
 assertEscalationPlan($steps[1]['Name'] === 'Step 2', 'Unnamed steps need a stable fallback name.');
 assertEscalationPlan($steps[1]['Actions'] === [], 'Disabled steps may remain unconfigured.');
 assertEscalationPlan(AlarmEscalationPlan::steps('') === [], 'An empty configuration must disable escalation.');
@@ -56,9 +60,68 @@ assertEscalationPlan(
         $steps[0]['Name'],
         $steps[0]['DelaySeconds'],
         0,
-        array_diff_key($steps[0]['Actions'][0], ['ApplicableTo' => true])
+        array_diff_key($steps[0]['Actions'][0], ['ApplicableTo' => true, 'ApplicableSources' => true])
     ], JSON_THROW_ON_ERROR)),
     'Legacy action keys must stay stable across an update during an active alarm.'
+);
+
+$sourceRoutedSteps = AlarmEscalationPlan::steps(json_encode([
+    [
+        'Enabled'           => true,
+        'Name'              => 'Home siren',
+        'DelaySeconds'      => 0,
+        'Action'            => $action,
+        'ApplicableTo'      => 'normal',
+        'ApplyHome'         => true,
+        'ApplyAway'         => false,
+        'ApplyNight'        => false,
+        'ApplyAlwaysActive' => false
+    ],
+    [
+        'Enabled'           => true,
+        'Name'              => '24/7 piezo',
+        'DelaySeconds'      => 0,
+        'Action'            => $action,
+        'ApplyHome'         => false,
+        'ApplyAway'         => false,
+        'ApplyNight'        => false,
+        'ApplyAlwaysActive' => true
+    ]
+], JSON_THROW_ON_ERROR));
+$sourceRuntime = AlarmEscalationPlan::start(1000);
+$homeNormalContext = [['Response' => 'normal', 'Source' => 'home']];
+$alwaysActiveContext = [['Response' => 'normal', 'Source' => 'always_active']];
+assertEscalationPlan(
+    array_column(AlarmEscalationPlan::dueSteps(
+        $sourceRoutedSteps,
+        $sourceRuntime,
+        1000,
+        ['normal'],
+        $homeNormalContext
+    ), 'Step')['0']['Name'] === 'Home siren',
+    'A home alarm must select only actions assigned to the home source category.'
+);
+assertEscalationPlan(
+    array_column(AlarmEscalationPlan::dueSteps(
+        $sourceRoutedSteps,
+        $sourceRuntime,
+        1000,
+        ['normal'],
+        $alwaysActiveContext
+    ), 'Step')['0']['Name'] === '24/7 piezo',
+    'A 24/7 alarm must select only actions assigned to the always-active source category.'
+);
+$homeNormalOnly = $sourceRoutedSteps[0]['Actions'][0];
+assertEscalationPlan(
+    !AlarmEscalationPlan::appliesTo(
+        $homeNormalOnly,
+        ['normal', 'silent'],
+        [
+            ['Response' => 'silent', 'Source' => 'home'],
+            ['Response' => 'normal', 'Source' => 'away']
+        ]
+    ),
+    'Alarm response and source category must match the same active alarm context.'
 );
 assertEscalationPlan(
     $runtime === [
@@ -186,7 +249,8 @@ foreach ([
     '[{"Enabled":true,"DelaySeconds":0,"Action":{"actionID":"{A}"}}]',
     '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"TEXT":"Alarm"}},"ResetMode":1}]}]',
     '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"VALUE":2}},"ResetMode":2}]}]',
-    '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"VALUE":true}},"SignalGenerator":true}]}]'
+    '[{"Enabled":true,"DelaySeconds":0,"Actions":[{"Enabled":true,"Action":{"actionID":"{A}","parameters":{"VALUE":true}},"SignalGenerator":true}]}]',
+    '[{"Enabled":true,"DelaySeconds":0,"Action":{"actionID":"{A}","parameters":{"TEXT":"Alarm"}},"ApplyHome":false,"ApplyAway":false,"ApplyNight":false,"ApplyAlwaysActive":false}]'
 ] as $invalidConfiguration) {
     try {
         AlarmEscalationPlan::steps($invalidConfiguration);
@@ -211,13 +275,17 @@ foreach ($form['elements'] ?? [] as $element) {
 }
 assertEscalationPlan(is_array($list) && ($list['type'] ?? null) === 'List', 'Escalation steps must be configurable as a list.');
 assertEscalationPlan(
-    array_column($list['columns'] ?? [], 'name') === ['Enabled', 'Name', 'DelaySeconds', 'ResetMode', 'SignalGenerator', 'ApplicableTo'],
-    'The escalation list must expose one understandable row per action without rendering native action payloads.'
+    array_column($list['columns'] ?? [], 'name') === [
+        'Enabled', 'Name', 'DelaySeconds', 'ResetMode', 'SignalGenerator', 'ApplicableTo',
+        'ApplyHome', 'ApplyAway', 'ApplyNight', 'ApplyAlwaysActive'
+    ],
+    'The escalation list must expose one understandable row per action and a source-category matrix.'
 );
 assertEscalationPlan(
     (($list['columns'] ?? [])[3]['add'] ?? null) === 0
         && (($list['columns'] ?? [])[4]['add'] ?? null) === false
-        && (($list['columns'] ?? [])[5]['add'] ?? null) === 'always',
+        && (($list['columns'] ?? [])[5]['add'] ?? null) === 'always'
+        && array_column(array_slice($list['columns'] ?? [], 6), 'add') === [true, true, true, true],
     'Every visible escalation column needs a default value so Symcon can add a row.'
 );
 assertEscalationPlan(

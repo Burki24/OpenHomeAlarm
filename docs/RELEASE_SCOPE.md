@@ -64,7 +64,10 @@ Der Release umfasst verbindlich:
     teilweise aktiven System zur vollständig unscharfen Anlage genau einmal
     ausgeführt wird,
 33. die sichtbare Bereinigung verwaister Sensorzuordnungen, nachdem ein zuvor
-    zugeordneter Alarmbereich gelöscht oder deaktiviert wurde.
+    zugeordneter Alarmbereich gelöscht oder deaktiviert wurde,
+34. eine je Alarm-Eskalationsaktion wählbare Auslösekategorie für Zuhause,
+    Abwesend, Nacht und 24/7; mehrere gleichzeitig aktive Alarmursachen werden
+    ohne doppelte Aktionsausführung zusammengeführt.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -82,6 +85,11 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
   aktiv sein. Zuhause und Nacht prüfen sie bereits vor dem Scharfschalten streng.
 - Ein Sofortalarm darf durch parallel laufende Verzögerungen nicht unterdrückt werden.
 - Alarmaktionen werden pro vorgesehenem Zustandsübergang höchstens einmal ausgeführt.
+- Die Auslösekategorien einer Alarm-Eskalationsaktion werden gemeinsam mit der
+  Alarmierungsart ausgewertet. Eine Aktion läuft nur, wenn mindestens ein
+  aktiver Alarmausgang beide Bedingungen gleichzeitig erfüllt. 24/7 bezeichnet
+  die Herkunft aus einem dauerhaft aktiven Sensor oder alarmierenden
+  Störungseingang und nicht den aktuell gewählten Scharfmodus.
 - Unscharfschalten beendet laufende Verzögerungen und setzt einen aktiven Alarmausgang kontrolliert zurück.
 - Die optionale Aktion nach vollständigem Unscharfschalten läuft erst, wenn
   kein Alarmbereich mehr aktiv ist, und pro erfolgreichem Gesamtübergang

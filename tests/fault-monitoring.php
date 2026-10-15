@@ -136,6 +136,12 @@ class IPSModuleStrict
         return $this->writtenValues;
     }
 
+    /** @return array<string,int|string> */
+    public function TestAttributes(): array
+    {
+        return $this->attributes;
+    }
+
     public function TestClearWrittenValues(): void
     {
         $this->writtenValues = [];
@@ -376,6 +382,16 @@ $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $instance->TestSetPropertyString('FaultAction', $faultAction);
 $instance->TestSetPropertyString('FaultClearedAction', $faultClearedAction);
+$instance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'           => true,
+    'Name'              => '24/7 fault output',
+    'DelaySeconds'      => 0,
+    'Action'            => ['actionID' => '{CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC}', 'parameters' => ['VALUE' => true]],
+    'ApplyHome'         => false,
+    'ApplyAway'         => false,
+    'ApplyNight'        => false,
+    'ApplyAlwaysActive' => true
+]], JSON_THROW_ON_ERROR));
 $instance->TestSetPropertyString(
     'FaultInputs',
     json_encode([
@@ -514,6 +530,23 @@ assertFaultMonitoring(
 );
 assertFaultMonitoring(($written['LastFaultSource'] ?? null) === 'Sabotage Zentrale', 'LastFaultSource must track the new fault.');
 assertFaultMonitoring(is_string($written['LastFaultTime'] ?? null) && $written['LastFaultTime'] !== '', 'LastFaultTime must be published.');
+assertFaultMonitoring(
+    array_column(array_slice($testActions, -2), 'actionID') === [
+        '{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}',
+        '{CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC}'
+    ],
+    'An alarm-triggering fault must execute escalation actions assigned to the 24/7 source category.'
+);
+$faultAlarmStates = json_decode(
+    (string) $instance->TestAttributes()['PartitionAlarms'],
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertFaultMonitoring(
+    ($faultAlarmStates['main']['AlarmSources'] ?? null) === ['always_active'],
+    'An alarm-triggering fault must persist its 24/7 source category.'
+);
 
 // Missing variables are fail-safe faults for status/blocking, but do not create Alarm without a positive value match.
 $missing = new OpenHomeAlarm();
