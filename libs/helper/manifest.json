@@ -395,6 +395,12 @@
                     "source_sha": "82a13d236b430c0ffbcb714aed56d9e52c344ff2"
                 }
             ]
+        },
+        "VariableSearchHelper": {
+            "version": "1.0.0",
+            "sha256": "f7f18b03a320578ecb2ffd816879df2e280e0d96c18cac27320198c73b564f22",
+            "path": "libs/helper/VariableSearchHelper.php",
+            "source_sha": "721c13515f5b80369f36020271efa0788f5c49d6"
         }
     }
 }
