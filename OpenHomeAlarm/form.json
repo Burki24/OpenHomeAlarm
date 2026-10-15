@@ -9,6 +9,21 @@
             "code": 202,
             "icon": "error",
             "caption": "Invalid sensor or fault configuration. Reassign entries from missing or disabled alarm partitions and remove duplicate sensor or fault entries."
+        },
+        {
+            "code": 203,
+            "icon": "error",
+            "caption": "Invalid automatic arming schedule. Check enabled schedules for a valid time, mode and at least one weekday."
+        },
+        {
+            "code": 204,
+            "icon": "error",
+            "caption": "Invalid alarm action configuration. Check enabled alarm actions: select an action and at least one trigger category. Signal generators require an automatic Boolean reset or a custom reset action."
+        },
+        {
+            "code": 205,
+            "icon": "error",
+            "caption": "Invalid stored runtime state. Open the module debug log for the exact cause before applying the configuration again."
         }
     ],
     "elements": [

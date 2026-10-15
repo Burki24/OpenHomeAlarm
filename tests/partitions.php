@@ -119,6 +119,25 @@ assertPartition(
         && str_contains($form['status'][1]['caption'] ?? '', 'remove duplicate sensor or fault entries'),
     'Invalid sensor and fault assignments must have a user-facing Symcon status instead of producing an uncaught exception.'
 );
+assertPartition(
+    ($form['status'][2]['code'] ?? null) === 203
+        && ($form['status'][2]['icon'] ?? null) === 'error'
+        && str_contains($form['status'][2]['caption'] ?? '', 'automatic arming schedule'),
+    'Invalid automatic arming schedules must have a dedicated user-facing Symcon status.'
+);
+assertPartition(
+    ($form['status'][3]['code'] ?? null) === 204
+        && ($form['status'][3]['icon'] ?? null) === 'error'
+        && str_contains($form['status'][3]['caption'] ?? '', 'alarm action')
+        && str_contains($form['status'][3]['caption'] ?? '', 'Signal generators require'),
+    'Invalid alarm actions must have an actionable dedicated Symcon status.'
+);
+assertPartition(
+    ($form['status'][4]['code'] ?? null) === 205
+        && ($form['status'][4]['icon'] ?? null) === 'error'
+        && str_contains($form['status'][4]['caption'] ?? '', 'stored runtime state'),
+    'Invalid persisted runtime data must not be mislabeled as a sensor configuration error.'
+);
 
 $mainPartitions = AlarmPartitionRegistry::partitions(json_encode([
     ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main area', 'Default' => false],

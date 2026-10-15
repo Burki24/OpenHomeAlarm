@@ -10,6 +10,14 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Ungültige Konfigurationen werden nicht mehr pauschal als Sensor- oder
+  Störungsfehler gemeldet. Eigene Statusmeldungen unterscheiden jetzt
+  Alarmbereiche, Sensoren/Störungen, automatische Scharfschaltzeitpläne,
+  Alarmaktionen und beschädigte Laufzeitdaten. Bei einer fehlerhaften
+  Alarmaktion nennt die Statusmeldung jetzt zusätzlich den Namen der betroffenen
+  Zeile, die widersprüchliche Einstellung und die konkreten Schritte zur
+  Korrektur, etwa die beiden zulässigen Rücksetzarten eines Signalgebers.
+
 - Die Alarmbereichsbuttons brechen in schmalen Kachel- und IPSView-Ansichten
   nun automatisch auf mehrere Zeilen um. Der Bereichsrahmen berücksichtigt
   dabei auch die eingeblendete Mehrfachauswahl vollständig. Die Schalter für

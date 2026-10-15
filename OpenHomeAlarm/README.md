@@ -152,6 +152,32 @@ Bereichs-IDs sind installationsabhängig.
 vollständig unscharfer Anlage übernommen. Laufende Sicherheitszustände können
 dadurch nicht unbemerkt durch eine neue Konfiguration verändert werden.
 
+### Konfigurationsfehler erkennen
+
+Kann OpenHomeAlarm eine Konfiguration nicht übernehmen, zeigt der
+Instanzstatus den betroffenen Bereich und einen passenden Korrekturhinweis:
+
+| Status | Betroffener Bereich | Typische Korrektur |
+| --- | --- | --- |
+| 201 | Alarmbereiche | `main` anlegen beziehungsweise aktivieren und Bereichs-IDs prüfen. |
+| 202 | Sensoren und Störungen | Fehlende oder deaktivierte Bereichszuordnungen und doppelte Einträge korrigieren. |
+| 203 | Automatische Scharfschaltung | Bei aktivierten Zeitplänen Uhrzeit, Modus und mindestens einen Wochentag wählen. |
+| 204 | Alarmaktionen | Die Statusmeldung nennt die betroffene Alarmaktion, die fehlerhafte Einstellung und die konkrete Korrektur. Bei jeder aktivierten Zeile eine Aktion und mindestens eine Auslösekategorie wählen. Signalgeber benötigen **Boolean automatisch umkehren** oder eine **Eigene Rücksetzaktion**. |
+| 205 | Gespeicherter Laufzeitzustand | Das Debug-Protokoll der Instanz öffnen und dessen genaue Fehlermeldung prüfen. |
+
+Die Meldung bezieht sich auf den zuletzt übernommenen Stand. Deaktivierte
+Alarmaktionszeilen dürfen unvollständig bleiben; sobald eine Zeile aktiviert
+wird, müssen ihre Aktion, Auslösekategorie und gegebenenfalls Rücksetzung
+vollständig konfiguriert sein. Bei einem erkannten Fehler nennt Status 204 den
+Namen der betroffenen Zeile und erklärt beispielsweise ausdrücklich, dass
+**Signalgeber** zusammen mit **Keine Rücksetzung** unzulässig ist. Die Meldung
+fordert dann je nach Ausgang entweder **Boolean automatisch umkehren** oder
+**Eigene Rücksetzaktion verwenden**. Auch eine fehlende Aktion, eine fehlende
+Auslösekategorie, eine ungeeignete automatische Boolean-Rücksetzung und eine
+nicht hinterlegte eigene Rücksetzaktion erhalten jeweils einen eigenen
+Korrekturhinweis. Das Debug-Protokoll nennt bei Bedarf zusätzlich die technische
+Ursache, ohne Unscharfschaltcodes auszugeben.
+
 ## 5. Alarmbereiche einrichten und bedienen
 
 Mit Alarmbereichen können beispielsweise Wohnhaus und Garage unabhängig voneinander scharf- und unscharf geschaltet werden. `main` ist dabei fest die **Gesamtanlage**: Scharf- und Unscharfschalten über ihn wirkt auf alle aktiven Bereiche.

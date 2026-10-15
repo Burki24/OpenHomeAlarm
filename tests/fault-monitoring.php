@@ -644,6 +644,181 @@ assertFaultMonitoring(
     'Functionally identical sensor rows must produce a controlled invalid-configuration status.'
 );
 
+// Invalid schedules and alarm actions need their own actionable status instead of a sensor/fault error.
+$invalidSchedule = new OpenHomeAlarm();
+$invalidSchedule->Create();
+$invalidSchedule->TestSetPropertyString(
+    'AutomaticArmingSchedules',
+    json_encode([[
+        'Enabled'   => true,
+        'Name'      => 'No weekday',
+        'Monday'    => false,
+        'Tuesday'   => false,
+        'Wednesday' => false,
+        'Thursday'  => false,
+        'Friday'    => false,
+        'Saturday'  => false,
+        'Sunday'    => false,
+        'Time'      => '08:00',
+        'Mode'      => 'away'
+    ]], JSON_THROW_ON_ERROR)
+);
+$invalidSchedule->ApplyChanges();
+assertFaultMonitoring(
+    $invalidSchedule->TestStatus() === 203,
+    'Invalid automatic arming schedules must produce their dedicated configuration status.'
+);
+
+$invalidSignalGenerator = new OpenHomeAlarm();
+$invalidSignalGenerator->Create();
+$invalidSignalGenerator->TestSetPropertyString(
+    'AlarmEscalationSteps',
+    json_encode([[
+        'Enabled'      => true,
+        'Name'         => 'Immediate alarm actions',
+        'DelaySeconds' => 0,
+        'Actions'      => [[
+            'Enabled'           => true,
+            'Name'              => 'Hall strobe',
+            'Action'            => [
+                'actionID'   => '{11111111-1111-1111-1111-111111111111}',
+                'parameters' => ['VALUE' => true]
+            ],
+            'ResetMode'         => 0,
+            'ResetAction'       => '',
+            'SignalGenerator'   => true,
+            'ApplicableTo'      => 'normal',
+            'ApplyHome'         => true,
+            'ApplyAway'         => false,
+            'ApplyNight'        => true,
+            'ApplyAlwaysActive' => true
+        ]]
+    ]], JSON_THROW_ON_ERROR)
+);
+$invalidSignalGenerator->ApplyChanges();
+assertFaultMonitoring(
+    $invalidSignalGenerator->TestStatus() === 204,
+    'A signal generator without reset must produce the dedicated alarm-action status.'
+);
+
+/**
+ * @param array<string,mixed> $action
+ */
+function detailedAlarmActionStatusCaption(array $action): string
+{
+    $instance = new OpenHomeAlarm();
+    $instance->Create();
+    $instance->TestSetPropertyString(
+        'AlarmEscalationSteps',
+        json_encode([[
+            'Enabled'      => true,
+            'Name'         => 'Detailed validation',
+            'DelaySeconds' => 0,
+            'Actions'      => [$action]
+        ]], JSON_THROW_ON_ERROR)
+    );
+    $instance->ApplyChanges();
+    assertFaultMonitoring(
+        $instance->TestStatus() === 204,
+        sprintf('Invalid alarm action "%s" must produce status 204.', $action['Name'] ?? '')
+    );
+    $form = json_decode($instance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+    foreach ($form['status'] ?? [] as $status) {
+        if (($status['code'] ?? null) === 204) {
+            return (string) ($status['caption'] ?? '');
+        }
+    }
+
+    return '';
+}
+
+$validAlarmAction = [
+    'Enabled'           => true,
+    'Name'              => 'Test action',
+    'Action'            => [
+        'actionID'   => '{11111111-1111-1111-1111-111111111111}',
+        'parameters' => ['VALUE' => true]
+    ],
+    'ResetMode'         => 0,
+    'ResetAction'       => '',
+    'SignalGenerator'   => false,
+    'ApplicableTo'      => 'normal',
+    'ApplyHome'         => true,
+    'ApplyAway'         => false,
+    'ApplyNight'        => false,
+    'ApplyAlwaysActive' => false
+];
+
+$missingActionCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    ['Name' => 'Empty hallway action', 'Action' => '']
+));
+assertFaultMonitoring(
+    str_contains($missingActionCaption, 'Empty hallway action')
+        && str_contains($missingActionCaption, 'no action is selected')
+        && str_contains($missingActionCaption, 'Open the row'),
+    'Status 204 must name the row and explain how to select a missing action.'
+);
+
+$invalidAutomaticResetCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    [
+        'Name'      => 'Spoken warning',
+        'Action'    => [
+            'actionID'   => '{11111111-1111-1111-1111-111111111111}',
+            'parameters' => ['VALUE' => 'Alarm']
+        ],
+        'ResetMode' => 1
+    ]
+));
+assertFaultMonitoring(
+    str_contains($invalidAutomaticResetCaption, 'Spoken warning')
+        && str_contains($invalidAutomaticResetCaption, 'Invert Boolean automatically')
+        && str_contains($invalidAutomaticResetCaption, 'Use custom reset action'),
+    'Status 204 must explain that automatic inversion only works for Boolean set-value actions.'
+);
+
+$missingCustomResetCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    ['Name' => 'Outside strobe', 'ResetMode' => 2]
+));
+assertFaultMonitoring(
+    str_contains($missingCustomResetCaption, 'Outside strobe')
+        && str_contains($missingCustomResetCaption, 'Use custom reset action')
+        && str_contains($missingCustomResetCaption, 'no reset action is selected'),
+    'Status 204 must explain how to complete a missing custom reset action.'
+);
+
+$signalGeneratorCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    ['Name' => 'Hall strobe', 'SignalGenerator' => true]
+));
+assertFaultMonitoring(
+    str_contains($signalGeneratorCaption, 'Hall strobe')
+        && str_contains($signalGeneratorCaption, 'Signal generator')
+        && str_contains($signalGeneratorCaption, 'No reset')
+        && str_contains($signalGeneratorCaption, 'Invert Boolean automatically')
+        && str_contains($signalGeneratorCaption, 'Use custom reset action'),
+    'Status 204 must name a signal generator and list both valid reset choices.'
+);
+
+$missingCategoryCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    [
+        'Name'              => 'Unassigned siren',
+        'ApplyHome'         => false,
+        'ApplyAway'         => false,
+        'ApplyNight'        => false,
+        'ApplyAlwaysActive' => false
+    ]
+));
+assertFaultMonitoring(
+    str_contains($missingCategoryCaption, 'Unassigned siren')
+        && str_contains($missingCategoryCaption, 'no trigger category is selected')
+        && str_contains($missingCategoryCaption, 'Home, Away, Night or 24/7'),
+    'Status 204 must list the exact trigger categories required by an unassigned action.'
+);
+
 // Configuration form and dynamic fault-value selection must expose the new system-monitoring controls.
 $form = json_decode($instance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
 $systemPanel = null;

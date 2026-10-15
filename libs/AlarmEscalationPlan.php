@@ -7,6 +7,27 @@ namespace Burki24\OpenHomeAlarm;
 use JsonException;
 use UnexpectedValueException;
 
+/** Carries a user-correctable alarm-action validation problem to the configuration form. */
+final class AlarmEscalationConfigurationException extends UnexpectedValueException
+{
+    public const MISSING_ACTION = 'missing_action';
+    public const INVALID_AUTOMATIC_RESET = 'invalid_automatic_reset';
+    public const MISSING_CUSTOM_RESET = 'missing_custom_reset';
+    public const SIGNAL_GENERATOR_WITHOUT_RESET = 'signal_generator_without_reset';
+    public const MISSING_TRIGGER_CATEGORY = 'missing_trigger_category';
+    public const SIGNAL_GENERATOR_SILENT = 'signal_generator_silent';
+    public const EMPTY_STEP = 'empty_step';
+    public const INVALID_DELAY = 'invalid_delay';
+
+    public function __construct(
+        public readonly string $reason,
+        public readonly string $itemName,
+        string $message
+    ) {
+        parent::__construct($message);
+    }
+}
+
 /** Validates the configured notification steps of one alarm escalation plan. */
 final class AlarmEscalationPlan
 {
@@ -45,8 +66,13 @@ final class AlarmEscalationPlan
             if (!is_bool($enabled) || !is_string($name) || !is_int($delaySeconds)) {
                 throw new UnexpectedValueException('Invalid alarm escalation step field type.');
             }
+            $stepDisplayName = trim($name) !== '' ? trim($name) : sprintf('Step %d', $index + 1);
             if ($delaySeconds < 0 || $delaySeconds > self::MAX_DELAY_SECONDS) {
-                throw new UnexpectedValueException('Alarm escalation delay must be between 0 and 86400 seconds.');
+                throw new AlarmEscalationConfigurationException(
+                    AlarmEscalationConfigurationException::INVALID_DELAY,
+                    $stepDisplayName,
+                    sprintf('Alarm escalation step "%s" has an invalid delay.', $stepDisplayName)
+                );
             }
 
             $actions = self::normalizeActions(
@@ -66,13 +92,17 @@ final class AlarmEscalationPlan
                 $name
             );
             if ($enabled && !array_filter($actions, static fn (array $action): bool => $action['Enabled'])) {
-                throw new UnexpectedValueException('Enabled alarm escalation steps require at least one enabled action.');
+                throw new AlarmEscalationConfigurationException(
+                    AlarmEscalationConfigurationException::EMPTY_STEP,
+                    $stepDisplayName,
+                    sprintf('Alarm escalation step "%s" has no enabled action.', $stepDisplayName)
+                );
             }
 
             $name = trim($name);
             $normalized[] = [
                 'Enabled'      => $enabled,
-                'Name'         => $name !== '' ? $name : sprintf('Step %d', $index + 1),
+                'Name'         => $stepDisplayName,
                 'DelaySeconds' => $delaySeconds,
                 'Actions'      => $actions
             ];
@@ -385,24 +415,45 @@ final class AlarmEscalationPlan
             if (!in_array($applicableTo, ['normal', 'silent', 'always'], true)) {
                 throw new UnexpectedValueException('Unsupported alarm escalation applicability.');
             }
+            $actionDisplayName = trim($name) !== ''
+                ? trim($name)
+                : sprintf('Action %d.%d', $stepIndex + 1, $index + 1);
             if ($signalGenerator && $applicableTo === 'silent') {
-                throw new UnexpectedValueException('Signal generators cannot run in silent alarms.');
+                throw new AlarmEscalationConfigurationException(
+                    AlarmEscalationConfigurationException::SIGNAL_GENERATOR_SILENT,
+                    $actionDisplayName,
+                    sprintf('Alarm action "%s" configures a signal generator for silent alarms.', $actionDisplayName)
+                );
             }
             $action = self::normalizeAction($entry['Action'] ?? '');
             $resetAction = self::normalizeAction($entry['ResetAction'] ?? '');
             if ($stepEnabled && $enabled && $action === '') {
-                throw new UnexpectedValueException('Enabled alarm escalation actions require an action.');
+                throw new AlarmEscalationConfigurationException(
+                    AlarmEscalationConfigurationException::MISSING_ACTION,
+                    $actionDisplayName,
+                    sprintf('Enabled alarm action "%s" has no action.', $actionDisplayName)
+                );
             }
             if ($stepEnabled && $enabled && $resetMode === 1 && $action !== '' && self::inverseAction($action) === '') {
-                throw new UnexpectedValueException(
-                    'Automatic inverse reset requires a Boolean set-value action. Select a custom reset action for this action type.'
+                throw new AlarmEscalationConfigurationException(
+                    AlarmEscalationConfigurationException::INVALID_AUTOMATIC_RESET,
+                    $actionDisplayName,
+                    sprintf('Alarm action "%s" cannot be reset by automatically inverting a Boolean value.', $actionDisplayName)
                 );
             }
             if ($stepEnabled && $enabled && $resetMode === 2 && $resetAction === '') {
-                throw new UnexpectedValueException('A custom reset mode requires a reset action.');
+                throw new AlarmEscalationConfigurationException(
+                    AlarmEscalationConfigurationException::MISSING_CUSTOM_RESET,
+                    $actionDisplayName,
+                    sprintf('Alarm action "%s" selects a custom reset without a reset action.', $actionDisplayName)
+                );
             }
             if ($stepEnabled && $enabled && $signalGenerator && $resetMode === 0) {
-                throw new UnexpectedValueException('Signal generators require an automatic or custom reset action.');
+                throw new AlarmEscalationConfigurationException(
+                    AlarmEscalationConfigurationException::SIGNAL_GENERATOR_WITHOUT_RESET,
+                    $actionDisplayName,
+                    sprintf('Signal generator "%s" has no reset.', $actionDisplayName)
+                );
             }
             $applicableSources = array_values(array_filter([
                 $applyHome ? 'home' : null,
@@ -411,11 +462,15 @@ final class AlarmEscalationPlan
                 $applyAlwaysActive ? 'always_active' : null
             ]));
             if ($stepEnabled && $enabled && $applicableSources === []) {
-                throw new UnexpectedValueException('Enabled alarm escalation actions require at least one alarm source category.');
+                throw new AlarmEscalationConfigurationException(
+                    AlarmEscalationConfigurationException::MISSING_TRIGGER_CATEGORY,
+                    $actionDisplayName,
+                    sprintf('Enabled alarm action "%s" has no trigger category.', $actionDisplayName)
+                );
             }
             $actions[] = [
                 'Enabled'           => $enabled,
-                'Name'              => trim($name) !== '' ? trim($name) : sprintf('Action %d.%d', $stepIndex + 1, $index + 1),
+                'Name'              => $actionDisplayName,
                 'Action'            => $action,
                 'ResetMode'         => $resetMode,
                 'ResetAction'       => $resetAction,

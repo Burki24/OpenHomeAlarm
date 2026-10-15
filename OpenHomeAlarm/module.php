@@ -11,6 +11,7 @@ use Burki24\OpenHomeAlarm\AlarmControlStateAdapter;
 use Burki24\OpenHomeAlarm\AlarmDiagnostics;
 use Burki24\OpenHomeAlarm\AlarmDiagnosticsExporter;
 use Burki24\OpenHomeAlarm\AlarmDisarmUserRegistry;
+use Burki24\OpenHomeAlarm\AlarmEscalationConfigurationException;
 use Burki24\OpenHomeAlarm\AlarmEscalationPlan;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmEventHistoryExporter;
@@ -76,6 +77,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const STATUS_ACTIVE = 102;
     private const STATUS_INVALID_PARTITIONS = 201;
     private const STATUS_INVALID_CONFIGURATION = 202;
+    private const STATUS_INVALID_AUTOMATIC_ARMING = 203;
+    private const STATUS_INVALID_ALARM_ACTIONS = 204;
+    private const STATUS_INVALID_RUNTIME = 205;
     private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area"}]';
     private const PUSHOVER_MESSAGES_URL = 'https://api.pushover.net/1/messages.json';
     private const PUSHOVER_RECEIPTS_URL = 'https://api.pushover.net/1/receipts';
@@ -869,6 +873,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function GetConfigurationForm(): string
     {
         $form = $this->LoadConfigurationForm();
+        $this->InsertDetailedAlarmActionConfigurationStatus($form);
 
         if (isset($form['elements']) && is_array($form['elements'])) {
             $this->PopulateConfigurationListValues($form['elements']);
@@ -3498,6 +3503,44 @@ class OpenHomeAlarm extends IPSModuleStrict
         return $response;
     }
 
+    /** @param array<string,mixed> $form */
+    private function InsertDetailedAlarmActionConfigurationStatus(array &$form): void
+    {
+        try {
+            $this->ReadConfiguredAlarmEscalationSteps();
+        } catch (AlarmEscalationConfigurationException $exception) {
+            if (!isset($form['status']) || !is_array($form['status'])) {
+                return;
+            }
+            $caption = $this->AlarmActionConfigurationStatusCaption($exception);
+            foreach ($form['status'] as &$status) {
+                if (is_array($status) && ($status['code'] ?? null) === self::STATUS_INVALID_ALARM_ACTIONS) {
+                    $status['caption'] = $caption;
+                    break;
+                }
+            }
+            unset($status);
+        }
+    }
+
+    private function AlarmActionConfigurationStatusCaption(
+        AlarmEscalationConfigurationException $exception
+    ): string {
+        $template = match ($exception->reason) {
+            AlarmEscalationConfigurationException::MISSING_ACTION                 => 'Alarm action "%s": The row is enabled, but no action is selected. Open the row with the gear icon and select the Symcon action to execute.',
+            AlarmEscalationConfigurationException::INVALID_AUTOMATIC_RESET        => 'Alarm action "%s": "Invert Boolean automatically" is selected, but the configured action does not set a Boolean value. Select "Use custom reset action" and configure the action that switches the output off or resets it.',
+            AlarmEscalationConfigurationException::MISSING_CUSTOM_RESET           => 'Alarm action "%s": "Use custom reset action" is selected, but no reset action is selected. Open the row and select the action that switches the output off or resets it.',
+            AlarmEscalationConfigurationException::SIGNAL_GENERATOR_WITHOUT_RESET => 'Alarm action "%s": "Signal generator" is enabled, but "Reset behavior" is set to "No reset". For a Boolean output select "Invert Boolean automatically"; otherwise select "Use custom reset action" and configure the switch-off action.',
+            AlarmEscalationConfigurationException::MISSING_TRIGGER_CATEGORY       => 'Alarm action "%s": The row is enabled, but no trigger category is selected. Open the row and enable at least one of Home, Away, Night or 24/7.',
+            AlarmEscalationConfigurationException::SIGNAL_GENERATOR_SILENT        => 'Alarm action "%s": A signal generator cannot be assigned to silent alarms. Signal generators operate only during normal alarms. Disable "Signal generator" if the action must also run during silent alarms.',
+            AlarmEscalationConfigurationException::EMPTY_STEP                     => 'Alarm escalation step "%s": The step is enabled, but it contains no enabled alarm action. Enable and fully configure at least one action in this step, or disable the step.',
+            AlarmEscalationConfigurationException::INVALID_DELAY                  => 'Alarm escalation step "%s": The delay is outside the allowed range. Enter a value from 0 to 86400 seconds.',
+            default                                                               => 'Invalid alarm action configuration. Check enabled alarm actions: select an action and at least one trigger category. Signal generators require an automatic Boolean reset or a custom reset action.'
+        };
+
+        return sprintf($this->Translate($template), $exception->itemName);
+    }
+
     /**
      * Restores the last successfully applied security settings when an update receives
      * a partially reset configuration whose remaining sensors reference missing areas.
@@ -4688,11 +4731,48 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function InitializeRuntimeSafely(): bool
     {
+        $configurationChecks = [
+            [
+                'Debug'     => 'Invalid partition configuration',
+                'Status'    => self::STATUS_INVALID_PARTITIONS,
+                'Validator' => fn (): array => $this->ReadConfiguredPartitions()
+            ],
+            [
+                'Debug'     => 'Invalid sensor or fault configuration',
+                'Status'    => self::STATUS_INVALID_CONFIGURATION,
+                'Validator' => function (): void
+                {
+                    $this->ReadConfiguredSensors();
+                    $this->ReadConfiguredFaultInputs();
+                }
+            ],
+            [
+                'Debug'     => 'Invalid automatic arming configuration',
+                'Status'    => self::STATUS_INVALID_AUTOMATIC_ARMING,
+                'Validator' => fn (): array => $this->ReadConfiguredAutomaticArmingSchedules()
+            ],
+            [
+                'Debug'     => 'Invalid alarm action configuration',
+                'Status'    => self::STATUS_INVALID_ALARM_ACTIONS,
+                'Validator' => fn (): array => $this->ReadConfiguredAlarmEscalationSteps()
+            ]
+        ];
+        foreach ($configurationChecks as $check) {
+            try {
+                $check['Validator']();
+            } catch (UnexpectedValueException $exception) {
+                $this->SendDebug($check['Debug'], $exception->getMessage(), 0);
+                $this->SetStatus($check['Status']);
+
+                return false;
+            }
+        }
+
         try {
             $this->InitializeRuntime();
         } catch (UnexpectedValueException $exception) {
-            $this->SendDebug('Invalid alarm configuration', $exception->getMessage(), 0);
-            $this->SetStatus(self::STATUS_INVALID_CONFIGURATION);
+            $this->SendDebug('Invalid alarm runtime state', $exception->getMessage(), 0);
+            $this->SetStatus(self::STATUS_INVALID_RUNTIME);
 
             return false;
         }
