@@ -108,6 +108,8 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $currentValues = [];
 
+    private int $status = 102;
+
     public function Create(): void
     {
     }
@@ -145,6 +147,11 @@ class IPSModuleStrict
     public function TestClearWrittenValues(): void
     {
         $this->writtenValues = [];
+    }
+
+    public function TestStatus(): int
+    {
+        return $this->status;
     }
 
     /** @return array<int,list<int>> */
@@ -331,6 +338,11 @@ class IPSModuleStrict
     protected function UpdateFormField(string $field, string $parameter, mixed $value): bool
     {
         return true;
+    }
+
+    protected function SetStatus(int $status): void
+    {
+        $this->status = $status;
     }
 
     protected function SendDebug(string $message, string $data, int $format): bool
@@ -588,7 +600,7 @@ assertFaultMonitoring(
     'Different blocking fault IDs with the same label must not collapse into one entry.'
 );
 
-// Duplicate positive variable IDs are rejected to keep transition tracking unambiguous.
+// Duplicate positive variable IDs are rejected without crashing ApplyChanges.
 $duplicate = new OpenHomeAlarm();
 $duplicate->Create();
 $duplicate->TestSetPropertyString(
@@ -598,11 +610,11 @@ $duplicate->TestSetPropertyString(
         faultInput(9001, 'B', 4, 'true', false, false)
     ], JSON_THROW_ON_ERROR)
 );
-try {
-    $duplicate->ApplyChanges();
-    throw new RuntimeException('Duplicate fault input variable IDs must be rejected.');
-} catch (UnexpectedValueException) {
-}
+$duplicate->ApplyChanges();
+assertFaultMonitoring(
+    $duplicate->TestStatus() === 202,
+    'Duplicate fault input variable IDs must produce a controlled invalid-configuration status.'
+);
 
 // Configuration form and dynamic fault-value selection must expose the new system-monitoring controls.
 $form = json_decode($instance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
@@ -615,13 +627,22 @@ foreach ($form['elements'] ?? [] as $element) {
 }
 assertFaultMonitoring(is_array($systemPanel), 'A18 must add a System monitoring panel.');
 $faultList = null;
+$faultImporter = null;
 foreach ($systemPanel['items'] ?? [] as $item) {
     if (($item['type'] ?? null) === 'List' && ($item['name'] ?? null) === 'FaultInputs') {
         $faultList = $item;
-        break;
+    }
+    if (($item['type'] ?? null) === 'PopupButton' && ($item['name'] ?? null) === 'FaultInputImport') {
+        $faultImporter = $item;
     }
 }
 assertFaultMonitoring(is_array($faultList), 'System monitoring must contain the FaultInputs list.');
+assertFaultMonitoring(
+    is_array($faultImporter)
+        && ($faultImporter['caption'] ?? null) === 'Find and add fault inputs'
+        && str_contains(json_encode($faultImporter, JSON_THROW_ON_ERROR), 'FaultImportCandidates'),
+    'System monitoring must offer bulk variable search for fault inputs.'
+);
 assertFaultMonitoring(
     in_array('PartitionID', array_column($faultList['columns'] ?? [], 'name'), true),
     'Fault input configuration must expose its alarm partition.'

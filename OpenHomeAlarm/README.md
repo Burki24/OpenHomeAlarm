@@ -447,6 +447,11 @@ eigene Sensorzeile mit ihrem aktuellen Symcon-Namen. Die neuen Zeilen werden
 erst mit **Änderungen übernehmen** gespeichert und können vorher einzeln in
 der normalen Liste nachbearbeitet werden.
 
+Für große Installationen durchsucht ein Suchlauf bis zu 100 Ebenen und
+100.000 Objekte und zeigt bis zu 10.000 Treffer an. Wird eine dieser Grenzen
+erreicht, weist die Trefferübersicht ausdrücklich darauf hin; dann kann die
+Suchwurzel oder der Namensbestandteil weiter eingegrenzt werden.
+
 Der gemeinsame Vergleichswert ist ein Rohwert und muss zum gewählten
 Variablentyp passen (`true`/`false`, Ganzzahl, Dezimalzahl oder Text).
 Variablen mit Profilen oder besonderen Zuständen sollten nach dem Hinzufügen
@@ -776,7 +781,18 @@ Zusätzlich zu den eigentlichen Alarmsensoren können im Abschnitt **Systemüber
 
 ### Störungseingang einrichten
 
-1. Öffnen Sie **Systemüberwachung** und fügen Sie einen Störungseingang hinzu.
+Mehrere Eingänge lassen sich über **Störungseingänge suchen und hinzufügen**
+gemeinsam vorbereiten. Die Suche verwendet dieselbe Wurzel-, Namens-, Typ- und
+Grenzlogik wie die Sensorsuche. Bereits in der Störungsliste verwendete
+Variablen werden nicht erneut angeboten. Für alle ausgewählten Treffer werden
+Alarmbereich, Störungstyp, Störwert sowie die Optionen **Scharfschaltung
+blockieren** und **Alarm sofort und 24/7 auslösen** gemeinsam festgelegt. Die
+erzeugten Zeilen bleiben bis **Änderungen übernehmen** bearbeitbare Entwürfe.
+
+Ein einzelner Eingang wird folgendermaßen eingerichtet:
+
+1. Öffnen Sie **Systemüberwachung** und fügen Sie einen Störungseingang hinzu
+   oder verwenden Sie die Mehrfachsuche.
 2. Wählen Sie den Alarmbereich, einen verständlichen Namen und die
    Symcon-Variable.
 3. Wählen Sie den Störungstyp und den Wert, der eine Störung bedeutet.
@@ -793,6 +809,12 @@ Ein Störungseingang gehört dagegen genau zu einem Bereich. Leere ältere
 Zuordnungen werden auf `main` aufgelöst. Unbekannte oder deaktivierte
 Zielbereiche werden bereits bei `ApplyChanges()` abgewiesen, damit keine
 Eingänge unbemerkt außerhalb eines aktiven Bereichs liegen.
+
+Dieselbe positive Variablen-ID darf innerhalb der Störungsliste nur einmal
+vorkommen. Ein versehentlich doppelt angelegter Eintrag wird beim Anwenden als
+ungültige Konfiguration gemeldet, ohne einen PHP-Fatal-Error auszulösen. Beide
+Zeilen bleiben im Formular sichtbar, damit das Duplikat gezielt entfernt
+werden kann.
 
 Für jeden Störungseingang kann separat festgelegt werden, ob eine aktive Störung die **Scharfschaltung blockiert** und ob sie den normalen Alarmzustand **sofort und 24/7 auslöst**. Dadurch kann beispielsweise ein Sabotagekontakt unmittelbar alarmieren, während eine schwache Batterie lediglich als Systemstörung angezeigt wird. Eine blockierende Störung setzt `ReadyHome`, `ReadyAway`, `ReadyNight` und `ReadyToArm` auf **Nicht bereit** und erscheint zusätzlich in `BlockingFaults`.
 
@@ -1353,7 +1375,9 @@ Dazu gehören:
   `MessageSink()` und `RequestAction()`
 - Darstellung und Formular: `GetConfigurationForm()`, `GetVisualizationTile()`,
   `GetIPSViewHTML()`, die Methoden `Get*EditForm()`, `Update*Form()` sowie
-  `SetSensorTriggerValue()` und `SetFaultTriggerValue()`
+  `SetSensorTriggerValue()` und `SetFaultTriggerValue()`; außerdem die
+  Formularmethoden `Prepare*Import()`, `Invalidate*Candidates()`,
+  `Search*Candidates()` und `Add*Candidates()` der Mehrfachsuche
 - interne Timer: `UpdatePartitionRuntime()`, `CheckAutomaticArming()`,
   `UpdatePassageRuntime()`, `CompleteAlarmDuration()`,
   `ProcessAlarmEscalation()`, `CompleteExitDelay()`, `CompleteEntryDelay()` und

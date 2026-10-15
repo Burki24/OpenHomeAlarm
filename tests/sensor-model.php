@@ -777,6 +777,13 @@ assertSensorModel(
 
 $importInstance = new OpenHomeAlarm();
 $importInstance->Create();
+$reflection = new ReflectionClass(OpenHomeAlarm::class);
+assertSensorModel(
+    $reflection->getReflectionConstant('SENSOR_SEARCH_MAX_DEPTH')->getValue() === 100
+        && $reflection->getReflectionConstant('SENSOR_SEARCH_MAX_OBJECTS')->getValue() === 100000
+        && $reflection->getReflectionConstant('SENSOR_SEARCH_MAX_RESULTS')->getValue() === 10000,
+    'Variable search must use the expanded helper limits for large Symcon object trees.'
+);
 $partitionDraft = json_encode([
     ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main area', 'SilentByDefault' => false],
     ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => false]
@@ -883,6 +890,110 @@ $forgedResult = $importInstance->AddSensorCandidates(
 assertSensorModel(
     !str_starts_with($forgedResult, 'MESSAGE:'),
     'Bulk sensor import must reject stale or forged variable IDs after a fresh search.'
+);
+
+$importInstance->TestClearFormUpdates();
+$importInstance->PrepareFaultInputImport($partitionDraft);
+$faultPartitionUpdate = $importInstance->TestFormUpdates()[0] ?? [];
+$faultPartitionOptions = json_decode(
+    (string) ($faultPartitionUpdate['value'] ?? ''),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertSensorModel(
+    ($faultPartitionUpdate['field'] ?? null) === 'FaultImportPartitionID'
+        && ($faultPartitionUpdate['parameter'] ?? null) === 'options'
+        && $faultPartitionOptions === [
+            ['caption' => 'Main area', 'value' => 'main'],
+            ['caption' => 'Garage', 'value' => 'garage']
+        ],
+    'Opening the fault-input importer must offer the current draft partitions.'
+);
+
+$draftFaultInputs = [[
+    'Enabled'      => true,
+    'Name'         => 'Existing door fault',
+    'VariableID'   => 12345,
+    'FaultType'    => 0,
+    'TriggerValue' => 'true',
+    'BlockArming'  => false,
+    'TriggerAlarm' => false
+]];
+$importInstance->TestClearFormUpdates();
+$importInstance->SearchFaultInputCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($draftFaultInputs, JSON_THROW_ON_ERROR)
+);
+$faultCandidateUpdates = $importInstance->TestFormUpdates();
+$faultCandidateRows = json_decode(
+    (string) ($faultCandidateUpdates[0]['value'] ?? ''),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertSensorModel(
+    ($faultCandidateUpdates[0]['field'] ?? null) === 'FaultImportCandidates'
+        && count($faultCandidateRows) === 1
+        && ($faultCandidateRows[0]['VariableID'] ?? null) === 67890
+        && str_contains((string) ($faultCandidateUpdates[1]['value'] ?? ''), '1 already'),
+    'Fault-input search must exclude configured IDs and return fresh matching variables.'
+);
+
+$faultSettings = [
+    'Enabled'      => true,
+    'PartitionID'  => 'garage',
+    'FaultType'    => 2,
+    'TriggerValue' => 'true',
+    'BlockArming'  => true,
+    'TriggerAlarm' => false
+];
+$importInstance->TestClearFormUpdates();
+$faultAddResult = $importInstance->AddFaultInputCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($faultSettings, JSON_THROW_ON_ERROR),
+    $partitionDraft,
+    json_encode($draftFaultInputs, JSON_THROW_ON_ERROR),
+    json_encode($faultCandidateRows, JSON_THROW_ON_ERROR)
+);
+$addedFaultRows = json_decode(
+    (string) ($importInstance->TestFormUpdates()[0]['value'] ?? ''),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertSensorModel(
+    str_starts_with($faultAddResult, 'MESSAGE:')
+        && ($addedFaultRows[1]['VariableID'] ?? null) === 67890
+        && ($addedFaultRows[1]['Name'] ?? null) === 'Door garage'
+        && ($addedFaultRows[1]['PartitionID'] ?? null) === 'garage'
+        && ($addedFaultRows[1]['FaultType'] ?? null) === 2
+        && ($addedFaultRows[1]['BlockArming'] ?? null) === true
+        && ($addedFaultRows[1]['TriggerAlarm'] ?? null) === false,
+    'Bulk-added fault inputs must keep their ID and name and apply the shared monitoring settings.'
+);
+
+$forgedFaultRows = $faultCandidateRows;
+$forgedFaultRows[0]['VariableID'] = 34567;
+$forgedFaultResult = $importInstance->AddFaultInputCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($faultSettings, JSON_THROW_ON_ERROR),
+    $partitionDraft,
+    json_encode($draftFaultInputs, JSON_THROW_ON_ERROR),
+    json_encode($forgedFaultRows, JSON_THROW_ON_ERROR)
+);
+assertSensorModel(
+    !str_starts_with($forgedFaultResult, 'MESSAGE:'),
+    'Bulk fault-input import must reject stale or forged variable IDs after a fresh search.'
 );
 
 $editForm = $instance->GetSensorEditForm(new IPSList([

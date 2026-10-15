@@ -139,9 +139,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const MAX_DISARM_ATTEMPTS = 20;
     private const MAX_DISARM_LOCKOUT_SECONDS = 3600;
     private const MAX_PASSAGE_TIMEOUT_SECONDS = 3600;
-    private const SENSOR_SEARCH_MAX_DEPTH = 20;
-    private const SENSOR_SEARCH_MAX_OBJECTS = 10000;
-    private const SENSOR_SEARCH_MAX_RESULTS = 500;
+    private const SENSOR_SEARCH_MAX_DEPTH = 100;
+    private const SENSOR_SEARCH_MAX_OBJECTS = 100000;
+    private const SENSOR_SEARCH_MAX_RESULTS = 10000;
     private const PASSAGE_PHASE_WAITING = 'waiting';
     private const PASSAGE_PHASE_TRIGGERED = 'triggered';
 
@@ -2458,6 +2458,19 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->UpdateFormField('ImportTriggerValue', 'value', $default);
     }
 
+    /** Updates the suggested fault value after selecting a variable type. */
+    public function UpdateFaultInputImportTypeForm(string $Type): void
+    {
+        $default = match ($Type) {
+            'bool'   => 'true',
+            'int'    => '1',
+            'float'  => '1.0',
+            'string' => '',
+            default  => 'true'
+        };
+        $this->UpdateFormField('FaultImportTriggerValue', 'value', $default);
+    }
+
     /** Disables settings that do not apply to 24/7 sensors in the importer. */
     public function UpdateSensorImportAlwaysActiveForm(bool $AlwaysActive): void
     {
@@ -2577,6 +2590,133 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             return 'MESSAGE:' . sprintf(
                 $this->Translate('%d sensors added. Review them and apply the form to save.'),
+                count($selectedVariableIDs)
+            );
+        } catch (Throwable $exception) {
+            return $this->Translate($exception->getMessage());
+        }
+    }
+
+    /** Prepares the alarm-partition choice for the bulk fault-input importer. */
+    public function PrepareFaultInputImport(string $PartitionsJson): void
+    {
+        try {
+            $partitions = AlarmPartitionRegistry::partitions($PartitionsJson);
+            $options = $this->CreatePartitionOptions($partitions);
+            $defaultPartition = AlarmPartitionRegistry::defaultPartition($partitions);
+            $this->UpdateFormField(
+                'FaultImportPartitionID',
+                'options',
+                json_encode($options, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            );
+            $this->UpdateFormField('FaultImportPartitionID', 'value', $defaultPartition['ID']);
+            $this->InvalidateFaultInputCandidates();
+        } catch (Throwable $exception) {
+            $this->UpdateFormField('FaultImportCandidates', 'values', '[]');
+            $this->UpdateFormField('FaultImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
+        }
+    }
+
+    /** Clears transient fault-input search results after a search criterion changed. */
+    public function InvalidateFaultInputCandidates(): void
+    {
+        $this->UpdateFormField('FaultImportCandidates', 'values', '[]');
+        $this->UpdateFormField(
+            'FaultImportSearchSummary',
+            'caption',
+            $this->Translate('Enter a name and click Search.')
+        );
+    }
+
+    /** Searches matching variables for the transient bulk fault-input list. */
+    public function SearchFaultInputCandidates(
+        string $Name,
+        string $Type,
+        int $RootObjectID,
+        bool $IncludeHidden,
+        string $FaultInputsJson
+    ): void {
+        try {
+            $faultInputs = $this->DecodeImportRows(
+                $FaultInputsJson,
+                'Correct the fault input list before searching.'
+            );
+            $result = $this->FindVariableCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $faultInputs);
+            $this->UpdateFormField(
+                'FaultImportCandidates',
+                'values',
+                json_encode($result['rows'], JSON_THROW_ON_ERROR)
+            );
+            $summary = sprintf(
+                $this->Translate('%d matching variables; %d already configured.'),
+                count($result['rows']),
+                $result['existing']
+            );
+            if ($result['truncated']) {
+                $summary .= ' ' . $this->Translate(
+                    'The search limit was reached; select a narrower root or use a more specific name.'
+                );
+            }
+            $this->UpdateFormField('FaultImportSearchSummary', 'caption', $summary);
+        } catch (Throwable $exception) {
+            $this->UpdateFormField('FaultImportCandidates', 'values', '[]');
+            $this->UpdateFormField('FaultImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
+        }
+    }
+
+    /** Adds freshly validated variable selections as draft fault-input rows. */
+    public function AddFaultInputCandidates(
+        string $Name,
+        string $Type,
+        int $RootObjectID,
+        bool $IncludeHidden,
+        string $SettingsJson,
+        string $ConfiguredPartitionsJson,
+        string $FaultInputsJson,
+        string $CandidatesJson
+    ): string {
+        try {
+            $settings = json_decode($SettingsJson, true, 64, JSON_THROW_ON_ERROR);
+            $configuredPartitions = AlarmPartitionRegistry::partitions($ConfiguredPartitionsJson);
+            $faultInputs = $this->DecodeImportRows(
+                $FaultInputsJson,
+                'Correct the fault input list before adding.'
+            );
+            $candidates = json_decode($CandidatesJson, true, 64, JSON_THROW_ON_ERROR);
+            if (!is_array($settings) || !is_array($candidates) || !array_is_list($candidates)) {
+                throw new InvalidArgumentException('Correct the fault input import settings and search again.');
+            }
+
+            $normalizedSettings = $this->NormalizeFaultInputImportSettings($settings, $Type, $configuredPartitions);
+            $fresh = $this->FindVariableCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $faultInputs);
+            $selectedVariableIDs = VariableSearchHelper::ResolveSelectedVariableIDs($candidates, $fresh['rows']);
+            if ($selectedVariableIDs === []) {
+                throw new InvalidArgumentException('Select at least one matching variable.');
+            }
+            if (count($faultInputs) + count($selectedVariableIDs) > 3000) {
+                throw new InvalidArgumentException('At most 3000 fault inputs are allowed.');
+            }
+
+            foreach ($faultInputs as &$faultInput) {
+                unset($faultInput['rowColor']);
+            }
+            unset($faultInput);
+            $candidateByID = [];
+            foreach ($fresh['rows'] as $candidate) {
+                $candidateByID[$candidate['VariableID']] = $candidate;
+            }
+            foreach ($selectedVariableIDs as $variableID) {
+                $faultInputs[] = [
+                    ...$normalizedSettings,
+                    'Name'       => $candidateByID[$variableID]['Name'],
+                    'VariableID' => $variableID
+                ];
+            }
+
+            $this->UpdateFormField('FaultInputs', 'values', json_encode($faultInputs, JSON_THROW_ON_ERROR));
+
+            return 'MESSAGE:' . sprintf(
+                $this->Translate('%d fault inputs added. Review them and apply the form to save.'),
                 count($selectedVariableIDs)
             );
         } catch (Throwable $exception) {
@@ -4549,7 +4689,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         try {
             $this->InitializeRuntime();
-        } catch (AlarmPartitionAssignmentException $exception) {
+        } catch (UnexpectedValueException $exception) {
             $this->SendDebug('Invalid alarm configuration', $exception->getMessage(), 0);
             $this->SetStatus(self::STATUS_INVALID_CONFIGURATION);
 
@@ -5611,13 +5751,19 @@ class OpenHomeAlarm extends IPSModuleStrict
     /** @return list<array<string,mixed>> */
     private function DecodeSensorImportRows(string $encodedRows): array
     {
+        return $this->DecodeImportRows($encodedRows, 'Correct the sensor list before searching.');
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function DecodeImportRows(string $encodedRows, string $errorMessage): array
+    {
         $rows = json_decode($encodedRows, true, 64, JSON_THROW_ON_ERROR);
         if (!is_array($rows) || !array_is_list($rows)) {
-            throw new InvalidArgumentException('Correct the sensor list before searching.');
+            throw new InvalidArgumentException($errorMessage);
         }
         foreach ($rows as $row) {
             if (!is_array($row)) {
-                throw new InvalidArgumentException('Correct the sensor list before searching.');
+                throw new InvalidArgumentException($errorMessage);
             }
         }
 
@@ -5635,6 +5781,21 @@ class OpenHomeAlarm extends IPSModuleStrict
         int $rootObjectID,
         bool $includeHidden,
         array $sensors
+    ): array {
+        return $this->FindVariableCandidates($name, $type, $rootObjectID, $includeHidden, $sensors);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $configuredRows
+     *
+     * @return array{rows:list<array<string,mixed>>,existing:int,truncated:bool}
+     */
+    private function FindVariableCandidates(
+        string $name,
+        string $type,
+        int $rootObjectID,
+        bool $includeHidden,
+        array $configuredRows
     ): array {
         $name = trim($name);
         $variableTypes = match ($type) {
@@ -5658,8 +5819,8 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         $excludedIDs = [];
-        foreach ($sensors as $sensor) {
-            $variableID = $sensor['VariableID'] ?? null;
+        foreach ($configuredRows as $configuredRow) {
+            $variableID = $configuredRow['VariableID'] ?? null;
             if (is_int($variableID) && $variableID > 0) {
                 $excludedIDs[] = $variableID;
             }
@@ -5750,6 +5911,48 @@ class OpenHomeAlarm extends IPSModuleStrict
             'ExitDelay'            => !$alwaysActive && $settings['ExitDelay'],
             'EntryDelay'           => !$alwaysActive && $settings['EntryDelay'],
             'RetriggerAlarm'       => $settings['RetriggerAlarm']
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $settings
+     * @param list<array{Enabled:bool,ID:string,Name:string,Default:bool,SilentByDefault:bool}> $partitions
+     *
+     * @return array<string,mixed>
+     */
+    private function NormalizeFaultInputImportSettings(array $settings, string $type, array $partitions): array
+    {
+        foreach (['Enabled', 'BlockArming', 'TriggerAlarm'] as $key) {
+            if (!is_bool($settings[$key] ?? null)) {
+                throw new InvalidArgumentException('Correct the shared fault input settings before adding.');
+            }
+        }
+        $partitionID = $settings['PartitionID'] ?? null;
+        $faultType = $settings['FaultType'] ?? null;
+        $triggerValue = $settings['TriggerValue'] ?? null;
+        if (!is_string($partitionID)
+            || !is_int($faultType)
+            || !in_array($faultType, self::VALID_FAULT_TYPES, true)
+            || !is_string($triggerValue)) {
+            throw new InvalidArgumentException('Correct the shared fault input settings before adding.');
+        }
+        $allowedPartitions = [];
+        foreach ($partitions as $partition) {
+            if ($partition['Enabled']) {
+                $allowedPartitions[$partition['ID']] = true;
+            }
+        }
+        if (!isset($allowedPartitions[$partitionID])) {
+            throw new InvalidArgumentException('The selected alarm partition changed; reopen the importer.');
+        }
+
+        return [
+            'Enabled'      => $settings['Enabled'],
+            'PartitionID'  => $partitionID,
+            'FaultType'    => $faultType,
+            'TriggerValue' => $this->NormalizeSensorImportTriggerValue($type, $triggerValue),
+            'BlockArming'  => $settings['BlockArming'],
+            'TriggerAlarm' => $settings['TriggerAlarm']
         ];
     }
 

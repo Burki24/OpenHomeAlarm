@@ -8,7 +8,7 @@
         {
             "code": 202,
             "icon": "error",
-            "caption": "Invalid sensor or fault configuration. At least one entry references a missing or disabled alarm partition. Recreate that area or assign the entry to an existing enabled area."
+            "caption": "Invalid sensor or fault configuration. Reassign entries from missing or disabled alarm partitions and remove duplicate fault variables."
         }
     ],
     "elements": [
@@ -1012,6 +1012,210 @@
                 {
                     "type": "Label",
                     "caption": "Optional: Add an action that runs once after the last active fault has been cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action."
+                },
+                {
+                    "type": "PopupButton",
+                    "name": "FaultInputImport",
+                    "caption": "Find and add fault inputs",
+                    "onClick": "$partitionRows = []; foreach ($Partitions as $partitionRow) { $partitionRows[] = $partitionRow; } OHA_PrepareFaultInputImport($id, json_encode($partitionRows));",
+                    "popup": {
+                        "caption": "Find and add fault inputs",
+                        "width": "90%",
+                        "closeCaption": "Cancel",
+                        "items": [
+                            {
+                                "type": "Label",
+                                "caption": "Search variables by name, select the matches and apply the common fault settings below. Existing fault variables are not offered again. Added rows remain drafts until you apply the instance configuration."
+                            },
+                            {
+                                "type": "RowLayout",
+                                "items": [
+                                    {
+                                        "type": "SelectObject",
+                                        "name": "FaultImportRootObjectID",
+                                        "caption": "Search root (empty means entire object tree)",
+                                        "value": 0,
+                                        "onChange": "OHA_InvalidateFaultInputCandidates($id);"
+                                    },
+                                    {
+                                        "type": "ValidationTextBox",
+                                        "name": "FaultImportName",
+                                        "caption": "Variable name contains",
+                                        "value": "",
+                                        "onChange": "OHA_InvalidateFaultInputCandidates($id);"
+                                    },
+                                    {
+                                        "type": "Select",
+                                        "name": "FaultImportType",
+                                        "caption": "Variable type",
+                                        "value": "bool",
+                                        "onChange": "OHA_UpdateFaultInputImportTypeForm($id, $FaultImportType); OHA_InvalidateFaultInputCandidates($id);",
+                                        "options": [
+                                            {
+                                                "caption": "Boolean",
+                                                "value": "bool"
+                                            },
+                                            {
+                                                "caption": "Integer",
+                                                "value": "int"
+                                            },
+                                            {
+                                                "caption": "Float",
+                                                "value": "float"
+                                            },
+                                            {
+                                                "caption": "String",
+                                                "value": "string"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "CheckBox",
+                                        "name": "FaultImportIncludeHidden",
+                                        "caption": "Include hidden objects",
+                                        "value": false,
+                                        "onChange": "OHA_InvalidateFaultInputCandidates($id);"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Button",
+                                "caption": "Search",
+                                "onClick": "$faultRows = []; foreach ($FaultInputs as $faultRow) { $faultRows[] = $faultRow; } OHA_SearchFaultInputCandidates($id, $FaultImportName, $FaultImportType, $FaultImportRootObjectID, $FaultImportIncludeHidden, json_encode($faultRows));"
+                            },
+                            {
+                                "type": "Label",
+                                "name": "FaultImportSearchSummary",
+                                "caption": "Enter a name and click Search."
+                            },
+                            {
+                                "type": "List",
+                                "name": "FaultImportCandidates",
+                                "caption": "Matching variables",
+                                "rowCount": 8,
+                                "add": false,
+                                "delete": false,
+                                "columns": [
+                                    {
+                                        "caption": "Add",
+                                        "name": "Selected",
+                                        "width": "70px",
+                                        "edit": {
+                                            "type": "CheckBox"
+                                        }
+                                    },
+                                    {
+                                        "caption": "Name",
+                                        "name": "Name",
+                                        "width": "220px"
+                                    },
+                                    {
+                                        "caption": "Path",
+                                        "name": "Path",
+                                        "width": "auto"
+                                    },
+                                    {
+                                        "caption": "Type",
+                                        "name": "VariableType",
+                                        "width": "110px"
+                                    },
+                                    {
+                                        "caption": "Variable ID",
+                                        "name": "VariableID",
+                                        "width": "1px",
+                                        "visible": false
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Label",
+                                "caption": "Common settings for all selected variables"
+                            },
+                            {
+                                "type": "RowLayout",
+                                "items": [
+                                    {
+                                        "type": "CheckBox",
+                                        "name": "FaultImportEnabled",
+                                        "caption": "Enabled",
+                                        "value": true
+                                    },
+                                    {
+                                        "type": "Select",
+                                        "name": "FaultImportPartitionID",
+                                        "caption": "Alarm partition",
+                                        "value": "main",
+                                        "options": [
+                                            {
+                                                "caption": "Main area",
+                                                "value": "main"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "Select",
+                                        "name": "FaultImportFaultType",
+                                        "caption": "Fault type",
+                                        "value": 0,
+                                        "options": [
+                                            {
+                                                "caption": "Tamper",
+                                                "value": 0
+                                            },
+                                            {
+                                                "caption": "Battery / power",
+                                                "value": 1
+                                            },
+                                            {
+                                                "caption": "Communication",
+                                                "value": 2
+                                            },
+                                            {
+                                                "caption": "Device fault",
+                                                "value": 3
+                                            },
+                                            {
+                                                "caption": "Other fault",
+                                                "value": 4
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "ValidationTextBox",
+                                        "name": "FaultImportTriggerValue",
+                                        "caption": "Shared fault value",
+                                        "value": "true"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "RowLayout",
+                                "items": [
+                                    {
+                                        "type": "CheckBox",
+                                        "name": "FaultImportBlockArming",
+                                        "caption": "Block arming",
+                                        "value": false
+                                    },
+                                    {
+                                        "type": "CheckBox",
+                                        "name": "FaultImportTriggerAlarm",
+                                        "caption": "Trigger alarm (24/7)",
+                                        "value": false
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Label",
+                                "caption": "The shared fault value is stored as a raw value for every selected variable. Review variables with profiles or special states in the normal fault input list after adding."
+                            },
+                            {
+                                "type": "Button",
+                                "caption": "Add selected",
+                                "onClick": "$settings = ['Enabled' => $FaultImportEnabled, 'PartitionID' => $FaultImportPartitionID, 'FaultType' => $FaultImportFaultType, 'TriggerValue' => $FaultImportTriggerValue, 'BlockArming' => $FaultImportBlockArming, 'TriggerAlarm' => $FaultImportTriggerAlarm]; $partitionRows = []; foreach ($Partitions as $partitionRow) { $partitionRows[] = $partitionRow; } $faultRows = []; foreach ($FaultInputs as $faultRow) { $faultRows[] = $faultRow; } $candidateRows = []; foreach ($FaultImportCandidates as $candidateRow) { $candidateRows[] = $candidateRow; } return OHA_AddFaultInputCandidates($id, $FaultImportName, $FaultImportType, $FaultImportRootObjectID, $FaultImportIncludeHidden, json_encode($settings), json_encode($partitionRows), json_encode($faultRows), json_encode($candidateRows));"
+                            }
+                        ]
+                    }
                 },
                 {
                     "type": "List",

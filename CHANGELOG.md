@@ -10,6 +10,16 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Variablensuche verarbeitet jetzt auch sehr große Symcon-Objektbäume mit
+  bis zu 100 Ebenen, 100.000 besuchten Objekten und 10.000 Treffern pro Lauf.
+  Unter **Systemüberwachung** können mehrere Manipulations- und
+  Störungseingänge gesucht und mit gemeinsamen Einstellungen angelegt werden.
+
+- Doppelt verwendete Variablen-IDs in den Störungseingängen erzeugen beim
+  Anwenden keinen PHP-Fatal-Error mehr. Die Instanz meldet stattdessen eine
+  kontrolliert ungültige Konfiguration, sodass das sichtbare Duplikat entfernt
+  werden kann.
+
 - In breiten Kachel- und IPSView-Darstellungen wird der zusätzliche
   Deaktivierungsbutton ausgeblendet, sobald das fest eingeblendete Codepad
   dessen Funktion übernimmt. In schmalen Ansichten bleibt der Button als
