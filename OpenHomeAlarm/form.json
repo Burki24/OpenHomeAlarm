@@ -1143,6 +1143,304 @@
             ]
         },
         {
+            "type": "PopupButton",
+            "name": "SensorImport",
+            "caption": "Find and add sensors",
+            "onClick": "$partitionRows = []; foreach ($Partitions as $partitionRow) { $partitionRows[] = $partitionRow; } OHA_PrepareSensorImport($id, json_encode($partitionRows));",
+            "popup": {
+                "caption": "Find and add sensors",
+                "width": "90%",
+                "closeCaption": "Cancel",
+                "items": [
+                    {
+                        "type": "Label",
+                        "caption": "Search variables by name, select the matches and apply the common sensor settings below. Existing sensor variables are not offered again. Added rows remain drafts until you apply the instance configuration."
+                    },
+                    {
+                        "type": "RowLayout",
+                        "items": [
+                            {
+                                "type": "SelectObject",
+                                "name": "ImportRootObjectID",
+                                "caption": "Search root (empty means entire object tree)",
+                                "value": 0,
+                                "onChange": "OHA_InvalidateSensorCandidates($id);"
+                            },
+                            {
+                                "type": "ValidationTextBox",
+                                "name": "ImportName",
+                                "caption": "Variable name contains",
+                                "value": "",
+                                "onChange": "OHA_InvalidateSensorCandidates($id);"
+                            },
+                            {
+                                "type": "Select",
+                                "name": "ImportType",
+                                "caption": "Variable type",
+                                "value": "bool",
+                                "onChange": "OHA_UpdateSensorImportTypeForm($id, $ImportType); OHA_InvalidateSensorCandidates($id);",
+                                "options": [
+                                    {
+                                        "caption": "Boolean",
+                                        "value": "bool"
+                                    },
+                                    {
+                                        "caption": "Integer",
+                                        "value": "int"
+                                    },
+                                    {
+                                        "caption": "Float",
+                                        "value": "float"
+                                    },
+                                    {
+                                        "caption": "String",
+                                        "value": "string"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportIncludeHidden",
+                                "caption": "Include hidden objects",
+                                "value": false,
+                                "onChange": "OHA_InvalidateSensorCandidates($id);"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Button",
+                        "caption": "Search",
+                        "onClick": "$sensorRows = []; foreach ($Sensors as $sensorRow) { $sensorRows[] = $sensorRow; } OHA_SearchSensorCandidates($id, $ImportName, $ImportType, $ImportRootObjectID, $ImportIncludeHidden, json_encode($sensorRows));"
+                    },
+                    {
+                        "type": "Label",
+                        "name": "ImportSearchSummary",
+                        "caption": "Enter a name and click Search."
+                    },
+                    {
+                        "type": "List",
+                        "name": "ImportCandidates",
+                        "caption": "Matching variables",
+                        "rowCount": 8,
+                        "add": false,
+                        "delete": false,
+                        "columns": [
+                            {
+                                "caption": "Add",
+                                "name": "Selected",
+                                "width": "70px",
+                                "edit": {
+                                    "type": "CheckBox"
+                                }
+                            },
+                            {
+                                "caption": "Name",
+                                "name": "Name",
+                                "width": "220px"
+                            },
+                            {
+                                "caption": "Path",
+                                "name": "Path",
+                                "width": "auto"
+                            },
+                            {
+                                "caption": "Type",
+                                "name": "VariableType",
+                                "width": "110px"
+                            },
+                            {
+                                "caption": "Variable ID",
+                                "name": "VariableID",
+                                "width": "1px",
+                                "visible": false
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Label",
+                        "caption": "Common settings for all selected variables"
+                    },
+                    {
+                        "type": "RowLayout",
+                        "items": [
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportEnabled",
+                                "caption": "Enabled",
+                                "value": true
+                            },
+                            {
+                                "type": "Select",
+                                "name": "ImportSensorType",
+                                "caption": "Sensor type",
+                                "value": 0,
+                                "options": [
+                                    {
+                                        "caption": "Opening contact",
+                                        "value": 0
+                                    },
+                                    {
+                                        "caption": "Motion detector",
+                                        "value": 1
+                                    },
+                                    {
+                                        "caption": "Glass break detector",
+                                        "value": 2
+                                    },
+                                    {
+                                        "caption": "Smoke detector",
+                                        "value": 3
+                                    },
+                                    {
+                                        "caption": "Water detector",
+                                        "value": 4
+                                    },
+                                    {
+                                        "caption": "Panic trigger",
+                                        "value": 5
+                                    },
+                                    {
+                                        "caption": "Other trigger",
+                                        "value": 6
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Select",
+                                "name": "ImportTriggerCondition",
+                                "caption": "Evaluation",
+                                "value": "equals",
+                                "options": [
+                                    {
+                                        "caption": "Trigger at selected value",
+                                        "value": "equals"
+                                    },
+                                    {
+                                        "caption": "Trigger when different from normal value",
+                                        "value": "not_equals"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "ValidationTextBox",
+                                "name": "ImportTriggerValue",
+                                "caption": "Shared comparison value",
+                                "value": "true"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Label",
+                        "caption": "The comparison value is stored as a raw value for every selected variable. Review variables with profiles or special states in the normal sensor list after adding."
+                    },
+                    {
+                        "type": "List",
+                        "name": "ImportPartitions",
+                        "caption": "Alarm partitions",
+                        "rowCount": 4,
+                        "add": false,
+                        "delete": false,
+                        "columns": [
+                            {
+                                "caption": "Use",
+                                "name": "Selected",
+                                "width": "70px",
+                                "edit": {
+                                    "type": "CheckBox"
+                                }
+                            },
+                            {
+                                "caption": "Alarm partition",
+                                "name": "Name",
+                                "width": "auto"
+                            },
+                            {
+                                "caption": "Partition ID",
+                                "name": "ID",
+                                "width": "1px",
+                                "visible": false
+                            }
+                        ]
+                    },
+                    {
+                        "type": "RowLayout",
+                        "items": [
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportArmHome",
+                                "caption": "Home",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportArmAway",
+                                "caption": "Away",
+                                "value": true
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportArmNight",
+                                "caption": "Night",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportAlwaysActive",
+                                "caption": "24/7 active",
+                                "value": false,
+                                "onChange": "OHA_UpdateSensorImportAlwaysActiveForm($id, $ImportAlwaysActive);"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "RowLayout",
+                        "items": [
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportAllowAutomaticBypass",
+                                "caption": "Allow automatic bypass",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportAllowPassage",
+                                "caption": "Allow temporary passage",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportExitDelay",
+                                "caption": "Exit route (Away only)",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportEntryDelay",
+                                "caption": "Entry delay",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportRetriggerAlarm",
+                                "caption": "Retrigger alarm while active",
+                                "value": false
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Label",
+                        "caption": "24/7 sensors ignore arming modes, bypass, passage and entry/exit delays. The importer clears these incompatible settings automatically."
+                    }
+                ],
+                "buttons": [
+                    {
+                        "caption": "Add selected",
+                        "onClick": "$sensorRows = []; foreach ($Sensors as $sensorRow) { $sensorRows[] = $sensorRow; } $candidateRows = []; foreach ($ImportCandidates as $candidateRow) { $candidateRows[] = $candidateRow; } $selectedPartitionRows = []; foreach ($ImportPartitions as $partitionRow) { $selectedPartitionRows[] = $partitionRow; } $configuredPartitionRows = []; foreach ($Partitions as $partitionRow) { $configuredPartitionRows[] = $partitionRow; } $settings = ['Enabled' => $ImportEnabled, 'SensorType' => $ImportSensorType, 'TriggerCondition' => $ImportTriggerCondition, 'TriggerValue' => $ImportTriggerValue, 'ArmHome' => $ImportArmHome, 'ArmAway' => $ImportArmAway, 'ArmNight' => $ImportArmNight, 'AlwaysActive' => $ImportAlwaysActive, 'AllowAutomaticBypass' => $ImportAllowAutomaticBypass, 'AllowPassage' => $ImportAllowPassage, 'ExitDelay' => $ImportExitDelay, 'EntryDelay' => $ImportEntryDelay, 'RetriggerAlarm' => $ImportRetriggerAlarm]; return OHA_AddSensorCandidates($id, $ImportName, $ImportType, $ImportRootObjectID, $ImportIncludeHidden, json_encode($settings), json_encode($selectedPartitionRows), json_encode($configuredPartitionRows), json_encode($sensorRows), json_encode($candidateRows));"
+                    }
+                ]
+            }
+        },
+        {
             "type": "List",
             "name": "Sensors",
             "caption": "Sensors and triggers",

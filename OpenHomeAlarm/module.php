@@ -24,6 +24,7 @@ use Burki24\OpenHomeAlarm\AlarmStateMachine;
 use Burki24\OpenHomeAlarm\AlarmTimerSchedule;
 use Burki24\OpenHomeAlarm\AlarmTriggerValue;
 use Burki24\OpenHomeAlarm\AlarmVisualizationAdapter;
+use Burki24\SymconModuleHelper\VariableSearchHelper;
 
 require_once __DIR__ . '/../libs/AlarmCodeProtection.php';
 require_once __DIR__ . '/../libs/AlarmArmingSchedule.php';
@@ -50,6 +51,7 @@ require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewStyleConfigurationHelper.php';
 require_once __DIR__ . '/../libs/helper/PersistentJsonCacheHelper.php';
+require_once __DIR__ . '/../libs/helper/VariableSearchHelper.php';
 require_once __DIR__ . '/../libs/helper/VariablePresentationHelper.php';
 require_once __DIR__ . '/../libs/helper/VisualizationAssetHelper.php';
 require_once __DIR__ . '/../libs/helper/VisualizationThemeConfigurationHelper.php';
@@ -137,6 +139,9 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const MAX_DISARM_ATTEMPTS = 20;
     private const MAX_DISARM_LOCKOUT_SECONDS = 3600;
     private const MAX_PASSAGE_TIMEOUT_SECONDS = 3600;
+    private const SENSOR_SEARCH_MAX_DEPTH = 20;
+    private const SENSOR_SEARCH_MAX_OBJECTS = 10000;
+    private const SENSOR_SEARCH_MAX_RESULTS = 500;
     private const PASSAGE_PHASE_WAITING = 'waiting';
     private const PASSAGE_PHASE_TRIGGERED = 'triggered';
 
@@ -2406,6 +2411,177 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->RunCountdownActionStep($deadline, $restoration['RemainingSeconds']);
         $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $restoration['Expired'] ? 0 : 1000);
         $this->PublishVisualizationState();
+    }
+
+    /** Prepares the partition choices for the bulk sensor importer. */
+    public function PrepareSensorImport(string $PartitionsJson): void
+    {
+        try {
+            $partitions = AlarmPartitionRegistry::partitions($PartitionsJson);
+            $rows = [];
+            foreach ($partitions as $partition) {
+                if (!$partition['Enabled']) {
+                    continue;
+                }
+                $rows[] = [
+                    'Selected' => $partition['Default'],
+                    'Name'     => $partition['Name'],
+                    'ID'       => $partition['ID']
+                ];
+            }
+            $this->UpdateFormField('ImportPartitions', 'values', json_encode($rows, JSON_THROW_ON_ERROR));
+            $this->InvalidateSensorCandidates();
+        } catch (Throwable $exception) {
+            $this->UpdateFormField('ImportPartitions', 'values', '[]');
+            $this->UpdateFormField('ImportCandidates', 'values', '[]');
+            $this->UpdateFormField('ImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
+        }
+    }
+
+    /** Clears transient sensor-search results after a search criterion changed. */
+    public function InvalidateSensorCandidates(): void
+    {
+        $this->UpdateFormField('ImportCandidates', 'values', '[]');
+        $this->UpdateFormField('ImportSearchSummary', 'caption', $this->Translate('Enter a name and click Search.'));
+    }
+
+    /** Updates the suggested comparison value after selecting a variable type. */
+    public function UpdateSensorImportTypeForm(string $Type): void
+    {
+        $default = match ($Type) {
+            'bool'   => 'true',
+            'int'    => '1',
+            'float'  => '1.0',
+            'string' => '',
+            default  => 'true'
+        };
+        $this->UpdateFormField('ImportTriggerValue', 'value', $default);
+    }
+
+    /** Disables settings that do not apply to 24/7 sensors in the importer. */
+    public function UpdateSensorImportAlwaysActiveForm(bool $AlwaysActive): void
+    {
+        foreach ([
+            'ImportArmHome',
+            'ImportArmAway',
+            'ImportArmNight',
+            'ImportAllowAutomaticBypass',
+            'ImportAllowPassage',
+            'ImportExitDelay',
+            'ImportEntryDelay'
+        ] as $field) {
+            $this->UpdateFormField($field, 'enabled', !$AlwaysActive);
+            if ($AlwaysActive) {
+                $this->UpdateFormField($field, 'value', false);
+            }
+        }
+    }
+
+    /** Searches matching variables for the transient bulk-import candidate list. */
+    public function SearchSensorCandidates(
+        string $Name,
+        string $Type,
+        int $RootObjectID,
+        bool $IncludeHidden,
+        string $SensorsJson
+    ): void {
+        try {
+            $sensors = $this->DecodeSensorImportRows($SensorsJson);
+            $result = $this->FindSensorCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $sensors);
+            $this->UpdateFormField('ImportCandidates', 'values', json_encode($result['rows'], JSON_THROW_ON_ERROR));
+            $summary = sprintf(
+                $this->Translate('%d matching variables; %d already configured.'),
+                count($result['rows']),
+                $result['existing']
+            );
+            if ($result['truncated']) {
+                $summary .= ' ' . $this->Translate('The search limit was reached; select a narrower root or use a more specific name.');
+            }
+            $this->UpdateFormField('ImportSearchSummary', 'caption', $summary);
+        } catch (Throwable $exception) {
+            $this->UpdateFormField('ImportCandidates', 'values', '[]');
+            $this->UpdateFormField('ImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
+        }
+    }
+
+    /** Adds freshly validated variable selections as draft sensor rows. */
+    public function AddSensorCandidates(
+        string $Name,
+        string $Type,
+        int $RootObjectID,
+        bool $IncludeHidden,
+        string $SettingsJson,
+        string $SelectedPartitionsJson,
+        string $ConfiguredPartitionsJson,
+        string $SensorsJson,
+        string $CandidatesJson
+    ): string {
+        try {
+            $settings = json_decode($SettingsJson, true, 64, JSON_THROW_ON_ERROR);
+            $selectedPartitionRows = json_decode($SelectedPartitionsJson, true, 64, JSON_THROW_ON_ERROR);
+            $configuredPartitions = AlarmPartitionRegistry::partitions($ConfiguredPartitionsJson);
+            $sensors = $this->DecodeSensorImportRows($SensorsJson);
+            $candidates = json_decode($CandidatesJson, true, 64, JSON_THROW_ON_ERROR);
+            if (!is_array($settings) || !is_array($selectedPartitionRows) || !array_is_list($selectedPartitionRows)
+                || !is_array($candidates) || !array_is_list($candidates)) {
+                throw new InvalidArgumentException('Correct the sensor import settings and search again.');
+            }
+
+            $normalizedSettings = $this->NormalizeSensorImportSettings($settings, $Type);
+            $selectedPartitionIDs = $this->ResolveSensorImportPartitionIDs(
+                $selectedPartitionRows,
+                $configuredPartitions
+            );
+            $fresh = $this->FindSensorCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $sensors);
+            $selectedVariableIDs = VariableSearchHelper::ResolveSelectedVariableIDs($candidates, $fresh['rows']);
+            if ($selectedVariableIDs === []) {
+                throw new InvalidArgumentException('Select at least one matching variable.');
+            }
+            if (count($sensors) + count($selectedVariableIDs) > 3000) {
+                throw new InvalidArgumentException('At most 3000 sensors and triggers are allowed.');
+            }
+
+            foreach ($sensors as &$sensor) {
+                unset($sensor['rowColor']);
+            }
+            unset($sensor);
+            $candidateByID = [];
+            foreach ($fresh['rows'] as $candidate) {
+                $candidateByID[$candidate['VariableID']] = $candidate;
+            }
+            $partitionNames = [];
+            foreach ($configuredPartitions as $partition) {
+                if (in_array($partition['ID'], $selectedPartitionIDs, true)) {
+                    $partitionNames[] = $partition['Name'];
+                }
+            }
+            foreach ($selectedVariableIDs as $variableID) {
+                $row = [
+                    ...$normalizedSettings,
+                    'PartitionID'    => $selectedPartitionIDs[0],
+                    'PartitionNames' => implode(', ', $partitionNames),
+                    'Name'           => $candidateByID[$variableID]['Name'],
+                    'VariableID'     => $variableID
+                ];
+                foreach ($configuredPartitions as $partition) {
+                    $row['Partition_' . $partition['ID']] = in_array(
+                        $partition['ID'],
+                        $selectedPartitionIDs,
+                        true
+                    );
+                }
+                $sensors[] = $row;
+            }
+
+            $this->UpdateFormField('Sensors', 'values', json_encode($sensors, JSON_THROW_ON_ERROR));
+
+            return 'MESSAGE:' . sprintf(
+                $this->Translate('%d sensors added. Review them and apply the form to save.'),
+                count($selectedVariableIDs)
+            );
+        } catch (Throwable $exception) {
+            return $this->Translate($exception->getMessage());
+        }
     }
 
     /**
@@ -5430,6 +5606,204 @@ class OpenHomeAlarm extends IPSModuleStrict
             'ColorActive'      => false,
             'ColorValue'       => -1
         ];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function DecodeSensorImportRows(string $encodedRows): array
+    {
+        $rows = json_decode($encodedRows, true, 64, JSON_THROW_ON_ERROR);
+        if (!is_array($rows) || !array_is_list($rows)) {
+            throw new InvalidArgumentException('Correct the sensor list before searching.');
+        }
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                throw new InvalidArgumentException('Correct the sensor list before searching.');
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $sensors
+     *
+     * @return array{rows:list<array<string,mixed>>,existing:int,truncated:bool}
+     */
+    private function FindSensorCandidates(
+        string $name,
+        string $type,
+        int $rootObjectID,
+        bool $includeHidden,
+        array $sensors
+    ): array {
+        $name = trim($name);
+        $variableTypes = match ($type) {
+            'bool'   => [0],
+            'int'    => [1],
+            'float'  => [2],
+            'string' => [3],
+            default  => throw new InvalidArgumentException('Select a valid variable type.')
+        };
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 120) {
+            throw new InvalidArgumentException('Enter a variable name of at most 120 characters.');
+        }
+        if ($rootObjectID > 0) {
+            if (!IPS_ObjectExists($rootObjectID)) {
+                throw new InvalidArgumentException('Select a valid search root.');
+            }
+            $root = IPS_GetObject($rootObjectID);
+            if (!in_array($root['ObjectType'] ?? null, [0, 1], true)) {
+                throw new InvalidArgumentException('Select a category or instance as the search root.');
+            }
+        }
+
+        $excludedIDs = [];
+        foreach ($sensors as $sensor) {
+            $variableID = $sensor['VariableID'] ?? null;
+            if (is_int($variableID) && $variableID > 0) {
+                $excludedIDs[] = $variableID;
+            }
+        }
+        $result = VariableSearchHelper::Search(
+            $rootObjectID,
+            $name,
+            $variableTypes,
+            $includeHidden,
+            self::SENSOR_SEARCH_MAX_DEPTH,
+            self::SENSOR_SEARCH_MAX_OBJECTS,
+            self::SENSOR_SEARCH_MAX_RESULTS,
+            array_values(array_unique($excludedIDs))
+        );
+        $typeLabels = [
+            0 => $this->Translate('Boolean'),
+            1 => $this->Translate('Integer'),
+            2 => $this->Translate('Float'),
+            3 => $this->Translate('String')
+        ];
+        $rows = array_map(
+            static fn (array $row): array => [
+                'Selected'     => true,
+                'Name'         => $row['Name'],
+                'Path'         => $row['Path'],
+                'VariableType' => $typeLabels[$row['VariableType']],
+                'VariableID'   => $row['VariableID']
+            ],
+            $result['rows']
+        );
+
+        return [
+            'rows'      => $rows,
+            'existing'  => $result['excluded'],
+            'truncated' => $result['truncated']
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $settings
+     *
+     * @return array<string,mixed>
+     */
+    private function NormalizeSensorImportSettings(array $settings, string $type): array
+    {
+        $booleanKeys = [
+            'Enabled',
+            'ArmHome',
+            'ArmAway',
+            'ArmNight',
+            'AlwaysActive',
+            'AllowAutomaticBypass',
+            'AllowPassage',
+            'ExitDelay',
+            'EntryDelay',
+            'RetriggerAlarm'
+        ];
+        foreach ($booleanKeys as $key) {
+            if (!is_bool($settings[$key] ?? null)) {
+                throw new InvalidArgumentException('Correct the shared sensor settings before adding.');
+            }
+        }
+        $sensorType = $settings['SensorType'] ?? null;
+        $condition = $settings['TriggerCondition'] ?? null;
+        $triggerValue = $settings['TriggerValue'] ?? null;
+        if (!is_int($sensorType) || !in_array($sensorType, self::VALID_SENSOR_TYPES, true)
+            || !is_string($condition) || !in_array($condition, [
+                AlarmTriggerValue::CONDITION_EQUALS,
+                AlarmTriggerValue::CONDITION_NOT_EQUALS
+            ], true)
+            || !is_string($triggerValue)) {
+            throw new InvalidArgumentException('Correct the shared sensor settings before adding.');
+        }
+        $triggerValue = $this->NormalizeSensorImportTriggerValue($type, $triggerValue);
+        $alwaysActive = $settings['AlwaysActive'];
+
+        return [
+            'Enabled'              => $settings['Enabled'],
+            'SensorType'           => $sensorType,
+            'TriggerCondition'     => $condition,
+            'TriggerValue'         => $triggerValue,
+            'ArmHome'              => !$alwaysActive && $settings['ArmHome'],
+            'ArmAway'              => !$alwaysActive && $settings['ArmAway'],
+            'ArmNight'             => !$alwaysActive && $settings['ArmNight'],
+            'AlwaysActive'         => $alwaysActive,
+            'AllowAutomaticBypass' => !$alwaysActive && $settings['AllowAutomaticBypass'],
+            'AllowPassage'         => !$alwaysActive && $settings['AllowPassage'],
+            'ExitDelay'            => !$alwaysActive && $settings['ExitDelay'],
+            'EntryDelay'           => !$alwaysActive && $settings['EntryDelay'],
+            'RetriggerAlarm'       => $settings['RetriggerAlarm']
+        ];
+    }
+
+    private function NormalizeSensorImportTriggerValue(string $type, string $triggerValue): string
+    {
+        $trimmed = trim($triggerValue);
+
+        return match ($type) {
+            'bool' => match (strtolower($trimmed)) {
+                'true', '1'  => 'true',
+                'false', '0' => 'false',
+                default      => throw new InvalidArgumentException('Enter true or false as the Boolean comparison value.')
+            },
+            'int' => preg_match('/^-?\d+$/', $trimmed) === 1
+                ? (string) (int) $trimmed
+                : throw new InvalidArgumentException('Enter a whole number as the comparison value.'),
+            'float' => is_numeric($trimmed)
+                ? json_encode((float) $trimmed, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION)
+                : throw new InvalidArgumentException('Enter a number as the comparison value.'),
+            'string' => $triggerValue,
+            default  => throw new InvalidArgumentException('Select a valid variable type.')
+        };
+    }
+
+    /**
+     * @param list<array<string,mixed>> $selectedRows
+     * @param list<array{Enabled:bool,ID:string,Name:string,Default:bool,SilentByDefault:bool}> $partitions
+     *
+     * @return list<string>
+     */
+    private function ResolveSensorImportPartitionIDs(array $selectedRows, array $partitions): array
+    {
+        $allowed = [];
+        foreach ($partitions as $partition) {
+            if ($partition['Enabled']) {
+                $allowed[$partition['ID']] = true;
+            }
+        }
+        $selected = [];
+        foreach ($selectedRows as $row) {
+            if (!is_array($row) || ($row['Selected'] ?? false) !== true) {
+                continue;
+            }
+            $partitionID = $row['ID'] ?? null;
+            if (!is_string($partitionID) || !isset($allowed[$partitionID])) {
+                throw new InvalidArgumentException('The selected alarm partitions changed; reopen the importer.');
+            }
+            $selected[$partitionID] = true;
+        }
+        if ($selected === []) {
+            throw new InvalidArgumentException('Select at least one alarm partition.');
+        }
+
+        return array_keys($selected);
     }
 
     /**

@@ -435,6 +435,27 @@ Die Variablen verwenden native Symcon-Darstellungen. Bereits vorhandene Betriebs
 
 ## 7. Sensoren und Auslöser
 
+Über **Sensoren suchen und hinzufügen** können mehrere vorhandene Symcon-
+Variablen gemeinsam vorbereitet werden. Wählen Sie eine optionale
+Wurzelkategorie oder -instanz, geben Sie einen Namensbestandteil und genau
+einen Variablentyp an und starten Sie die Suche. Bereits in der Sensorliste
+verwendete Variablen werden nicht erneut angeboten. Markieren Sie die
+gewünschten Treffer und legen Sie darunter die gemeinsamen Einstellungen wie
+Sensortyp, Auswertung, Vergleichswert, Alarmbereiche, Scharfmodi und
+Sonderfreigaben fest. **Auswahl hinzufügen** übernimmt für jede Variable eine
+eigene Sensorzeile mit ihrem aktuellen Symcon-Namen. Die neuen Zeilen werden
+erst mit **Änderungen übernehmen** gespeichert und können vorher einzeln in
+der normalen Liste nachbearbeitet werden.
+
+Der gemeinsame Vergleichswert ist ein Rohwert und muss zum gewählten
+Variablentyp passen (`true`/`false`, Ganzzahl, Dezimalzahl oder Text).
+Variablen mit Profilen oder besonderen Zuständen sollten nach dem Hinzufügen
+einzeln kontrolliert werden. Bei **24/7 aktiv** entfernt der Importer wie der
+normale Editor automatisch unvereinbare Scharfmodus-, Überbrückungs-,
+Durchgangs- und Verzögerungseinstellungen. Die Suche verändert keine laufende
+Alarmkonfiguration und ist während eines aktiven Alarmbereichs zusammen mit
+den übrigen Sicherheitseinstellungen gesperrt.
+
 Jeder konfigurierte Eintrag enthält folgende Daten:
 
 | Feld | Bedeutung |

@@ -10,6 +10,11 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Konfiguration kann vorhandene Symcon-Variablen jetzt nach Name und Typ
+  suchen, mehrere Treffer auswählen und mit gemeinsamen Sensor-, Bereichs-,
+  Scharfmodus- und Sondereinstellungen als einzeln nachbearbeitbare Entwürfe
+  in die Sensorliste übernehmen.
+
 - Alarm-Eskalationsaktionen lassen sich zusätzlich zur Alarmierungsart gezielt
   den Auslösekategorien **Zuhause**, **Abwesend**, **Nacht** und **24/7**
   zuordnen. Bestehende Aktionen gelten weiterhin für alle Kategorien. Mehrere

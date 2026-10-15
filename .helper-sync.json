@@ -19,6 +19,9 @@
         "PersistentJsonCacheHelper": {
             "target": "libs/helper/PersistentJsonCacheHelper.php"
         },
+        "VariableSearchHelper": {
+            "target": "libs/helper/VariableSearchHelper.php"
+        },
         "VariablePresentationHelper": {
             "target": "libs/helper/VariablePresentationHelper.php"
         },

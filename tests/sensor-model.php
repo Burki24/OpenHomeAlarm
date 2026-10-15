@@ -241,7 +241,27 @@ $testVariables = [
         'VariableType'          => 1,
         'VariableCustomProfile' => '',
         'VariableProfile'       => 'Test.Legacy'
+    ],
+    67890 => [
+        'VariableType'          => 0,
+        'VariableCustomProfile' => '',
+        'VariableProfile'       => ''
     ]
+];
+
+/** @var array<int,array<string,mixed>> */
+$testObjects = [
+    0     => ['ObjectType' => 0, 'ObjectName' => 'Symcon', 'ObjectIsHidden' => false],
+    8000  => ['ObjectType' => 0, 'ObjectName' => 'Security', 'ObjectIsHidden' => false],
+    12345 => ['ObjectType' => 2, 'ObjectName' => 'Door contact', 'ObjectIsHidden' => false],
+    34567 => ['ObjectType' => 2, 'ObjectName' => 'Door state', 'ObjectIsHidden' => false],
+    67890 => ['ObjectType' => 2, 'ObjectName' => 'Door garage', 'ObjectIsHidden' => false]
+];
+
+/** @var array<int,list<int>> */
+$testObjectChildren = [
+    0    => [8000],
+    8000 => [12345, 34567, 67890]
 ];
 
 /** @var array<int,array<string,mixed>> */
@@ -329,6 +349,29 @@ function IPS_VariableExists(int $variableID): bool
     global $testVariables;
 
     return array_key_exists($variableID, $testVariables);
+}
+
+function IPS_ObjectExists(int $objectID): bool
+{
+    global $testObjects;
+
+    return array_key_exists($objectID, $testObjects);
+}
+
+/** @return array<string,mixed> */
+function IPS_GetObject(int $objectID): array
+{
+    global $testObjects;
+
+    return $testObjects[$objectID] ?? [];
+}
+
+/** @return list<int> */
+function IPS_GetChildrenIDs(int $objectID): array
+{
+    global $testObjectChildren;
+
+    return $testObjectChildren[$objectID] ?? [];
 }
 
 /** @return array<string,mixed> */
@@ -543,12 +586,25 @@ $form = json_decode(
     JSON_THROW_ON_ERROR
 );
 $list = null;
+$sensorImport = null;
 foreach ($form['elements'] ?? [] as $element) {
+    if (($element['type'] ?? null) === 'PopupButton' && ($element['name'] ?? null) === 'SensorImport') {
+        $sensorImport = $element;
+    }
     if (($element['type'] ?? null) === 'List' && ($element['name'] ?? null) === 'Sensors') {
         $list = $element;
         break;
     }
 }
+assertSensorModel(is_array($sensorImport), 'Configuration form must offer the sensor search importer.');
+assertSensorModel(
+    str_contains((string) ($sensorImport['onClick'] ?? ''), 'OHA_PrepareSensorImport')
+        && str_contains(
+            (string) ($sensorImport['popup']['buttons'][0]['onClick'] ?? ''),
+            'OHA_AddSensorCandidates'
+        ),
+    'Sensor importer actions must prepare current partitions and add selected candidates.'
+);
 assertSensorModel(is_array($list), 'Configuration form must contain the Sensors list.');
 assertSensorModel(($list['add'] ?? false) === true, 'Sensors list must allow adding entries.');
 assertSensorModel(($list['delete'] ?? false) === true, 'Sensors list must allow deleting entries.');
@@ -700,6 +756,116 @@ assertSensorModel(
         ]
     ],
     'Generated List values must restore the persisted trigger value into non-persistent edit helper fields.'
+);
+
+$importInstance = new OpenHomeAlarm();
+$importInstance->Create();
+$partitionDraft = json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main area', 'SilentByDefault' => false],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => false]
+], JSON_THROW_ON_ERROR);
+$importInstance->PrepareSensorImport($partitionDraft);
+$partitionUpdate = $importInstance->TestFormUpdates()[0] ?? [];
+$partitionRows = json_decode((string) ($partitionUpdate['value'] ?? ''), true, 512, JSON_THROW_ON_ERROR);
+assertSensorModel(
+    ($partitionUpdate['field'] ?? null) === 'ImportPartitions'
+        && ($partitionRows[0] ?? null) === ['Selected' => true, 'Name' => 'Main area', 'ID' => 'main']
+        && ($partitionRows[1] ?? null) === ['Selected' => false, 'Name' => 'Garage', 'ID' => 'garage'],
+    'Opening the sensor importer must use the current draft partitions and select main by default.'
+);
+
+$draftSensors = [[
+    'Enabled'    => true,
+    'Name'       => 'Existing door',
+    'VariableID' => 12345
+]];
+$importInstance->TestClearFormUpdates();
+$importInstance->SearchSensorCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($draftSensors, JSON_THROW_ON_ERROR)
+);
+$candidateUpdates = $importInstance->TestFormUpdates();
+$candidateRows = json_decode((string) ($candidateUpdates[0]['value'] ?? ''), true, 512, JSON_THROW_ON_ERROR);
+assertSensorModel(
+    ($candidateUpdates[0]['field'] ?? null) === 'ImportCandidates'
+        && count($candidateRows) === 1
+        && ($candidateRows[0]['VariableID'] ?? null) === 67890
+        && ($candidateRows[0]['Selected'] ?? null) === true
+        && str_contains((string) ($candidateUpdates[1]['value'] ?? ''), '1 already'),
+    'Sensor search must filter by name and type, exclude configured IDs and select fresh matches.'
+);
+
+$settings = [
+    'Enabled'              => true,
+    'SensorType'           => 0,
+    'TriggerCondition'     => 'equals',
+    'TriggerValue'         => '1',
+    'ArmHome'              => true,
+    'ArmAway'              => true,
+    'ArmNight'             => true,
+    'AlwaysActive'         => true,
+    'AllowAutomaticBypass' => true,
+    'AllowPassage'         => true,
+    'ExitDelay'            => true,
+    'EntryDelay'           => true,
+    'RetriggerAlarm'       => false
+];
+$partitionRows[1]['Selected'] = true;
+$importInstance->TestClearFormUpdates();
+$addResult = $importInstance->AddSensorCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($settings, JSON_THROW_ON_ERROR),
+    json_encode($partitionRows, JSON_THROW_ON_ERROR),
+    $partitionDraft,
+    json_encode($draftSensors, JSON_THROW_ON_ERROR),
+    json_encode($candidateRows, JSON_THROW_ON_ERROR)
+);
+$addedRows = json_decode(
+    (string) ($importInstance->TestFormUpdates()[0]['value'] ?? ''),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$added = $addedRows[1] ?? [];
+assertSensorModel(
+    str_starts_with($addResult, 'MESSAGE:')
+        && ($added['VariableID'] ?? null) === 67890
+        && ($added['Name'] ?? null) === 'Door garage'
+        && ($added['Partition_main'] ?? null) === true
+        && ($added['Partition_garage'] ?? null) === true
+        && ($added['AlwaysActive'] ?? null) === true
+        && ($added['ArmHome'] ?? null) === false
+        && ($added['ArmAway'] ?? null) === false
+        && ($added['AllowAutomaticBypass'] ?? null) === false
+        && ($added['AllowPassage'] ?? null) === false
+        && ($added['ExitDelay'] ?? null) === false
+        && ($added['EntryDelay'] ?? null) === false
+        && ($added['TriggerValue'] ?? null) === 'true',
+    'Bulk-added sensors must keep their ID and name, use every selected partition and normalize 24/7 settings.'
+);
+
+$forgedRows = $candidateRows;
+$forgedRows[0]['VariableID'] = 34567;
+$forgedResult = $importInstance->AddSensorCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($settings, JSON_THROW_ON_ERROR),
+    json_encode($partitionRows, JSON_THROW_ON_ERROR),
+    $partitionDraft,
+    json_encode($draftSensors, JSON_THROW_ON_ERROR),
+    json_encode($forgedRows, JSON_THROW_ON_ERROR)
+);
+assertSensorModel(
+    !str_starts_with($forgedResult, 'MESSAGE:'),
+    'Bulk sensor import must reject stale or forged variable IDs after a fresh search.'
 );
 
 $editForm = $instance->GetSensorEditForm(new IPSList([
