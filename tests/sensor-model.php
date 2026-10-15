@@ -251,11 +251,11 @@ $testVariables = [
 
 /** @var array<int,array<string,mixed>> */
 $testObjects = [
-    0     => ['ObjectType' => 0, 'ObjectName' => 'Symcon', 'ObjectIsHidden' => false],
-    8000  => ['ObjectType' => 0, 'ObjectName' => 'Security', 'ObjectIsHidden' => false],
-    12345 => ['ObjectType' => 2, 'ObjectName' => 'Door contact', 'ObjectIsHidden' => false],
-    34567 => ['ObjectType' => 2, 'ObjectName' => 'Door state', 'ObjectIsHidden' => false],
-    67890 => ['ObjectType' => 2, 'ObjectName' => 'Door garage', 'ObjectIsHidden' => false]
+    0     => ['ObjectType' => 0, 'ObjectName' => 'Symcon', 'ObjectIsHidden' => false, 'ParentID' => 0],
+    8000  => ['ObjectType' => 0, 'ObjectName' => 'Security', 'ObjectIsHidden' => false, 'ParentID' => 0],
+    12345 => ['ObjectType' => 2, 'ObjectName' => 'Door contact', 'ObjectIsHidden' => false, 'ParentID' => 8000],
+    34567 => ['ObjectType' => 2, 'ObjectName' => 'Door state', 'ObjectIsHidden' => false, 'ParentID' => 8000],
+    67890 => ['ObjectType' => 2, 'ObjectName' => 'Door garage', 'ObjectIsHidden' => false, 'ParentID' => 8000]
 ];
 
 /** @var array<int,list<int>> */
@@ -858,9 +858,9 @@ $addedRows = json_decode(
 );
 $added = $addedRows[1] ?? [];
 assertSensorModel(
-    str_starts_with($addResult, 'MESSAGE:')
+    $addResult === ''
         && ($added['VariableID'] ?? null) === 67890
-        && ($added['Name'] ?? null) === 'Door garage'
+        && ($added['Name'] ?? null) === 'Door garage (Security)'
         && ($added['Partition_main'] ?? null) === true
         && ($added['Partition_garage'] ?? null) === true
         && ($added['AlwaysActive'] ?? null) === true
@@ -870,8 +870,10 @@ assertSensorModel(
         && ($added['AllowPassage'] ?? null) === false
         && ($added['ExitDelay'] ?? null) === false
         && ($added['EntryDelay'] ?? null) === false
-        && ($added['TriggerValue'] ?? null) === 'true',
-    'Bulk-added sensors must keep their ID and name, use every selected partition and normalize 24/7 settings.'
+        && ($added['TriggerValue'] ?? null) === 'true'
+        && ($added['TriggerValueSelection'] ?? null) === 'true'
+        && ($added['TriggerValueManual'] ?? null) === 'true',
+    'Bulk-added sensors must close the popup, remain immediately editable, keep their ID, include the parent in their name, use every selected partition and normalize 24/7 settings.'
 );
 
 $forgedRows = $candidateRows;
@@ -975,8 +977,11 @@ assertSensorModel(
         && ($addedFaultRows[1]['PartitionID'] ?? null) === 'garage'
         && ($addedFaultRows[1]['FaultType'] ?? null) === 2
         && ($addedFaultRows[1]['BlockArming'] ?? null) === true
-        && ($addedFaultRows[1]['TriggerAlarm'] ?? null) === false,
-    'Bulk-added fault inputs must keep their ID and name and apply the shared monitoring settings.'
+        && ($addedFaultRows[1]['TriggerAlarm'] ?? null) === false
+        && ($addedFaultRows[1]['TriggerValue'] ?? null) === 'true'
+        && ($addedFaultRows[1]['TriggerValueSelection'] ?? null) === 'true'
+        && ($addedFaultRows[1]['TriggerValueManual'] ?? null) === 'true',
+    'Bulk-added fault inputs must remain immediately editable, keep their ID and name and apply the shared monitoring settings.'
 );
 
 $forgedFaultRows = $faultCandidateRows;

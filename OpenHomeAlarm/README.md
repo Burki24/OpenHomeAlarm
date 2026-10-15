@@ -443,9 +443,14 @@ verwendete Variablen werden nicht erneut angeboten. Markieren Sie die
 gewünschten Treffer und legen Sie darunter die gemeinsamen Einstellungen wie
 Sensortyp, Auswertung, Vergleichswert, Alarmbereiche, Scharfmodi und
 Sonderfreigaben fest. **Auswahl hinzufügen** übernimmt für jede Variable eine
-eigene Sensorzeile mit ihrem aktuellen Symcon-Namen. Die neuen Zeilen werden
-erst mit **Änderungen übernehmen** gespeichert und können vorher einzeln in
-der normalen Liste nachbearbeitet werden.
+eigene Sensorzeile im Format **Variablenname (Parentname)**. Gleichnamige
+Variablen aus unterschiedlichen Geräten oder Kategorien bleiben dadurch ohne
+sichtbare Objekt-ID unterscheidbar. Nach erfolgreichem Hinzufügen schließt das
+Suchfenster automatisch. Die neuen Zeilen werden erst mit **Änderungen
+übernehmen** gespeichert und können vorher einzeln in der normalen Liste
+nachbearbeitet werden. Der gewählte Vergleichswert steht dabei auch im
+Bearbeitungsdialog einer noch nicht gespeicherten Entwurfszeile sofort zur
+Verfügung.
 
 Für große Installationen durchsucht ein Suchlauf bis zu 100 Ebenen und
 100.000 Objekte und zeigt bis zu 10.000 Treffer an. Wird eine dieser Grenzen

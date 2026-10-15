@@ -10,6 +10,12 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Über die Mehrfachsuche hinzugefügte Sensoren erhalten automatisch den Namen
+  **Variablenname (Parentname)**. Nach erfolgreicher Übernahme schließt das
+  Suchfenster unmittelbar; bei einem Fehler bleibt es zur Korrektur geöffnet.
+  Der gewählte Auslöse- beziehungsweise Störwert ist außerdem bereits vor dem
+  Speichern beim Bearbeiten einer neuen Sensor- oder Störungszeile verfügbar.
+
 - Die Variablensuche verarbeitet jetzt auch sehr große Symcon-Objektbäume mit
   bis zu 100 Ebenen, 100.000 besuchten Objekten und 10.000 Treffern pro Lauf.
   Unter **Systemüberwachung** können mehrere Manipulations- und

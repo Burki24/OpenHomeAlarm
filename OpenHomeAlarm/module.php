@@ -2573,8 +2573,13 @@ class OpenHomeAlarm extends IPSModuleStrict
                     ...$normalizedSettings,
                     'PartitionID'    => $selectedPartitionIDs[0],
                     'PartitionNames' => implode(', ', $partitionNames),
-                    'Name'           => $candidateByID[$variableID]['Name'],
-                    'VariableID'     => $variableID
+                    'Name'           => $this->CreateImportedSensorName(
+                        $variableID,
+                        $candidateByID[$variableID]['Name']
+                    ),
+                    'VariableID'            => $variableID,
+                    'TriggerValueSelection' => $normalizedSettings['TriggerValue'],
+                    'TriggerValueManual'    => $normalizedSettings['TriggerValue']
                 ];
                 foreach ($configuredPartitions as $partition) {
                     $row['Partition_' . $partition['ID']] = in_array(
@@ -2588,10 +2593,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             $this->UpdateFormField('Sensors', 'values', json_encode($sensors, JSON_THROW_ON_ERROR));
 
-            return 'MESSAGE:' . sprintf(
-                $this->Translate('%d sensors added. Review them and apply the form to save.'),
-                count($selectedVariableIDs)
-            );
+            return '';
         } catch (Throwable $exception) {
             return $this->Translate($exception->getMessage());
         }
@@ -2708,8 +2710,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             foreach ($selectedVariableIDs as $variableID) {
                 $faultInputs[] = [
                     ...$normalizedSettings,
-                    'Name'       => $candidateByID[$variableID]['Name'],
-                    'VariableID' => $variableID
+                    'Name'                  => $candidateByID[$variableID]['Name'],
+                    'VariableID'            => $variableID,
+                    'TriggerValueSelection' => $normalizedSettings['TriggerValue'],
+                    'TriggerValueManual'    => $normalizedSettings['TriggerValue']
                 ];
             }
 
@@ -5783,6 +5787,23 @@ class OpenHomeAlarm extends IPSModuleStrict
         array $sensors
     ): array {
         return $this->FindVariableCandidates($name, $type, $rootObjectID, $includeHidden, $sensors);
+    }
+
+    private function CreateImportedSensorName(int $variableID, string $variableName): string
+    {
+        $variableName = trim($variableName);
+        $variable = IPS_GetObject($variableID);
+        $parentID = $variable['ParentID'] ?? 0;
+        if (!is_int($parentID) || $parentID <= 0 || !IPS_ObjectExists($parentID)) {
+            return $variableName;
+        }
+
+        $parentName = trim((string) (IPS_GetObject($parentID)['ObjectName'] ?? ''));
+        if ($parentName === '') {
+            return $variableName;
+        }
+
+        return sprintf('%s (%s)', $variableName, $parentName);
     }
 
     /**
