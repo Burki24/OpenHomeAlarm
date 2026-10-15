@@ -10,6 +10,10 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Sensorliste verwendet kompaktere Spaltenbreiten und kurze, eindeutige
+  Überschriften. Dadurch bleiben Bearbeiten und Löschen auf üblichen
+  Bildschirmbreiten ohne horizontales Hin- und Herscrollen erreichbar.
+
 - Die Konfiguration kann vorhandene Symcon-Variablen jetzt nach Name und Typ
   suchen, mehrere Treffer auswählen und mit gemeinsamen Sensor-, Bereichs-,
   Scharfmodus- und Sondereinstellungen als einzeln nachbearbeitbare Entwürfe

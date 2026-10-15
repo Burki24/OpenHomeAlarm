@@ -677,19 +677,36 @@ assertSensorModel(
     'Variable column must use the remaining list width so long Symcon paths stay readable.'
 );
 assertSensorModel(
-    ($columns['Name']['width'] ?? null) === '220px'
-        && ($columns['SensorType']['width'] ?? null) === '170px'
-        && ($columns['TriggerValue']['width'] ?? null) === '125px',
-    'Main sensor columns must use balanced fixed widths.'
+    ($columns['Enabled']['width'] ?? null) === '55px'
+        && ($columns['Name']['width'] ?? null) === '150px'
+        && ($columns['PartitionNames']['width'] ?? null) === '110px'
+        && ($columns['SensorType']['width'] ?? null) === '120px'
+        && ($columns['TriggerCondition']['width'] ?? null) === '135px'
+        && ($columns['TriggerValue']['width'] ?? null) === '70px',
+    'Main sensor columns must use compact fixed widths.'
 );
 assertSensorModel(
-    ($columns['ArmHome']['width'] ?? null) === '90px'
-        && ($columns['ArmAway']['width'] ?? null) === '95px'
-        && ($columns['ArmNight']['width'] ?? null) === '75px'
-        && ($columns['AlwaysActive']['width'] ?? null) === '70px'
-        && ($columns['ExitDelay']['width'] ?? null) === '115px'
-        && ($columns['EntryDelay']['width'] ?? null) === '130px',
-    'Mode and delay columns must be wide enough for their captions.'
+    ($columns['ArmHome']['width'] ?? null) === '60px'
+        && ($columns['ArmAway']['width'] ?? null) === '65px'
+        && ($columns['ArmNight']['width'] ?? null) === '60px'
+        && ($columns['AlwaysActive']['width'] ?? null) === '55px'
+        && ($columns['AllowAutomaticBypass']['width'] ?? null) === '85px'
+        && ($columns['AllowPassage']['width'] ?? null) === '80px'
+        && ($columns['ExitDelay']['width'] ?? null) === '70px'
+        && ($columns['EntryDelay']['width'] ?? null) === '70px',
+    'Mode and special-behavior columns must remain compact.'
+);
+assertSensorModel(
+    ($columns['Enabled']['caption'] ?? null) === 'Active'
+        && ($columns['PartitionNames']['caption'] ?? null) === 'Areas'
+        && ($columns['SensorType']['caption'] ?? null) === 'Type'
+        && ($columns['TriggerCondition']['caption'] ?? null) === 'Rule'
+        && ($columns['TriggerValue']['caption'] ?? null) === 'Value'
+        && ($columns['AllowAutomaticBypass']['caption'] ?? null) === 'Auto bypass'
+        && ($columns['AllowPassage']['caption'] ?? null) === 'Passage'
+        && ($columns['ExitDelay']['caption'] ?? null) === 'Exit'
+        && ($columns['EntryDelay']['caption'] ?? null) === 'Entry',
+    'Long sensor-table headers must use compact captions instead of forcing horizontal scrolling.'
 );
 
 assertSensorModel(

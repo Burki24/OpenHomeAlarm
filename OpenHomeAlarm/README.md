@@ -456,6 +456,12 @@ Durchgangs- und Verzögerungseinstellungen. Die Suche verändert keine laufende
 Alarmkonfiguration und ist während eines aktiven Alarmbereichs zusammen mit
 den übrigen Sicherheitseinstellungen gesperrt.
 
+Die Sensorliste verwendet bewusst kurze Spaltenüberschriften und kompakte
+Breiten, damit Bearbeiten und Löschen auch auf üblichen Monitoren ohne
+horizontales Hin- und Herscrollen erreichbar bleiben. Die vollständigen
+Bezeichnungen und alle Einstellungen stehen unverändert im Editor hinter dem
+Zahnrad der jeweiligen Zeile zur Verfügung.
+
 Jeder konfigurierte Eintrag enthält folgende Daten:
 
 | Feld | Bedeutung |

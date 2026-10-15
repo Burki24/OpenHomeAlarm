@@ -1449,9 +1449,9 @@
             "delete": true,
             "columns": [
                 {
-                    "caption": "Enabled",
+                    "caption": "Active",
                     "name": "Enabled",
-                    "width": "70px",
+                    "width": "55px",
                     "add": true,
                     "edit": {
                         "type": "CheckBox"
@@ -1460,16 +1460,16 @@
                 {
                     "caption": "Name",
                     "name": "Name",
-                    "width": "220px",
+                    "width": "150px",
                     "add": "",
                     "edit": {
                         "type": "ValidationTextBox"
                     }
                 },
                 {
-                    "caption": "Alarm partitions",
+                    "caption": "Areas",
                     "name": "PartitionNames",
-                    "width": "150px",
+                    "width": "110px",
                     "add": "",
                     "save": false
                 },
@@ -1483,9 +1483,9 @@
                     }
                 },
                 {
-                    "caption": "Sensor type",
+                    "caption": "Type",
                     "name": "SensorType",
-                    "width": "170px",
+                    "width": "120px",
                     "add": 0,
                     "edit": {
                         "type": "Select",
@@ -1522,9 +1522,9 @@
                     }
                 },
                 {
-                    "caption": "Evaluation",
+                    "caption": "Rule",
                     "name": "TriggerCondition",
-                    "width": "210px",
+                    "width": "135px",
                     "add": "equals",
                     "edit": {
                         "type": "Select",
@@ -1541,9 +1541,9 @@
                     }
                 },
                 {
-                    "caption": "Comparison value",
+                    "caption": "Value",
                     "name": "TriggerValue",
-                    "width": "125px",
+                    "width": "70px",
                     "add": "1",
                     "edit": {
                         "type": "ValidationTextBox"
@@ -1568,7 +1568,7 @@
                 {
                     "caption": "Home",
                     "name": "ArmHome",
-                    "width": "90px",
+                    "width": "60px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"
@@ -1577,7 +1577,7 @@
                 {
                     "caption": "Away",
                     "name": "ArmAway",
-                    "width": "95px",
+                    "width": "65px",
                     "add": true,
                     "edit": {
                         "type": "CheckBox"
@@ -1586,7 +1586,7 @@
                 {
                     "caption": "Night",
                     "name": "ArmNight",
-                    "width": "75px",
+                    "width": "60px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"
@@ -1595,6 +1595,33 @@
                 {
                     "caption": "24/7",
                     "name": "AlwaysActive",
+                    "width": "55px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Auto bypass",
+                    "name": "AllowAutomaticBypass",
+                    "width": "85px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Passage",
+                    "name": "AllowPassage",
+                    "width": "80px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Exit",
+                    "name": "ExitDelay",
                     "width": "70px",
                     "add": false,
                     "edit": {
@@ -1602,36 +1629,9 @@
                     }
                 },
                 {
-                    "caption": "Allow automatic bypass",
-                    "name": "AllowAutomaticBypass",
-                    "width": "165px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Allow temporary passage",
-                    "name": "AllowPassage",
-                    "width": "165px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Exit route (Away only)",
-                    "name": "ExitDelay",
-                    "width": "115px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Entry delay",
+                    "caption": "Entry",
                     "name": "EntryDelay",
-                    "width": "130px",
+                    "width": "70px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"
