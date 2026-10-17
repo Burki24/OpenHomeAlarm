@@ -615,6 +615,36 @@ assertFaultMonitoring(
     $duplicate->TestStatus() === 202,
     'Duplicate fault input variable IDs must produce a controlled invalid-configuration status.'
 );
+$duplicateControlState = json_decode($duplicate->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertFaultMonitoring(
+    ($duplicateControlState['Configuration']['Valid'] ?? true) === false
+        && str_contains(
+            (string) ($duplicateControlState['Configuration']['Message'] ?? ''),
+            'same variable is assigned to more than one fault input'
+        )
+        && ($duplicateControlState['Modes']['away']['CanArm'] ?? true) === false
+        && ($duplicateControlState['Diagnostics']['Summary']['Problems'] ?? 0) === 1,
+    'A duplicate fault input must keep control polling available, block arming and expose an actionable diagnostic.'
+);
+$duplicateForm = json_decode($duplicate->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+$duplicateStatusCaption = '';
+foreach ($duplicateForm['status'] ?? [] as $status) {
+    if (($status['code'] ?? null) === 202) {
+        $duplicateStatusCaption = (string) ($status['caption'] ?? '');
+        break;
+    }
+}
+assertFaultMonitoring(
+    str_contains($duplicateStatusCaption, 'same variable is assigned to more than one fault input')
+        && str_contains($duplicateStatusCaption, 'Remove the duplicate row'),
+    'Status 202 must explain the concrete duplicate and correction instead of only naming a generic invalid configuration.'
+);
+$duplicateDiagnostics = json_decode($duplicate->GetDiagnostics(), true, 512, JSON_THROW_ON_ERROR);
+assertFaultMonitoring(
+    ($duplicateDiagnostics['Summary']['Problems'] ?? 0) === 1
+        && ($duplicateDiagnostics['Items'][0]['Kind'] ?? null) === 'configuration',
+    'The public diagnostics snapshot must report an invalid duplicate as a problem instead of throwing the normalizer exception.'
+);
 
 // Functionally identical sensor rows are rejected without crashing ApplyChanges.
 $duplicateSensors = new OpenHomeAlarm();
@@ -642,6 +672,16 @@ $duplicateSensors->ApplyChanges();
 assertFaultMonitoring(
     $duplicateSensors->TestStatus() === 202,
     'Functionally identical sensor rows must produce a controlled invalid-configuration status.'
+);
+$duplicateSensorControlState = json_decode($duplicateSensors->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertFaultMonitoring(
+    ($duplicateSensorControlState['Configuration']['Valid'] ?? true) === false
+        && str_contains(
+            (string) ($duplicateSensorControlState['Configuration']['Message'] ?? ''),
+            'identical sensor row exists more than once'
+        )
+        && ($duplicateSensorControlState['Modes']['home']['Ready'] ?? true) === false,
+    'An identical sensor row must produce a stable, visibly blocked control state instead of a polling exception.'
 );
 
 // Invalid schedules and alarm actions need their own actionable status instead of a sensor/fault error.

@@ -49,6 +49,11 @@ function ohaStateCaption(name) {
 }
 
 function ohaModeCaption(name) {
+    const configuredLabel = ohaState?.ModePresentation?.[name]?.Label;
+    if (typeof configuredLabel === 'string' && configuredLabel.trim() !== '') {
+        return configuredLabel.trim();
+    }
+
     const captions = {
         none: 'No arming mode',
         home: 'Home',
@@ -63,7 +68,8 @@ function ohaReasonCaption(reason) {
     const captions = {
         triggered: 'Triggered',
         unavailable: 'Unavailable',
-        active: 'Active'
+        active: 'Active',
+        configuration_error: 'Invalid configuration'
     };
 
     return ohaTranslate(captions[reason] ?? reason);
@@ -97,7 +103,9 @@ function ohaEventCaption(eventName) {
         passage_expired: 'Passage expired',
         alarm_memory_cleared: 'Alarm memory acknowledged',
         fault_activated: 'System fault detected',
-        fault_cleared: 'System fault cleared'
+        fault_cleared: 'System fault cleared',
+        alarm_action_executed: 'Alarm action executed',
+        alarm_notification_sent: 'Alarm notification sent'
     };
 
     return ohaTranslate(captions[eventName] ?? eventName);
@@ -207,6 +215,8 @@ function ohaSelectedState(state = ohaState) {
             Items: diagnosticItems,
             Summary: { ...(state.Diagnostics?.Summary ?? {}), Problems: diagnosticProblems }
         },
+        Configuration: state.Configuration,
+        ModePresentation: state.ModePresentation,
         Interaction: state.Interaction
     };
 }
@@ -226,7 +236,21 @@ function ohaSchedulePartitionNavHeight() {
             return;
         }
 
-        const measuredHeight = Math.max(68, Math.ceil(nav.scrollHeight));
+        const styles = window.getComputedStyle(nav);
+        const children = Array.from(nav.children).filter((child) => !child.hidden);
+        const gap = Number.parseFloat(styles.rowGap || styles.gap) || 0;
+        const padding = (Number.parseFloat(styles.paddingTop) || 0)
+            + (Number.parseFloat(styles.paddingBottom) || 0);
+        const border = (Number.parseFloat(styles.borderTopWidth) || 0)
+            + (Number.parseFloat(styles.borderBottomWidth) || 0);
+        const contentHeight = children.reduce(
+            (height, child) => height + Math.ceil(child.getBoundingClientRect().height),
+            0
+        );
+        const measuredHeight = Math.max(
+            68,
+            Math.ceil(contentHeight + Math.max(0, children.length - 1) * gap + padding + border)
+        );
         nav.style.height = `${measuredHeight}px`;
     });
 }
@@ -521,6 +545,8 @@ function ohaRenderMode(modeName, modeState) {
     if (!button) {
         return;
     }
+
+    button.hidden = ohaState?.ModePresentation?.[modeName]?.Visible === false;
 
     button.dataset.ready = modeState.Ready ? 'true' : 'false';
     button.dataset.canArm = modeState.CanArm ? 'true' : 'false';

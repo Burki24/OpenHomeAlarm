@@ -16,6 +16,7 @@ $module = file_get_contents($root . '/OpenHomeAlarm/module.php');
 $html = file_get_contents($root . '/OpenHomeAlarm/visualization/index.html');
 $css = file_get_contents($root . '/OpenHomeAlarm/visualization/style.css');
 $javascript = file_get_contents($root . '/OpenHomeAlarm/visualization/app.js');
+$configurationForm = file_get_contents($root . '/OpenHomeAlarm/form.json');
 $adapter = file_get_contents($root . '/libs/AlarmVisualizationAdapter.php');
 $locale = json_decode(
     (string) file_get_contents($root . '/OpenHomeAlarm/locale.json'),
@@ -368,7 +369,7 @@ assertVisualization(
     'Partition sensor operations must forward their complete JSON payload instead of reducing it to a boolean.'
 );
 assertVisualization(
-    str_contains($module, "'Diagnostics'      => \$this->BuildDiagnosticsPayload(\$allSensors, \$allFaultInputs)")
+    str_contains($module, "'Diagnostics'      => \$diagnostics")
         && str_contains($javascript, 'const items = Array.isArray(diagnostics?.Items) ? diagnostics.Items : [];')
         && str_contains($javascript, 'ohaRenderDiagnostics(selectedState);')
         && str_contains($css, '.oha-diagnostic-row[data-status="missing"]'),
@@ -393,6 +394,20 @@ assertVisualization(
     str_contains($javascript, 'function ohaPartitionName(partitionID, state = ohaState)')
         && str_contains($javascript, 'ohaPartitionName(item.PartitionID, state)'),
     'Diagnostic entries must show the user-defined alarm area name instead of its technical ID.'
+);
+assertVisualization(
+    str_contains($module, "'ModePresentation' => \$this->ModePresentation()")
+        && str_contains($javascript, 'ohaState?.ModePresentation?.[name]?.Label')
+        && str_contains($javascript, 'button.hidden = ohaState?.ModePresentation?.[modeName]?.Visible === false;')
+        && str_contains((string) $configurationForm, 'HomeModeLabel')
+        && str_contains((string) $configurationForm, 'ShowNightMode'),
+    'Tile and IPSView must share configurable arming-mode labels and card visibility without changing technical mode keys.'
+);
+assertVisualization(
+    str_contains($css, '.oha-diagnostic-row[data-status="disabled"]')
+        && str_contains($css, 'background: var(--oha-control-inactive);')
+        && str_contains($css, 'color: var(--oha-text-inactive);'),
+    'Disabled diagnostics must use the neutral inactive role instead of the green ready-state styling.'
 );
 assertVisualization(
     str_contains($css, '--oha-accent: var(--symc-accent);')
@@ -492,7 +507,8 @@ assertVisualization(
 );
 assertVisualization(
     str_contains($javascript, 'function ohaSchedulePartitionNavHeight()')
-        && str_contains($javascript, 'Math.ceil(nav.scrollHeight)')
+        && str_contains($javascript, 'child.getBoundingClientRect().height')
+        && str_contains($javascript, 'contentHeight + Math.max(0, children.length - 1) * gap + padding + border')
         && str_contains($javascript, 'nav.style.height = `${measuredHeight}px`;')
         && str_contains($javascript, "window.addEventListener('resize', ohaSchedulePartitionNavHeight"),
     'Mobile partition navigation must measure the whole framed selector to keep following content below it in WebViews.'

@@ -123,6 +123,65 @@
             "items": [
                 {
                     "type": "ExpansionPanel",
+                    "caption": "Arming mode display",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "The technical modes Home, Away and Night remain unchanged for scripts. Here you can rename or hide their cards in the tile and IPSView."
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ShowHomeMode",
+                                    "caption": "Show Home"
+                                },
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "HomeModeLabel",
+                                    "caption": "Home label",
+                                    "width": "260px"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ShowAwayMode",
+                                    "caption": "Show Away"
+                                },
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "AwayModeLabel",
+                                    "caption": "Away label",
+                                    "width": "260px"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ShowNightMode",
+                                    "caption": "Show Night"
+                                },
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "NightModeLabel",
+                                    "caption": "Night label",
+                                    "width": "260px"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "ExpansionPanel",
                     "caption": "Tile view",
                     "expanded": false,
                     "items": [

@@ -136,6 +136,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_FAULT_CLEARED = 'fault_cleared';
     private const EVENT_AUTOMATIC_ARMING_SUCCEEDED = 'automatic_arming_succeeded';
     private const EVENT_AUTOMATIC_ARMING_REJECTED = 'automatic_arming_rejected';
+    private const EVENT_ALARM_ACTION_EXECUTED = 'alarm_action_executed';
+    private const EVENT_ALARM_NOTIFICATION_SENT = 'alarm_notification_sent';
 
     private const EVENT_HISTORY_LIMIT = 100;
     private const DEFAULT_DISARM_MAX_ATTEMPTS = 5;
@@ -201,6 +203,12 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_DISARM_LOCKOUT_SECONDS = 'DisarmLockoutSeconds';
     private const PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS = 'SensorIntegrityIntervalSeconds';
     private const PROPERTY_AUTOMATIC_ARMING_SCHEDULES = 'AutomaticArmingSchedules';
+    private const PROPERTY_HOME_MODE_LABEL = 'HomeModeLabel';
+    private const PROPERTY_AWAY_MODE_LABEL = 'AwayModeLabel';
+    private const PROPERTY_NIGHT_MODE_LABEL = 'NightModeLabel';
+    private const PROPERTY_SHOW_HOME_MODE = 'ShowHomeMode';
+    private const PROPERTY_SHOW_AWAY_MODE = 'ShowAwayMode';
+    private const PROPERTY_SHOW_NIGHT_MODE = 'ShowNightMode';
 
     private const OPTIONAL_ACTION_PROPERTIES = [
         self::PROPERTY_COUNTDOWN_START_ACTION,
@@ -373,6 +381,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
         $this->RegisterPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS, 60);
         $this->RegisterPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES, '[]');
+        $this->RegisterPropertyString(self::PROPERTY_HOME_MODE_LABEL, '');
+        $this->RegisterPropertyString(self::PROPERTY_AWAY_MODE_LABEL, '');
+        $this->RegisterPropertyString(self::PROPERTY_NIGHT_MODE_LABEL, '');
+        $this->RegisterBooleanProperty(self::PROPERTY_SHOW_HOME_MODE, true);
+        $this->RegisterBooleanProperty(self::PROPERTY_SHOW_AWAY_MODE, true);
+        $this->RegisterBooleanProperty(self::PROPERTY_SHOW_NIGHT_MODE, true);
         $this->RegisterIPSViewHTMLPageProperties();
         $this->RegisterIPSViewStyleProperties();
         $this->RegisterVisualizationThemeProperties();
@@ -873,6 +887,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function GetConfigurationForm(): string
     {
         $form = $this->LoadConfigurationForm();
+        $this->InsertDetailedSensorFaultConfigurationStatus($form);
         $this->InsertDetailedAlarmActionConfigurationStatus($form);
 
         if (isset($form['elements']) && is_array($form['elements'])) {
@@ -946,12 +961,27 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $partitions = $this->ReadConfiguredPartitions();
         $defaultPartition = AlarmPartitionRegistry::defaultPartition($partitions);
-        $allSensors = $this->ReadConfiguredSensors();
-        $allFaultInputs = $this->ReadConfiguredFaultInputs();
+        $configurationErrors = [];
+        try {
+            $allSensors = $this->ReadConfiguredSensors();
+        } catch (UnexpectedValueException $exception) {
+            $allSensors = [];
+            $configurationErrors[] = $this->ConfigurationErrorMessage('sensor', $exception);
+        }
+        try {
+            $allFaultInputs = $this->ReadConfiguredFaultInputs();
+        } catch (UnexpectedValueException $exception) {
+            $allFaultInputs = [];
+            $configurationErrors[] = $this->ConfigurationErrorMessage('fault', $exception);
+        }
+        $configurationError = implode(' ', $configurationErrors);
         $sensors = $this->SensorsForPartition($allSensors, $defaultPartition['ID']);
         $faultInputs = $this->FaultInputsForPartition($allFaultInputs, $defaultPartition['ID']);
         $sensorReadiness = $this->EvaluateReadinessStatus($sensors);
         $readiness = $this->ApplyFaultBlockingToReadiness($sensorReadiness['readiness'], $faultInputs);
+        if ($configurationError !== '') {
+            $readiness = $this->UnavailableReadiness();
+        }
         $state = $this->ReadAlarmState();
         $mode = $this->ReadAlarmMode();
         $delayDeadline = match ($state) {
@@ -991,9 +1021,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 )
             ),
             'Modes' => [
-                'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs),
-                'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $readiness['away'], $isDisarmed, $sensors, $faultInputs),
-                'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $readiness['night'], $isDisarmed, $sensors, $faultInputs)
+                'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs, $configurationError),
+                'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $readiness['away'], $isDisarmed, $sensors, $faultInputs, $configurationError),
+                'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $readiness['night'], $isDisarmed, $sensors, $faultInputs, $configurationError)
             ],
             'Delay' => [
                 'Remaining' => max(0, (int) $this->GetValue(self::IDENT_DELAY_REMAINING)),
@@ -1044,6 +1074,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->EvaluateReadinessStatus($partitionSensors)['readiness'],
                 $partitionFaults
             );
+            if ($configurationError !== '') {
+                $partitionReadiness = $this->UnavailableReadiness();
+            }
             $partitionIsDisarmed = $runtime['State'] === self::STATE_DISARMED;
             $partitionSilent = $runtime['Mode'] === self::MODE_NONE && $partitionAlarm['OutputActive']
                 ? $partition['SilentByDefault']
@@ -1066,9 +1099,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $this->CanRearmPartition($partition['ID'], $runtime)
             );
             $current['Modes'] = [
-                'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $partitionReadiness['home'], $partitionIsDisarmed, $partitionSensors, $partitionFaults),
-                'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $partitionReadiness['away'], $partitionIsDisarmed, $partitionSensors, $partitionFaults),
-                'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $partitionReadiness['night'], $partitionIsDisarmed, $partitionSensors, $partitionFaults)
+                'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $partitionReadiness['home'], $partitionIsDisarmed, $partitionSensors, $partitionFaults, $configurationError),
+                'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $partitionReadiness['away'], $partitionIsDisarmed, $partitionSensors, $partitionFaults, $configurationError),
+                'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $partitionReadiness['night'], $partitionIsDisarmed, $partitionSensors, $partitionFaults, $configurationError)
             ];
             $current['Delay'] = [
                 'Remaining' => max(0, $runtime['Deadline'] - time()),
@@ -1104,11 +1137,24 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'Default' => $partition['Default']
             ], $current);
         }
+        $diagnostics = $this->BuildDiagnosticsPayload($allSensors, $allFaultInputs);
+        if ($configurationError !== '') {
+            $diagnostics = $this->AddConfigurationErrorToDiagnostics(
+                $diagnostics,
+                $defaultPartition['ID'],
+                $configurationError
+            );
+        }
         $payload = array_merge([
             'ApiVersion'       => self::CONTROL_API_VERSION,
             'DefaultPartition' => $defaultPartition['ID'],
             'Partitions'       => $partitionPayload,
-            'Diagnostics'      => $this->BuildDiagnosticsPayload($allSensors, $allFaultInputs)
+            'Diagnostics'      => $diagnostics,
+            'Configuration'    => [
+                'Valid'   => $configurationError === '',
+                'Message' => $configurationError
+            ],
+            'ModePresentation' => $this->ModePresentation()
         ], $partitionState);
 
         return AlarmControlStateAdapter::encode($payload);
@@ -1155,7 +1201,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetDiagnostics(): string
     {
-        return AlarmDiagnostics::encode($this->BuildDiagnosticsPayload());
+        return AlarmDiagnostics::encode($this->BuildConfiguredDiagnosticsPayload());
     }
 
     /**
@@ -1165,7 +1211,7 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ExportDiagnostics(string $format = 'json'): string
     {
-        return AlarmDiagnosticsExporter::export($this->BuildDiagnosticsPayload(), $format);
+        return AlarmDiagnosticsExporter::export($this->BuildConfiguredDiagnosticsPayload(), $format);
     }
 
     /**
@@ -2248,7 +2294,12 @@ class OpenHomeAlarm extends IPSModuleStrict
             // Persist first so a restart or transport error cannot send the same alarm twice.
             $runtime['PushNotificationSent'] = true;
             $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-            $this->PostConfiguredAlarmNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO));
+            if ($this->PostConfiguredAlarmNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO))) {
+                $this->AppendEvent(
+                    self::EVENT_ALARM_NOTIFICATION_SENT,
+                    $this->Translate('Symcon push notification')
+                );
+            }
         }
         if ($runtime['PushoverNotificationSent']
             && !$this->ConfiguredNotificationAppliesTo(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO, $activeModes)) {
@@ -2258,7 +2309,12 @@ class OpenHomeAlarm extends IPSModuleStrict
             // Persist first so a restart or transport error cannot send the same alarm twice.
             $runtime['PushoverNotificationSent'] = true;
             $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-            $this->PostConfiguredPushoverNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO));
+            if ($this->PostConfiguredPushoverNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO))) {
+                $this->AppendEvent(
+                    self::EVENT_ALARM_NOTIFICATION_SENT,
+                    $this->Translate('Pushover notification')
+                );
+            }
         }
         $signalGeneratorStateChanged = false;
         foreach (AlarmEscalationPlan::dueSteps($steps, $runtime, time(), $activeModes, $activeContexts) as $due) {
@@ -2297,9 +2353,15 @@ class OpenHomeAlarm extends IPSModuleStrict
                     ),
                     0
                 );
-            } elseif ($due['Action']['SignalGenerator'] && $due['Action']['ResetMode'] !== 0) {
-                $this->SetSignalGeneratorActive(true);
-                $signalGeneratorStateChanged = true;
+            } else {
+                $this->AppendEvent(
+                    self::EVENT_ALARM_ACTION_EXECUTED,
+                    sprintf('%s: %s', $due['Step']['Name'], $due['Action']['Name'])
+                );
+                if ($due['Action']['SignalGenerator'] && $due['Action']['ResetMode'] !== 0) {
+                    $this->SetSignalGeneratorActive(true);
+                    $signalGeneratorStateChanged = true;
+                }
             }
         }
 
@@ -3501,6 +3563,34 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         return $response;
+    }
+
+    /** @param array<string,mixed> $form */
+    private function InsertDetailedSensorFaultConfigurationStatus(array &$form): void
+    {
+        $message = '';
+        try {
+            $this->ReadConfiguredSensors();
+        } catch (UnexpectedValueException $exception) {
+            $message = $this->ConfigurationErrorMessage('sensor', $exception);
+        }
+        if ($message === '') {
+            try {
+                $this->ReadConfiguredFaultInputs();
+            } catch (UnexpectedValueException $exception) {
+                $message = $this->ConfigurationErrorMessage('fault', $exception);
+            }
+        }
+        if ($message === '' || !isset($form['status']) || !is_array($form['status'])) {
+            return;
+        }
+        foreach ($form['status'] as &$status) {
+            if (is_array($status) && ($status['code'] ?? null) === self::STATUS_INVALID_CONFIGURATION) {
+                $status['caption'] = $message;
+                break;
+            }
+        }
+        unset($status);
     }
 
     /** @param array<string,mixed> $form */
@@ -5565,17 +5655,84 @@ class OpenHomeAlarm extends IPSModuleStrict
         bool $ready,
         bool $isDisarmed,
         array $sensors,
-        array $faultInputs
+        array $faultInputs,
+        string $configurationError = ''
     ): array {
+        $blockers = array_merge(
+            $this->BuildControlSensorBlockerDetails($mode, $sensors),
+            $this->BuildControlFaultDetails($faultInputs, true)
+        );
+        if ($configurationError !== '') {
+            $blockers[] = [
+                'Kind'       => 'configuration',
+                'VariableID' => 0,
+                'Name'       => $configurationError,
+                'Reason'     => 'configuration_error',
+                'Bypassable' => false
+            ];
+        }
+
         return [
             'Value'    => $mode,
-            'Ready'    => $ready,
-            'CanArm'   => $isDisarmed && $ready,
-            'Blockers' => array_merge(
-                $this->BuildControlSensorBlockerDetails($mode, $sensors),
-                $this->BuildControlFaultDetails($faultInputs, true)
-            )
+            'Ready'    => $configurationError === '' && $ready,
+            'CanArm'   => $configurationError === '' && $isDisarmed && $ready,
+            'Blockers' => $blockers
         ];
+    }
+
+    /** @return array{global:bool,home:bool,away:bool,night:bool} */
+    private function UnavailableReadiness(): array
+    {
+        return [
+            'global' => false,
+            'home'   => false,
+            'away'   => false,
+            'night'  => false
+        ];
+    }
+
+    /** @return array<string,array{Label:string,Visible:bool}> */
+    private function ModePresentation(): array
+    {
+        return [
+            'home' => [
+                'Label'   => $this->ConfiguredModeLabel(self::PROPERTY_HOME_MODE_LABEL, 'Home'),
+                'Visible' => $this->ReadBooleanProperty(self::PROPERTY_SHOW_HOME_MODE)
+            ],
+            'away' => [
+                'Label'   => $this->ConfiguredModeLabel(self::PROPERTY_AWAY_MODE_LABEL, 'Away'),
+                'Visible' => $this->ReadBooleanProperty(self::PROPERTY_SHOW_AWAY_MODE)
+            ],
+            'night' => [
+                'Label'   => $this->ConfiguredModeLabel(self::PROPERTY_NIGHT_MODE_LABEL, 'Night'),
+                'Visible' => $this->ReadBooleanProperty(self::PROPERTY_SHOW_NIGHT_MODE)
+            ]
+        ];
+    }
+
+    private function ConfiguredModeLabel(string $property, string $fallback): string
+    {
+        $label = trim($this->ReadPropertyString($property));
+
+        return $label !== '' ? substr($label, 0, 80) : $this->Translate($fallback);
+    }
+
+    private function ConfigurationErrorMessage(string $kind, UnexpectedValueException $exception): string
+    {
+        $detail = match ($exception->getMessage()) {
+            'A fault input variable can only be configured once.' => $this->Translate(
+                'The same variable is assigned to more than one fault input. Remove the duplicate row in Fault inputs and apply the configuration again.'
+            ),
+            'An identical sensor configuration can only be configured once.' => $this->Translate(
+                'An identical sensor row exists more than once. Remove the duplicate row in Sensors and triggers and apply the configuration again.'
+            ),
+            default => $exception->getMessage()
+        };
+        $caption = $kind === 'fault'
+            ? $this->Translate('Fault input configuration is invalid: %s')
+            : $this->Translate('Sensor configuration is invalid: %s');
+
+        return sprintf($caption, $detail);
     }
 
     /**
@@ -6242,6 +6399,62 @@ class OpenHomeAlarm extends IPSModuleStrict
                 fn (): ?bool => $this->GetFaultTriggerState($faultInput)
             );
         }
+
+        return AlarmDiagnostics::build($items, time());
+    }
+
+    /** @return array<string,mixed> */
+    private function BuildConfiguredDiagnosticsPayload(): array
+    {
+        $errors = [];
+        try {
+            $sensors = $this->ReadConfiguredSensors();
+        } catch (UnexpectedValueException $exception) {
+            $sensors = [];
+            $errors[] = $this->ConfigurationErrorMessage('sensor', $exception);
+        }
+        try {
+            $faultInputs = $this->ReadConfiguredFaultInputs();
+        } catch (UnexpectedValueException $exception) {
+            $faultInputs = [];
+            $errors[] = $this->ConfigurationErrorMessage('fault', $exception);
+        }
+
+        $diagnostics = $this->BuildDiagnosticsPayload($sensors, $faultInputs);
+        if ($errors === []) {
+            return $diagnostics;
+        }
+
+        return $this->AddConfigurationErrorToDiagnostics(
+            $diagnostics,
+            $this->DefaultPartitionID(),
+            implode(' ', $errors)
+        );
+    }
+
+    /**
+     * @param array<string,mixed> $diagnostics
+     *
+     * @return array<string,mixed>
+     */
+    private function AddConfigurationErrorToDiagnostics(
+        array $diagnostics,
+        string $partitionID,
+        string $message
+    ): array {
+        $items = is_array($diagnostics['Items'] ?? null) ? $diagnostics['Items'] : [];
+        $items[] = [
+            'Kind'        => 'configuration',
+            'Name'        => $message,
+            'VariableID'  => 0,
+            'PartitionID' => $partitionID,
+            'Enabled'     => true,
+            'Monitored'   => true,
+            'Status'      => 'unreadable',
+            'Active'      => null,
+            'LastChanged' => 0,
+            'LastUpdated' => 0
+        ];
 
         return AlarmDiagnostics::build($items, time());
     }
@@ -9128,12 +9341,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         return min($first, $second);
     }
 
-    private function PostConfiguredAlarmNotification(string $applicability): void
+    private function PostConfiguredAlarmNotification(string $applicability): bool
     {
         if (!function_exists('VISU_PostNotificationEx')) {
             $this->SendDebug(__FUNCTION__, 'Tile visualization push notifications are not available.', 0);
 
-            return;
+            return false;
         }
 
         [$title, $message] = $this->BuildAlarmNotificationText($applicability);
@@ -9147,7 +9360,11 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
         if ($notificationID === false) {
             $this->SendDebug(__FUNCTION__, 'The configured push notification could not be sent.', 0);
+
+            return false;
         }
+
+        return true;
     }
 
     /** @return array{0:string,1:string} */
@@ -9185,7 +9402,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         return [$title, $message];
     }
 
-    private function PostConfiguredPushoverNotification(string $applicability): void
+    private function PostConfiguredPushoverNotification(string $applicability): bool
     {
         [$title, $message] = $this->BuildAlarmNotificationText($applicability);
         try {
@@ -9195,7 +9412,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         } catch (Throwable $exception) {
             $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
+
+            return false;
         }
+
+        return true;
     }
 
     private function ConfiguredPushoverPriority(): int

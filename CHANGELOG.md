@@ -10,6 +10,29 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Eine ungültige doppelte Sensor- oder Störungszuordnung lässt die zyklische
+  Bedienabfrage nicht mehr mit einer Exception abbrechen. Kachel und IPSView
+  bleiben erreichbar, sperren sicherheitshalber alle Scharfschaltaktionen und
+  nennen den konkreten Korrekturschritt als Blockiergrund und Diagnoseproblem.
+
+- Die sichtbaren Bezeichnungen der Scharfmodi Zuhause, Abwesend und Nacht
+  können für Kachel und IPSView gemeinsam geändert und einzelne Moduskarten
+  ausgeblendet werden. Technische Modusnamen und öffentliche APIs bleiben
+  unverändert kompatibel.
+
+- Erfolgreich ausgeführte Alarm-Eskalationsaktionen sowie versandte Symcon- und
+  Pushover-Alarmbenachrichtigungen erscheinen jetzt mit ihrem Namen im
+  persistenten Systemprotokoll. Fehlgeschlagene Ausführungen werden nicht als
+  Erfolg protokolliert.
+
+- Deaktivierte Diagnoseeingänge verwenden in Kachel und IPSView nun die
+  neutrale graue Inaktiv-Rolle statt einer grün wirkenden Oberfläche.
+
+- Die mobile native Kachel berechnet die Höhe des mehrzeiligen
+  Alarmbereichsrahmens aus den tatsächlich sichtbaren Teilbereichen. Dadurch
+  überlagert die Legende der Mehrfachauswahl auch in der Symcon-App keine
+  Bereichsbuttons mehr.
+
 - Ungültige Konfigurationen werden nicht mehr pauschal als Sensor- oder
   Störungsfehler gemeldet. Eigene Statusmeldungen unterscheiden jetzt
   Alarmbereiche, Sensoren/Störungen, automatische Scharfschaltzeitpläne,

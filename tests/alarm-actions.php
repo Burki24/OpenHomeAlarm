@@ -897,6 +897,15 @@ assertAlarmAction(
     && $testActions[0]['actionID'] === '{44444444-4444-4444-4444-444444444444}',
     'A zero-delay escalation step must execute once when the alarm starts.'
 );
+$escalationHistory = json_decode($escalationInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+$escalationActionEvents = array_values(array_filter(
+    $escalationHistory,
+    static fn (array $event): bool => ($event['Event'] ?? null) === 'alarm_action_executed'
+));
+assertAlarmAction(
+    ($escalationActionEvents[0]['Source'] ?? null) === 'Immediate: Immediate',
+    'Every successfully executed escalation action must be written to the event history with step and action name.'
+);
 assertAlarmAction(
     ($escalationInstance->TestTimers()['AlarmEscalation']['interval'] ?? 0) > 0,
     'A pending delayed escalation step must schedule the shared timer.'
@@ -955,6 +964,15 @@ assertAlarmAction(
         'targetID' => 0
     ]],
     'An immediate native push notification must include the affected area and triggering sensor.'
+);
+$pushHistory = json_decode($immediatePush->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+$pushEvents = array_values(array_filter(
+    $pushHistory,
+    static fn (array $event): bool => ($event['Event'] ?? null) === 'alarm_notification_sent'
+));
+assertAlarmAction(
+    ($pushEvents[0]['Source'] ?? null) === 'Symcon push notification',
+    'A successfully sent native push notification must be visible in the event history.'
 );
 $immediatePush->ProcessAlarmEscalation();
 assertAlarmAction(count($testPushNotifications) === 1, 'An immediate native push notification must be sent only once per alarm cycle.');

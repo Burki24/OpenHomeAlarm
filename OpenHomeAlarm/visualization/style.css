@@ -1251,12 +1251,19 @@ html:not(.oha-ipsview) .oha-shell {
 }
 
 .oha-diagnostic-row[data-status="disabled"] {
-    opacity: var(--oha-disabled-opacity);
+    background: var(--oha-control-inactive);
+    color: var(--oha-text-inactive);
+    opacity: 1;
 }
 
 .oha-diagnostic-row[data-status="disabled"] .oha-operation-icon {
-    background: var(--oha-surface-strong);
-    color: var(--oha-muted);
+    background: var(--oha-control-inactive);
+    color: var(--oha-text-inactive);
+}
+
+.oha-diagnostic-row[data-status="disabled"] .oha-operation-copy strong,
+.oha-diagnostic-row[data-status="disabled"] .oha-operation-copy span {
+    color: var(--oha-text-inactive);
 }
 
 .oha-operation-copy,
