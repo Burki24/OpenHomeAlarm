@@ -18,6 +18,7 @@ use Burki24\OpenHomeAlarm\AlarmEventHistoryExporter;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmPartitionAlarmRegistry;
 use Burki24\OpenHomeAlarm\AlarmPartitionAssignmentException;
+use Burki24\OpenHomeAlarm\AlarmPartitionConfigurationException;
 use Burki24\OpenHomeAlarm\AlarmPartitionRegistry;
 use Burki24\OpenHomeAlarm\AlarmPartitionRuntime;
 use Burki24\OpenHomeAlarm\AlarmSensorMonitor;
@@ -887,6 +888,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     public function GetConfigurationForm(): string
     {
         $form = $this->LoadConfigurationForm();
+        $this->InsertDetailedPartitionConfigurationStatus($form);
         $this->InsertDetailedSensorFaultConfigurationStatus($form);
         $this->InsertDetailedAlarmActionConfigurationStatus($form);
 
@@ -3566,6 +3568,54 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /** @param array<string,mixed> $form */
+    private function InsertDetailedPartitionConfigurationStatus(array &$form): void
+    {
+        try {
+            $this->ReadConfiguredPartitions();
+        } catch (UnexpectedValueException $exception) {
+            if (!isset($form['status']) || !is_array($form['status'])) {
+                return;
+            }
+            $caption = $this->PartitionConfigurationStatusCaption($exception);
+            foreach ($form['status'] as &$status) {
+                if (is_array($status) && ($status['code'] ?? null) === self::STATUS_INVALID_PARTITIONS) {
+                    $status['caption'] = $caption;
+                    break;
+                }
+            }
+            unset($status);
+        }
+    }
+
+    private function PartitionConfigurationStatusCaption(UnexpectedValueException $exception): string
+    {
+        if ($exception instanceof AlarmPartitionConfigurationException
+            && $exception->reason === AlarmPartitionConfigurationException::DUPLICATE_ID) {
+            return sprintf(
+                $this->Translate(
+                    'The partition ID "%s" already exists. Enter a different, unique ID for the new alarm partition.'
+                ),
+                $exception->partitionID
+            );
+        }
+
+        $detail = match ($exception->getMessage()) {
+            'The main partition is required.' => $this->Translate(
+                'The required partition with the ID "main" is missing. Add it and keep it enabled.'
+            ),
+            'The main partition must be enabled.' => $this->Translate(
+                'The required partition with the ID "main" is disabled. Enable it and apply the configuration again.'
+            ),
+            'Partition IDs must use 1 to 32 lowercase letters, digits, underscores or hyphens.' => $this->Translate(
+                'At least one partition ID is invalid. Use 1 to 32 characters, start with a lowercase letter and then use only lowercase letters, digits, underscores or hyphens.'
+            ),
+            default => $exception->getMessage()
+        };
+
+        return sprintf($this->Translate('Alarm partition configuration is invalid: %s'), $detail);
+    }
+
+    /** @param array<string,mixed> $form */
     private function InsertDetailedSensorFaultConfigurationStatus(array &$form): void
     {
         $message = '';
@@ -4933,7 +4983,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
 
             if (($element['type'] ?? null) === 'List') {
-                if (($element['name'] ?? null) === self::PROPERTY_SENSORS) {
+                if (($element['name'] ?? null) === self::PROPERTY_PARTITIONS
+                    && isset($element['form']) && is_array($element['form'])) {
+                    $element['form'] = $this->CreatePartitionEditFormCode($element['form']);
+                } elseif (($element['name'] ?? null) === self::PROPERTY_SENSORS) {
                     $element['values'] = $this->CreateTriggerListFormValues(self::PROPERTY_SENSORS);
                     $this->SetConfigurationListAddValue(
                         $element,
@@ -4959,6 +5012,93 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
         unset($element);
+    }
+
+    /**
+     * Builds a row-specific editor which prevents confirming an ID already used
+     * by another partition. The dialog reads the current pending configuration
+     * when Symcon provides it and falls back to the module property snapshot.
+     * Registry validation remains the authoritative concurrent-change safeguard.
+     *
+     * @param list<array<string,mixed>> $template
+     */
+    private function CreatePartitionEditFormCode(array $template): string
+    {
+        $knownIDCounts = [];
+        try {
+            $configured = json_decode(
+                $this->ReadPropertyString(self::PROPERTY_PARTITIONS),
+                true,
+                512,
+                JSON_THROW_ON_ERROR
+            );
+            if (is_array($configured) && array_is_list($configured)) {
+                foreach ($configured as $partition) {
+                    if (!is_array($partition) || !is_string($partition['ID'] ?? null)) {
+                        continue;
+                    }
+                    $partitionID = strtolower(trim($partition['ID']));
+                    if (preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $partitionID) !== 1) {
+                        continue;
+                    }
+                    $knownIDCounts[$partitionID] = ($knownIDCounts[$partitionID] ?? 0) + 1;
+                }
+            }
+        } catch (JsonException) {
+        }
+
+        return sprintf(
+            <<<'PHP'
+$form = %s;
+$knownIDCounts = %s;
+if (function_exists('IPS_GetConfiguration')) {
+    try {
+        $pendingConfiguration = json_decode(IPS_GetConfiguration($id), true, 512, JSON_THROW_ON_ERROR);
+        $pendingPartitions = json_decode(
+            is_string($pendingConfiguration['Partitions'] ?? null)
+                ? $pendingConfiguration['Partitions']
+                : '[]',
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+        if (is_array($pendingPartitions) && array_is_list($pendingPartitions)) {
+            $knownIDCounts = [];
+            foreach ($pendingPartitions as $pendingPartition) {
+                if (!is_array($pendingPartition) || !is_string($pendingPartition['ID'] ?? null)) {
+                    continue;
+                }
+                $pendingID = strtolower(trim($pendingPartition['ID']));
+                if (preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $pendingID) === 1) {
+                    $knownIDCounts[$pendingID] = ($knownIDCounts[$pendingID] ?? 0) + 1;
+                }
+            }
+        }
+    } catch (Throwable) {
+    }
+}
+$currentID = strtolower(trim((string) ($Partitions['ID'] ?? '')));
+$forbiddenIDs = [];
+foreach ($knownIDCounts as $partitionID => $count) {
+    if ($partitionID !== $currentID || $count > 1) {
+        $forbiddenIDs[] = preg_quote($partitionID, '/');
+    }
+}
+$validation = $forbiddenIDs === []
+    ? '^[a-z][a-z0-9_-]{0,31}$'
+    : '^(?!(?:' . implode('|', $forbiddenIDs) . ')$)[a-z][a-z0-9_-]{0,31}$';
+foreach ($form as &$field) {
+    if (is_array($field) && ($field['name'] ?? null) === 'ID') {
+        $field['validate'] = $validation;
+        break;
+    }
+}
+unset($field);
+return $form;
+PHP,
+            var_export($template, true),
+            var_export($knownIDCounts, true)
+        );
     }
 
     /** @param array<string,mixed> $list */

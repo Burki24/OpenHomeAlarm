@@ -341,6 +341,78 @@ assertControlApi(
     'An invalid partition configuration must keep the configuration form available for repair.'
 );
 
+$duplicatePartitionInstance = new OpenHomeAlarm();
+$duplicatePartitionInstance->Create();
+$duplicatePartitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"Ground floor"},{"Enabled":true,"ID":"area","Name":"Basement"},{"Enabled":true,"ID":"area","Name":"Upper floor"}]'
+);
+$duplicatePartitionInstance->ApplyChanges();
+assertControlApi(
+    $duplicatePartitionInstance->TestStatus() === 201,
+    'ApplyChanges must reject duplicate partition IDs through the partition status.'
+);
+$duplicatePartitionForm = json_decode(
+    $duplicatePartitionInstance->GetConfigurationForm(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$duplicatePartitionStatus = array_values(array_filter(
+    $duplicatePartitionForm['status'] ?? [],
+    static fn (mixed $status): bool => is_array($status) && ($status['code'] ?? null) === 201
+));
+assertControlApi(
+    count($duplicatePartitionStatus) === 1
+        && str_contains($duplicatePartitionStatus[0]['caption'] ?? '', '"area"')
+        && str_contains($duplicatePartitionStatus[0]['caption'] ?? '', 'already exists')
+        && str_contains($duplicatePartitionStatus[0]['caption'] ?? '', 'unique ID'),
+    'Status 201 must name the duplicate partition ID and tell the user how to correct it: '
+        . json_encode($duplicatePartitionStatus, JSON_UNESCAPED_SLASHES)
+);
+$partitionList = null;
+$pendingElements = $duplicatePartitionForm['elements'] ?? [];
+while ($pendingElements !== []) {
+    $element = array_shift($pendingElements);
+    if (!is_array($element)) {
+        continue;
+    }
+    if (($element['name'] ?? null) === 'Partitions') {
+        $partitionList = $element;
+        break;
+    }
+    foreach ($element['items'] ?? [] as $item) {
+        $pendingElements[] = $item;
+    }
+}
+assertControlApi(
+    is_array($partitionList) && is_string($partitionList['form'] ?? null),
+    'The partition list must generate a row-specific validation form.'
+);
+$Partitions = ['ID' => ''];
+$newPartitionForm = eval($partitionList['form']);
+$newPartitionIDField = array_values(array_filter(
+    $newPartitionForm,
+    static fn (mixed $field): bool => is_array($field) && ($field['name'] ?? null) === 'ID'
+))[0] ?? null;
+assertControlApi(
+    is_array($newPartitionIDField)
+        && preg_match('/' . $newPartitionIDField['validate'] . '/', 'area') === 0
+        && preg_match('/' . $newPartitionIDField['validate'] . '/', 'garage') === 1,
+    'Adding a partition must reject an already configured ID before the row can be confirmed.'
+);
+$Partitions = ['ID' => 'main'];
+$existingPartitionForm = eval($partitionList['form']);
+$existingPartitionIDField = array_values(array_filter(
+    $existingPartitionForm,
+    static fn (mixed $field): bool => is_array($field) && ($field['name'] ?? null) === 'ID'
+))[0] ?? null;
+assertControlApi(
+    is_array($existingPartitionIDField)
+        && preg_match('/' . $existingPartitionIDField['validate'] . '/', 'main') === 1,
+    'Editing a uniquely configured partition must continue to allow its own ID.'
+);
+
 $missingMainPartitionInstance = new OpenHomeAlarm();
 $missingMainPartitionInstance->Create();
 $missingMainPartitionInstance->TestSetPropertyString(

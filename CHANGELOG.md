@@ -10,6 +10,12 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Neue Alarmbereichszeilen erhalten keine pauschale Bereichs-ID `area` mehr.
+  Doppelt vergebene Bereichs-IDs werden weiterhin sicher abgewiesen; Status 201
+  nennt jetzt die konkrete doppelte ID und den erforderlichen Korrekturschritt.
+  Formular und Anleitung weisen ausdrücklich darauf hin, dass jede technische
+  Bereichs-ID innerhalb der Instanz eindeutig sein muss.
+
 - Eine ungültige doppelte Sensor- oder Störungszuordnung lässt die zyklische
   Bedienabfrage nicht mehr mit einer Exception abbrechen. Kachel und IPSView
   bleiben erreichbar, sperren sicherheitshalber alle Scharfschaltaktionen und

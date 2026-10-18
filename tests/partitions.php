@@ -71,6 +71,21 @@ foreach ([
     }
 }
 
+try {
+    AlarmPartitionRegistry::partitions(json_encode([
+        ['Enabled' => true, 'ID' => 'main', 'Name' => 'Ground floor'],
+        ['Enabled' => true, 'ID' => 'area', 'Name' => 'Basement'],
+        ['Enabled' => true, 'ID' => 'area', 'Name' => 'Upper floor']
+    ], JSON_THROW_ON_ERROR));
+    throw new RuntimeException('A duplicate partition ID must be rejected with its concrete value.');
+} catch (\Burki24\OpenHomeAlarm\AlarmPartitionConfigurationException $exception) {
+    assertPartition(
+        $exception->reason === \Burki24\OpenHomeAlarm\AlarmPartitionConfigurationException::DUPLICATE_ID
+            && $exception->partitionID === 'area',
+        'Duplicate partition IDs must retain a machine-readable reason and the conflicting ID.'
+    );
+}
+
 $form = json_decode(
     (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'),
     true,
@@ -89,6 +104,14 @@ assertPartition(
     is_array($partitionList) && ($partitionList['type'] ?? null) === 'List',
     'Alarm partitions must be configurable as a list.'
 );
+foreach ($partitionList['columns'] ?? [] as $column) {
+    if (($column['name'] ?? null) === 'ID') {
+        assertPartition(
+            ($column['add'] ?? null) === '',
+            'A new partition row must not silently reuse a fixed partition ID.'
+        );
+    }
+}
 assertPartition(
     array_column($partitionList['columns'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'SilentByDefault'],
     'The partition form must expose stable identity without a selectable default area.'
@@ -96,13 +119,14 @@ assertPartition(
 assertPartition(
     ($partitionList['add'] ?? false) === true
         && ($partitionList['delete'] ?? false) === true
-        && array_column($partitionList['form'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'SilentByDefault'],
+        && array_values(array_filter(array_column($partitionList['form'] ?? [], 'name'))) === ['Enabled', 'ID', 'Name', 'SilentByDefault'],
     'Alarm partitions must provide explicit add, edit and delete controls.'
 );
 $formJSON = json_encode($form, JSON_THROW_ON_ERROR);
 assertPartition(
     str_contains($formJSON, 'The required area main is the complete alarm system')
         && str_contains($formJSON, 'The area main is the fixed complete alarm system')
+        && str_contains($formJSON, 'Every area ID must be unique')
         && str_contains($formJSON, 'garage or area_1'),
     'The partition form must explain activation semantics, the fixed main area and valid ID examples.'
 );

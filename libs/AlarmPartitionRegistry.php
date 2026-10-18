@@ -9,6 +9,20 @@ use UnexpectedValueException;
 
 require_once __DIR__ . '/AlarmPartitionAssignmentException.php';
 
+/** Carries a user-correctable alarm-partition validation problem to the configuration form. */
+final class AlarmPartitionConfigurationException extends UnexpectedValueException
+{
+    public const DUPLICATE_ID = 'duplicate_id';
+
+    public function __construct(
+        public readonly string $reason,
+        public readonly string $partitionID,
+        string $message
+    ) {
+        parent::__construct($message);
+    }
+}
+
 /** Normalizes independently addressable alarm partitions. */
 final class AlarmPartitionRegistry
 {
@@ -48,7 +62,11 @@ final class AlarmPartitionRegistry
                 throw new UnexpectedValueException('Partition IDs must use 1 to 32 lowercase letters, digits, underscores or hyphens.');
             }
             if (isset($knownIDs[$id])) {
-                throw new UnexpectedValueException('Partition IDs must be unique.');
+                throw new AlarmPartitionConfigurationException(
+                    AlarmPartitionConfigurationException::DUPLICATE_ID,
+                    $id,
+                    sprintf('Partition ID "%s" is assigned more than once.', $id)
+                );
             }
             $knownIDs[$id] = true;
             if ($id === self::MAIN_PARTITION_ID) {

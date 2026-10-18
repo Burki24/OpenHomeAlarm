@@ -56,8 +56,12 @@
                         {
                             "type": "ValidationTextBox",
                             "name": "ID",
-                            "caption": "Partition ID",
+                            "caption": "Partition ID (unique)",
                             "validate": "^[a-z][a-z0-9_-]{0,31}$"
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "Each partition ID can be assigned only once. An ID that is already in use cannot be confirmed."
                         },
                         {
                             "type": "ValidationTextBox",
@@ -84,7 +88,7 @@
                             "caption": "Partition ID",
                             "name": "ID",
                             "width": "180px",
-                            "add": "area",
+                            "add": "",
                             "edit": {
                                 "type": "ValidationTextBox",
                                 "validate": "^[a-z][a-z0-9_-]{0,31}$"
@@ -112,7 +116,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "The area main is the fixed complete alarm system. Additional areas can be switched independently. Silent by default suppresses signal generators; the arming command can override it. Area IDs must start with a lowercase letter and may contain up to 32 lowercase letters, digits, underscores or hyphens (for example garage or area_1). The name is freely selectable."
+                    "caption": "The area main is the fixed complete alarm system. Additional areas can be switched independently. Silent by default suppresses signal generators; the arming command can override it. Every area ID must be unique, start with a lowercase letter and may contain up to 32 lowercase letters, digits, underscores or hyphens (for example garage or area_1). The name is freely selectable."
                 }
             ]
         },

@@ -201,7 +201,12 @@ In der Instanzkonfiguration unter **Alarmbereiche** auf **Hinzufügen** klicken 
 | Bereichs-ID | `garage` | Technischer Schlüssel für Zuordnungen und PHP-Befehle |
 | Name | `Garage` | Frei wählbarer Anzeigename |
 
-Danach **Änderungen übernehmen**. Der vorhandene Bereich `main` muss aktiv bleiben; er wird nicht ausgewählt, sondern ist fest die Gesamtanlage.
+Die Bereichs-ID muss in der Instanz eindeutig sein und darf nur einmal vergeben
+werden. Der sichtbare Name ist davon unabhängig und darf frei gewählt werden.
+Neue Bereichszeilen enthalten deshalb keine vorbelegte ID; tragen Sie bewusst
+eine noch nicht verwendete ID ein. Danach **Änderungen übernehmen**. Der
+vorhandene Bereich `main` muss aktiv bleiben; er wird nicht ausgewählt, sondern
+ist fest die Gesamtanlage.
 
 ![Alarmbereiche in der Instanzkonfiguration](../docs/images/openhomealarm-configuration-areas.png)
 
@@ -404,6 +409,7 @@ ordnet die gemeinsame responsive Darstellung sie automatisch untereinander an.
 - beginnt mit einem Kleinbuchstaben
 - danach sind Kleinbuchstaben, Ziffern, `_` und `-` zulässig
 - keine Leerzeichen, Großbuchstaben oder Umlaute
+- jede Bereichs-ID darf innerhalb der Instanz nur einmal vergeben werden
 
 Gültig sind beispielsweise `main`, `garage`, `erdgeschoss`, `bereich_1` und `aussen-2`. Ungültig sind `1`, `Garage`, `außen` und `mein bereich`. Da die ID in Zuordnungen und Skripten verwendet wird, sollte sie später nicht ohne Anpassung dieser Verwendungen geändert werden.
 

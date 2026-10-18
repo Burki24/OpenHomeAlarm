@@ -140,7 +140,8 @@ nicht scharf. Kachel und IPSView bieten eine Auswahl aller aktiven Bereiche.
 
 Die Bereichs-ID muss mit einem Kleinbuchstaben beginnen. Zulässig sind insgesamt
 1 bis 32 Kleinbuchstaben, Ziffern, `_` oder `-`, beispielsweise `main`, `garage`
-oder `bereich_1`. Der Anzeigename ist frei wählbar. Weitere Erläuterungen stehen
+oder `bereich_1`. Jede Bereichs-ID darf innerhalb einer Instanz nur einmal
+vergeben werden. Der Anzeigename ist frei wählbar. Weitere Erläuterungen stehen
 in der [vollständigen Anleitung](OpenHomeAlarm#alarmbereiche).
 
 ## Sicherheit
