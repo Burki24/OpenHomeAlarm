@@ -10,6 +10,15 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Kachel und IPSView zeigen im Systemprotokoll jetzt die neuesten 20 statt nur
+  6 Meldungen. Intern bleiben weiterhin bis zu 100 Ereignisse gespeichert und
+  vollständig über JSON, CSV und die öffentliche API verfügbar. Die Downloads
+  für Ereignishistorie, Diagnose und Konfigurationssicherung befinden sich nun
+  gebündelt im Instanzformular statt in Kachel oder IPSView. Die Anleitung
+  stellt außerdem klar, dass diese Downloads und der von der Backup-API
+  zurückgegebene JSON-Text nicht automatisch als Moduldateien auf dem
+  Symcon-Server abgelegt werden.
+
 - Die Spalte **Bereiche** der Sensorliste wird unmittelbar nach dem Bestätigen
   des Sensor-Editors aus den gewählten Bereichs-Checkboxen aktualisiert. Sie
   zeigt nicht mehr bis zum nächsten **Änderungen übernehmen** den vorherigen
@@ -122,9 +131,11 @@ beispielsweise `v1.109.0`.
   abgelehnte Schaltversuche sofort im Systemprotokoll statt erst nach der
   nächsten Bedienaktion.
 
-- Einträge des Systemprotokolls tragen bei zusätzlichen Alarmbereichen jetzt
-  den benutzerdefinierten Bereichsnamen, während Meldungen des Hauptbereichs
-  unverändert kompakt bleiben.
+- Das Systemprotokoll zeigt unabhängig vom ausgewählten Alarmbereich die
+  neuesten Ereignisse aller Bereiche und kennzeichnet auch den Hauptbereich
+  mit seinem konfigurierten Namen. Systemweit ausgeführte Alarmaktionen und
+  Benachrichtigungen werden nicht mehr fälschlich `main` zugeordnet;
+  identische Namen von Eskalationsstufe und Aktion erscheinen nur einmal.
 
 - Auf schmalen Kachel- und IPSView-Darstellungen stehen Diagnosezähler sowie
   JSON- und CSV-Export in einer eigenen umbrechenden Aktionszeile und werden

@@ -26,6 +26,10 @@ let ohaIPSViewPendingRequests = 0;
 let ohaPartitionLayoutFrame = null;
 let ohaCountdownDisplayTimer = null;
 let ohaCountdownDeadlineMilliseconds = 0;
+const ohaSystemEventTypes = new Set([
+    'alarm_action_executed',
+    'alarm_notification_sent'
+]);
 
 function ohaTranslate(text) {
     if (typeof translate === 'function') {
@@ -111,6 +115,23 @@ function ohaEventCaption(eventName) {
     return ohaTranslate(captions[eventName] ?? eventName);
 }
 
+function ohaEventSource(event) {
+    const source = typeof event?.Source === 'string' ? event.Source.trim() : '';
+    if (event?.Event !== 'alarm_action_executed' || source === '') {
+        return source;
+    }
+
+    const separator = source.indexOf(':');
+    if (separator < 0 || source.indexOf(':', separator + 1) >= 0) {
+        return source;
+    }
+
+    const stepName = source.slice(0, separator).trim();
+    const actionName = source.slice(separator + 1).trim();
+
+    return stepName !== '' && stepName === actionName ? actionName : source;
+}
+
 function ohaFormatEventTime(timestamp) {
     const numericTimestamp = Number(timestamp);
     if (!Number.isFinite(numericTimestamp) || numericTimestamp <= 0) {
@@ -194,11 +215,9 @@ function ohaSelectedState(state = ohaState) {
         ohaSelectedPartitionID = fallbackID;
     }
     const partition = state.Partitions[ohaSelectedPartitionID] ?? partitions[0];
-    const recentEvents = Array.isArray(partition.RecentEvents)
-        ? partition.RecentEvents
-        : (Array.isArray(state.RecentEvents)
-            ? state.RecentEvents.filter((event) => (event.PartitionID ?? fallbackID) === partition.ID)
-            : []);
+    const recentEvents = Array.isArray(state.RecentEvents)
+        ? state.RecentEvents
+        : (Array.isArray(partition.RecentEvents) ? partition.RecentEvents : []);
     const diagnosticItems = Array.isArray(state.Diagnostics?.Items)
         ? state.Diagnostics.Items.filter((item) => item.PartitionID === partition.ID)
         : [];
@@ -973,14 +992,14 @@ function ohaRenderEventHistory(state) {
         const copy = document.createElement('div');
         copy.className = 'oha-history-copy';
         const title = document.createElement('strong');
-        const partitionName = typeof event.PartitionID === 'string'
-            && event.PartitionID !== ''
-            && event.PartitionID !== state.DefaultPartition
-            ? ohaPartitionName(event.PartitionID, state)
-            : '';
-        title.textContent = [partitionName, ohaEventCaption(event.Event)].filter(Boolean).join(': ');
+        const scopeName = ohaSystemEventTypes.has(event.Event)
+            ? ohaTranslate('System')
+            : (typeof event.PartitionID === 'string' && event.PartitionID !== ''
+                ? ohaPartitionName(event.PartitionID, state)
+                : '');
+        title.textContent = [scopeName, ohaEventCaption(event.Event)].filter(Boolean).join(': ');
         const detail = document.createElement('span');
-        detail.textContent = [event.Source, ohaFormatEventTime(event.Time)].filter(Boolean).join(' · ');
+        detail.textContent = [ohaEventSource(event), ohaFormatEventTime(event.Time)].filter(Boolean).join(' · ');
         copy.append(title, detail);
         row.append(marker, copy);
         list.appendChild(row);
@@ -1204,10 +1223,6 @@ function ohaRenderStaticText() {
     document.getElementById('inlineCodepadClear').setAttribute('aria-label', ohaTranslate('Clear code entry'));
     document.getElementById('inlineCodepadConfirm').setAttribute('aria-label', ohaTranslate('Deactivate'));
     document.getElementById('inlineCodepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
-    document.getElementById('exportHistoryJson').setAttribute('aria-label', ohaTranslate('Export event history as JSON'));
-    document.getElementById('exportHistoryCsv').setAttribute('aria-label', ohaTranslate('Export event history as CSV'));
-    document.getElementById('exportDiagnosticsJson').setAttribute('aria-label', ohaTranslate('Export diagnostics as JSON'));
-    document.getElementById('exportDiagnosticsCsv').setAttribute('aria-label', ohaTranslate('Export diagnostics as CSV'));
 }
 
 function ohaRender() {

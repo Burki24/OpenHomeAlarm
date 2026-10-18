@@ -326,17 +326,14 @@ assertVisualization(str_contains($html, 'id="sensorManagementPanel"'), 'Visualiz
 assertVisualization(str_contains($html, 'id="eventHistoryPanel"'), 'Visualization must provide recent security events.');
 assertVisualization(str_contains($html, 'id="diagnosticsPanel"'), 'Visualization must provide shared input diagnostics.');
 assertVisualization(
-    str_contains($html, 'data-operation="ExportEventHistory" data-format="json"')
-        && str_contains($html, 'data-operation="ExportEventHistory" data-format="csv"'),
-    'The event history panel must offer direct JSON and CSV downloads.'
-);
-assertVisualization(
-    str_contains($html, 'data-operation="ExportDiagnostics" data-format="json"')
-        && str_contains($html, 'data-operation="ExportDiagnostics" data-format="csv"')
-        && str_contains($module, "case 'ExportDiagnostics':")
-        && str_contains($javascript, 'function ohaDownloadDiagnostics(interaction)')
-        && str_contains($javascript, "action === 'ExportEventHistory' || action === 'ExportDiagnostics'"),
-    'The diagnostics panel must download JSON and CSV through the shared visualization action bridge.'
+    !str_contains($html, 'data-operation="ExportEventHistory"')
+        && !str_contains($html, 'data-operation="ExportDiagnostics"')
+        && str_contains((string) $configurationForm, '"download": "openhomealarm-events.json"')
+        && str_contains((string) $configurationForm, '"download": "openhomealarm-events.csv"')
+        && str_contains((string) $configurationForm, '"download": "openhomealarm-diagnostics.json"')
+        && str_contains((string) $configurationForm, '"download": "openhomealarm-diagnostics.csv"')
+        && str_contains((string) $configurationForm, '"download": "openhomealarm-configuration-backup.json"'),
+    'Exports must be available in the instance form instead of the tile or IPSView.'
 );
 assertVisualization(
     str_contains($javascript, 'function ohaRenderSensorManagement(state)')
@@ -352,15 +349,20 @@ assertVisualization(
     'Every native visualization action must publish its final state so newly appended history entries appear immediately.'
 );
 assertVisualization(
-    str_contains($javascript, 'event.PartitionID !== state.DefaultPartition')
+    str_contains($javascript, 'const recentEvents = Array.isArray(state.RecentEvents)')
+        && str_contains($javascript, 'RecentEvents: recentEvents')
+        && str_contains($javascript, 'ohaSystemEventTypes.has(event.Event)')
+        && str_contains($javascript, "ohaTranslate('System')")
         && str_contains($javascript, 'ohaPartitionName(event.PartitionID, state)')
+        && str_contains($javascript, 'stepName !== \'\' && stepName === actionName ? actionName : source')
+        && str_contains($javascript, 'ohaEventSource(event)')
         && str_contains($javascript, "join(': ')"),
-    'Recent events from a non-default alarm area must include its user-defined area name.'
+    'The system log must use global events, label their scope and collapse legacy duplicate action names.'
 );
 assertVisualization(
-    str_contains($html, 'class="oha-operation-head oha-operation-head-actions"')
-        && preg_match('/@media \(max-width: 620px\).*?\.oha-operation-head-actions\s*\{.*?flex-direction:\s*column;.*?\.oha-operation-head-actions \.oha-history-actions\s*\{.*?width:\s*100%;.*?flex-wrap:\s*wrap;/s', $css) === 1,
-    'Narrow dashboard headers must wrap diagnostics and export actions instead of clipping the CSV control.'
+    str_contains($module, 'private const RECENT_EVENT_DISPLAY_LIMIT = 20;')
+        && substr_count($module, 'self::RECENT_EVENT_DISPLAY_LIMIT') === 2,
+    'The shared control state must expose the latest 20 global and partition-specific events.'
 );
 assertVisualization(
     str_contains($javascript, 'button.dataset.operationValue = String(value);')
@@ -382,13 +384,6 @@ assertVisualization(
         && str_contains($javascript, "ohaTranslate('No problems')")
         && str_contains($javascript, "ohaTranslate('%s problems')"),
     'Partition diagnostics must count active fault inputs and describe the problem count in plain language.'
-);
-assertVisualization(
-    str_contains($module, "case 'ExportEventHistory':")
-        && str_contains($javascript, 'function ohaDownloadEventHistory(interaction)')
-        && str_contains($javascript, 'new Blob([content], { type: mimeType })')
-        && str_contains($javascript, "ohaRequestAction(action, control.dataset.format ?? '')"),
-    'History downloads must flow through the visualization action bridge into a browser Blob without server-side files.'
 );
 assertVisualization(
     str_contains($javascript, 'function ohaPartitionName(partitionID, state = ohaState)')
@@ -536,10 +531,6 @@ foreach ([
     'Missing',
     'Unreadable',
     'Disabled',
-    'Export diagnostics as JSON',
-    'Export diagnostics as CSV',
-    'Export event history as JSON',
-    'Export event history as CSV',
     'Reset alarm actions',
     'Alarm triggered',
     'Reset alarm output',

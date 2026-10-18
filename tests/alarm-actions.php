@@ -883,7 +883,16 @@ $escalationInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $escalationInstance->TestSetPropertyInteger('EntryDelaySeconds', 0);
 $escalationInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode([
     ['Enabled' => true, 'Name' => 'Immediate', 'DelaySeconds' => 0, 'Action' => $immediateEscalationAction],
-    ['Enabled' => true, 'Name' => 'Delayed', 'DelaySeconds' => 60, 'Action' => $delayedEscalationAction]
+    [
+        'Enabled'      => true,
+        'Name'         => 'Delayed stage',
+        'DelaySeconds' => 60,
+        'Actions'      => [[
+            'Enabled' => true,
+            'Name'    => 'Delayed output',
+            'Action'  => $delayedEscalationAction
+        ]]
+    ]
 ], JSON_THROW_ON_ERROR));
 $escalationInstance->TestSetPropertyString(
     'Sensors',
@@ -903,8 +912,9 @@ $escalationActionEvents = array_values(array_filter(
     static fn (array $event): bool => ($event['Event'] ?? null) === 'alarm_action_executed'
 ));
 assertAlarmAction(
-    ($escalationActionEvents[0]['Source'] ?? null) === 'Immediate: Immediate',
-    'Every successfully executed escalation action must be written to the event history with step and action name.'
+    ($escalationActionEvents[0]['Source'] ?? null) === 'Immediate'
+    && ($escalationActionEvents[0]['PartitionID'] ?? null) === '',
+    'An alarm action whose step and action names match must be logged once as a system-wide event.'
 );
 assertAlarmAction(
     ($escalationInstance->TestTimers()['AlarmEscalation']['interval'] ?? 0) > 0,
@@ -928,6 +938,16 @@ assertAlarmAction(
     count($testActions) === 2
     && $testActions[1]['actionID'] === '{55555555-5555-5555-5555-555555555555}',
     'An elapsed delayed escalation step must execute through the public timer callback.'
+);
+$escalationHistory = json_decode($escalationInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+$escalationActionEvents = array_values(array_filter(
+    $escalationHistory,
+    static fn (array $event): bool => ($event['Event'] ?? null) === 'alarm_action_executed'
+));
+assertAlarmAction(
+    ($escalationActionEvents[0]['Source'] ?? null) === 'Delayed stage: Delayed output'
+    && ($escalationActionEvents[0]['PartitionID'] ?? null) === '',
+    'Different escalation step and action names must remain visible on one system-wide history entry.'
 );
 $escalationInstance->ProcessAlarmEscalation();
 assertAlarmAction(count($testActions) === 2, 'A delayed escalation step must remain exactly-once after execution.');
@@ -971,8 +991,9 @@ $pushEvents = array_values(array_filter(
     static fn (array $event): bool => ($event['Event'] ?? null) === 'alarm_notification_sent'
 ));
 assertAlarmAction(
-    ($pushEvents[0]['Source'] ?? null) === 'Symcon push notification',
-    'A successfully sent native push notification must be visible in the event history.'
+    ($pushEvents[0]['Source'] ?? null) === 'Symcon push notification'
+    && ($pushEvents[0]['PartitionID'] ?? null) === '',
+    'A successfully sent native push notification must be visible as a system-wide event in the history.'
 );
 $immediatePush->ProcessAlarmEscalation();
 assertAlarmAction(count($testPushNotifications) === 1, 'An immediate native push notification must be sent only once per alarm cycle.');

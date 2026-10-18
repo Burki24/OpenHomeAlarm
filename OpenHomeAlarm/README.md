@@ -1123,23 +1123,27 @@ Quittierung beendet keinen aktiven Alarm und schaltet keinen Bereich unscharf.
 
 ## 14. Ereignisprotokoll und Diagnose
 
-OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle.
+OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle. Kachel und IPSView zeigen davon die neuesten 20 Meldungen; die übrigen gespeicherten Einträge bleiben über API und Export verfügbar.
 
 Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbaren Ereignistyp, den zum Ereignis gehörenden `Mode` und `State`, die technische `PartitionID` sowie optional `Source`. Ältere gespeicherte Einträge ohne Bereichsangabe bleiben lesbar und erhalten eine leere `PartitionID`. Als Quelle werden bei Alarmen, Eingangsverzögerungen und Sensorüberbrückungen die betroffenen Sensornamen gespeichert; bei abgelehnten oder nach der Ausgangsverzögerung abgebrochenen Scharfschaltungen enthält `Source` die blockierenden Sensoren.
 
-Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, der Start einer Eingangs- oder Ausgangsverzögerung, Alarm, Rücksetzungen des Alarmausgangs, Unscharfschalten, temporäre Sensorüberbrückungen, Freigabe, Beginn, Abschluss und Ablauf eines Durchgangs, das Löschen des Alarmgedächtnisses, neu aufgetretene bzw. behobene Systemstörungen, erfolgreich ausgeführte Alarm-Eskalationsaktionen, versandte Symcon- beziehungsweise Pushover-Alarmbenachrichtigungen sowie abgewiesene Code-Eingaben und ausgelöste temporäre Code-Sperren. Bei einer Alarmaktion enthält `Source` den Namen der Eskalationsstufe und der Aktion. Ein technischer Ausführungsfehler wird weiterhin im Debug-Protokoll gemeldet und nicht fälschlich als erfolgreich ausgeführt protokolliert. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
+Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, der Start einer Eingangs- oder Ausgangsverzögerung, Alarm, Rücksetzungen des Alarmausgangs, Unscharfschalten, temporäre Sensorüberbrückungen, Freigabe, Beginn, Abschluss und Ablauf eines Durchgangs, das Löschen des Alarmgedächtnisses, neu aufgetretene bzw. behobene Systemstörungen, erfolgreich ausgeführte Alarm-Eskalationsaktionen, versandte Symcon- beziehungsweise Pushover-Alarmbenachrichtigungen sowie abgewiesene Code-Eingaben und ausgelöste temporäre Code-Sperren. Bei einer Alarmaktion enthält `Source` den Namen der Eskalationsstufe und der Aktion; sind beide Namen identisch, wird der Name nur einmal gespeichert. Alarmaktionen und Alarmbenachrichtigungen werden einmal systemweit ausgeführt und deshalb mit einer leeren `PartitionID` protokolliert, statt sie fälschlich `main` zuzuordnen. Ein technischer Ausführungsfehler wird weiterhin im Debug-Protokoll gemeldet und nicht fälschlich als erfolgreich ausgeführt protokolliert. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
 
-`OHA_GetEventHistory($InstanzID)` liefert das Protokoll als JSON. `OHA_ExportEventHistory()` exportiert es als JSON oder CSV und kann den Zeitraum sowie den Ereignistyp filtern. Die Schaltflächen **JSON** und **CSV** im Systemprotokoll laden den vollständig gespeicherten Bestand direkt aus der Kachel oder IPSView herunter. Mit `OHA_ClearEventHistory($InstanzID)` kann das Protokoll gezielt geleert werden. Das Ereignisprotokoll ist ein Bedien- und Diagnoseprotokoll und kein manipulationssicheres Audit-Log.
+`OHA_GetEventHistory($InstanzID)` liefert das Protokoll als JSON. `OHA_ExportEventHistory()` exportiert es als JSON oder CSV und kann den Zeitraum sowie den Ereignistyp filtern. Im Instanzformular steht unter **Exporte und Konfigurationssicherung** der Download des vollständig gespeicherten Bestands als JSON oder CSV bereit. Kachel und IPSView zeigen das Protokoll nur an und enthalten bewusst keine Exportfunktionen. Die Datei wird von der Verwaltungskonsole als Download gespeichert; OpenHomeAlarm legt keine eigene Protokolldatei auf dem Symcon-Server an. Mit `OHA_ClearEventHistory($InstanzID)` kann das Protokoll gezielt geleert werden. Das Ereignisprotokoll ist ein Bedien- und Diagnoseprotokoll und kein manipulationssicheres Audit-Log.
 
 Die kompakten Statuskarten stehen unmittelbar über dem Systemprotokoll. Die
-neuesten Ereignisse werden zuerst angezeigt; **JSON** und **CSV** exportieren
-den vollständigen gespeicherten Bestand und nicht nur die sichtbaren Zeilen.
+neuesten 20 Ereignisse aller Alarmbereiche werden unabhängig vom aktuell für die
+Bedienung ausgewählten Bereich zuerst angezeigt. Bereichsbezogene Einträge
+nennen den konfigurierten Bereichsnamen einschließlich des Hauptbereichs;
+systemweit ausgeführte Alarmaktionen und Benachrichtigungen sind mit
+**System** gekennzeichnet. Der vollständige gespeicherte Bestand kann im
+Instanzformular heruntergeladen werden.
 
 ![Statuskarten und Sicherheits-Ereignisprotokoll in der Kachel](../docs/images/openhomealarm-tile-history.png)
 
 Die Diagnoseansicht führt alle konfigurierten Sensoren und Störungseingänge mit Alarmbereich, Anzeigename und den Zeitpunkten der letzten Änderung und Aktualisierung auf. Die Variablen-ID dient intern der Zuordnung und steht nur im strukturierten Diagnose-Snapshot für technische Weiterverarbeitung. Mögliche Zustände sind **bereit**, **ausgelöst**, **fehlend**, **unlesbar** und **deaktiviert**. Deaktivierte Einträge werden in Kachel und IPSView bewusst neutral grau dargestellt; ihre Farbe ist eine feste semantische Statusrolle und keine eigene Benutzereinstellung. Die Anzeige im Kopf nennt ausdrücklich **Keine Probleme**, **1 Problem** oder die jeweilige Anzahl **Probleme**. Gezählt werden fehlende oder unlesbare Eingänge sowie ausgelöste Störungseingänge des angezeigten Alarmbereichs. Ein ausgelöster normaler Alarmsensor wird angezeigt, erhöht diese technische Problemanzahl aber nicht. Kachel, IPSView und `OHA_GetDiagnostics()` verwenden denselben versionierten Diagnose-Snapshot.
 
-Die Diagnose kann über die Schaltflächen **JSON** und **CSV** oder mit `OHA_ExportDiagnostics()` heruntergeladen werden. JSON enthält den vollständigen Snapshot einschließlich Zusammenfassung und Erstellungszeitpunkt. CSV enthält pro Eingang eine maschinenlesbare Zeile in derselben Reihenfolge wie die Diagnoseansicht. Rohwerte, Unscharfschaltcodes und andere Geheimnisse sind nicht Bestandteil des Diagnoseexports.
+Die Diagnose kann im Instanzformular unter **Exporte und Konfigurationssicherung** oder mit `OHA_ExportDiagnostics()` als JSON beziehungsweise CSV heruntergeladen werden. JSON enthält den vollständigen Snapshot einschließlich Zusammenfassung und Erstellungszeitpunkt. CSV enthält pro Eingang eine maschinenlesbare Zeile in derselben Reihenfolge wie die Diagnoseansicht. Rohwerte, Unscharfschaltcodes und andere Geheimnisse sind nicht Bestandteil des Diagnoseexports.
 
 Für eine manuelle Integritätsprüfung kann ein Symcon-Skript folgenden Befehl
 verwenden:
@@ -1153,15 +1157,16 @@ Quellen neu ein und aktualisiert Bereitschaft, Diagnose und Systemstörung.
 
 ## 15. Konfigurationssicherung
 
-`OHA_ExportConfigurationBackup($InstanzID)` exportiert sämtliche registrierten Moduleinstellungen als versioniertes, menschenlesbares JSON. Dazu gehören auch Unscharfschalt- und Benutzercodes. Der Export trägt deshalb die Kennzeichnung `ContainsSecrets: true` und muss vertraulich gespeichert sowie ausschließlich über einen geschützten Übertragungsweg weitergegeben werden. Laufzeitzustände, Timer, Alarmgedächtnis und Ereignishistorie werden nicht gesichert.
+`OHA_ExportConfigurationBackup($InstanzID)` liefert sämtliche registrierten Moduleinstellungen als versioniertes, menschenlesbares JSON zurück. Im Instanzformular kann dieser Inhalt unter **Exporte und Konfigurationssicherung** als Datei heruntergeladen werden. Die Funktion selbst erzeugt weder automatisch noch an einem festen Ort eine Backupdatei; ein aufrufendes Skript muss den zurückgegebenen Text selbst an einem geschützten Ort speichern. Dazu gehören auch Unscharfschalt- und Benutzercodes. Der Export trägt deshalb die Kennzeichnung `ContainsSecrets: true` und muss vertraulich gespeichert sowie ausschließlich über einen geschützten Übertragungsweg weitergegeben werden. Laufzeitzustände, Timer, Alarmgedächtnis und Ereignishistorie werden nicht gesichert.
 
 `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` stellt eine validierte Sicherung nur wieder her, wenn alle Alarmbereiche vollständig unscharf sind. Format, Sicherungsversion, Modul-ID, Eigenschaftsnamen und Datentypen werden vor jeder Änderung geprüft. Fremde oder beschädigte Sicherungen werden ohne Konfigurationsänderung abgewiesen. Scheitert das Anwenden einer bereits validierten Sicherung, setzt das Modul die vorherige Konfiguration zurück. Fehlt in einer älteren Sicherung eine erst später eingeführte Eigenschaft, behält diese ihren aktuellen Wert.
 
 Die Sicherung enthält keine Laufzeitzustände, Timer, Alarmgedächtnisse oder
 Ereignishistorie. Sie kann jedoch Unscharfschaltcodes, Pushover-Zugangsdaten und
-das IPSView-Zugriffstoken enthalten. Speichern und übertragen Sie die Datei
-daher wie ein Kennwort und veröffentlichen Sie sie nicht in Forum, Issue oder
-Repository.
+das IPSView-Zugriffstoken enthalten. Speichern und übertragen Sie das erzeugte
+JSON daher wie ein Kennwort und veröffentlichen Sie es nicht in Forum, Issue
+oder Repository. OpenHomeAlarm verwaltet keine automatische Sicherungsrotation
+und keinen eigenen Backupordner.
 
 ## 16. Kachel und IPSView
 

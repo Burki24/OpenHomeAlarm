@@ -141,6 +141,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_ALARM_NOTIFICATION_SENT = 'alarm_notification_sent';
 
     private const EVENT_HISTORY_LIMIT = 100;
+    private const RECENT_EVENT_DISPLAY_LIMIT = 20;
     private const DEFAULT_DISARM_MAX_ATTEMPTS = 5;
     private const DEFAULT_DISARM_LOCKOUT_SECONDS = 60;
     private const MAX_DISARM_ATTEMPTS = 20;
@@ -1059,7 +1060,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             ],
             'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors),
             'Passage'         => $this->BuildControlPassageState($defaultPartition['ID'], $sensors),
-            'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, 6)
+            'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, self::RECENT_EVENT_DISPLAY_LIMIT)
         ];
         $partitionPayload = [];
         $partitionRuntime = $this->ReadPartitionRuntime();
@@ -1132,7 +1133,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $current['RecentEvents'] = array_slice(array_values(array_filter(
                 $this->ReadEventHistory(),
                 static fn (array $event): bool => $event['PartitionID'] === $partition['ID']
-            )), 0, 6);
+            )), 0, self::RECENT_EVENT_DISPLAY_LIMIT);
             $partitionPayload[$partition['ID']] = array_merge([
                 'ID'      => $partition['ID'],
                 'Name'    => $partition['Name'],
@@ -2299,7 +2300,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             if ($this->PostConfiguredAlarmNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO))) {
                 $this->AppendEvent(
                     self::EVENT_ALARM_NOTIFICATION_SENT,
-                    $this->Translate('Symcon push notification')
+                    $this->Translate('Symcon push notification'),
+                    null,
+                    null,
+                    ''
                 );
             }
         }
@@ -2314,7 +2318,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             if ($this->PostConfiguredPushoverNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO))) {
                 $this->AppendEvent(
                     self::EVENT_ALARM_NOTIFICATION_SENT,
-                    $this->Translate('Pushover notification')
+                    $this->Translate('Pushover notification'),
+                    null,
+                    null,
+                    ''
                 );
             }
         }
@@ -2356,9 +2363,16 @@ class OpenHomeAlarm extends IPSModuleStrict
                     0
                 );
             } else {
+                $stepName = trim($due['Step']['Name']);
+                $actionName = trim($due['Action']['Name']);
                 $this->AppendEvent(
                     self::EVENT_ALARM_ACTION_EXECUTED,
-                    sprintf('%s: %s', $due['Step']['Name'], $due['Action']['Name'])
+                    $stepName === $actionName
+                        ? $actionName
+                        : sprintf('%s: %s', $stepName, $actionName),
+                    null,
+                    null,
+                    ''
                 );
                 if ($due['Action']['SignalGenerator'] && $due['Action']['ResetMode'] !== 0) {
                     $this->SetSignalGeneratorActive(true);

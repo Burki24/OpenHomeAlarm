@@ -1934,5 +1934,69 @@
             "caption": "24/7 sensors trigger immediately as normal alarms in every system state. Arming modes, entry/exit delays and temporary passage do not apply."
         }
     ],
-    "actions": []
+    "actions": [
+        {
+            "type": "ExpansionPanel",
+            "caption": "Exports and configuration backup",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Exports are downloaded by the administration console. OpenHomeAlarm does not create log or backup files automatically on the Symcon server."
+                },
+                {
+                    "type": "Label",
+                    "caption": "Event history (up to 100 stored entries)"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Button",
+                            "caption": "Download event history as JSON",
+                            "download": "openhomealarm-events.json",
+                            "onClick": "echo 'data:application/json;charset=utf-8;base64,' . base64_encode(OHA_ExportEventHistory($id, 'json'));"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Download event history as CSV",
+                            "download": "openhomealarm-events.csv",
+                            "onClick": "echo 'data:text/csv;charset=utf-8;base64,' . base64_encode(\"\\xEF\\xBB\\xBF\" . OHA_ExportEventHistory($id, 'csv'));"
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "System diagnostics"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Button",
+                            "caption": "Download diagnostics as JSON",
+                            "download": "openhomealarm-diagnostics.json",
+                            "onClick": "echo 'data:application/json;charset=utf-8;base64,' . base64_encode(OHA_ExportDiagnostics($id, 'json'));"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Download diagnostics as CSV",
+                            "download": "openhomealarm-diagnostics.csv",
+                            "onClick": "echo 'data:text/csv;charset=utf-8;base64,' . base64_encode(\"\\xEF\\xBB\\xBF\" . OHA_ExportDiagnostics($id, 'csv'));"
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Configuration backup may contain codes and access tokens. Store it like a password."
+                },
+                {
+                    "type": "Button",
+                    "caption": "Download configuration backup",
+                    "download": "openhomealarm-configuration-backup.json",
+                    "onClick": "echo 'data:application/json;charset=utf-8;base64,' . base64_encode(OHA_ExportConfigurationBackup($id));"
+                }
+            ]
+        }
+    ]
 }
