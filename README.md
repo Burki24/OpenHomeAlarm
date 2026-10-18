@@ -94,8 +94,17 @@ Für einen ausdrücklich zugelassenen normalen Sensor kann eine vertrauenswürdi
 Automation einen einmaligen Durchgang freigeben, ohne den Bereich
 unscharfzuschalten: `OHA_GrantPassage(12345, 23456, 90)` für den Hauptbereich
 oder `OHA_GrantPassagePartition(12345, 'garage', 23456, 90)` für einen einzelnen
-Bereich. Die Freigabe endet nach Öffnen und Schließen oder spätestens nach der
-Frist; andere und 24/7-Sensoren bleiben aktiv.
+Bereich. Derselbe Sensor kann mit
+`OHA_GrantPassagePartitions(12345, ['eg', 'kg'], 23456, 90)` atomar in mehreren
+gleichzeitig scharfen Bereichen freigegeben werden. Die Freigabe endet nach
+Öffnen und Schließen oder spätestens nach der Frist; andere und 24/7-Sensoren
+bleiben aktiv.
+
+Hat ein vertrauenswürdiges Skript eine Berechtigung bereits selbst geprüft,
+kann es die Gesamtanlage mit protokollierter Quelle unscharf schalten, zum
+Beispiel `OHA_DisarmWithSource(12345, 'eKey Haustür')`. Die Quellenbezeichnung
+dient ausschließlich dem Ereignisprotokoll und ersetzt keine
+Berechtigungsprüfung.
 
 Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
 `OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,

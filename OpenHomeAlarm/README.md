@@ -824,6 +824,9 @@ OHA_GrantPassage(12345, 23456, 90);
 
 // Einzelnen Alarmbereich freigeben
 OHA_GrantPassagePartition(12345, 'garage', 23456, 90);
+
+// Denselben Sensor gemeinsam in zwei scharfen Bereichen freigeben
+OHA_GrantPassagePartitions(12345, ['eg', 'kg'], 23456, 90);
 ```
 
 Ohne Fristparameter gelten 60 Sekunden. Zulässig sind 1 bis 3600 Sekunden.
@@ -1340,6 +1343,8 @@ müssen durch die IDs der eigenen Installation ersetzt werden.
 | `$BereichID` | Technische Bereichs-ID wie `main` oder `garage`; keine Objekt-ID |
 | `$BereichIDs` | Liste technischer Bereichs-IDs, beispielsweise `['garage', 'schuppen']`; `main` hat je nach dokumentiertem Befehl die Bedeutung Gesamtanlage oder ausdrücklich genannter Hauptbereich |
 | `$VariableID` | Objekt-ID der als Sensor konfigurierten Symcon-Variable, beispielsweise `23456` |
+| `$Quelle` | Kurze, verständliche Bezeichnung einer bereits extern geprüften Berechtigung, beispielsweise `eKey Haustür` |
+| `$Frist` | Dauer einer temporären Durchgangsfreigabe in Sekunden; zulässig sind `1` bis `3600`, Standardwert ist `60` |
 | `$Modus` | `home`, `away` oder `night` |
 | `$Verzögerung` | `null` verwendet die konfigurierte Ausgangsverzögerung, `0` schaltet sofort, ein positiver Wert überschreibt sie einmalig |
 | `$Still` | `null` verwendet die Bereichsvorgabe, `true` schaltet still, `false` normal |
@@ -1401,6 +1406,16 @@ berechtigtes Nuki-Ereignis. Erst nach dieser Prüfung darf das Skript die
 Funktion mit einer kurzen, verständlichen Quellenbezeichnung aufrufen. Ein
 beliebiger Text in `$Quelle` berechtigt nicht zum Unscharfschalten.
 
+```php
+// Das aufrufende Skript hat die eKey-Berechtigung bereits sicher geprüft.
+// OpenHomeAlarm verwendet den Text ausschließlich als Protokollquelle.
+$success = OHA_DisarmWithSource(12345, 'eKey Haustür');
+
+if (!$success) {
+    throw new RuntimeException('Die vertrauenswürdige Unscharfschaltung wurde abgelehnt.');
+}
+```
+
 Im von Symcon erzeugten `OHA_*`-Wrapper muss `$Verzögerung` bei den
 Scharfschaltbefehlen ausdrücklich übergeben werden. Verwenden Sie `null`, wenn
 die konfigurierte Ausgangsverzögerung gelten soll:
@@ -1441,6 +1456,36 @@ Für alle drei Durchgangsbefehle wird `Frist` in Sekunden angegeben. Der
 Standardwert beträgt `60`, der zulässige Bereich `1` bis `3600`. Ein
 ungültiger Wert oder der Versuch, eine laufende Freigabe zu verlängern, liefert
 `false`.
+
+```php
+// Hauptbereich main für höchstens 90 Sekunden freigeben
+$mainGranted = OHA_GrantPassage(12345, 23456, 90);
+
+// Denselben Sensor nur im Bereich garage freigeben
+$garageGranted = OHA_GrantPassagePartition(
+    12345,
+    'garage',
+    23456,
+    90
+);
+
+// Denselben Sensor atomar in zwei gleichzeitig scharfen Bereichen freigeben
+$areasGranted = OHA_GrantPassagePartitions(
+    12345,
+    ['eg', 'kg'],
+    23456,
+    90
+);
+
+if (!$areasGranted) {
+    throw new RuntimeException('Die gemeinsame Durchgangsfreigabe wurde abgelehnt.');
+}
+```
+
+Die Rückgabe `false` bedeutet, dass keine Freigabe erteilt wurde. Bei
+`OHA_GrantPassagePartitions()` gilt dies atomar für die gesamte Liste: Ist nur
+ein Bereich oder eine Zuordnung unzulässig, wird auch in den übrigen Bereichen
+keine Teilfreigabe angelegt.
 
 Manuelle Überbrückung und Durchgangsfreigabe haben unterschiedliche Aufgaben:
 Eine Überbrückung wird unscharf vorbereitet und gilt für den folgenden
