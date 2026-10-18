@@ -214,6 +214,11 @@ ist fest die Gesamtanlage.
 
 Den gewünschten Eintrag unter **Sensoren und Auslöser** bearbeiten. Im Editor werden alle aktiven Alarmbereiche als Checkboxen angezeigt. **Garage** aktivieren und die Änderungen übernehmen. Ein Sensor kann gleichzeitig mehreren Bereichen zugeordnet werden; sein Zustand beeinflusst dann die Bereitschaft jedes zugeordneten Bereichs und löst nur in den jeweils scharfgeschalteten beziehungsweise bei 24/7-Sensoren in allen zugeordneten Bereichen aus. Neue Sensoren sind automatisch `main` zugeordnet. Störungseingänge bleiben einem einzelnen Bereich zugeordnet und verwenden bei neuen Einträgen ebenfalls automatisch `main`.
 
+Nach dem Bestätigen des Sensor-Editors zeigt die Spalte **Bereiche** die aktuell
+gewählten Alarmbereiche sofort an. Dafür ist kein vorheriges **Änderungen
+übernehmen** erforderlich; gespeichert wird die Zuordnung weiterhin erst beim
+Übernehmen der gesamten Instanzkonfiguration.
+
 Wird ein noch zugeordneter Zusatzbereich versehentlich gelöscht oder
 deaktiviert, bleibt diese verwaiste Zuordnung im Sensor-Editor als markierte
 Checkbox **Fehlender Alarmbereich: _ID_** sichtbar. Sie kann dort direkt

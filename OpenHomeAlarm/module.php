@@ -2870,17 +2870,23 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'Default' => false
             ];
         }
+        $partitionNamesOnChange = $this->SensorPartitionNamesOnChangeScript(
+            array_column($partitions, 'ID')
+        );
         $partitionFields = [];
+        $partitionSelectionRow = ['PartitionID' => $legacyPartitionID];
         foreach ($partitions as $partition) {
             $selected = $hasExplicitAssignments
                 ? $this->ReadSensorEditBoolean($sensor, 'Partition_' . $partition['ID'], false)
                 : $partition['ID'] === $legacyPartitionID;
+            $partitionSelectionRow['Partition_' . $partition['ID']] = $selected;
             $partitionFields[] = [
-                'type'    => 'CheckBox',
-                'name'    => 'Partition_' . $partition['ID'],
-                'caption' => $partition['Name'],
-                'value'   => $selected,
-                'enabled' => $partition['Enabled'] || $selected
+                'type'     => 'CheckBox',
+                'name'     => 'Partition_' . $partition['ID'],
+                'caption'  => $partition['Name'],
+                'value'    => $selected,
+                'enabled'  => $partition['Enabled'] || $selected,
+                'onChange' => $partitionNamesOnChange
             ];
         }
         $hasVariable = $this->IsExistingVariable($variableID);
@@ -2908,6 +2914,12 @@ class OpenHomeAlarm extends IPSModuleStrict
                 'type'    => 'ValidationTextBox',
                 'name'    => 'PartitionID',
                 'value'   => $legacyPartitionID,
+                'visible' => false
+            ],
+            [
+                'type'    => 'ValidationTextBox',
+                'name'    => 'PartitionNames',
+                'value'   => $this->SensorPartitionNames($partitionSelectionRow),
                 'visible' => false
             ],
             [
@@ -3282,6 +3294,33 @@ class OpenHomeAlarm extends IPSModuleStrict
                 ? 'This variable has no selectable states. Enter the raw normal value.'
                 : 'This variable has no selectable states. Enter the raw trigger value.')
         );
+    }
+
+    /** Updates the readable alarm-area summary before the sensor row is applied. */
+    public function UpdateSensorPartitionNamesForm(string $partitionSelectionJson): void
+    {
+        try {
+            $selection = json_decode($partitionSelectionJson, true, 64, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return;
+        }
+        if (!is_array($selection) || array_is_list($selection)) {
+            return;
+        }
+
+        $sensor = [];
+        foreach ($selection as $partitionID => $selected) {
+            if (!is_string($partitionID) || !is_bool($selected)
+                || preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $partitionID) !== 1) {
+                continue;
+            }
+            $sensor['Partition_' . $partitionID] = $selected;
+        }
+        if ($sensor === []) {
+            return;
+        }
+
+        $this->UpdateFormField('PartitionNames', 'value', $this->SensorPartitionNames($sensor));
     }
 
     /** Removes arming-mode and delay choices when a sensor monitors around the clock. */
@@ -7034,6 +7073,24 @@ PHP,
         }
 
         return implode(', ', $names);
+    }
+
+    /** @param list<string> $partitionIDs */
+    private function SensorPartitionNamesOnChangeScript(array $partitionIDs): string
+    {
+        $selectionExpressions = [];
+        foreach ($partitionIDs as $partitionID) {
+            $selectionExpressions[] = sprintf(
+                '%s => ($GLOBALS[%s] ?? false)',
+                var_export($partitionID, true),
+                var_export('Partition_' . $partitionID, true)
+            );
+        }
+
+        return sprintf(
+            'OHA_UpdateSensorPartitionNamesForm($id, json_encode([%s]));',
+            implode(', ', $selectionExpressions)
+        );
     }
 
     /**

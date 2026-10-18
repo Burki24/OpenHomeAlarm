@@ -1031,6 +1031,60 @@ assertSensorModel(
     'Sensor editor must select the default area and persist its assignment with a checkbox.'
 );
 
+$partitionDisplayInstance = new OpenHomeAlarm();
+$partitionDisplayInstance->Create();
+$partitionDisplayInstance->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main area'],
+    ['Enabled' => true, 'ID' => 'garten-1', 'Name' => 'Garden 1']
+], JSON_THROW_ON_ERROR));
+$partitionDisplayForm = $partitionDisplayInstance->GetSensorEditForm(new IPSList([
+    'PartitionID'    => 'main',
+    'Partition_main' => true,
+    'VariableID'     => 12345,
+    'TriggerValue'   => 'true'
+]));
+$partitionDisplayFields = [];
+foreach ($partitionDisplayForm as $field) {
+    if (isset($field['name'])) {
+        $partitionDisplayFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($partitionDisplayFields['PartitionNames']['visible'] ?? true) === false
+        && ($partitionDisplayFields['PartitionNames']['value'] ?? null) === 'Main area'
+        && str_contains(
+            $partitionDisplayFields['Partition_main']['onChange'] ?? '',
+            'OHA_UpdateSensorPartitionNamesForm'
+        )
+        && str_contains(
+            $partitionDisplayFields['Partition_garten-1']['onChange'] ?? '',
+            '$GLOBALS[\'Partition_garten-1\']'
+        ),
+    'The sensor editor must keep a live non-persistent area-name summary for the List row.'
+);
+$partitionDisplayInstance->TestClearFormUpdates();
+$partitionDisplayInstance->UpdateSensorPartitionNamesForm(json_encode([
+    'main'     => false,
+    'garten-1' => true
+], JSON_THROW_ON_ERROR));
+assertSensorModel(
+    $partitionDisplayInstance->TestFormUpdates() === [[
+        'field'     => 'PartitionNames',
+        'parameter' => 'value',
+        'value'     => 'Garden 1'
+    ]],
+    'Changing the selected area must immediately update the readable List summary before ApplyChanges.'
+);
+$partitionDisplayInstance->TestClearFormUpdates();
+$partitionDisplayInstance->UpdateSensorPartitionNamesForm(json_encode([
+    'main'     => true,
+    'garten-1' => true
+], JSON_THROW_ON_ERROR));
+assertSensorModel(
+    ($partitionDisplayInstance->TestFormUpdates()[0]['value'] ?? null) === 'Main area, Garden 1',
+    'The immediate List summary must include every selected area in configuration order.'
+);
+
 $orphanedEditForm = $instance->GetSensorEditForm(new IPSList([
     'PartitionID'               => 'schuppen',
     'Partition_main'            => false,

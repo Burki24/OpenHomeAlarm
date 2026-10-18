@@ -10,6 +10,11 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Spalte **Bereiche** der Sensorliste wird unmittelbar nach dem Bestätigen
+  des Sensor-Editors aus den gewählten Bereichs-Checkboxen aktualisiert. Sie
+  zeigt nicht mehr bis zum nächsten **Änderungen übernehmen** den vorherigen
+  beziehungsweise standardmäßigen Hauptbereich an.
+
 - Neue Alarmbereichszeilen erhalten keine pauschale Bereichs-ID `area` mehr.
   Doppelt vergebene Bereichs-IDs werden weiterhin sicher abgewiesen; Status 201
   nennt jetzt die konkrete doppelte ID und den erforderlichen Korrekturschritt.
