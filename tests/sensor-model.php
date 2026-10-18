@@ -78,8 +78,9 @@ class IPSModuleStrict
         return true;
     }
 
-    protected function SendDebug(string $message, string $data, int $format): void
+    protected function SendDebug(string $message, string $data, int $format): bool
     {
+        return true;
     }
 
     protected function RegisterPropertyString(string $name, string $default): void

@@ -50,6 +50,7 @@ require_once __DIR__ . '/../libs/AlarmTimerSchedule.php';
 require_once __DIR__ . '/../libs/AlarmTriggerValue.php';
 require_once __DIR__ . '/../libs/AlarmVisualizationAdapter.php';
 require_once __DIR__ . '/../libs/helper/ConfigurationFormHelper.php';
+require_once __DIR__ . '/../libs/helper/DebugHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewHTMLPageHelper.php';
 require_once __DIR__ . '/../libs/helper/IPSViewStyleConfigurationHelper.php';
 require_once __DIR__ . '/../libs/helper/PersistentJsonCacheHelper.php';
@@ -67,6 +68,7 @@ require_once __DIR__ . '/../libs/helper/VisualizationThemeConfigurationHelper.ph
 class OpenHomeAlarm extends IPSModuleStrict
 {
     use \Burki24\SymconModuleHelper\ConfigurationFormHelper;
+    use \Burki24\SymconModuleHelper\DebugHelper;
     use \Burki24\SymconModuleHelper\IPSViewHTMLPageHelper;
     use \Burki24\SymconModuleHelper\IPSViewStyleConfigurationHelper;
     use \Burki24\SymconModuleHelper\PersistentJsonCacheHelper;
@@ -334,507 +336,539 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const IDENT_LAST_FAULT_TIME = 'LastFaultTime';
     private const IDENT_IPSVIEW_ALARM = 'IPSViewAlarm';
 
+    /** @var list<int> */
+    private array $alarmDebugCalls = [];
+    private string $alarmDebugOperation = '';
+    private int $alarmDebugSequence = 0;
+
     /**
      * Registers the persistent configuration, runtime state, timers and status variables.
      */
     public function Create(): void
     {
-        parent::Create();
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            parent::Create();
 
-        $this->SetVisualizationType(1);
+            $this->SetVisualizationType(1);
 
-        $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
-        $this->RegisterPropertyString(self::PROPERTY_PARTITIONS, self::DEFAULT_PARTITIONS_JSON);
-        $this->RegisterPropertyString(self::PROPERTY_FAULT_INPUTS, '[]');
-        $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
-        $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
-        $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_START_ACTION, 'false');
-        $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_ACTION, 'false');
-        $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_END_ACTION, 'false');
-        $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
-        $this->RegisterBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM, true);
-        $this->RegisterPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS, '[]');
-        $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE, 0);
-        $this->RegisterPropertyString(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO, 'always');
-        $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID, 0);
-        $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS, 30);
-        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_NOTIFICATION_MODE, 0);
-        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO, 'always');
-        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN, '');
-        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_USER_KEY, '');
-        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_DEVICE, '');
-        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_PRIORITY, 1);
-        $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_SOUND, '');
-        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_DELAY_SECONDS, 30);
-        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS, 60);
-        $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS, 1800);
-        $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, 'false');
-        $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, 'false');
-        $this->RegisterPropertyString(self::PROPERTY_FULLY_DISARMED_ACTION, 'false');
-        $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
-        $this->RegisterPropertyString(self::PROPERTY_DISARM_USERS, '[]');
-        $this->RegisterPropertyInteger(
-            self::PROPERTY_DISARM_MAX_ATTEMPTS,
-            self::DEFAULT_DISARM_MAX_ATTEMPTS
-        );
-        $this->RegisterPropertyInteger(
-            self::PROPERTY_DISARM_LOCKOUT_SECONDS,
-            self::DEFAULT_DISARM_LOCKOUT_SECONDS
-        );
-        $this->RegisterPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS, 60);
-        $this->RegisterPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES, '[]');
-        $this->RegisterPropertyString(self::PROPERTY_HOME_MODE_LABEL, '');
-        $this->RegisterPropertyString(self::PROPERTY_AWAY_MODE_LABEL, '');
-        $this->RegisterPropertyString(self::PROPERTY_NIGHT_MODE_LABEL, '');
-        $this->RegisterBooleanProperty(self::PROPERTY_SHOW_HOME_MODE, true);
-        $this->RegisterBooleanProperty(self::PROPERTY_SHOW_AWAY_MODE, true);
-        $this->RegisterBooleanProperty(self::PROPERTY_SHOW_NIGHT_MODE, true);
-        $this->RegisterIPSViewHTMLPageProperties();
-        $this->RegisterIPSViewStyleProperties();
-        $this->RegisterVisualizationThemeProperties();
+            $this->RegisterPropertyString(self::PROPERTY_SENSORS, '[]');
+            $this->RegisterPropertyString(self::PROPERTY_PARTITIONS, self::DEFAULT_PARTITIONS_JSON);
+            $this->RegisterPropertyString(self::PROPERTY_FAULT_INPUTS, '[]');
+            $this->RegisterPropertyInteger(self::PROPERTY_EXIT_DELAY_SECONDS, 30);
+            $this->RegisterPropertyInteger(self::PROPERTY_ENTRY_DELAY_SECONDS, 30);
+            $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_START_ACTION, 'false');
+            $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_ACTION, 'false');
+            $this->RegisterPropertyString(self::PROPERTY_COUNTDOWN_END_ACTION, 'false');
+            $this->RegisterPropertyInteger(self::PROPERTY_ALARM_DURATION_SECONDS, 0);
+            $this->RegisterBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM, true);
+            $this->RegisterPropertyString(self::PROPERTY_ALARM_ESCALATION_STEPS, '[]');
+            $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_MODE, 0);
+            $this->RegisterPropertyString(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO, 'always');
+            $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID, 0);
+            $this->RegisterPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_DELAY_SECONDS, 30);
+            $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_NOTIFICATION_MODE, 0);
+            $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO, 'always');
+            $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN, '');
+            $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_USER_KEY, '');
+            $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_DEVICE, '');
+            $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_PRIORITY, 1);
+            $this->RegisterPropertyString(self::PROPERTY_PUSHOVER_SOUND, '');
+            $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_DELAY_SECONDS, 30);
+            $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS, 60);
+            $this->RegisterPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS, 1800);
+            $this->RegisterPropertyString(self::PROPERTY_FAULT_ACTION, 'false');
+            $this->RegisterPropertyString(self::PROPERTY_FAULT_CLEARED_ACTION, 'false');
+            $this->RegisterPropertyString(self::PROPERTY_FULLY_DISARMED_ACTION, 'false');
+            $this->RegisterPropertyString(self::PROPERTY_DISARM_CODE, '');
+            $this->RegisterPropertyString(self::PROPERTY_DISARM_USERS, '[]');
+            $this->RegisterPropertyInteger(
+                self::PROPERTY_DISARM_MAX_ATTEMPTS,
+                self::DEFAULT_DISARM_MAX_ATTEMPTS
+            );
+            $this->RegisterPropertyInteger(
+                self::PROPERTY_DISARM_LOCKOUT_SECONDS,
+                self::DEFAULT_DISARM_LOCKOUT_SECONDS
+            );
+            $this->RegisterPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS, 60);
+            $this->RegisterPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES, '[]');
+            $this->RegisterPropertyString(self::PROPERTY_HOME_MODE_LABEL, '');
+            $this->RegisterPropertyString(self::PROPERTY_AWAY_MODE_LABEL, '');
+            $this->RegisterPropertyString(self::PROPERTY_NIGHT_MODE_LABEL, '');
+            $this->RegisterBooleanProperty(self::PROPERTY_SHOW_HOME_MODE, true);
+            $this->RegisterBooleanProperty(self::PROPERTY_SHOW_AWAY_MODE, true);
+            $this->RegisterBooleanProperty(self::PROPERTY_SHOW_NIGHT_MODE, true);
+            $this->RegisterIPSViewHTMLPageProperties();
+            $this->RegisterIPSViewStyleProperties();
+            $this->RegisterVisualizationThemeProperties();
 
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
-        $this->RegisterAttributeString(self::ATTRIBUTE_COUNTDOWN_ACTION_STEP, '');
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_COUNTDOWN_ACTION_RUNTIME);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, 0);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_AUTO_BYPASSED_SENSOR_IDS);
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_UNAVAILABLE_SENSOR_VARIABLE_IDS);
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS, 0);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL, 0);
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS);
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 0);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_MAIN_SILENT_ARMING, 0);
-        $this->RegisterAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
-        $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PASSAGE_RUNTIME);
-        $this->RegisterAttributeString(self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION, '');
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_1, 0);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_2, 0);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_3, 0);
-        $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_4, 0);
-        $this->EnsureIPSViewToken();
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE, 0);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE, 0);
+            $this->RegisterAttributeString(self::ATTRIBUTE_COUNTDOWN_ACTION_STEP, '');
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_COUNTDOWN_ACTION_RUNTIME);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_DURATION_DEADLINE, 0);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, 0);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID, 0);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_BYPASSED_SENSOR_IDS);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_AUTO_BYPASSED_SENSOR_IDS);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ACTIVE_FAULT_VARIABLE_IDS);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_UNAVAILABLE_SENSOR_VARIABLE_IDS);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_FAILED_ATTEMPTS, 0);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_DISARM_LOCKOUT_UNTIL, 0);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_AUTOMATIC_ARMING_EXECUTIONS);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 0);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_MAIN_SILENT_ARMING, 0);
+            $this->RegisterAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PASSAGE_RUNTIME);
+            $this->RegisterAttributeString(self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION, '');
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_1, 0);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_2, 0);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_3, 0);
+            $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_4, 0);
+            $this->EnsureIPSViewToken();
 
-        if (method_exists($this, 'RegisterHook')) {
-            $this->RegisterHook($this->IPSViewHookAddress());
-        }
+            if (method_exists($this, 'RegisterHook')) {
+                $this->RegisterHook($this->IPSViewHookAddress());
+            }
 
-        $this->RegisterTimer(
-            self::TIMER_EXIT_DELAY,
-            0,
-            'OHA_CompleteExitDelay($_IPS[\'TARGET\']);'
-        );
-        $this->RegisterTimer(
-            self::TIMER_ENTRY_DELAY,
-            0,
-            'OHA_CompleteEntryDelay($_IPS[\'TARGET\']);'
-        );
-        $this->RegisterTimer(
-            self::TIMER_DELAY_STATUS,
-            0,
-            'OHA_UpdateDelayStatus($_IPS[\'TARGET\']);'
-        );
-        $this->RegisterTimer(
-            self::TIMER_ALARM_DURATION,
-            0,
-            'OHA_CompleteAlarmDuration($_IPS[\'TARGET\']);'
-        );
-        $this->RegisterTimer(
-            self::TIMER_SENSOR_INTEGRITY,
-            0,
-            'OHA_CheckSensorIntegrity($_IPS[\'TARGET\']);'
-        );
-        $this->RegisterTimer(
-            self::TIMER_AUTOMATIC_ARMING,
-            0,
-            'OHA_CheckAutomaticArming($_IPS[\'TARGET\']);'
-        );
-        $this->RegisterTimer(
-            self::TIMER_ALARM_ESCALATION,
-            0,
-            'OHA_ProcessAlarmEscalation($_IPS[\'TARGET\']);'
-        );
-        $this->RegisterTimer(
-            self::TIMER_PARTITION_RUNTIME,
-            0,
-            'OHA_UpdatePartitionRuntime($_IPS[\'TARGET\']);'
-        );
-        $this->RegisterTimer(
-            self::TIMER_PASSAGE_RUNTIME,
-            0,
-            'OHA_UpdatePassageRuntime($_IPS[\'TARGET\']);'
-        );
+            $this->RegisterTimer(
+                self::TIMER_EXIT_DELAY,
+                0,
+                'OHA_CompleteExitDelay($_IPS[\'TARGET\']);'
+            );
+            $this->RegisterTimer(
+                self::TIMER_ENTRY_DELAY,
+                0,
+                'OHA_CompleteEntryDelay($_IPS[\'TARGET\']);'
+            );
+            $this->RegisterTimer(
+                self::TIMER_DELAY_STATUS,
+                0,
+                'OHA_UpdateDelayStatus($_IPS[\'TARGET\']);'
+            );
+            $this->RegisterTimer(
+                self::TIMER_ALARM_DURATION,
+                0,
+                'OHA_CompleteAlarmDuration($_IPS[\'TARGET\']);'
+            );
+            $this->RegisterTimer(
+                self::TIMER_SENSOR_INTEGRITY,
+                0,
+                'OHA_CheckSensorIntegrity($_IPS[\'TARGET\']);'
+            );
+            $this->RegisterTimer(
+                self::TIMER_AUTOMATIC_ARMING,
+                0,
+                'OHA_CheckAutomaticArming($_IPS[\'TARGET\']);'
+            );
+            $this->RegisterTimer(
+                self::TIMER_ALARM_ESCALATION,
+                0,
+                'OHA_ProcessAlarmEscalation($_IPS[\'TARGET\']);'
+            );
+            $this->RegisterTimer(
+                self::TIMER_PARTITION_RUNTIME,
+                0,
+                'OHA_UpdatePartitionRuntime($_IPS[\'TARGET\']);'
+            );
+            $this->RegisterTimer(
+                self::TIMER_PASSAGE_RUNTIME,
+                0,
+                'OHA_UpdatePassageRuntime($_IPS[\'TARGET\']);'
+            );
 
-        $modeCreated = $this->RegisterVariableInteger(
-            self::IDENT_MODE,
-            $this->Translate('Mode'),
-            $this->CreateModePresentation(),
-            10
-        );
-        $stateCreated = $this->RegisterVariableInteger(
-            self::IDENT_STATE,
-            $this->Translate('State'),
-            $this->CreateStatePresentation(),
-            20
-        );
-        $delayRemainingCreated = $this->RegisterVariableInteger(
-            self::IDENT_DELAY_REMAINING,
-            $this->Translate('Delay remaining'),
-            $this->IntegerPresentation('s', 0),
-            21
-        );
-        $delaySourceCreated = $this->RegisterVariableString(
-            self::IDENT_DELAY_SOURCE,
-            $this->Translate('Delay source'),
-            $this->TextPresentation(),
-            22
-        );
-        $alarmOutputActiveCreated = $this->RegisterVariableBoolean(
-            self::IDENT_ALARM_OUTPUT_ACTIVE,
-            $this->Translate('Alarm output active'),
-            $this->OptionsPresentation([
-                [
-                    'Value'       => false,
-                    'Caption'     => $this->Translate('Alarm output inactive'),
-                    'IconActive'  => false,
-                    'IconValue'   => '',
-                    'ColorActive' => false,
-                    'ColorValue'  => -1
-                ],
-                [
-                    'Value'       => true,
-                    'Caption'     => $this->Translate('Alarm output active'),
-                    'IconActive'  => false,
-                    'IconValue'   => '',
-                    'ColorActive' => false,
-                    'ColorValue'  => -1
-                ]
-            ]),
-            23
-        );
-        $signalGeneratorActiveCreated = $this->RegisterVariableBoolean(
-            self::IDENT_SIGNAL_GENERATOR_ACTIVE,
-            $this->Translate('Signal generator active'),
-            $this->OptionsPresentation([
-                [
-                    'Value'       => false,
-                    'Caption'     => $this->Translate('Signal generator inactive'),
-                    'IconActive'  => false,
-                    'IconValue'   => '',
-                    'ColorActive' => false,
-                    'ColorValue'  => -1
-                ],
-                [
-                    'Value'       => true,
-                    'Caption'     => $this->Translate('Signal generator active'),
-                    'IconActive'  => false,
-                    'IconValue'   => '',
-                    'ColorActive' => false,
-                    'ColorValue'  => -1
-                ]
-            ]),
-            24
-        );
-        $readinessPresentation = $this->CreateReadinessPresentation();
-        $readyCreated = $this->RegisterVariableBoolean(
-            self::IDENT_READY_TO_ARM,
-            $this->Translate('Ready to arm'),
-            $readinessPresentation,
-            30
-        );
-        $readyHomeCreated = $this->RegisterVariableBoolean(
-            self::IDENT_READY_HOME,
-            $this->Translate('Ready Home'),
-            $readinessPresentation,
-            31
-        );
-        $readyAwayCreated = $this->RegisterVariableBoolean(
-            self::IDENT_READY_AWAY,
-            $this->Translate('Ready Away'),
-            $readinessPresentation,
-            32
-        );
-        $readyNightCreated = $this->RegisterVariableBoolean(
-            self::IDENT_READY_NIGHT,
-            $this->Translate('Ready Night'),
-            $readinessPresentation,
-            33
-        );
-        $blockingHomeSensorsCreated = $this->RegisterVariableString(
-            self::IDENT_BLOCKING_HOME_SENSORS,
-            $this->Translate('Blocking sensors Home'),
-            $this->TextPresentation(),
-            34
-        );
-        $blockingAwaySensorsCreated = $this->RegisterVariableString(
-            self::IDENT_BLOCKING_AWAY_SENSORS,
-            $this->Translate('Blocking sensors Away'),
-            $this->TextPresentation(),
-            35
-        );
-        $blockingNightSensorsCreated = $this->RegisterVariableString(
-            self::IDENT_BLOCKING_NIGHT_SENSORS,
-            $this->Translate('Blocking sensors Night'),
-            $this->TextPresentation(),
-            36
-        );
-        $bypassedSensorsCreated = $this->RegisterVariableString(
-            self::IDENT_BYPASSED_SENSORS,
-            $this->Translate('Bypassed sensors'),
-            $this->TextPresentation(),
-            37
-        );
-        $alarmMemoryCreated = $this->RegisterVariableBoolean(
-            self::IDENT_ALARM_MEMORY,
-            $this->Translate('Alarm memory'),
-            $this->OptionsPresentation([
-                [
-                    'Value'       => false,
-                    'Caption'     => $this->Translate('No alarm stored'),
-                    'IconActive'  => false,
-                    'IconValue'   => '',
-                    'ColorActive' => false,
-                    'ColorValue'  => -1
-                ],
-                [
-                    'Value'       => true,
-                    'Caption'     => $this->Translate('Alarm stored'),
-                    'IconActive'  => false,
-                    'IconValue'   => '',
-                    'ColorActive' => false,
-                    'ColorValue'  => -1
-                ]
-            ]),
-            40
-        );
-        $lastAlarmSourceCreated = $this->RegisterVariableString(
-            self::IDENT_LAST_ALARM_SOURCE,
-            $this->Translate('Last alarm source'),
-            $this->TextPresentation(),
-            50
-        );
-        $lastAlarmTimeCreated = $this->RegisterVariableString(
-            self::IDENT_LAST_ALARM_TIME,
-            $this->Translate('Last alarm time'),
-            $this->TextPresentation(),
-            60
-        );
-        $systemFaultCreated = $this->RegisterVariableBoolean(
-            self::IDENT_SYSTEM_FAULT,
-            $this->Translate('System fault'),
-            $this->OptionsPresentation([
-                [
-                    'Value'       => false,
-                    'Caption'     => $this->Translate('No system fault'),
-                    'IconActive'  => false,
-                    'IconValue'   => '',
-                    'ColorActive' => false,
-                    'ColorValue'  => -1
-                ],
-                [
-                    'Value'       => true,
-                    'Caption'     => $this->Translate('System fault active'),
-                    'IconActive'  => false,
-                    'IconValue'   => '',
-                    'ColorActive' => false,
-                    'ColorValue'  => -1
-                ]
-            ]),
-            70
-        );
-        $activeFaultsCreated = $this->RegisterVariableString(
-            self::IDENT_ACTIVE_FAULTS,
-            $this->Translate('Active faults'),
-            $this->TextPresentation(),
-            71
-        );
-        $blockingFaultsCreated = $this->RegisterVariableString(
-            self::IDENT_BLOCKING_FAULTS,
-            $this->Translate('Blocking faults'),
-            $this->TextPresentation(),
-            72
-        );
-        $lastFaultSourceCreated = $this->RegisterVariableString(
-            self::IDENT_LAST_FAULT_SOURCE,
-            $this->Translate('Last fault source'),
-            $this->TextPresentation(),
-            73
-        );
-        $lastFaultTimeCreated = $this->RegisterVariableString(
-            self::IDENT_LAST_FAULT_TIME,
-            $this->Translate('Last fault time'),
-            $this->TextPresentation(),
-            74
-        );
+            $modeCreated = $this->RegisterVariableInteger(
+                self::IDENT_MODE,
+                $this->Translate('Mode'),
+                $this->CreateModePresentation(),
+                10
+            );
+            $stateCreated = $this->RegisterVariableInteger(
+                self::IDENT_STATE,
+                $this->Translate('State'),
+                $this->CreateStatePresentation(),
+                20
+            );
+            $delayRemainingCreated = $this->RegisterVariableInteger(
+                self::IDENT_DELAY_REMAINING,
+                $this->Translate('Delay remaining'),
+                $this->IntegerPresentation('s', 0),
+                21
+            );
+            $delaySourceCreated = $this->RegisterVariableString(
+                self::IDENT_DELAY_SOURCE,
+                $this->Translate('Delay source'),
+                $this->TextPresentation(),
+                22
+            );
+            $alarmOutputActiveCreated = $this->RegisterVariableBoolean(
+                self::IDENT_ALARM_OUTPUT_ACTIVE,
+                $this->Translate('Alarm output active'),
+                $this->OptionsPresentation([
+                    [
+                        'Value'       => false,
+                        'Caption'     => $this->Translate('Alarm output inactive'),
+                        'IconActive'  => false,
+                        'IconValue'   => '',
+                        'ColorActive' => false,
+                        'ColorValue'  => -1
+                    ],
+                    [
+                        'Value'       => true,
+                        'Caption'     => $this->Translate('Alarm output active'),
+                        'IconActive'  => false,
+                        'IconValue'   => '',
+                        'ColorActive' => false,
+                        'ColorValue'  => -1
+                    ]
+                ]),
+                23
+            );
+            $signalGeneratorActiveCreated = $this->RegisterVariableBoolean(
+                self::IDENT_SIGNAL_GENERATOR_ACTIVE,
+                $this->Translate('Signal generator active'),
+                $this->OptionsPresentation([
+                    [
+                        'Value'       => false,
+                        'Caption'     => $this->Translate('Signal generator inactive'),
+                        'IconActive'  => false,
+                        'IconValue'   => '',
+                        'ColorActive' => false,
+                        'ColorValue'  => -1
+                    ],
+                    [
+                        'Value'       => true,
+                        'Caption'     => $this->Translate('Signal generator active'),
+                        'IconActive'  => false,
+                        'IconValue'   => '',
+                        'ColorActive' => false,
+                        'ColorValue'  => -1
+                    ]
+                ]),
+                24
+            );
+            $readinessPresentation = $this->CreateReadinessPresentation();
+            $readyCreated = $this->RegisterVariableBoolean(
+                self::IDENT_READY_TO_ARM,
+                $this->Translate('Ready to arm'),
+                $readinessPresentation,
+                30
+            );
+            $readyHomeCreated = $this->RegisterVariableBoolean(
+                self::IDENT_READY_HOME,
+                $this->Translate('Ready Home'),
+                $readinessPresentation,
+                31
+            );
+            $readyAwayCreated = $this->RegisterVariableBoolean(
+                self::IDENT_READY_AWAY,
+                $this->Translate('Ready Away'),
+                $readinessPresentation,
+                32
+            );
+            $readyNightCreated = $this->RegisterVariableBoolean(
+                self::IDENT_READY_NIGHT,
+                $this->Translate('Ready Night'),
+                $readinessPresentation,
+                33
+            );
+            $blockingHomeSensorsCreated = $this->RegisterVariableString(
+                self::IDENT_BLOCKING_HOME_SENSORS,
+                $this->Translate('Blocking sensors Home'),
+                $this->TextPresentation(),
+                34
+            );
+            $blockingAwaySensorsCreated = $this->RegisterVariableString(
+                self::IDENT_BLOCKING_AWAY_SENSORS,
+                $this->Translate('Blocking sensors Away'),
+                $this->TextPresentation(),
+                35
+            );
+            $blockingNightSensorsCreated = $this->RegisterVariableString(
+                self::IDENT_BLOCKING_NIGHT_SENSORS,
+                $this->Translate('Blocking sensors Night'),
+                $this->TextPresentation(),
+                36
+            );
+            $bypassedSensorsCreated = $this->RegisterVariableString(
+                self::IDENT_BYPASSED_SENSORS,
+                $this->Translate('Bypassed sensors'),
+                $this->TextPresentation(),
+                37
+            );
+            $alarmMemoryCreated = $this->RegisterVariableBoolean(
+                self::IDENT_ALARM_MEMORY,
+                $this->Translate('Alarm memory'),
+                $this->OptionsPresentation([
+                    [
+                        'Value'       => false,
+                        'Caption'     => $this->Translate('No alarm stored'),
+                        'IconActive'  => false,
+                        'IconValue'   => '',
+                        'ColorActive' => false,
+                        'ColorValue'  => -1
+                    ],
+                    [
+                        'Value'       => true,
+                        'Caption'     => $this->Translate('Alarm stored'),
+                        'IconActive'  => false,
+                        'IconValue'   => '',
+                        'ColorActive' => false,
+                        'ColorValue'  => -1
+                    ]
+                ]),
+                40
+            );
+            $lastAlarmSourceCreated = $this->RegisterVariableString(
+                self::IDENT_LAST_ALARM_SOURCE,
+                $this->Translate('Last alarm source'),
+                $this->TextPresentation(),
+                50
+            );
+            $lastAlarmTimeCreated = $this->RegisterVariableString(
+                self::IDENT_LAST_ALARM_TIME,
+                $this->Translate('Last alarm time'),
+                $this->TextPresentation(),
+                60
+            );
+            $systemFaultCreated = $this->RegisterVariableBoolean(
+                self::IDENT_SYSTEM_FAULT,
+                $this->Translate('System fault'),
+                $this->OptionsPresentation([
+                    [
+                        'Value'       => false,
+                        'Caption'     => $this->Translate('No system fault'),
+                        'IconActive'  => false,
+                        'IconValue'   => '',
+                        'ColorActive' => false,
+                        'ColorValue'  => -1
+                    ],
+                    [
+                        'Value'       => true,
+                        'Caption'     => $this->Translate('System fault active'),
+                        'IconActive'  => false,
+                        'IconValue'   => '',
+                        'ColorActive' => false,
+                        'ColorValue'  => -1
+                    ]
+                ]),
+                70
+            );
+            $activeFaultsCreated = $this->RegisterVariableString(
+                self::IDENT_ACTIVE_FAULTS,
+                $this->Translate('Active faults'),
+                $this->TextPresentation(),
+                71
+            );
+            $blockingFaultsCreated = $this->RegisterVariableString(
+                self::IDENT_BLOCKING_FAULTS,
+                $this->Translate('Blocking faults'),
+                $this->TextPresentation(),
+                72
+            );
+            $lastFaultSourceCreated = $this->RegisterVariableString(
+                self::IDENT_LAST_FAULT_SOURCE,
+                $this->Translate('Last fault source'),
+                $this->TextPresentation(),
+                73
+            );
+            $lastFaultTimeCreated = $this->RegisterVariableString(
+                self::IDENT_LAST_FAULT_TIME,
+                $this->Translate('Last fault time'),
+                $this->TextPresentation(),
+                74
+            );
 
-        if ($modeCreated) {
-            $this->SetAlarmMode(self::MODE_NONE);
-        }
-        if ($stateCreated) {
-            $this->SetAlarmState(self::STATE_DISARMED);
-        }
-        if ($delayRemainingCreated) {
-            $this->SetDelayRemaining(0);
-        }
-        if ($delaySourceCreated) {
-            $this->SetDelaySource('');
-        }
-        if ($alarmOutputActiveCreated) {
-            $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, false);
-        }
-        if ($signalGeneratorActiveCreated) {
-            $this->SetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE, false);
-        }
-        if ($readyCreated) {
-            $this->SetReadyToArm(true);
-        }
-        if ($readyHomeCreated) {
-            $this->SetReadyHome(true);
-        }
-        if ($readyAwayCreated) {
-            $this->SetReadyAway(true);
-        }
-        if ($readyNightCreated) {
-            $this->SetReadyNight(true);
-        }
-        if ($blockingHomeSensorsCreated) {
-            $this->SetBlockingHomeSensors('');
-        }
-        if ($blockingAwaySensorsCreated) {
-            $this->SetBlockingAwaySensors('');
-        }
-        if ($blockingNightSensorsCreated) {
-            $this->SetBlockingNightSensors('');
-        }
-        if ($bypassedSensorsCreated) {
-            $this->SetBypassedSensors('');
-        }
-        if ($alarmMemoryCreated) {
-            $this->SetAlarmMemory(false);
-        }
-        if ($lastAlarmSourceCreated) {
-            $this->SetLastAlarmSource('');
-        }
-        if ($lastAlarmTimeCreated) {
-            $this->SetLastAlarmTime('');
-        }
-        if ($systemFaultCreated) {
-            $this->SetSystemFault(false);
-        }
-        if ($activeFaultsCreated) {
-            $this->SetActiveFaults('');
-        }
-        if ($blockingFaultsCreated) {
-            $this->SetBlockingFaults('');
-        }
-        if ($lastFaultSourceCreated) {
-            $this->SetLastFaultSource('');
-        }
-        if ($lastFaultTimeCreated) {
-            $this->SetLastFaultTime('');
+            if ($modeCreated) {
+                $this->SetAlarmMode(self::MODE_NONE);
+            }
+            if ($stateCreated) {
+                $this->SetAlarmState(self::STATE_DISARMED);
+            }
+            if ($delayRemainingCreated) {
+                $this->SetDelayRemaining(0);
+            }
+            if ($delaySourceCreated) {
+                $this->SetDelaySource('');
+            }
+            if ($alarmOutputActiveCreated) {
+                $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, false);
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_ALARM_OUTPUT_ACTIVE, 'Wert' => false]);
+            }
+            if ($signalGeneratorActiveCreated) {
+                $this->SetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE, false);
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_SIGNAL_GENERATOR_ACTIVE, 'Wert' => false]);
+            }
+            if ($readyCreated) {
+                $this->SetReadyToArm(true);
+            }
+            if ($readyHomeCreated) {
+                $this->SetReadyHome(true);
+            }
+            if ($readyAwayCreated) {
+                $this->SetReadyAway(true);
+            }
+            if ($readyNightCreated) {
+                $this->SetReadyNight(true);
+            }
+            if ($blockingHomeSensorsCreated) {
+                $this->SetBlockingHomeSensors('');
+            }
+            if ($blockingAwaySensorsCreated) {
+                $this->SetBlockingAwaySensors('');
+            }
+            if ($blockingNightSensorsCreated) {
+                $this->SetBlockingNightSensors('');
+            }
+            if ($bypassedSensorsCreated) {
+                $this->SetBypassedSensors('');
+            }
+            if ($alarmMemoryCreated) {
+                $this->SetAlarmMemory(false);
+            }
+            if ($lastAlarmSourceCreated) {
+                $this->SetLastAlarmSource('');
+            }
+            if ($lastAlarmTimeCreated) {
+                $this->SetLastAlarmTime('');
+            }
+            if ($systemFaultCreated) {
+                $this->SetSystemFault(false);
+            }
+            if ($activeFaultsCreated) {
+                $this->SetActiveFaults('');
+            }
+            if ($blockingFaultsCreated) {
+                $this->SetBlockingFaults('');
+            }
+            if ($lastFaultSourceCreated) {
+                $this->SetLastFaultSource('');
+            }
+            if ($lastFaultTimeCreated) {
+                $this->SetLastFaultTime('');
+            }
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Instanz konnte nicht vollständig angelegt werden.', ['Fehlertyp' => $debugException::class]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, null, $debugFailed, true);
         }
     }
 
     /** Migrates persisted security settings and legacy IPSView palette properties. */
     public function Migrate(string $JSONData): string
     {
-        parent::Migrate($JSONData);
-
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $persistence = json_decode($JSONData, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return '';
-        }
+            parent::Migrate($JSONData);
 
-        if (
-            !is_array($persistence)
-            || !isset($persistence['configuration'])
-            || !is_array($persistence['configuration'])
-        ) {
-            return '';
-        }
-
-        $configuration = &$persistence['configuration'];
-        $changed = $this->RecoverLastAppliedSecurityConfiguration($persistence);
-
-        foreach (self::LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES as $legacyProperty => $integerProperty) {
-            if (!array_key_exists($legacyProperty, $configuration)) {
-                continue;
+            try {
+                $persistence = json_decode($JSONData, true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                return $debugResult = '';
             }
 
-            $legacyValue = $configuration[$legacyProperty];
-            if (is_string($legacyValue) && preg_match('/^#?([0-9a-fA-F]{6})$/', trim($legacyValue), $matches)) {
-                $configuration[$integerProperty] = hexdec($matches[1]);
+            if (
+                !is_array($persistence)
+                || !isset($persistence['configuration'])
+                || !is_array($persistence['configuration'])
+            ) {
+                return $debugResult = '';
             }
 
-            unset($configuration[$legacyProperty]);
-            $changed = true;
-        }
+            $configuration = &$persistence['configuration'];
+            $changed = $this->RecoverLastAppliedSecurityConfiguration($persistence);
 
-        $legacyTheme = $configuration['IPSViewTheme'] ?? null;
-        if (is_int($legacyTheme) && !array_key_exists('IPSViewStyleSource', $configuration)) {
-            $configuration['IPSViewStyleSource'] = match ($legacyTheme) {
-                1       => self::IPSVIEW_STYLE_SOURCE_LIGHT,
-                2       => self::IPSVIEW_STYLE_SOURCE_DARK,
-                default => self::IPSVIEW_STYLE_SOURCE_CUSTOM
-            };
-        }
-        if (array_key_exists('IPSViewTheme', $configuration)) {
-            unset($configuration['IPSViewTheme']);
-            $changed = true;
-        }
+            foreach (self::LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES as $legacyProperty => $integerProperty) {
+                if (!array_key_exists($legacyProperty, $configuration)) {
+                    continue;
+                }
 
-        foreach ([
-            'IPSViewTransparent' => 'IPSViewStyleTransparentBackground',
-            'IPSViewFontScale'   => 'IPSViewStyleFontScale'
-        ] as $legacyProperty => $styleProperty) {
-            if (!array_key_exists($legacyProperty, $configuration)) {
-                continue;
+                $legacyValue = $configuration[$legacyProperty];
+                if (is_string($legacyValue) && preg_match('/^#?([0-9a-fA-F]{6})$/', trim($legacyValue), $matches)) {
+                    $configuration[$integerProperty] = hexdec($matches[1]);
+                }
+
+                unset($configuration[$legacyProperty]);
+                $changed = true;
             }
 
-            if (!array_key_exists($styleProperty, $configuration)) {
-                $configuration[$styleProperty] = $configuration[$legacyProperty];
+            $legacyTheme = $configuration['IPSViewTheme'] ?? null;
+            if (is_int($legacyTheme) && !array_key_exists('IPSViewStyleSource', $configuration)) {
+                $configuration['IPSViewStyleSource'] = match ($legacyTheme) {
+                    1       => self::IPSVIEW_STYLE_SOURCE_LIGHT,
+                    2       => self::IPSVIEW_STYLE_SOURCE_DARK,
+                    default => self::IPSVIEW_STYLE_SOURCE_CUSTOM
+                };
             }
-            unset($configuration[$legacyProperty]);
-            $changed = true;
-        }
-
-        foreach (self::LEGACY_IPSVIEW_STYLE_PROPERTIES as $legacyProperty => $styleProperties) {
-            if (!array_key_exists($legacyProperty, $configuration)) {
-                continue;
+            if (array_key_exists('IPSViewTheme', $configuration)) {
+                unset($configuration['IPSViewTheme']);
+                $changed = true;
             }
 
-            $value = $configuration[$legacyProperty];
-            if (is_int($value) && $value >= 0 && $value <= 0xFFFFFF) {
-                foreach ($styleProperties as $styleProperty) {
-                    if (!array_key_exists($styleProperty, $configuration)) {
-                        $configuration[$styleProperty] = $value;
+            foreach ([
+                'IPSViewTransparent' => 'IPSViewStyleTransparentBackground',
+                'IPSViewFontScale'   => 'IPSViewStyleFontScale'
+            ] as $legacyProperty => $styleProperty) {
+                if (!array_key_exists($legacyProperty, $configuration)) {
+                    continue;
+                }
+
+                if (!array_key_exists($styleProperty, $configuration)) {
+                    $configuration[$styleProperty] = $configuration[$legacyProperty];
+                }
+                unset($configuration[$legacyProperty]);
+                $changed = true;
+            }
+
+            foreach (self::LEGACY_IPSVIEW_STYLE_PROPERTIES as $legacyProperty => $styleProperties) {
+                if (!array_key_exists($legacyProperty, $configuration)) {
+                    continue;
+                }
+
+                $value = $configuration[$legacyProperty];
+                if (is_int($value) && $value >= 0 && $value <= 0xFFFFFF) {
+                    foreach ($styleProperties as $styleProperty) {
+                        if (!array_key_exists($styleProperty, $configuration)) {
+                            $configuration[$styleProperty] = $value;
+                        }
                     }
                 }
+
+                unset($configuration[$legacyProperty]);
+                $changed = true;
             }
 
-            unset($configuration[$legacyProperty]);
-            $changed = true;
-        }
+            if (!$changed) {
+                return $debugResult = '';
+            }
 
-        if (!$changed) {
-            return '';
-        }
-
-        try {
-            return json_encode(
-                $persistence,
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-            );
-        } catch (JsonException) {
-            return '';
+            try {
+                return $debugResult = json_encode(
+                    $persistence,
+                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                );
+            } catch (JsonException) {
+                return $debugResult = '';
+            }
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
     }
 
@@ -843,44 +877,59 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ApplyChanges(): void
     {
-        if ($this->DiscardPendingConfigurationChangesWhileLocked()) {
-            return;
-        }
-
-        parent::ApplyChanges();
-
-        $this->GuardSecurityConfigurationChanges();
-
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $this->ReadConfiguredPartitions();
-        } catch (UnexpectedValueException $exception) {
-            $this->SendDebug('Invalid partition configuration', $exception->getMessage(), 0);
-            $this->SetStatus(self::STATUS_INVALID_PARTITIONS);
+            if ($this->DiscardPendingConfigurationChangesWhileLocked()) {
+                return;
+            }
 
-            return;
-        }
+            parent::ApplyChanges();
 
-        $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
-        $this->SetTimerInterval(self::TIMER_AUTOMATIC_ARMING, 0);
-        $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
-        $this->RegisterMessage(0, IPS_KERNELSTARTED);
-        $this->RegisterIPSViewStyleMediaMessages();
-        $this->MaintainIPSViewHTMLVariable(
-            self::IDENT_IPSVIEW_ALARM,
-            $this->Translate('IPSView alarm system'),
-            90
-        );
-        if (IPS_GetKernelRunlevel() !== KR_READY) {
-            return;
-        }
+            $this->GuardSecurityConfigurationChanges();
 
-        if (!$this->InitializeRuntimeSafely()) {
-            return;
+            try {
+                $this->ReadConfiguredPartitions();
+            } catch (UnexpectedValueException $exception) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Bereichskonfiguration ist ungültig; Übernahme abgebrochen.', ['Ursache' => $this->ExplainAlarmDebugError($exception->getMessage()), 'Fehlertyp' => $exception::class, 'Fehlerzeile' => $exception->getLine()]);
+                $this->SetStatus(self::STATUS_INVALID_PARTITIONS);
+
+                return;
+            }
+
+            $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
+            $this->SetTimerInterval(self::TIMER_AUTOMATIC_ARMING, 0);
+            $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
+            $this->RegisterMessage(0, IPS_KERNELSTARTED);
+            $this->RegisterIPSViewStyleMediaMessages();
+            $this->MaintainIPSViewHTMLVariable(
+                self::IDENT_IPSVIEW_ALARM,
+                $this->Translate('IPSView alarm system'),
+                90
+            );
+            if (IPS_GetKernelRunlevel() !== KR_READY) {
+                return;
+            }
+
+            if (!$this->InitializeRuntimeSafely()) {
+                return;
+            }
+            $this->WriteAttributeString(
+                self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
+                $this->AppliedSecurityConfiguration()
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-        $this->WriteAttributeString(
-            self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
-            $this->AppliedSecurityConfiguration()
-        );
     }
 
     /**
@@ -888,33 +937,48 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetConfigurationForm(): string
     {
-        $form = $this->LoadConfigurationForm();
-        $this->InsertDetailedPartitionConfigurationStatus($form);
-        $this->InsertDetailedSensorFaultConfigurationStatus($form);
-        $this->InsertDetailedAlarmActionConfigurationStatus($form);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $form = $this->LoadConfigurationForm();
+            $this->InsertDetailedPartitionConfigurationStatus($form);
+            $this->InsertDetailedSensorFaultConfigurationStatus($form);
+            $this->InsertDetailedAlarmActionConfigurationStatus($form);
 
-        if (isset($form['elements']) && is_array($form['elements'])) {
-            $this->PopulateConfigurationListValues($form['elements']);
-            $this->InsertIPSViewHTMLPageFormItems(
-                $form['elements'],
-                description: $this->Translate(
-                    'Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box.'
-                )
-            );
-            $this->InsertIPSViewStyleFormItems($form['elements'], colorWidth: '220px');
-            $this->InsertVisualizationThemeFormItems($form['elements'], colorWidth: '220px');
-            if ($this->IsSecurityConfigurationLocked()) {
-                $this->LockSecurityConfigurationFields($form['elements']);
-                array_unshift($form['elements'], [
-                    'type'    => 'Label',
-                    'caption' => $this->Translate(
-                        'The instance configuration is locked while an alarm partition is active. Disarm all partitions before changing alarm settings.'
+            if (isset($form['elements']) && is_array($form['elements'])) {
+                $this->PopulateConfigurationListValues($form['elements']);
+                $this->InsertIPSViewHTMLPageFormItems(
+                    $form['elements'],
+                    description: $this->Translate(
+                        'Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box.'
                     )
-                ]);
+                );
+                $this->InsertIPSViewStyleFormItems($form['elements'], colorWidth: '220px');
+                $this->InsertVisualizationThemeFormItems($form['elements'], colorWidth: '220px');
+                if ($this->IsSecurityConfigurationLocked()) {
+                    $this->LockSecurityConfigurationFields($form['elements']);
+                    array_unshift($form['elements'], [
+                        'type'    => 'Label',
+                        'caption' => $this->Translate(
+                            'The instance configuration is locked while an alarm partition is active. Disarm all partitions before changing alarm settings.'
+                        )
+                    ]);
+                }
             }
-        }
 
-        return $this->EncodeConfigurationForm($form);
+            return $debugResult = $this->EncodeConfigurationForm($form);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -925,7 +989,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetVisualizationTile(): string
     {
-        return $this->RenderVisualizationHTML(false);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = $this->RenderVisualizationHTML(false);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -936,7 +1015,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetIPSViewHTML(): string
     {
-        return $this->RenderVisualizationHTML(true);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = $this->RenderVisualizationHTML(true);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -947,12 +1041,28 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function RequestAction(string $Ident, mixed $Value): void
     {
-        if ($this->HandleIPSViewHTMLPageAction($Ident, $Value)) {
-            return;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Aktion' => $Ident]);
+        try {
+            if ($this->HandleIPSViewHTMLPageAction($Ident, $Value)) {
+                return;
+            }
 
-        $interaction = $this->ExecuteVisualizationAction($Ident, $Value);
-        $this->PublishVisualizationState($interaction);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Bedienaktion der Visualisierung wird verarbeitet.', ['Aktion' => $Ident]);
+            $interaction = $this->ExecuteVisualizationAction($Ident, $Value);
+            $this->PublishVisualizationState($interaction);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /**
@@ -962,238 +1072,283 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetControlState(): string
     {
-        $partitions = $this->ReadConfiguredPartitions();
-        $defaultPartition = AlarmPartitionRegistry::defaultPartition($partitions);
-        $configurationErrors = [];
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $allSensors = $this->ReadConfiguredSensors();
-        } catch (UnexpectedValueException $exception) {
-            $allSensors = [];
-            $configurationErrors[] = $this->ConfigurationErrorMessage('sensor', $exception);
-        }
-        try {
-            $allFaultInputs = $this->ReadConfiguredFaultInputs();
-        } catch (UnexpectedValueException $exception) {
-            $allFaultInputs = [];
-            $configurationErrors[] = $this->ConfigurationErrorMessage('fault', $exception);
-        }
-        $configurationError = implode(' ', $configurationErrors);
-        $sensors = $this->SensorsForPartition($allSensors, $defaultPartition['ID']);
-        $faultInputs = $this->FaultInputsForPartition($allFaultInputs, $defaultPartition['ID']);
-        $sensorReadiness = $this->EvaluateReadinessStatus($sensors);
-        $readiness = $this->ApplyFaultBlockingToReadiness($sensorReadiness['readiness'], $faultInputs);
-        if ($configurationError !== '') {
-            $readiness = $this->UnavailableReadiness();
-        }
-        $state = $this->ReadAlarmState();
-        $mode = $this->ReadAlarmMode();
-        $delayDeadline = match ($state) {
-            self::STATE_EXIT_DELAY  => $this->ReadAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE),
-            self::STATE_ENTRY_DELAY => $this->ReadAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE),
-            default                 => 0
-        };
-        $isDisarmed = $state === self::STATE_DISARMED;
-        $alarmMemory = $this->GetValue(self::IDENT_ALARM_MEMORY) === true;
-        $alarmOutputActive = $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true;
-        $signalGeneratorActive = $this->GetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE) === true;
-        $partitionAlarmStates = $this->ReadPartitionAlarmStates();
-        $mainSilent = $mode === self::MODE_NONE && $alarmOutputActive
-            ? $defaultPartition['SilentByDefault']
-            : $this->ReadAttributeInteger(self::ATTRIBUTE_MAIN_SILENT_ARMING) === 1;
-        if ($partitionAlarmStates[$defaultPartition['ID']]['ForceNormal']) {
-            $mainSilent = false;
-        }
-        $codeProtection = $this->ReadDisarmCodeProtectionStatus();
-        $identity = AlarmControlStateAdapter::identity($mode, $state);
-
-        $partitionState = [
-            'Mode'            => $identity['Mode'],
-            'State'           => $identity['State'],
-            'Silent'          => $mainSilent,
-            'SilentByDefault' => $defaultPartition['SilentByDefault'],
-            'Capabilities'    => AlarmControlStateAdapter::capabilities(
-                $mode,
-                $state,
-                $this->IsDisarmCodeProtectionEnabled(),
-                $alarmMemory,
-                $alarmOutputActive,
-                $signalGeneratorActive && !$mainSilent,
-                $state === self::STATE_ALARM && $this->CanRearmPartition(
-                    $defaultPartition['ID'],
-                    ['Mode' => $mode, 'State' => $state]
-                )
-            ),
-            'Modes' => [
-                'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs, $configurationError),
-                'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $readiness['away'], $isDisarmed, $sensors, $faultInputs, $configurationError),
-                'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $readiness['night'], $isDisarmed, $sensors, $faultInputs, $configurationError)
-            ],
-            'Delay' => [
-                'Remaining' => max(0, (int) $this->GetValue(self::IDENT_DELAY_REMAINING)),
-                'Deadline'  => max(0, $delayDeadline),
-                'Source'    => (string) $this->GetValue(self::IDENT_DELAY_SOURCE)
-            ],
-            'Alarm' => [
-                'OutputActive'          => $alarmOutputActive,
-                'SignalGeneratorActive' => $signalGeneratorActive,
-                'MemoryActive'          => $alarmMemory,
-                'LastSource'            => (string) $this->GetValue(self::IDENT_LAST_ALARM_SOURCE),
-                'LastTime'              => (string) $this->GetValue(self::IDENT_LAST_ALARM_TIME)
-            ],
-            'Faults' => [
-                'Active'      => $this->GetValue(self::IDENT_SYSTEM_FAULT) === true,
-                'Items'       => array_merge(
-                    $this->BuildControlFaultDetails($faultInputs, false),
-                    $this->BuildControlUnavailableSensorDetails($sensors)
-                ),
-                'Blocking'    => $this->BuildControlFaultDetails($faultInputs, true),
-                'LastSource'  => (string) $this->GetValue(self::IDENT_LAST_FAULT_SOURCE),
-                'LastTime'    => (string) $this->GetValue(self::IDENT_LAST_FAULT_TIME)
-            ],
-            'CodeProtection' => [
-                'Locked'             => $codeProtection['Locked'],
-                'FailedAttempts'     => $codeProtection['FailedAttempts'],
-                'MaxAttempts'        => $codeProtection['MaxAttempts'],
-                'RemainingAttempts'  => $codeProtection['RemainingAttempts'],
-                'LockoutUntil'       => $codeProtection['LockoutUntil'],
-                'LockoutRemaining'   => $codeProtection['LockoutRemaining']
-            ],
-            'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors),
-            'Passage'         => $this->BuildControlPassageState($defaultPartition['ID'], $sensors),
-            'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, self::RECENT_EVENT_DISPLAY_LIMIT)
-        ];
-        $partitionPayload = [];
-        $partitionRuntime = $this->ReadPartitionRuntime();
-        foreach ($partitions as $partition) {
-            if (!$partition['Enabled']) {
-                continue;
+            $partitions = $this->ReadConfiguredPartitions();
+            $defaultPartition = AlarmPartitionRegistry::defaultPartition($partitions);
+            $configurationErrors = [];
+            try {
+                $allSensors = $this->ReadConfiguredSensors();
+            } catch (UnexpectedValueException $exception) {
+                $allSensors = [];
+                $configurationErrors[] = $this->ConfigurationErrorMessage('sensor', $exception);
             }
-            $runtime = $partitionRuntime[$partition['ID']];
-            $partitionAlarm = $partitionAlarmStates[$partition['ID']];
-            $partitionIdentity = AlarmControlStateAdapter::identity($runtime['Mode'], $runtime['State']);
-            $partitionSensors = $this->SensorsForPartition($allSensors, $partition['ID']);
-            $partitionFaults = $this->FaultInputsForPartition($allFaultInputs, $partition['ID']);
-            $partitionReadiness = $this->ApplyFaultBlockingToReadiness(
-                $this->EvaluateReadinessStatus($partitionSensors)['readiness'],
-                $partitionFaults
-            );
+            try {
+                $allFaultInputs = $this->ReadConfiguredFaultInputs();
+            } catch (UnexpectedValueException $exception) {
+                $allFaultInputs = [];
+                $configurationErrors[] = $this->ConfigurationErrorMessage('fault', $exception);
+            }
+            $configurationError = implode(' ', $configurationErrors);
+            $sensors = $this->SensorsForPartition($allSensors, $defaultPartition['ID']);
+            $faultInputs = $this->FaultInputsForPartition($allFaultInputs, $defaultPartition['ID']);
+            $sensorReadiness = $this->EvaluateReadinessStatus($sensors);
+            $readiness = $this->ApplyFaultBlockingToReadiness($sensorReadiness['readiness'], $faultInputs);
             if ($configurationError !== '') {
-                $partitionReadiness = $this->UnavailableReadiness();
+                $readiness = $this->UnavailableReadiness();
             }
-            $partitionIsDisarmed = $runtime['State'] === self::STATE_DISARMED;
-            $partitionSilent = $runtime['Mode'] === self::MODE_NONE && $partitionAlarm['OutputActive']
-                ? $partition['SilentByDefault']
-                : $runtime['Silent'];
-            if ($partitionAlarm['ForceNormal']) {
-                $partitionSilent = false;
+            $state = $this->ReadAlarmState();
+            $mode = $this->ReadAlarmMode();
+            $delayDeadline = match ($state) {
+                self::STATE_EXIT_DELAY  => $this->ReadAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE),
+                self::STATE_ENTRY_DELAY => $this->ReadAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE),
+                default                 => 0
+            };
+            $isDisarmed = $state === self::STATE_DISARMED;
+            $alarmMemory = $this->GetValue(self::IDENT_ALARM_MEMORY) === true;
+            $alarmOutputActive = $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true;
+            $signalGeneratorActive = $this->GetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE) === true;
+            $partitionAlarmStates = $this->ReadPartitionAlarmStates();
+            $mainSilent = $mode === self::MODE_NONE && $alarmOutputActive
+                ? $defaultPartition['SilentByDefault']
+                : $this->ReadAttributeInteger(self::ATTRIBUTE_MAIN_SILENT_ARMING) === 1;
+            if ($partitionAlarmStates[$defaultPartition['ID']]['ForceNormal']) {
+                $mainSilent = false;
             }
-            $current = $partitionState;
-            $current['Mode'] = $partitionIdentity['Mode'];
-            $current['State'] = $partitionIdentity['State'];
-            $current['Silent'] = $partitionSilent;
-            $current['SilentByDefault'] = $partition['SilentByDefault'];
-            $current['Capabilities'] = AlarmControlStateAdapter::capabilities(
-                $runtime['Mode'],
-                $runtime['State'],
-                $this->IsDisarmCodeProtectionEnabled(),
-                $partitionAlarm['MemoryActive'],
-                $partitionAlarm['OutputActive'],
-                $signalGeneratorActive && !$partitionSilent,
-                $this->CanRearmPartition($partition['ID'], $runtime)
-            );
-            $current['Modes'] = [
-                'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $partitionReadiness['home'], $partitionIsDisarmed, $partitionSensors, $partitionFaults, $configurationError),
-                'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $partitionReadiness['away'], $partitionIsDisarmed, $partitionSensors, $partitionFaults, $configurationError),
-                'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $partitionReadiness['night'], $partitionIsDisarmed, $partitionSensors, $partitionFaults, $configurationError)
-            ];
-            $current['Delay'] = [
-                'Remaining' => max(0, $runtime['Deadline'] - time()),
-                'Deadline'  => in_array($runtime['State'], [self::STATE_EXIT_DELAY, self::STATE_ENTRY_DELAY], true)
-                    ? max(0, $runtime['Deadline'])
-                    : 0,
-                'Source'    => $runtime['DelaySource']
-            ];
-            $current['Alarm'] = [
-                'OutputActive'          => $partitionAlarm['OutputActive'],
-                'SignalGeneratorActive' => $partitionAlarm['OutputActive'] && $signalGeneratorActive && !$partitionSilent,
-                'MemoryActive'          => $partitionAlarm['MemoryActive'],
-                'LastSource'            => $partitionAlarm['LastSource'],
-                'LastTime'              => $partitionAlarm['LastTimestamp'] > 0
-                    ? date('d.m.Y H:i:s', $this->PartitionAlarmTimestampSeconds($partitionAlarm['LastTimestamp']))
-                    : ''
-            ];
-            $current['Faults']['Items'] = array_merge(
-                $this->BuildControlFaultDetails($partitionFaults, false),
-                $this->BuildControlUnavailableSensorDetails($partitionSensors)
-            );
-            $current['Faults']['Active'] = $current['Faults']['Items'] !== [];
-            $current['Faults']['Blocking'] = $this->BuildControlFaultDetails($partitionFaults, true);
-            $current['BypassedSensors'] = $this->BuildControlBypassedSensorDetails($partitionSensors);
-            $current['Passage'] = $this->BuildControlPassageState($partition['ID'], $partitionSensors);
-            $current['RecentEvents'] = array_slice(array_values(array_filter(
-                $this->ReadEventHistory(),
-                static fn (array $event): bool => $event['PartitionID'] === $partition['ID']
-            )), 0, self::RECENT_EVENT_DISPLAY_LIMIT);
-            $partitionPayload[$partition['ID']] = array_merge([
-                'ID'      => $partition['ID'],
-                'Name'    => $partition['Name'],
-                'Default' => $partition['Default']
-            ], $current);
-        }
-        $diagnostics = $this->BuildDiagnosticsPayload($allSensors, $allFaultInputs);
-        if ($configurationError !== '') {
-            $diagnostics = $this->AddConfigurationErrorToDiagnostics(
-                $diagnostics,
-                $defaultPartition['ID'],
-                $configurationError
-            );
-        }
-        $payload = array_merge([
-            'ApiVersion'       => self::CONTROL_API_VERSION,
-            'DefaultPartition' => $defaultPartition['ID'],
-            'Partitions'       => $partitionPayload,
-            'Diagnostics'      => $diagnostics,
-            'Configuration'    => [
-                'Valid'   => $configurationError === '',
-                'Message' => $configurationError
-            ],
-            'ModePresentation' => $this->ModePresentation()
-        ], $partitionState);
+            $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+            $identity = AlarmControlStateAdapter::identity($mode, $state);
 
-        return AlarmControlStateAdapter::encode($payload);
+            $partitionState = [
+                'Mode'            => $identity['Mode'],
+                'State'           => $identity['State'],
+                'Silent'          => $mainSilent,
+                'SilentByDefault' => $defaultPartition['SilentByDefault'],
+                'Capabilities'    => AlarmControlStateAdapter::capabilities(
+                    $mode,
+                    $state,
+                    $this->IsDisarmCodeProtectionEnabled(),
+                    $alarmMemory,
+                    $alarmOutputActive,
+                    $signalGeneratorActive && !$mainSilent,
+                    $state === self::STATE_ALARM && $this->CanRearmPartition(
+                        $defaultPartition['ID'],
+                        ['Mode' => $mode, 'State' => $state]
+                    )
+                ),
+                'Modes' => [
+                    'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs, $configurationError),
+                    'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $readiness['away'], $isDisarmed, $sensors, $faultInputs, $configurationError),
+                    'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $readiness['night'], $isDisarmed, $sensors, $faultInputs, $configurationError)
+                ],
+                'Delay' => [
+                    'Remaining' => max(0, (int) $this->GetValue(self::IDENT_DELAY_REMAINING)),
+                    'Deadline'  => max(0, $delayDeadline),
+                    'Source'    => (string) $this->GetValue(self::IDENT_DELAY_SOURCE)
+                ],
+                'Alarm' => [
+                    'OutputActive'          => $alarmOutputActive,
+                    'SignalGeneratorActive' => $signalGeneratorActive,
+                    'MemoryActive'          => $alarmMemory,
+                    'LastSource'            => (string) $this->GetValue(self::IDENT_LAST_ALARM_SOURCE),
+                    'LastTime'              => (string) $this->GetValue(self::IDENT_LAST_ALARM_TIME)
+                ],
+                'Faults' => [
+                    'Active'      => $this->GetValue(self::IDENT_SYSTEM_FAULT) === true,
+                    'Items'       => array_merge(
+                        $this->BuildControlFaultDetails($faultInputs, false),
+                        $this->BuildControlUnavailableSensorDetails($sensors)
+                    ),
+                    'Blocking'    => $this->BuildControlFaultDetails($faultInputs, true),
+                    'LastSource'  => (string) $this->GetValue(self::IDENT_LAST_FAULT_SOURCE),
+                    'LastTime'    => (string) $this->GetValue(self::IDENT_LAST_FAULT_TIME)
+                ],
+                'CodeProtection' => [
+                    'Locked'             => $codeProtection['Locked'],
+                    'FailedAttempts'     => $codeProtection['FailedAttempts'],
+                    'MaxAttempts'        => $codeProtection['MaxAttempts'],
+                    'RemainingAttempts'  => $codeProtection['RemainingAttempts'],
+                    'LockoutUntil'       => $codeProtection['LockoutUntil'],
+                    'LockoutRemaining'   => $codeProtection['LockoutRemaining']
+                ],
+                'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors),
+                'Passage'         => $this->BuildControlPassageState($defaultPartition['ID'], $sensors),
+                'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, self::RECENT_EVENT_DISPLAY_LIMIT)
+            ];
+            $partitionPayload = [];
+            $partitionRuntime = $this->ReadPartitionRuntime();
+            foreach ($partitions as $partition) {
+                if (!$partition['Enabled']) {
+                    continue;
+                }
+                $runtime = $partitionRuntime[$partition['ID']];
+                $partitionAlarm = $partitionAlarmStates[$partition['ID']];
+                $partitionIdentity = AlarmControlStateAdapter::identity($runtime['Mode'], $runtime['State']);
+                $partitionSensors = $this->SensorsForPartition($allSensors, $partition['ID']);
+                $partitionFaults = $this->FaultInputsForPartition($allFaultInputs, $partition['ID']);
+                $partitionReadiness = $this->ApplyFaultBlockingToReadiness(
+                    $this->EvaluateReadinessStatus($partitionSensors)['readiness'],
+                    $partitionFaults
+                );
+                if ($configurationError !== '') {
+                    $partitionReadiness = $this->UnavailableReadiness();
+                }
+                $partitionIsDisarmed = $runtime['State'] === self::STATE_DISARMED;
+                $partitionSilent = $runtime['Mode'] === self::MODE_NONE && $partitionAlarm['OutputActive']
+                    ? $partition['SilentByDefault']
+                    : $runtime['Silent'];
+                if ($partitionAlarm['ForceNormal']) {
+                    $partitionSilent = false;
+                }
+                $current = $partitionState;
+                $current['Mode'] = $partitionIdentity['Mode'];
+                $current['State'] = $partitionIdentity['State'];
+                $current['Silent'] = $partitionSilent;
+                $current['SilentByDefault'] = $partition['SilentByDefault'];
+                $current['Capabilities'] = AlarmControlStateAdapter::capabilities(
+                    $runtime['Mode'],
+                    $runtime['State'],
+                    $this->IsDisarmCodeProtectionEnabled(),
+                    $partitionAlarm['MemoryActive'],
+                    $partitionAlarm['OutputActive'],
+                    $signalGeneratorActive && !$partitionSilent,
+                    $this->CanRearmPartition($partition['ID'], $runtime)
+                );
+                $current['Modes'] = [
+                    'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $partitionReadiness['home'], $partitionIsDisarmed, $partitionSensors, $partitionFaults, $configurationError),
+                    'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $partitionReadiness['away'], $partitionIsDisarmed, $partitionSensors, $partitionFaults, $configurationError),
+                    'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $partitionReadiness['night'], $partitionIsDisarmed, $partitionSensors, $partitionFaults, $configurationError)
+                ];
+                $current['Delay'] = [
+                    'Remaining' => max(0, $runtime['Deadline'] - time()),
+                    'Deadline'  => in_array($runtime['State'], [self::STATE_EXIT_DELAY, self::STATE_ENTRY_DELAY], true)
+                        ? max(0, $runtime['Deadline'])
+                        : 0,
+                    'Source'    => $runtime['DelaySource']
+                ];
+                $current['Alarm'] = [
+                    'OutputActive'          => $partitionAlarm['OutputActive'],
+                    'SignalGeneratorActive' => $partitionAlarm['OutputActive'] && $signalGeneratorActive && !$partitionSilent,
+                    'MemoryActive'          => $partitionAlarm['MemoryActive'],
+                    'LastSource'            => $partitionAlarm['LastSource'],
+                    'LastTime'              => $partitionAlarm['LastTimestamp'] > 0
+                        ? date('d.m.Y H:i:s', $this->PartitionAlarmTimestampSeconds($partitionAlarm['LastTimestamp']))
+                        : ''
+                ];
+                $current['Faults']['Items'] = array_merge(
+                    $this->BuildControlFaultDetails($partitionFaults, false),
+                    $this->BuildControlUnavailableSensorDetails($partitionSensors)
+                );
+                $current['Faults']['Active'] = $current['Faults']['Items'] !== [];
+                $current['Faults']['Blocking'] = $this->BuildControlFaultDetails($partitionFaults, true);
+                $current['BypassedSensors'] = $this->BuildControlBypassedSensorDetails($partitionSensors);
+                $current['Passage'] = $this->BuildControlPassageState($partition['ID'], $partitionSensors);
+                $current['RecentEvents'] = array_slice(array_values(array_filter(
+                    $this->ReadEventHistory(),
+                    static fn (array $event): bool => $event['PartitionID'] === $partition['ID']
+                )), 0, self::RECENT_EVENT_DISPLAY_LIMIT);
+                $partitionPayload[$partition['ID']] = array_merge([
+                    'ID'      => $partition['ID'],
+                    'Name'    => $partition['Name'],
+                    'Default' => $partition['Default']
+                ], $current);
+            }
+            $diagnostics = $this->BuildDiagnosticsPayload($allSensors, $allFaultInputs);
+            if ($configurationError !== '') {
+                $diagnostics = $this->AddConfigurationErrorToDiagnostics(
+                    $diagnostics,
+                    $defaultPartition['ID'],
+                    $configurationError
+                );
+            }
+            $payload = array_merge([
+                'ApiVersion'       => self::CONTROL_API_VERSION,
+                'DefaultPartition' => $defaultPartition['ID'],
+                'Partitions'       => $partitionPayload,
+                'Diagnostics'      => $diagnostics,
+                'Configuration'    => [
+                    'Valid'   => $configurationError === '',
+                    'Message' => $configurationError
+                ],
+                'ModePresentation' => $this->ModePresentation()
+            ], $partitionState);
+
+            return $debugResult = AlarmControlStateAdapter::encode($payload);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Returns configured partition metadata without exposing runtime internals. */
     public function GetPartitions(): string
     {
-        return json_encode(
-            $this->ReadConfiguredPartitions(),
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-        );
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = json_encode(
+                $this->ReadConfiguredPartitions(),
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Sends a normal-priority test message through the configured direct Pushover connection. */
     public function TestPushover(): bool
     {
-        if (!$this->HasValidPushoverCredentials()) {
-            $this->SendDebug(__FUNCTION__, 'Pushover application token or user/group key is invalid.', 0);
-
-            return false;
-        }
-
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $this->SendPushoverMessage(
-                $this->Translate('OpenHomeAlarm test'),
-                $this->Translate('The direct Pushover connection works.'),
-                0
-            );
-        } catch (Throwable $exception) {
-            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
+            if (!$this->HasValidPushoverCredentials()) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Pushover-Zugangsdaten fehlen oder sind ungültig; es wird nichts gesendet.');
 
-            return false;
+                return $debugResult = false;
+            }
+
+            try {
+                $this->SendPushoverMessage(
+                    $this->Translate('OpenHomeAlarm test'),
+                    $this->Translate('The direct Pushover connection works.'),
+                    0
+                );
+            } catch (Throwable $exception) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Pushover-Testnachricht konnte nicht versendet werden.', ['Ursache' => $this->ExplainAlarmDebugError($exception->getMessage()), 'Fehlertyp' => $exception::class, 'Fehlerzeile' => $exception->getLine()]);
+
+                return $debugResult = false;
+            }
+
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
-
-        return true;
     }
 
     /**
@@ -1204,7 +1359,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetDiagnostics(): string
     {
-        return AlarmDiagnostics::encode($this->BuildConfiguredDiagnosticsPayload());
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = AlarmDiagnostics::encode($this->BuildConfiguredDiagnosticsPayload());
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1214,7 +1384,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ExportDiagnostics(string $format = 'json'): string
     {
-        return AlarmDiagnosticsExporter::export($this->BuildConfiguredDiagnosticsPayload(), $format);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = AlarmDiagnosticsExporter::export($this->BuildConfiguredDiagnosticsPayload(), $format);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1225,17 +1410,32 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ExportConfigurationBackup(): string
     {
-        $configuration = json_decode(
-            IPS_GetConfiguration($this->InstanceID),
-            true,
-            512,
-            JSON_THROW_ON_ERROR
-        );
-        if (!is_array($configuration)) {
-            throw new UnexpectedValueException('Module configuration must be a JSON object.');
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $configuration = json_decode(
+                IPS_GetConfiguration($this->InstanceID),
+                true,
+                512,
+                JSON_THROW_ON_ERROR
+            );
+            if (!is_array($configuration)) {
+                throw new UnexpectedValueException('Module configuration must be a JSON object.');
+            }
 
-        return AlarmConfigurationBackup::encode(AlarmConfigurationBackup::create($configuration, time()));
+            return $debugResult = AlarmConfigurationBackup::encode(AlarmConfigurationBackup::create($configuration, time()));
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1249,34 +1449,49 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function RestoreConfigurationBackup(string $json): bool
     {
-        foreach ($this->ReadPartitionRuntime() as $runtime) {
-            if ($runtime['State'] !== self::STATE_DISARMED || $runtime['Mode'] !== self::MODE_NONE) {
-                throw new RuntimeException('Configuration restore requires every alarm partition to be disarmed.');
-            }
-        }
-
-        $backup = AlarmConfigurationBackup::decode($json);
-        $currentJSON = IPS_GetConfiguration($this->InstanceID);
-        $current = json_decode($currentJSON, true, 512, JSON_THROW_ON_ERROR);
-        if (!is_array($current)) {
-            throw new UnexpectedValueException('Module configuration must be a JSON object.');
-        }
-        $configuration = AlarmConfigurationBackup::configurationForRestore($backup, $current);
-        $configurationJSON = json_encode(
-            $configuration,
-            JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
-
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            IPS_SetConfiguration($this->InstanceID, $configurationJSON);
-            IPS_ApplyChanges($this->InstanceID);
-        } catch (Throwable $exception) {
-            IPS_SetConfiguration($this->InstanceID, $currentJSON);
-            IPS_ApplyChanges($this->InstanceID);
-            throw new RuntimeException('Configuration restore failed and was rolled back.', 0, $exception);
-        }
+            foreach ($this->ReadPartitionRuntime() as $runtime) {
+                if ($runtime['State'] !== self::STATE_DISARMED || $runtime['Mode'] !== self::MODE_NONE) {
+                    throw new RuntimeException('Configuration restore requires every alarm partition to be disarmed.');
+                }
+            }
 
-        return true;
+            $backup = AlarmConfigurationBackup::decode($json);
+            $currentJSON = IPS_GetConfiguration($this->InstanceID);
+            $current = json_decode($currentJSON, true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($current)) {
+                throw new UnexpectedValueException('Module configuration must be a JSON object.');
+            }
+            $configuration = AlarmConfigurationBackup::configurationForRestore($backup, $current);
+            $configurationJSON = json_encode(
+                $configuration,
+                JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            );
+
+            try {
+                IPS_SetConfiguration($this->InstanceID, $configurationJSON);
+                IPS_ApplyChanges($this->InstanceID);
+            } catch (Throwable $exception) {
+                IPS_SetConfiguration($this->InstanceID, $currentJSON);
+                IPS_ApplyChanges($this->InstanceID);
+                throw new RuntimeException('Configuration restore failed and was rolled back.', 0, $exception);
+            }
+
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1285,21 +1500,36 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ArmPartition(string $partitionID, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
     {
-        if ($delaySeconds !== null && $delaySeconds < 0) {
-            $this->PublishVisualizationState();
-
-            return false;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID, 'Modus' => $mode, 'VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        if ($partitionID === $this->DefaultPartitionID()) {
-            return $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors);
-        }
+            if ($delaySeconds !== null && $delaySeconds < 0) {
+                $this->PublishVisualizationState();
 
-        return $this->ArmSinglePartition($partitionID, $mode, $delaySeconds, $silent, $bypassActiveSensors);
+                return $debugResult = false;
+            }
+            try {
+                $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
+            if ($partitionID === $this->DefaultPartitionID()) {
+                return $debugResult = $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors);
+            }
+
+            return $debugResult = $this->ArmSinglePartition($partitionID, $mode, $delaySeconds, $silent, $bypassActiveSensors);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1311,66 +1541,81 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ArmPartitions(array $partitionIDs, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
     {
-        if ($delaySeconds !== null && $delaySeconds < 0) {
-            return false;
-        }
-        $modeValue = AlarmStateMachine::armingModeFromName($mode);
-        if ($modeValue === null) {
-            return false;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereiche' => $partitionIDs, 'Modus' => $mode, 'VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
-            $partitionIDs = $this->ResolveEnabledPartitionIDs($partitionIDs);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        if (in_array($this->DefaultPartitionID(), $partitionIDs, true)) {
-            return $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors);
-        }
-
-        $states = $this->ReadPartitionRuntime();
-        $allSensors = $this->ReadConfiguredSensors();
-        $selectedSensors = array_values(array_filter(
-            $allSensors,
-            static fn (array $sensor): bool => in_array($sensor['PartitionID'], $partitionIDs, true)
-        ));
-        $proposedBypasses = $bypassActiveSensors
-            ? $this->AutomaticBypassCandidates($selectedSensors, $modeValue)
-            : [];
-        foreach ($partitionIDs as $partitionID) {
-            if (!$this->CanArmPartition($states, $partitionID, $modeValue, $delaySeconds, $proposedBypasses)) {
-                return false;
+            if ($delaySeconds !== null && $delaySeconds < 0) {
+                return $debugResult = false;
             }
-        }
+            $modeValue = AlarmStateMachine::armingModeFromName($mode);
+            if ($modeValue === null) {
+                return $debugResult = false;
+            }
+            try {
+                $partitionIDs = $this->ResolveEnabledPartitionIDs($partitionIDs);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
+            if (in_array($this->DefaultPartitionID(), $partitionIDs, true)) {
+                return $debugResult = $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors);
+            }
 
-        $this->AddAutomaticSensorBypasses($proposedBypasses);
-        $now = time();
-        $exitDelaySeconds = $delaySeconds ?? $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS);
-        foreach ($partitionIDs as $partitionID) {
-            $states[$partitionID] = AlarmPartitionRuntime::arm(
-                $states[$partitionID],
-                $modeValue,
-                $now,
-                $exitDelaySeconds,
-                $silent ?? $this->SilentByDefaultForPartition($partitionID)
-            );
-        }
-        $this->WritePartitionRuntime($states);
-        $this->SchedulePartitionRuntimeTimer($states, true);
-        $this->RecordAutomaticSensorBypasses($proposedBypasses, $allSensors, $modeValue);
-        foreach ($partitionIDs as $partitionID) {
-            $this->AppendEvent(
-                $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
-                    ? self::EVENT_EXIT_DELAY_STARTED
-                    : self::EVENT_ARMED,
-                '',
-                $modeValue,
-                $states[$partitionID]['State'],
-                $partitionID
-            );
-        }
-        $this->PublishVisualizationState();
+            $states = $this->ReadPartitionRuntime();
+            $allSensors = $this->ReadConfiguredSensors();
+            $selectedSensors = array_values(array_filter(
+                $allSensors,
+                static fn (array $sensor): bool => in_array($sensor['PartitionID'], $partitionIDs, true)
+            ));
+            $proposedBypasses = $bypassActiveSensors
+                ? $this->AutomaticBypassCandidates($selectedSensors, $modeValue)
+                : [];
+            foreach ($partitionIDs as $partitionID) {
+                if (!$this->CanArmPartition($states, $partitionID, $modeValue, $delaySeconds, $proposedBypasses)) {
+                    return $debugResult = false;
+                }
+            }
 
-        return true;
+            $this->AddAutomaticSensorBypasses($proposedBypasses);
+            $now = time();
+            $exitDelaySeconds = $delaySeconds ?? $this->ReadDelaySeconds(self::PROPERTY_EXIT_DELAY_SECONDS);
+            foreach ($partitionIDs as $partitionID) {
+                $states[$partitionID] = AlarmPartitionRuntime::arm(
+                    $states[$partitionID],
+                    $modeValue,
+                    $now,
+                    $exitDelaySeconds,
+                    $silent ?? $this->SilentByDefaultForPartition($partitionID)
+                );
+            }
+            $this->WritePartitionRuntime($states);
+            $this->SchedulePartitionRuntimeTimer($states, true);
+            $this->RecordAutomaticSensorBypasses($proposedBypasses, $allSensors, $modeValue);
+            foreach ($partitionIDs as $partitionID) {
+                $this->AppendEvent(
+                    $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
+                        ? self::EVENT_EXIT_DELAY_STARTED
+                        : self::EVENT_ARMED,
+                    '',
+                    $modeValue,
+                    $states[$partitionID]['State'],
+                    $partitionID
+                );
+            }
+            $this->PublishVisualizationState();
+
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1379,19 +1624,34 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function DisarmPartition(string $partitionID): bool
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID]);
         try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        if ($partitionID === $this->DefaultPartitionID()) {
-            return $this->Disarm();
-        }
-        $hadActivePartition = $this->HasActivePartitionState($this->ReadPartitionRuntime());
-        $succeeded = $this->DisarmPartitionInternal($partitionID, '');
-        $this->RunFullyDisarmedActionAfterTransition($hadActivePartition);
+            try {
+                $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
+            if ($partitionID === $this->DefaultPartitionID()) {
+                return $debugResult = $this->Disarm();
+            }
+            $hadActivePartition = $this->HasActivePartitionState($this->ReadPartitionRuntime());
+            $succeeded = $this->DisarmPartitionInternal($partitionID, '');
+            $this->RunFullyDisarmedActionAfterTransition($hadActivePartition);
 
-        return $succeeded;
+            return $debugResult = $succeeded;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1402,81 +1662,111 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function DisarmPartitions(array $partitionIDs): bool
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereiche' => $partitionIDs]);
         try {
-            $partitionIDs = $this->ResolveEnabledPartitionIDs($partitionIDs);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        if (in_array($this->DefaultPartitionID(), $partitionIDs, true)) {
-            return $this->Disarm();
-        }
-        $hadActivePartition = $this->HasActivePartitionState($this->ReadPartitionRuntime());
-        foreach ($partitionIDs as $partitionID) {
-            $this->DisarmPartitionInternal($partitionID, '');
-        }
-        $this->RunFullyDisarmedActionAfterTransition($hadActivePartition);
+            try {
+                $partitionIDs = $this->ResolveEnabledPartitionIDs($partitionIDs);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
+            if (in_array($this->DefaultPartitionID(), $partitionIDs, true)) {
+                return $debugResult = $this->Disarm();
+            }
+            $hadActivePartition = $this->HasActivePartitionState($this->ReadPartitionRuntime());
+            foreach ($partitionIDs as $partitionID) {
+                $this->DisarmPartitionInternal($partitionID, '');
+            }
+            $this->RunFullyDisarmedActionAfterTransition($hadActivePartition);
 
-        return true;
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Advances all persisted partition deadlines; called by the shared timer. */
     public function UpdatePartitionRuntime(): void
     {
-        $states = $this->ReadPartitionRuntime();
-        $now = time();
-        $newAlarms = [];
-        $armedPartitions = [];
-        $cancelledArming = [];
-        foreach ($states as $partitionID => $state) {
-            if ($partitionID !== $this->DefaultPartitionID()) {
-                if ($state['State'] === self::STATE_EXIT_DELAY && $state['Deadline'] > 0 && $state['Deadline'] <= $now) {
-                    $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
-                    $faults = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $partitionID);
-                    $readiness = $this->ApplyFaultBlockingToReadiness(
-                        $this->EvaluateReadinessStatus($sensors, true, true, true)['readiness'],
-                        $faults
-                    );
-                    if (!$this->IsModeReady($state['Mode'], $readiness)) {
-                        $states[$partitionID] = AlarmPartitionRuntime::disarm($state);
-                        $cancelledArming[$partitionID] = [
-                            'Mode'   => $state['Mode'],
-                            'Source' => $this->ResolveArmingBlockersForMode($state['Mode'], $sensors, $faults, true, true, true)
-                        ];
-                        continue;
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $states = $this->ReadPartitionRuntime();
+            $now = time();
+            $newAlarms = [];
+            $armedPartitions = [];
+            $cancelledArming = [];
+            foreach ($states as $partitionID => $state) {
+                if ($partitionID !== $this->DefaultPartitionID()) {
+                    if ($state['State'] === self::STATE_EXIT_DELAY && $state['Deadline'] > 0 && $state['Deadline'] <= $now) {
+                        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
+                        $faults = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $partitionID);
+                        $readiness = $this->ApplyFaultBlockingToReadiness(
+                            $this->EvaluateReadinessStatus($sensors, true, true, true)['readiness'],
+                            $faults
+                        );
+                        if (!$this->IsModeReady($state['Mode'], $readiness)) {
+                            $states[$partitionID] = AlarmPartitionRuntime::disarm($state);
+                            $cancelledArming[$partitionID] = [
+                                'Mode'   => $state['Mode'],
+                                'Source' => $this->ResolveArmingBlockersForMode($state['Mode'], $sensors, $faults, true, true, true)
+                            ];
+                            continue;
+                        }
                     }
+                    $advanced = AlarmPartitionRuntime::advance($state, $now);
+                    if ($state['State'] === self::STATE_EXIT_DELAY && $advanced['State'] === self::STATE_ARMED) {
+                        $armedPartitions[$partitionID] = $advanced['Mode'];
+                    }
+                    if ($state['State'] === self::STATE_ENTRY_DELAY && $advanced['State'] === self::STATE_ALARM) {
+                        $newAlarms[$partitionID] = $state['DelaySource'] !== ''
+                            ? $state['DelaySource']
+                            : ($state['PendingSourceID'] > 0 ? $this->ResolveVariableDisplayName($state['PendingSourceID']) : '');
+                    }
+                    $states[$partitionID] = $advanced;
                 }
-                $advanced = AlarmPartitionRuntime::advance($state, $now);
-                if ($state['State'] === self::STATE_EXIT_DELAY && $advanced['State'] === self::STATE_ARMED) {
-                    $armedPartitions[$partitionID] = $advanced['Mode'];
-                }
-                if ($state['State'] === self::STATE_ENTRY_DELAY && $advanced['State'] === self::STATE_ALARM) {
-                    $newAlarms[$partitionID] = $state['DelaySource'] !== ''
-                        ? $state['DelaySource']
-                        : ($state['PendingSourceID'] > 0 ? $this->ResolveVariableDisplayName($state['PendingSourceID']) : '');
-                }
-                $states[$partitionID] = $advanced;
             }
+            $this->WritePartitionRuntime($states);
+            $this->SchedulePartitionRuntimeTimer($states);
+            foreach ($cancelledArming as $partitionID => $cancellation) {
+                $this->AppendEvent(
+                    self::EVENT_ARM_CANCELLED,
+                    $cancellation['Source'],
+                    $cancellation['Mode'],
+                    self::STATE_EXIT_DELAY,
+                    $partitionID
+                );
+                $this->AppendEvent(self::EVENT_DISARMED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
+            }
+            foreach ($armedPartitions as $partitionID => $mode) {
+                $this->AppendEvent(self::EVENT_ARMED, '', $mode, self::STATE_ARMED, $partitionID);
+            }
+            foreach ($newAlarms as $partitionID => $source) {
+                $this->RecordPartitionAlarm($partitionID, $source);
+                $this->AppendEvent(self::EVENT_ALARM, $source, $states[$partitionID]['Mode'], self::STATE_ALARM, $partitionID);
+            }
+            $this->PublishVisualizationState();
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-        $this->WritePartitionRuntime($states);
-        $this->SchedulePartitionRuntimeTimer($states);
-        foreach ($cancelledArming as $partitionID => $cancellation) {
-            $this->AppendEvent(
-                self::EVENT_ARM_CANCELLED,
-                $cancellation['Source'],
-                $cancellation['Mode'],
-                self::STATE_EXIT_DELAY,
-                $partitionID
-            );
-            $this->AppendEvent(self::EVENT_DISARMED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
-        }
-        foreach ($armedPartitions as $partitionID => $mode) {
-            $this->AppendEvent(self::EVENT_ARMED, '', $mode, self::STATE_ARMED, $partitionID);
-        }
-        foreach ($newAlarms as $partitionID => $source) {
-            $this->RecordPartitionAlarm($partitionID, $source);
-            $this->AppendEvent(self::EVENT_ALARM, $source, $states[$partitionID]['Mode'], self::STATE_ALARM, $partitionID);
-        }
-        $this->PublishVisualizationState();
     }
 
     /**
@@ -1487,18 +1777,33 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function Arm(string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
     {
-        $modeValue = AlarmStateMachine::armingModeFromName($mode);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Modus' => $mode, 'VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            $modeValue = AlarmStateMachine::armingModeFromName($mode);
 
-        if ($modeValue === null || ($delaySeconds !== null && $delaySeconds < 0)) {
+            if ($modeValue === null || ($delaySeconds !== null && $delaySeconds < 0)) {
+                $this->PublishVisualizationState();
+
+                return $debugResult = false;
+            }
+
+            $result = $this->ArmAllPartitions($modeValue, $delaySeconds, $silent, $bypassActiveSensors);
             $this->PublishVisualizationState();
 
-            return false;
+            return $debugResult = $result;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
-
-        $result = $this->ArmAllPartitions($modeValue, $delaySeconds, $silent, $bypassActiveSensors);
-        $this->PublishVisualizationState();
-
-        return $result;
     }
 
     /**
@@ -1509,90 +1814,108 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
-        if ($SenderID === 0 && $Message === IPS_KERNELSTARTED) {
-            if (!$this->InitializeRuntimeSafely()) {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if ($SenderID === 0 && $Message === IPS_KERNELSTARTED) {
+                if (!$this->InitializeRuntimeSafely()) {
+                    return;
+                }
+                $this->WriteAttributeString(
+                    self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
+                    $this->AppliedSecurityConfiguration()
+                );
+
                 return;
             }
-            $this->WriteAttributeString(
-                self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION,
-                $this->AppliedSecurityConfiguration()
-            );
+            if (IPS_GetKernelRunlevel() !== KR_READY) {
+                return;
+            }
+            if ($this->IsIPSViewStyleMediaUpdate($SenderID, $Message)) {
+                $this->UpdateIPSViewHTML();
 
-            return;
-        }
-        if (IPS_GetKernelRunlevel() !== KR_READY) {
-            return;
-        }
-        if ($this->IsIPSViewStyleMediaUpdate($SenderID, $Message)) {
-            $this->UpdateIPSViewHTML();
+                return;
+            }
+            if (!in_array($Message, [VM_UPDATE, OM_UNREGISTER], true)) {
+                return;
+            }
 
-            return;
-        }
-        if (!in_array($Message, [VM_UPDATE, OM_UNREGISTER], true)) {
-            return;
-        }
-
-        $sensors = $this->ReadConfiguredSensors();
-        $faultInputs = $this->ReadConfiguredFaultInputs();
-        $isSensorVariable = $this->IsMonitoredSensorVariable($SenderID, $sensors);
-        $isFaultVariable = $this->IsMonitoredFaultVariable($SenderID, $faultInputs);
-        if (!$isSensorVariable && !$isFaultVariable) {
-            return;
-        }
-
-        if ($Message === OM_UNREGISTER) {
+            $sensors = $this->ReadConfiguredSensors();
+            $faultInputs = $this->ReadConfiguredFaultInputs();
+            $isSensorVariable = $this->IsMonitoredSensorVariable($SenderID, $sensors);
+            $isFaultVariable = $this->IsMonitoredFaultVariable($SenderID, $faultInputs);
             if ($isSensorVariable || $isFaultVariable) {
-                $this->EvaluateSensorAvailability($sensors);
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'EMPFANG', 'Meldung einer überwachten Quelle empfangen.', ['Variable' => $SenderID, 'Nachricht' => $Message, 'Wert' => $Message === VM_UPDATE ? ($Data[0] ?? null) : null]);
+            }
+            if (!$isSensorVariable && !$isFaultVariable) {
+                return;
+            }
+
+            if ($Message === OM_UNREGISTER) {
+                if ($isSensorVariable || $isFaultVariable) {
+                    $this->EvaluateSensorAvailability($sensors);
+                    $this->EvaluateFaultInputs($faultInputs);
+                    $this->RefreshAutomaticSensorBypasses($sensors);
+                    $this->NormalizePassageRuntime($sensors);
+                    $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
+                    $this->PublishVisualizationState();
+                }
+                $this->SynchronizeSensorMessages($sensors, $faultInputs);
+                return;
+            }
+
+            if ($isFaultVariable) {
                 $this->EvaluateFaultInputs($faultInputs);
-                $this->RefreshAutomaticSensorBypasses($sensors);
-                $this->NormalizePassageRuntime($sensors);
-                $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
-                $this->PublishVisualizationState();
             }
-            $this->SynchronizeSensorMessages($sensors, $faultInputs);
-            return;
-        }
-
-        if ($isFaultVariable) {
-            $this->EvaluateFaultInputs($faultInputs);
-        }
-        if ($isSensorVariable) {
-            $this->EvaluateSensorAvailability($sensors);
-            $this->RefreshAutomaticSensorBypasses($sensors);
-            $this->ProcessExpiredPassageGrants($sensors);
-            $this->ProcessPassageSensorUpdate($SenderID, $sensors);
-        }
-        $this->UpdateReadinessFromSensors(
-            $this->SensorsForPartition($sensors, $this->DefaultPartitionID())
-        );
-        if ($isSensorVariable) {
-            $this->HandleNonDefaultPartitionSensorUpdate($SenderID, $sensors);
-        }
-        if ($this->ReadAlarmState() === self::STATE_ALARM) {
             if ($isSensorVariable) {
-                $this->HandleDefaultPartitionAlarmRetrigger(
-                    $SenderID,
-                    $this->SensorsForPartition($sensors, $this->DefaultPartitionID())
-                );
+                $this->EvaluateSensorAvailability($sensors);
+                $this->RefreshAutomaticSensorBypasses($sensors);
+                $this->ProcessExpiredPassageGrants($sensors);
+                $this->ProcessPassageSensorUpdate($SenderID, $sensors);
             }
+            $this->UpdateReadinessFromSensors(
+                $this->SensorsForPartition($sensors, $this->DefaultPartitionID())
+            );
+            if ($isSensorVariable) {
+                $this->HandleNonDefaultPartitionSensorUpdate($SenderID, $sensors);
+            }
+            if ($this->ReadAlarmState() === self::STATE_ALARM) {
+                if ($isSensorVariable) {
+                    $this->HandleDefaultPartitionAlarmRetrigger(
+                        $SenderID,
+                        $this->SensorsForPartition($sensors, $this->DefaultPartitionID())
+                    );
+                }
+                $this->PublishVisualizationState();
+
+                return;
+            }
+            if (!$isSensorVariable) {
+                $this->PublishVisualizationState();
+
+                return;
+            }
+            $defaultSensors = $this->SensorsForPartition($sensors, $this->DefaultPartitionID());
+            if ($this->HandleAlwaysActiveSensorUpdate($SenderID, $defaultSensors)) {
+                $this->PublishVisualizationState();
+
+                return;
+            }
+
+            $this->HandleSensorUpdateWhileArmed($SenderID, $defaultSensors);
             $this->PublishVisualizationState();
-
-            return;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-        if (!$isSensorVariable) {
-            $this->PublishVisualizationState();
-
-            return;
-        }
-        $defaultSensors = $this->SensorsForPartition($sensors, $this->DefaultPartitionID());
-        if ($this->HandleAlwaysActiveSensorUpdate($SenderID, $defaultSensors)) {
-            $this->PublishVisualizationState();
-
-            return;
-        }
-
-        $this->HandleSensorUpdateWhileArmed($SenderID, $defaultSensors);
-        $this->PublishVisualizationState();
     }
 
     /**
@@ -1604,18 +1927,33 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function CheckSensorIntegrity(): void
     {
-        if (IPS_GetKernelRunlevel() !== KR_READY) {
-            return;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if (IPS_GetKernelRunlevel() !== KR_READY) {
+                return;
+            }
 
-        $sensors = $this->ReadConfiguredSensors();
-        $faultInputs = $this->ReadConfiguredFaultInputs();
-        $this->SynchronizeSensorMessages($sensors, $faultInputs);
-        $this->EvaluateSensorAvailability($sensors);
-        $this->EvaluateFaultInputs($faultInputs);
-        $this->RefreshAutomaticSensorBypasses($sensors);
-        $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
-        $this->PublishVisualizationState();
+            $sensors = $this->ReadConfiguredSensors();
+            $faultInputs = $this->ReadConfiguredFaultInputs();
+            $this->SynchronizeSensorMessages($sensors, $faultInputs);
+            $this->EvaluateSensorAvailability($sensors);
+            $this->EvaluateFaultInputs($faultInputs);
+            $this->RefreshAutomaticSensorBypasses($sensors);
+            $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
+            $this->PublishVisualizationState();
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /**
@@ -1626,11 +1964,26 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function CheckAutomaticArming(): void
     {
-        if (IPS_GetKernelRunlevel() !== KR_READY) {
-            return;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if (IPS_GetKernelRunlevel() !== KR_READY) {
+                return;
+            }
 
-        $this->ExecuteAutomaticArmingAt(time());
+            $this->ExecuteAutomaticArmingAt(time());
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /**
@@ -1638,7 +1991,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ArmHome(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
     {
-        return $this->Arm('home', $delaySeconds, $silent, $bypassActiveSensors);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            return $debugResult = $this->Arm('home', $delaySeconds, $silent, $bypassActiveSensors);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1646,7 +2014,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ArmAway(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
     {
-        return $this->Arm('away', $delaySeconds, $silent, $bypassActiveSensors);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            return $debugResult = $this->Arm('away', $delaySeconds, $silent, $bypassActiveSensors);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1654,7 +2037,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ArmNight(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
     {
-        return $this->Arm('night', $delaySeconds, $silent, $bypassActiveSensors);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            return $debugResult = $this->Arm('night', $delaySeconds, $silent, $bypassActiveSensors);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1662,7 +2060,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function Disarm(): bool
     {
-        return $this->DisarmInternal('');
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = $this->DisarmInternal('');
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1674,12 +2087,27 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function DisarmWithCode(string $code): bool
     {
-        $userName = $this->AuthorizedDisarmUser($code);
-        if ($userName === false) {
-            return false;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $userName = $this->AuthorizedDisarmUser($code);
+            if ($userName === false) {
+                return $debugResult = false;
+            }
 
-        return $this->DisarmInternal($userName);
+            return $debugResult = $this->DisarmInternal($userName);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1688,7 +2116,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GrantPassage(int $variableID, int $timeoutSeconds = 60): bool
     {
-        return $this->GrantPassagePartition($this->DefaultPartitionID(), $variableID, $timeoutSeconds);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Variable' => $variableID, 'FreigabeSekunden' => $timeoutSeconds]);
+        try {
+            return $debugResult = $this->GrantPassagePartition($this->DefaultPartitionID(), $variableID, $timeoutSeconds);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Temporarily releases one explicitly approved sensor in one alarm partition. */
@@ -1697,84 +2140,99 @@ class OpenHomeAlarm extends IPSModuleStrict
         int $variableID,
         int $timeoutSeconds = 60
     ): bool {
-        if ($variableID <= 0 || $timeoutSeconds < 1 || $timeoutSeconds > self::MAX_PASSAGE_TIMEOUT_SECONDS) {
-            return false;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
+            if ($variableID <= 0 || $timeoutSeconds < 1 || $timeoutSeconds > self::MAX_PASSAGE_TIMEOUT_SECONDS) {
+                return $debugResult = false;
+            }
+            try {
+                $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
 
-        $sensors = $this->ReadConfiguredSensors();
-        $this->ProcessExpiredPassageGrants($sensors);
-        $runtime = $this->ReadPartitionRuntime();
-        $partitionState = $runtime[$partitionID];
-        if (!in_array($partitionState['State'], [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)
-            || !AlarmStateMachine::isArmingMode($partitionState['Mode'])) {
-            return false;
-        }
+            $sensors = $this->ReadConfiguredSensors();
+            $this->ProcessExpiredPassageGrants($sensors);
+            $runtime = $this->ReadPartitionRuntime();
+            $partitionState = $runtime[$partitionID];
+            if (!in_array($partitionState['State'], [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)
+                || !AlarmStateMachine::isArmingMode($partitionState['Mode'])) {
+                return $debugResult = false;
+            }
 
-        $passages = $this->ReadPassageRuntime();
-        if (array_key_exists($partitionID, $passages)) {
-            return false;
-        }
+            $passages = $this->ReadPassageRuntime();
+            if (array_key_exists($partitionID, $passages)) {
+                return $debugResult = false;
+            }
 
-        $sensor = $this->FindPassageSensorInList(
-            $sensors,
-            $partitionID,
-            $variableID,
-            $partitionState['Mode']
-        );
-        if ($sensor === null) {
-            return false;
-        }
-        $triggered = $this->GetSensorTriggerState($sensor);
-        if ($triggered === null) {
-            return false;
-        }
-        if ($partitionState['State'] === self::STATE_ENTRY_DELAY
-            && $partitionState['PendingSourceID'] !== $variableID) {
-            return false;
-        }
+            $sensor = $this->FindPassageSensorInList(
+                $sensors,
+                $partitionID,
+                $variableID,
+                $partitionState['Mode']
+            );
+            if ($sensor === null) {
+                return $debugResult = false;
+            }
+            $triggered = $this->GetSensorTriggerState($sensor);
+            if ($triggered === null) {
+                return $debugResult = false;
+            }
+            if ($partitionState['State'] === self::STATE_ENTRY_DELAY
+                && $partitionState['PendingSourceID'] !== $variableID) {
+                return $debugResult = false;
+            }
 
-        $acknowledgesEntryDelay = $partitionState['State'] === self::STATE_ENTRY_DELAY;
-        if ($acknowledgesEntryDelay) {
-            $this->CancelPartitionEntryDelayForPassage($partitionID, $runtime);
-        }
-        $phase = $triggered || $acknowledgesEntryDelay
-            ? self::PASSAGE_PHASE_TRIGGERED
-            : self::PASSAGE_PHASE_WAITING;
-        $passages[$partitionID] = [
-            'VariableID' => $variableID,
-            'Phase'      => $phase,
-            'Deadline'   => time() + $timeoutSeconds
-        ];
-        $this->WritePassageRuntime($passages);
-        $this->SchedulePassageRuntimeTimer($passages);
-        $source = $this->ResolveSensorDisplayName($sensor);
-        $this->AppendEvent(
-            self::EVENT_PASSAGE_GRANTED,
-            $source,
-            $partitionState['Mode'],
-            self::STATE_ARMED,
-            $partitionID
-        );
-        if ($phase === self::PASSAGE_PHASE_TRIGGERED) {
+            $acknowledgesEntryDelay = $partitionState['State'] === self::STATE_ENTRY_DELAY;
+            if ($acknowledgesEntryDelay) {
+                $this->CancelPartitionEntryDelayForPassage($partitionID, $runtime);
+            }
+            $phase = $triggered || $acknowledgesEntryDelay
+                ? self::PASSAGE_PHASE_TRIGGERED
+                : self::PASSAGE_PHASE_WAITING;
+            $passages[$partitionID] = [
+                'VariableID' => $variableID,
+                'Phase'      => $phase,
+                'Deadline'   => time() + $timeoutSeconds
+            ];
+            $this->WritePassageRuntime($passages);
+            $this->SchedulePassageRuntimeTimer($passages);
+            $source = $this->ResolveSensorDisplayName($sensor);
             $this->AppendEvent(
-                self::EVENT_PASSAGE_STARTED,
+                self::EVENT_PASSAGE_GRANTED,
                 $source,
                 $partitionState['Mode'],
                 self::STATE_ARMED,
                 $partitionID
             );
-        }
-        if ($phase === self::PASSAGE_PHASE_TRIGGERED && !$triggered) {
-            $this->ProcessPassageSensorUpdate($variableID, $sensors);
-        }
-        $this->PublishVisualizationState();
+            if ($phase === self::PASSAGE_PHASE_TRIGGERED) {
+                $this->AppendEvent(
+                    self::EVENT_PASSAGE_STARTED,
+                    $source,
+                    $partitionState['Mode'],
+                    self::STATE_ARMED,
+                    $partitionID
+                );
+            }
+            if ($phase === self::PASSAGE_PHASE_TRIGGERED && !$triggered) {
+                $this->ProcessPassageSensorUpdate($variableID, $sensors);
+            }
+            $this->PublishVisualizationState();
 
-        return true;
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -1785,77 +2243,107 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GrantPassagePartitions(array $partitionIDs, int $variableID, int $timeoutSeconds = 60): bool
     {
-        if ($variableID <= 0 || $timeoutSeconds < 1 || $timeoutSeconds > self::MAX_PASSAGE_TIMEOUT_SECONDS) {
-            return false;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereiche' => $partitionIDs, 'Variable' => $variableID, 'FreigabeSekunden' => $timeoutSeconds]);
         try {
-            $partitionIDs = $this->ResolveEnabledPartitionIDs($partitionIDs);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
+            if ($variableID <= 0 || $timeoutSeconds < 1 || $timeoutSeconds > self::MAX_PASSAGE_TIMEOUT_SECONDS) {
+                return $debugResult = false;
+            }
+            try {
+                $partitionIDs = $this->ResolveEnabledPartitionIDs($partitionIDs);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
 
-        $sensors = $this->ReadConfiguredSensors();
-        $this->ProcessExpiredPassageGrants($sensors);
-        $runtime = $this->ReadPartitionRuntime();
-        $passages = $this->ReadPassageRuntime();
-        $prepared = [];
-        foreach ($partitionIDs as $partitionID) {
-            $partitionState = $runtime[$partitionID];
-            if (!in_array($partitionState['State'], [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)
-                || !AlarmStateMachine::isArmingMode($partitionState['Mode'])
-                || array_key_exists($partitionID, $passages)) {
-                return false;
+            $sensors = $this->ReadConfiguredSensors();
+            $this->ProcessExpiredPassageGrants($sensors);
+            $runtime = $this->ReadPartitionRuntime();
+            $passages = $this->ReadPassageRuntime();
+            $prepared = [];
+            foreach ($partitionIDs as $partitionID) {
+                $partitionState = $runtime[$partitionID];
+                if (!in_array($partitionState['State'], [self::STATE_ARMED, self::STATE_ENTRY_DELAY], true)
+                    || !AlarmStateMachine::isArmingMode($partitionState['Mode'])
+                    || array_key_exists($partitionID, $passages)) {
+                    return $debugResult = false;
+                }
+                $sensor = $this->FindPassageSensorInList($sensors, $partitionID, $variableID, $partitionState['Mode']);
+                $triggered = $sensor === null ? null : $this->GetSensorTriggerState($sensor);
+                if ($sensor === null || $triggered === null
+                    || ($partitionState['State'] === self::STATE_ENTRY_DELAY
+                        && $partitionState['PendingSourceID'] !== $variableID)) {
+                    return $debugResult = false;
+                }
+                $prepared[$partitionID] = [
+                    'Sensor'                => $sensor,
+                    'Triggered'             => $triggered,
+                    'AcknowledgesEntryDelay'=> $partitionState['State'] === self::STATE_ENTRY_DELAY,
+                    'Mode'                  => $partitionState['Mode']
+                ];
             }
-            $sensor = $this->FindPassageSensorInList($sensors, $partitionID, $variableID, $partitionState['Mode']);
-            $triggered = $sensor === null ? null : $this->GetSensorTriggerState($sensor);
-            if ($sensor === null || $triggered === null
-                || ($partitionState['State'] === self::STATE_ENTRY_DELAY
-                    && $partitionState['PendingSourceID'] !== $variableID)) {
-                return false;
-            }
-            $prepared[$partitionID] = [
-                'Sensor'                => $sensor,
-                'Triggered'             => $triggered,
-                'AcknowledgesEntryDelay'=> $partitionState['State'] === self::STATE_ENTRY_DELAY,
-                'Mode'                  => $partitionState['Mode']
-            ];
-        }
 
-        $deadline = time() + $timeoutSeconds;
-        foreach ($prepared as $partitionID => $entry) {
-            if ($entry['AcknowledgesEntryDelay']) {
-                $this->CancelPartitionEntryDelayForPassage($partitionID, $runtime);
-                $runtime = $this->ReadPartitionRuntime();
+            $deadline = time() + $timeoutSeconds;
+            foreach ($prepared as $partitionID => $entry) {
+                if ($entry['AcknowledgesEntryDelay']) {
+                    $this->CancelPartitionEntryDelayForPassage($partitionID, $runtime);
+                    $runtime = $this->ReadPartitionRuntime();
+                }
+                $phase = $entry['Triggered'] || $entry['AcknowledgesEntryDelay']
+                    ? self::PASSAGE_PHASE_TRIGGERED
+                    : self::PASSAGE_PHASE_WAITING;
+                $passages[$partitionID] = [
+                    'VariableID' => $variableID,
+                    'Phase'      => $phase,
+                    'Deadline'   => $deadline
+                ];
+                $source = $this->ResolveSensorDisplayName($entry['Sensor']);
+                $this->AppendEvent(self::EVENT_PASSAGE_GRANTED, $source, $entry['Mode'], self::STATE_ARMED, $partitionID);
+                if ($phase === self::PASSAGE_PHASE_TRIGGERED) {
+                    $this->AppendEvent(self::EVENT_PASSAGE_STARTED, $source, $entry['Mode'], self::STATE_ARMED, $partitionID);
+                }
             }
-            $phase = $entry['Triggered'] || $entry['AcknowledgesEntryDelay']
-                ? self::PASSAGE_PHASE_TRIGGERED
-                : self::PASSAGE_PHASE_WAITING;
-            $passages[$partitionID] = [
-                'VariableID' => $variableID,
-                'Phase'      => $phase,
-                'Deadline'   => $deadline
-            ];
-            $source = $this->ResolveSensorDisplayName($entry['Sensor']);
-            $this->AppendEvent(self::EVENT_PASSAGE_GRANTED, $source, $entry['Mode'], self::STATE_ARMED, $partitionID);
-            if ($phase === self::PASSAGE_PHASE_TRIGGERED) {
-                $this->AppendEvent(self::EVENT_PASSAGE_STARTED, $source, $entry['Mode'], self::STATE_ARMED, $partitionID);
+            $this->WritePassageRuntime($passages);
+            $this->SchedulePassageRuntimeTimer($passages);
+            if (array_filter($prepared, static fn (array $entry): bool => $entry['AcknowledgesEntryDelay'] && !$entry['Triggered']) !== []) {
+                $this->ProcessPassageSensorUpdate($variableID, $sensors);
             }
-        }
-        $this->WritePassageRuntime($passages);
-        $this->SchedulePassageRuntimeTimer($passages);
-        if (array_filter($prepared, static fn (array $entry): bool => $entry['AcknowledgesEntryDelay'] && !$entry['Triggered']) !== []) {
-            $this->ProcessPassageSensorUpdate($variableID, $sensors);
-        }
-        $this->PublishVisualizationState();
+            $this->PublishVisualizationState();
 
-        return true;
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Processes expired passage releases; called by the persistent timer. */
     public function UpdatePassageRuntime(): void
     {
-        $this->ProcessExpiredPassageGrants($this->ReadConfiguredSensors());
-        $this->PublishVisualizationState();
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $this->ProcessExpiredPassageGrants($this->ReadConfiguredSensors());
+            $this->PublishVisualizationState();
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /**
@@ -1867,56 +2355,86 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function BypassSensor(int $variableID): bool
     {
-        return $this->BypassSensorPartition($this->DefaultPartitionID(), $variableID);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Variable' => $variableID]);
+        try {
+            return $debugResult = $this->BypassSensorPartition($this->DefaultPartitionID(), $variableID);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Temporarily bypasses one sensor in exactly one alarm partition. */
     public function BypassSensorPartition(string $partitionID, int $variableID): bool
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID, 'Variable' => $variableID]);
         try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        $runtime = $this->ReadPartitionRuntime();
-        if ($runtime[$partitionID]['State'] !== self::STATE_DISARMED || $variableID <= 0) {
-            return false;
-        }
-
-        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
-        $bypassable = false;
-        foreach ($sensors as $sensor) {
-            if (
-                $sensor['Enabled']
-                && !$sensor['AlwaysActive']
-                && $sensor['VariableID'] === $variableID
-                && $this->IsSensorUsedForArming($sensor)
-            ) {
-                $bypassable = true;
-                break;
+            try {
+                $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
             }
+            $runtime = $this->ReadPartitionRuntime();
+            if ($runtime[$partitionID]['State'] !== self::STATE_DISARMED || $variableID <= 0) {
+                return $debugResult = false;
+            }
+
+            $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $partitionID);
+            $bypassable = false;
+            foreach ($sensors as $sensor) {
+                if (
+                    $sensor['Enabled']
+                    && !$sensor['AlwaysActive']
+                    && $sensor['VariableID'] === $variableID
+                    && $this->IsSensorUsedForArming($sensor)
+                ) {
+                    $bypassable = true;
+                    break;
+                }
+            }
+
+            if (!$bypassable) {
+                return $debugResult = false;
+            }
+
+            $assignments = $this->ReadBypassedSensorAssignments();
+            $assignments[] = $this->SensorBypassKey($partitionID, $variableID);
+            $this->WriteBypassedSensorAssignments($assignments);
+            $allSensors = $this->ReadConfiguredSensors();
+            $this->UpdateBypassedSensorStatus($allSensors);
+            $this->UpdateReadinessFromSensors($this->SensorsForPartition($allSensors, $this->DefaultPartitionID()));
+            $this->AppendEvent(
+                self::EVENT_SENSOR_BYPASSED,
+                $this->ResolveSensorNameByVariableID($variableID, $sensors),
+                self::MODE_NONE,
+                self::STATE_DISARMED,
+                $partitionID
+            );
+            $this->PublishVisualizationState();
+
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
-
-        if (!$bypassable) {
-            return false;
-        }
-
-        $assignments = $this->ReadBypassedSensorAssignments();
-        $assignments[] = $this->SensorBypassKey($partitionID, $variableID);
-        $this->WriteBypassedSensorAssignments($assignments);
-        $allSensors = $this->ReadConfiguredSensors();
-        $this->UpdateBypassedSensorStatus($allSensors);
-        $this->UpdateReadinessFromSensors($this->SensorsForPartition($allSensors, $this->DefaultPartitionID()));
-        $this->AppendEvent(
-            self::EVENT_SENSOR_BYPASSED,
-            $this->ResolveSensorNameByVariableID($variableID, $sensors),
-            self::MODE_NONE,
-            self::STATE_DISARMED,
-            $partitionID
-        );
-        $this->PublishVisualizationState();
-
-        return true;
     }
 
     /**
@@ -1924,48 +2442,78 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function RemoveSensorBypass(int $variableID): bool
     {
-        return $this->RemoveSensorBypassPartition($this->DefaultPartitionID(), $variableID);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Variable' => $variableID]);
+        try {
+            return $debugResult = $this->RemoveSensorBypassPartition($this->DefaultPartitionID(), $variableID);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Removes one temporary bypass from exactly one alarm partition. */
     public function RemoveSensorBypassPartition(string $partitionID, int $variableID): bool
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID, 'Variable' => $variableID]);
         try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
+            try {
+                $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
+            $runtime = $this->ReadPartitionRuntime();
+            if ($runtime[$partitionID]['State'] !== self::STATE_DISARMED || $variableID <= 0) {
+                return $debugResult = false;
+            }
+
+            $assignments = $this->ReadBypassedSensorAssignments();
+            $key = $this->SensorBypassKey($partitionID, $variableID);
+            if (!in_array($key, $assignments, true)) {
+                return $debugResult = false;
+            }
+
+            $this->WriteBypassedSensorAssignments(
+                array_values(array_filter(
+                    $assignments,
+                    static fn (string $assignment): bool => $assignment !== $key
+                ))
+            );
+
+            $sensors = $this->ReadConfiguredSensors();
+            $this->UpdateBypassedSensorStatus($sensors);
+            $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
+            $this->AppendEvent(
+                self::EVENT_SENSOR_BYPASS_REMOVED,
+                $this->ResolveSensorNameByVariableID($variableID, $sensors),
+                self::MODE_NONE,
+                self::STATE_DISARMED,
+                $partitionID
+            );
+            $this->PublishVisualizationState();
+
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
-        $runtime = $this->ReadPartitionRuntime();
-        if ($runtime[$partitionID]['State'] !== self::STATE_DISARMED || $variableID <= 0) {
-            return false;
-        }
-
-        $assignments = $this->ReadBypassedSensorAssignments();
-        $key = $this->SensorBypassKey($partitionID, $variableID);
-        if (!in_array($key, $assignments, true)) {
-            return false;
-        }
-
-        $this->WriteBypassedSensorAssignments(
-            array_values(array_filter(
-                $assignments,
-                static fn (string $assignment): bool => $assignment !== $key
-            ))
-        );
-
-        $sensors = $this->ReadConfiguredSensors();
-        $this->UpdateBypassedSensorStatus($sensors);
-        $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
-        $this->AppendEvent(
-            self::EVENT_SENSOR_BYPASS_REMOVED,
-            $this->ResolveSensorNameByVariableID($variableID, $sensors),
-            self::MODE_NONE,
-            self::STATE_DISARMED,
-            $partitionID
-        );
-        $this->PublishVisualizationState();
-
-        return true;
     }
 
     /**
@@ -1973,41 +2521,71 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ClearSensorBypasses(): bool
     {
-        if ($this->IsSecurityConfigurationLocked()) {
-            return false;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if ($this->IsSecurityConfigurationLocked()) {
+                return $debugResult = false;
+            }
 
-        $hadBypasses = $this->AllBypassedSensorAssignments() !== [];
-        $this->ClearSensorBypassesInternal();
-        if ($hadBypasses) {
-            $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED);
-        }
-        $this->PublishVisualizationState();
+            $hadBypasses = $this->AllBypassedSensorAssignments() !== [];
+            $this->ClearSensorBypassesInternal();
+            if ($hadBypasses) {
+                $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED);
+            }
+            $this->PublishVisualizationState();
 
-        return true;
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Clears temporary sensor bypasses belonging to one disarmed partition. */
     public function ClearSensorBypassesPartition(string $partitionID): bool
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID]);
         try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        $runtime = $this->ReadPartitionRuntime();
-        if ($runtime[$partitionID]['State'] !== self::STATE_DISARMED) {
-            return false;
-        }
+            try {
+                $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
+            $runtime = $this->ReadPartitionRuntime();
+            if ($runtime[$partitionID]['State'] !== self::STATE_DISARMED) {
+                return $debugResult = false;
+            }
 
-        $sensors = $this->ReadConfiguredSensors();
-        if (!$this->ClearSensorBypassesPartitionInternal($partitionID, $sensors)) {
-            return true;
-        }
-        $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
-        $this->PublishVisualizationState();
+            $sensors = $this->ReadConfiguredSensors();
+            if (!$this->ClearSensorBypassesPartitionInternal($partitionID, $sensors)) {
+                return $debugResult = true;
+            }
+            $this->AppendEvent(self::EVENT_SENSOR_BYPASSES_CLEARED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
+            $this->PublishVisualizationState();
 
-        return true;
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -2018,38 +2596,68 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ClearAlarmMemory(): bool
     {
-        return $this->ClearAlarmMemoryPartition($this->DefaultPartitionID());
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = $this->ClearAlarmMemoryPartition($this->DefaultPartitionID());
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Clears the acknowledged alarm memory of one partition. */
     public function ClearAlarmMemoryPartition(string $partitionID): bool
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID]);
         try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        $runtime = $this->ReadPartitionRuntime();
-        if ($runtime[$partitionID]['State'] === self::STATE_ALARM) {
-            return false;
-        }
-        $states = $this->ReadPartitionAlarmStates();
-        $hadMemory = $states[$partitionID]['MemoryActive'];
-        $states[$partitionID] = AlarmPartitionAlarmRegistry::clearMemory($states[$partitionID]);
-        $this->WritePartitionAlarmStates($states);
-        $this->SynchronizePartitionAlarmSummary($states);
-        if ($hadMemory) {
-            $this->AppendEvent(
-                self::EVENT_ALARM_MEMORY_CLEARED,
-                '',
-                $runtime[$partitionID]['Mode'],
-                $runtime[$partitionID]['State'],
-                $partitionID
-            );
-        }
-        $this->PublishVisualizationState();
+            try {
+                $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
+            $runtime = $this->ReadPartitionRuntime();
+            if ($runtime[$partitionID]['State'] === self::STATE_ALARM) {
+                return $debugResult = false;
+            }
+            $states = $this->ReadPartitionAlarmStates();
+            $hadMemory = $states[$partitionID]['MemoryActive'];
+            $states[$partitionID] = AlarmPartitionAlarmRegistry::clearMemory($states[$partitionID]);
+            $this->WritePartitionAlarmStates($states);
+            $this->SynchronizePartitionAlarmSummary($states);
+            if ($hadMemory) {
+                $this->AppendEvent(
+                    self::EVENT_ALARM_MEMORY_CLEARED,
+                    '',
+                    $runtime[$partitionID]['Mode'],
+                    $runtime[$partitionID]['State'],
+                    $partitionID
+                );
+            }
+            $this->PublishVisualizationState();
 
-        return true;
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -2057,10 +2665,25 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetEventHistory(): string
     {
-        return json_encode(
-            $this->ReadEventHistory(),
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = json_encode(
+                $this->ReadEventHistory(),
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -2073,13 +2696,28 @@ class OpenHomeAlarm extends IPSModuleStrict
         int $toTimestamp = 0,
         string $eventType = ''
     ): string {
-        return AlarmEventHistoryExporter::export(
-            $this->ReadEventHistory(),
-            $format,
-            $fromTimestamp,
-            $toTimestamp,
-            $eventType
-        );
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = AlarmEventHistoryExporter::export(
+                $this->ReadEventHistory(),
+                $format,
+                $fromTimestamp,
+                $toTimestamp,
+                $eventType
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -2087,10 +2725,25 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ClearEventHistory(): bool
     {
-        $this->ClearPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
-        $this->PublishVisualizationState();
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $this->ClearPersistentJsonCache(self::ATTRIBUTE_EVENT_HISTORY);
+            $this->PublishVisualizationState();
 
-        return true;
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -2102,72 +2755,147 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function ResetAlarmOutput(): bool
     {
-        return $this->ResetAlarmOutputPartition($this->DefaultPartitionID());
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = $this->ResetAlarmOutputPartition($this->DefaultPartitionID());
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Resets one partition output while retaining other active partition outputs. */
     public function ResetAlarmOutputPartition(string $partitionID): bool
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID]);
         try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        $runtime = $this->ReadPartitionRuntime();
-        if ($runtime[$partitionID]['State'] !== self::STATE_ALARM) {
-            return false;
-        }
-        $actionSucceeded = $this->ResetPartitionAlarmOutputInternal($partitionID);
-        $this->PublishVisualizationState();
+            try {
+                $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
+            $runtime = $this->ReadPartitionRuntime();
+            if ($runtime[$partitionID]['State'] !== self::STATE_ALARM) {
+                return $debugResult = false;
+            }
+            $actionSucceeded = $this->ResetPartitionAlarmOutputInternal($partitionID);
+            $this->PublishVisualizationState();
 
-        return $actionSucceeded;
+            return $debugResult = $actionSucceeded;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Resets a false alarm, clears its memory and re-arms the ready area. */
     public function ResetFalseAlarm(): bool
     {
-        return $this->ResetFalseAlarmPartition($this->DefaultPartitionID());
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            return $debugResult = $this->ResetFalseAlarmPartition($this->DefaultPartitionID());
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Resets a false alarm in one area without changing any other area. */
     public function ResetFalseAlarmPartition(string $partitionID): bool
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID]);
         try {
-            $partitionID = $this->ResolveEnabledPartitionID($partitionID);
-        } catch (UnexpectedValueException) {
-            return false;
-        }
-        $runtime = $this->ReadPartitionRuntime();
-        if (!$this->CanRearmPartition($partitionID, $runtime[$partitionID] ?? null)) {
-            return false;
-        }
+            try {
+                $partitionID = $this->ResolveEnabledPartitionID($partitionID);
+            } catch (UnexpectedValueException) {
+                return $debugResult = false;
+            }
+            $runtime = $this->ReadPartitionRuntime();
+            if (!$this->CanRearmPartition($partitionID, $runtime[$partitionID] ?? null)) {
+                return $debugResult = false;
+            }
 
-        $this->ResetPartitionAlarmOutputInternal($partitionID);
-        $states = $this->ReadPartitionAlarmStates();
-        $states[$partitionID] = AlarmPartitionAlarmRegistry::clearMemory($states[$partitionID]);
-        $this->WritePartitionAlarmStates($states);
-        $this->SynchronizePartitionAlarmSummary($states);
-        $this->RearmPartitionAfterAlarm($partitionID, $runtime);
-        $this->AppendEvent(
-            self::EVENT_FALSE_ALARM_RESET,
-            '',
-            $runtime[$partitionID]['Mode'],
-            self::STATE_ARMED,
-            $partitionID
-        );
-        $this->PublishVisualizationState();
+            $this->ResetPartitionAlarmOutputInternal($partitionID);
+            $states = $this->ReadPartitionAlarmStates();
+            $states[$partitionID] = AlarmPartitionAlarmRegistry::clearMemory($states[$partitionID]);
+            $this->WritePartitionAlarmStates($states);
+            $this->SynchronizePartitionAlarmSummary($states);
+            $this->RearmPartitionAfterAlarm($partitionID, $runtime);
+            $this->AppendEvent(
+                self::EVENT_FALSE_ALARM_RESET,
+                '',
+                $runtime[$partitionID]['Mode'],
+                self::STATE_ARMED,
+                $partitionID
+            );
+            $this->PublishVisualizationState();
 
-        return true;
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Resets a false alarm in one area after validating the configured disarm code. */
     public function ResetFalseAlarmPartitionWithCode(string $partitionID, string $code): bool
     {
-        if ($this->AuthorizedDisarmUser($code) === false) {
-            return false;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID]);
+        try {
+            if ($this->AuthorizedDisarmUser($code) === false) {
+                return $debugResult = false;
+            }
 
-        return $this->ResetFalseAlarmPartition($partitionID);
+            return $debugResult = $this->ResetFalseAlarmPartition($partitionID);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -2179,33 +2907,63 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function StopSignalGenerator(): bool
     {
-        if (!AlarmPartitionAlarmRegistry::aggregate($this->ReadPartitionAlarmStates())['OutputActive']) {
-            return false;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if (!AlarmPartitionAlarmRegistry::aggregate($this->ReadPartitionAlarmStates())['OutputActive']) {
+                return $debugResult = false;
+            }
 
-        $this->WriteAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 1);
-        $stopped = $this->ResetExecutedAlarmEscalationActions(true);
-        if (!$stopped) {
-            $stopped = $this->ResetConfiguredSignalGeneratorActions();
-        }
-        if (!$stopped) {
-            $this->WriteAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 0);
-        } else {
-            $this->SetSignalGeneratorActive(false);
-        }
-        $this->PublishVisualizationState();
+            $this->WriteAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 1);
+            $stopped = $this->ResetExecutedAlarmEscalationActions(true);
+            if (!$stopped) {
+                $stopped = $this->ResetConfiguredSignalGeneratorActions();
+            }
+            if (!$stopped) {
+                $this->WriteAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED, 0);
+            } else {
+                $this->SetSignalGeneratorActive(false);
+            }
+            $this->PublishVisualizationState();
 
-        return $stopped;
+            return $debugResult = $stopped;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Stops signal generators after validating the configured disarm code. */
     public function StopSignalGeneratorWithCode(string $code): bool
     {
-        if ($this->AuthorizedDisarmUser($code) === false) {
-            return false;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if ($this->AuthorizedDisarmUser($code) === false) {
+                return $debugResult = false;
+            }
 
-        return $this->StopSignalGenerator();
+            return $debugResult = $this->StopSignalGenerator();
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -2214,186 +2972,207 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function CompleteAlarmDuration(): void
     {
-        $states = $this->ReadPartitionAlarmStates();
-        $expiredPartitionIDs = AlarmPartitionAlarmRegistry::expiredOutputPartitionIDs($states, time());
-        if ($expiredPartitionIDs === []) {
-            $earliestDeadline = 0;
-            foreach ($states as $state) {
-                if ($state['OutputActive'] && $state['OutputDeadline'] > 0
-                    && ($earliestDeadline === 0 || $state['OutputDeadline'] < $earliestDeadline)) {
-                    $earliestDeadline = $state['OutputDeadline'];
-                }
-            }
-            foreach ($states as $partitionID => $state) {
-                if ($earliestDeadline > 0 && $state['OutputActive'] && $state['OutputDeadline'] === $earliestDeadline) {
-                    $expiredPartitionIDs[] = $partitionID;
-                }
-            }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $states = $this->ReadPartitionAlarmStates();
+            $expiredPartitionIDs = AlarmPartitionAlarmRegistry::expiredOutputPartitionIDs($states, time());
             if ($expiredPartitionIDs === []) {
-                $this->SchedulePartitionAlarmOutputTimer($states);
-                return;
+                $earliestDeadline = 0;
+                foreach ($states as $state) {
+                    if ($state['OutputActive'] && $state['OutputDeadline'] > 0
+                        && ($earliestDeadline === 0 || $state['OutputDeadline'] < $earliestDeadline)) {
+                        $earliestDeadline = $state['OutputDeadline'];
+                    }
+                }
+                foreach ($states as $partitionID => $state) {
+                    if ($earliestDeadline > 0 && $state['OutputActive'] && $state['OutputDeadline'] === $earliestDeadline) {
+                        $expiredPartitionIDs[] = $partitionID;
+                    }
+                }
+                if ($expiredPartitionIDs === []) {
+                    $this->SchedulePartitionAlarmOutputTimer($states);
+                    return;
+                }
             }
-        }
-        $before = AlarmPartitionAlarmRegistry::aggregate($states);
-        foreach ($expiredPartitionIDs as $partitionID) {
-            $states[$partitionID] = AlarmPartitionAlarmRegistry::resetOutput($states[$partitionID]);
-            $runtime = $this->ReadPartitionRuntime();
-            $this->AppendEvent(
-                self::EVENT_ALARM_OUTPUT_RESET,
-                '',
-                $runtime[$partitionID]['Mode'],
-                $runtime[$partitionID]['State'],
-                $partitionID
-            );
-        }
-        $this->WritePartitionAlarmStates($states);
-        $this->SynchronizePartitionAlarmSummary($states);
-        $this->SchedulePartitionAlarmOutputTimer($states);
-        $after = AlarmPartitionAlarmRegistry::aggregate($states);
-        if ($before['OutputActive'] && !$after['OutputActive']) {
-            $this->ResetExecutedAlarmEscalationActions();
-            $this->StopAlarmEscalation();
-        } elseif ($after['OutputActive']) {
-            $activeModes = $this->ActiveAlarmModes($states);
-            $this->ResetExecutedAlarmEscalationActions(false, $activeModes, $this->ActiveAlarmContexts($states));
-            if (!in_array('normal', $activeModes, true)) {
-                $this->SetSignalGeneratorActive(false);
-            }
-            $this->ProcessAlarmEscalation();
-        }
-        if ($this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM)) {
-            $runtime = $this->ReadPartitionRuntime();
+            $before = AlarmPartitionAlarmRegistry::aggregate($states);
             foreach ($expiredPartitionIDs as $partitionID) {
-                $this->RearmPartitionAfterAlarm($partitionID, $runtime);
+                $states[$partitionID] = AlarmPartitionAlarmRegistry::resetOutput($states[$partitionID]);
+                $runtime = $this->ReadPartitionRuntime();
+                $this->AppendEvent(
+                    self::EVENT_ALARM_OUTPUT_RESET,
+                    '',
+                    $runtime[$partitionID]['Mode'],
+                    $runtime[$partitionID]['State'],
+                    $partitionID
+                );
             }
+            $this->WritePartitionAlarmStates($states);
+            $this->SynchronizePartitionAlarmSummary($states);
+            $this->SchedulePartitionAlarmOutputTimer($states);
+            $after = AlarmPartitionAlarmRegistry::aggregate($states);
+            if ($before['OutputActive'] && !$after['OutputActive']) {
+                $this->ResetExecutedAlarmEscalationActions();
+                $this->StopAlarmEscalation();
+            } elseif ($after['OutputActive']) {
+                $activeModes = $this->ActiveAlarmModes($states);
+                $this->ResetExecutedAlarmEscalationActions(false, $activeModes, $this->ActiveAlarmContexts($states));
+                if (!in_array('normal', $activeModes, true)) {
+                    $this->SetSignalGeneratorActive(false);
+                }
+                $this->ProcessAlarmEscalation();
+            }
+            if ($this->ReadBooleanProperty(self::PROPERTY_AUTO_REARM_AFTER_ALARM)) {
+                $runtime = $this->ReadPartitionRuntime();
+                foreach ($expiredPartitionIDs as $partitionID) {
+                    $this->RearmPartitionAfterAlarm($partitionID, $runtime);
+                }
+            }
+            $this->PublishVisualizationState();
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-        $this->PublishVisualizationState();
     }
 
     /** Executes every due notification step of the current global alarm cycle. */
     public function ProcessAlarmEscalation(): void
     {
-        $states = $this->ReadPartitionAlarmStates();
-        if (!AlarmPartitionAlarmRegistry::aggregate($states)['OutputActive']) {
-            $this->ResetExecutedAlarmEscalationActions();
-            $this->StopAlarmEscalation();
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $states = $this->ReadPartitionAlarmStates();
+            if (!AlarmPartitionAlarmRegistry::aggregate($states)['OutputActive']) {
+                $this->ResetExecutedAlarmEscalationActions();
+                $this->StopAlarmEscalation();
 
-            return;
-        }
-
-        $runtime = AlarmEscalationPlan::runtime(
-            $this->ReadPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME)
-        );
-        if ($runtime === null) {
-            $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
-
-            return;
-        }
-
-        $steps = $this->ReadConfiguredAlarmEscalationSteps();
-        $activeModes = $this->ActiveAlarmModes($states);
-        $activeContexts = $this->ActiveAlarmContexts($states);
-        if ($this->IsConfiguredPushNotificationDue($runtime, time(), $activeModes)) {
-            // Persist first so a restart or transport error cannot send the same alarm twice.
-            $runtime['PushNotificationSent'] = true;
-            $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-            if ($this->PostConfiguredAlarmNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO))) {
-                $this->AppendEvent(
-                    self::EVENT_ALARM_NOTIFICATION_SENT,
-                    $this->Translate('Symcon push notification'),
-                    null,
-                    null,
-                    ''
-                );
+                return;
             }
-        }
-        if ($runtime['PushoverNotificationSent']
-            && !$this->ConfiguredNotificationAppliesTo(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO, $activeModes)) {
-            $this->CancelConfiguredPushoverEmergencyNotification();
-        }
-        if ($this->IsConfiguredPushoverNotificationDue($runtime, time(), $activeModes)) {
-            // Persist first so a restart or transport error cannot send the same alarm twice.
-            $runtime['PushoverNotificationSent'] = true;
-            $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-            if ($this->PostConfiguredPushoverNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO))) {
-                $this->AppendEvent(
-                    self::EVENT_ALARM_NOTIFICATION_SENT,
-                    $this->Translate('Pushover notification'),
-                    null,
-                    null,
-                    ''
-                );
-            }
-        }
-        $signalGeneratorStateChanged = false;
-        foreach (AlarmEscalationPlan::dueSteps($steps, $runtime, time(), $activeModes, $activeContexts) as $due) {
-            // Persist first so action errors, ApplyChanges or a restart cannot repeat this action.
-            $runtime['ExecutedStepKeys'][] = $due['Key'];
-            if ($due['Action']['SignalGenerator']
-                && $this->ReadAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED) === 1) {
-                $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-                continue;
-            }
-            $runtime['ExecutedActions'][] = [
-                'Key'               => $due['Key'],
-                'StepName'          => $due['Step']['Name'],
-                'ActionName'        => $due['Action']['Name'],
-                'ResetMode'         => $due['Action']['ResetMode'],
-                'ResetAction'       => $due['Action']['ResetAction'],
-                'SignalGenerator'   => $due['Action']['SignalGenerator'],
-                'ApplicableTo'      => $due['Action']['ApplicableTo'],
-                'ApplicableSources' => $due['Action']['ApplicableSources'],
-                'Action'            => $due['Action']['Action']
-            ];
-            $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-            $result = AlarmActionExecutor::execute(
-                true,
-                $due['Action']['Action'],
-                static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
+
+            $runtime = AlarmEscalationPlan::runtime(
+                $this->ReadPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME)
             );
-            if ($result['Error'] !== null) {
-                $this->SendDebug(
-                    __FUNCTION__,
-                    sprintf(
-                        'Escalation action "%s" in step "%s": %s',
-                        $due['Action']['Name'],
-                        $due['Step']['Name'],
-                        $result['Error']
-                    ),
-                    0
-                );
-            } else {
-                $stepName = trim($due['Step']['Name']);
-                $actionName = trim($due['Action']['Name']);
-                $this->AppendEvent(
-                    self::EVENT_ALARM_ACTION_EXECUTED,
-                    $stepName === $actionName
-                        ? $actionName
-                        : sprintf('%s: %s', $stepName, $actionName),
-                    null,
-                    null,
-                    ''
-                );
-                if ($due['Action']['SignalGenerator'] && $due['Action']['ResetMode'] !== 0) {
-                    $this->SetSignalGeneratorActive(true);
-                    $signalGeneratorStateChanged = true;
+            if ($runtime === null) {
+                $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
+
+                return;
+            }
+
+            $steps = $this->ReadConfiguredAlarmEscalationSteps();
+            $activeModes = $this->ActiveAlarmModes($states);
+            $activeContexts = $this->ActiveAlarmContexts($states);
+            if ($this->IsConfiguredPushNotificationDue($runtime, time(), $activeModes)) {
+                // Persist first so a restart or transport error cannot send the same alarm twice.
+                $runtime['PushNotificationSent'] = true;
+                $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
+                if ($this->PostConfiguredAlarmNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSH_NOTIFICATION_APPLICABLE_TO))) {
+                    $this->AppendEvent(
+                        self::EVENT_ALARM_NOTIFICATION_SENT,
+                        $this->Translate('Symcon push notification'),
+                        null,
+                        null,
+                        ''
+                    );
                 }
             }
-        }
+            if ($runtime['PushoverNotificationSent']
+                && !$this->ConfiguredNotificationAppliesTo(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO, $activeModes)) {
+                $this->CancelConfiguredPushoverEmergencyNotification();
+            }
+            if ($this->IsConfiguredPushoverNotificationDue($runtime, time(), $activeModes)) {
+                // Persist first so a restart or transport error cannot send the same alarm twice.
+                $runtime['PushoverNotificationSent'] = true;
+                $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
+                if ($this->PostConfiguredPushoverNotification($this->ConfiguredNotificationApplicability(self::PROPERTY_PUSHOVER_NOTIFICATION_APPLICABLE_TO))) {
+                    $this->AppendEvent(
+                        self::EVENT_ALARM_NOTIFICATION_SENT,
+                        $this->Translate('Pushover notification'),
+                        null,
+                        null,
+                        ''
+                    );
+                }
+            }
+            $signalGeneratorStateChanged = false;
+            foreach (AlarmEscalationPlan::dueSteps($steps, $runtime, time(), $activeModes, $activeContexts) as $due) {
+                // Persist first so action errors, ApplyChanges or a restart cannot repeat this action.
+                $runtime['ExecutedStepKeys'][] = $due['Key'];
+                if ($due['Action']['SignalGenerator']
+                    && $this->ReadAttributeInteger(self::ATTRIBUTE_SIGNAL_GENERATORS_SILENCED) === 1) {
+                    $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
+                    continue;
+                }
+                $runtime['ExecutedActions'][] = [
+                    'Key'               => $due['Key'],
+                    'StepName'          => $due['Step']['Name'],
+                    'ActionName'        => $due['Action']['Name'],
+                    'ResetMode'         => $due['Action']['ResetMode'],
+                    'ResetAction'       => $due['Action']['ResetAction'],
+                    'SignalGenerator'   => $due['Action']['SignalGenerator'],
+                    'ApplicableTo'      => $due['Action']['ApplicableTo'],
+                    'ApplicableSources' => $due['Action']['ApplicableSources'],
+                    'Action'            => $due['Action']['Action']
+                ];
+                $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
+                $result = AlarmActionExecutor::execute(
+                    true,
+                    $due['Action']['Action'],
+                    fn (string $actionID, array $parameters): bool => $this->RunAlarmInterfaceAction($actionID, $parameters)
+                );
+                if ($result['Error'] !== null) {
+                    $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die konfigurierte Aktion ist fehlgeschlagen.', ['Stufe' => $due['Step']['Name'], 'Aktion' => $due['Action']['Name'], 'Ursache' => $this->ExplainAlarmDebugError($result['Error'])]);
+                } else {
+                    $stepName = trim($due['Step']['Name']);
+                    $actionName = trim($due['Action']['Name']);
+                    $this->AppendEvent(
+                        self::EVENT_ALARM_ACTION_EXECUTED,
+                        $stepName === $actionName
+                            ? $actionName
+                            : sprintf('%s: %s', $stepName, $actionName),
+                        null,
+                        null,
+                        ''
+                    );
+                    if ($due['Action']['SignalGenerator'] && $due['Action']['ResetMode'] !== 0) {
+                        $this->SetSignalGeneratorActive(true);
+                        $signalGeneratorStateChanged = true;
+                    }
+                }
+            }
 
-        $deadline = $this->EarlierDeadline(
-            $this->EarlierDeadline(
-                AlarmEscalationPlan::nextDeadline($steps, $runtime, $activeModes, $activeContexts),
-                $this->ConfiguredPushNotificationDeadline($runtime, $activeModes)
-            ),
-            $this->ConfiguredPushoverNotificationDeadline($runtime, $activeModes)
-        );
-        $this->SetTimerInterval(
-            self::TIMER_ALARM_ESCALATION,
-            $deadline > 0 ? max(1, $deadline - time()) * 1000 : 0
-        );
-        if ($signalGeneratorStateChanged) {
-            $this->PublishVisualizationState();
+            $deadline = $this->EarlierDeadline(
+                $this->EarlierDeadline(
+                    AlarmEscalationPlan::nextDeadline($steps, $runtime, $activeModes, $activeContexts),
+                    $this->ConfiguredPushNotificationDeadline($runtime, $activeModes)
+                ),
+                $this->ConfiguredPushoverNotificationDeadline($runtime, $activeModes)
+            );
+            $this->SetTimerInterval(
+                self::TIMER_ALARM_ESCALATION,
+                $deadline > 0 ? max(1, $deadline - time()) * 1000 : 0
+            );
+            if ($signalGeneratorStateChanged) {
+                $this->PublishVisualizationState();
+            }
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
@@ -2405,45 +3184,60 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function CompleteExitDelay(): void
     {
-        $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
 
-        $state = $this->ReadAlarmState();
-        $mode = $this->ReadAlarmMode();
-        if ($state !== self::STATE_EXIT_DELAY) {
-            $this->ClearDelayStatus();
-            $this->PublishVisualizationState();
+            $state = $this->ReadAlarmState();
+            $mode = $this->ReadAlarmMode();
+            if ($state !== self::STATE_EXIT_DELAY) {
+                $this->ClearDelayStatus();
+                $this->PublishVisualizationState();
 
-            return;
-        }
+                return;
+            }
 
-        if (!AlarmStateMachine::canCompleteExitDelay($state, $mode)) {
-            $this->Disarm();
+            if (!AlarmStateMachine::canCompleteExitDelay($state, $mode)) {
+                $this->Disarm();
 
-            return;
-        }
+                return;
+            }
 
-        $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $this->DefaultPartitionID());
-        $this->UpdateReadinessFromSensors($sensors);
-        $faultInputs = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $this->DefaultPartitionID());
-        $strictReadiness = $this->ApplyFaultBlockingToReadiness(
-            $this->EvaluateReadinessStatus($sensors, true, true, true)['readiness'],
-            $faultInputs
-        );
-        if (!$this->IsModeReady($mode, $strictReadiness)) {
-            $this->AppendEvent(
-                self::EVENT_ARM_CANCELLED,
-                $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs, true, true, true),
-                $mode
+            $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $this->DefaultPartitionID());
+            $this->UpdateReadinessFromSensors($sensors);
+            $faultInputs = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $this->DefaultPartitionID());
+            $strictReadiness = $this->ApplyFaultBlockingToReadiness(
+                $this->EvaluateReadinessStatus($sensors, true, true, true)['readiness'],
+                $faultInputs
             );
-            $this->Disarm();
+            if (!$this->IsModeReady($mode, $strictReadiness)) {
+                $this->AppendEvent(
+                    self::EVENT_ARM_CANCELLED,
+                    $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs, true, true, true),
+                    $mode
+                );
+                $this->Disarm();
 
-            return;
+                return;
+            }
+
+            $this->ClearDelayStatus();
+            $this->SetAlarmState(self::STATE_ARMED);
+            $this->AppendEvent(self::EVENT_ARMED);
+            $this->PublishVisualizationState();
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-
-        $this->ClearDelayStatus();
-        $this->SetAlarmState(self::STATE_ARMED);
-        $this->AppendEvent(self::EVENT_ARMED);
-        $this->PublishVisualizationState();
     }
 
     /**
@@ -2451,19 +3245,34 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function CompleteEntryDelay(): void
     {
-        $pendingSourceID = $this->ReadAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID);
-        $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $pendingSourceID = $this->ReadAttributeInteger(self::ATTRIBUTE_PENDING_ALARM_SOURCE_ID);
+            $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
 
-        if ($this->ReadAlarmState() !== self::STATE_ENTRY_DELAY) {
-            $this->ClearPendingAlarmSource();
-            $this->ClearDelayStatus();
-            $this->PublishVisualizationState();
+            if ($this->ReadAlarmState() !== self::STATE_ENTRY_DELAY) {
+                $this->ClearPendingAlarmSource();
+                $this->ClearDelayStatus();
+                $this->PublishVisualizationState();
 
-            return;
+                return;
+            }
+
+            $sourceSensor = $this->FindAlarmSourceSensor($pendingSourceID, $this->ReadConfiguredSensors());
+            $this->EnterAlarmState($sourceSensor, $pendingSourceID);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-
-        $sourceSensor = $this->FindAlarmSourceSensor($pendingSourceID, $this->ReadConfiguredSensors());
-        $this->EnterAlarmState($sourceSensor, $pendingSourceID);
     }
 
     /**
@@ -2475,101 +3284,191 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function UpdateDelayStatus(): void
     {
-        $state = $this->ReadAlarmState();
-        $deadline = match ($state) {
-            self::STATE_EXIT_DELAY  => $this->ReadAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE),
-            self::STATE_ENTRY_DELAY => $this->ReadAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE),
-            default                 => 0
-        };
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $state = $this->ReadAlarmState();
+            $deadline = match ($state) {
+                self::STATE_EXIT_DELAY  => $this->ReadAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE),
+                self::STATE_ENTRY_DELAY => $this->ReadAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE),
+                default                 => 0
+            };
 
-        if ($deadline <= 0) {
-            $this->ClearDelayStatus();
+            if ($deadline <= 0) {
+                $this->ClearDelayStatus();
+                $this->PublishVisualizationState();
+
+                return;
+            }
+
+            $restoration = AlarmTimerSchedule::restore($deadline, time());
+            $this->SetDelayRemaining($restoration['RemainingSeconds']);
+            $this->RunCountdownActionStep($deadline, $restoration['RemainingSeconds']);
+            $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $restoration['Expired'] ? 0 : 1000);
             $this->PublishVisualizationState();
-
-            return;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-
-        $restoration = AlarmTimerSchedule::restore($deadline, time());
-        $this->SetDelayRemaining($restoration['RemainingSeconds']);
-        $this->RunCountdownActionStep($deadline, $restoration['RemainingSeconds']);
-        $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $restoration['Expired'] ? 0 : 1000);
-        $this->PublishVisualizationState();
     }
 
     /** Prepares the partition choices for the bulk sensor importer. */
     public function PrepareSensorImport(string $PartitionsJson): void
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $partitions = AlarmPartitionRegistry::partitions($PartitionsJson);
-            $rows = [];
-            foreach ($partitions as $partition) {
-                if (!$partition['Enabled']) {
-                    continue;
+            try {
+                $partitions = AlarmPartitionRegistry::partitions($PartitionsJson);
+                $rows = [];
+                foreach ($partitions as $partition) {
+                    if (!$partition['Enabled']) {
+                        continue;
+                    }
+                    $rows[] = [
+                        'Selected' => $partition['Default'],
+                        'Name'     => $partition['Name'],
+                        'ID'       => $partition['ID']
+                    ];
                 }
-                $rows[] = [
-                    'Selected' => $partition['Default'],
-                    'Name'     => $partition['Name'],
-                    'ID'       => $partition['ID']
-                ];
+                $this->UpdateFormField('ImportPartitions', 'values', json_encode($rows, JSON_THROW_ON_ERROR));
+                $this->InvalidateSensorCandidates();
+            } catch (Throwable $exception) {
+                $this->UpdateFormField('ImportPartitions', 'values', '[]');
+                $this->UpdateFormField('ImportCandidates', 'values', '[]');
+                $this->UpdateFormField('ImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
             }
-            $this->UpdateFormField('ImportPartitions', 'values', json_encode($rows, JSON_THROW_ON_ERROR));
-            $this->InvalidateSensorCandidates();
-        } catch (Throwable $exception) {
-            $this->UpdateFormField('ImportPartitions', 'values', '[]');
-            $this->UpdateFormField('ImportCandidates', 'values', '[]');
-            $this->UpdateFormField('ImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
     /** Clears transient sensor-search results after a search criterion changed. */
     public function InvalidateSensorCandidates(): void
     {
-        $this->UpdateFormField('ImportCandidates', 'values', '[]');
-        $this->UpdateFormField('ImportSearchSummary', 'caption', $this->Translate('Enter a name and click Search.'));
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $this->UpdateFormField('ImportCandidates', 'values', '[]');
+            $this->UpdateFormField('ImportSearchSummary', 'caption', $this->Translate('Enter a name and click Search.'));
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /** Updates the suggested comparison value after selecting a variable type. */
     public function UpdateSensorImportTypeForm(string $Type): void
     {
-        $default = match ($Type) {
-            'bool'   => 'true',
-            'int'    => '1',
-            'float'  => '1.0',
-            'string' => '',
-            default  => 'true'
-        };
-        $this->UpdateFormField('ImportTriggerValue', 'value', $default);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $default = match ($Type) {
+                'bool'   => 'true',
+                'int'    => '1',
+                'float'  => '1.0',
+                'string' => '',
+                default  => 'true'
+            };
+            $this->UpdateFormField('ImportTriggerValue', 'value', $default);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /** Updates the suggested fault value after selecting a variable type. */
     public function UpdateFaultInputImportTypeForm(string $Type): void
     {
-        $default = match ($Type) {
-            'bool'   => 'true',
-            'int'    => '1',
-            'float'  => '1.0',
-            'string' => '',
-            default  => 'true'
-        };
-        $this->UpdateFormField('FaultImportTriggerValue', 'value', $default);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $default = match ($Type) {
+                'bool'   => 'true',
+                'int'    => '1',
+                'float'  => '1.0',
+                'string' => '',
+                default  => 'true'
+            };
+            $this->UpdateFormField('FaultImportTriggerValue', 'value', $default);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /** Disables settings that do not apply to 24/7 sensors in the importer. */
     public function UpdateSensorImportAlwaysActiveForm(bool $AlwaysActive): void
     {
-        foreach ([
-            'ImportArmHome',
-            'ImportArmAway',
-            'ImportArmNight',
-            'ImportAllowAutomaticBypass',
-            'ImportAllowPassage',
-            'ImportExitDelay',
-            'ImportEntryDelay'
-        ] as $field) {
-            $this->UpdateFormField($field, 'enabled', !$AlwaysActive);
-            if ($AlwaysActive) {
-                $this->UpdateFormField($field, 'value', false);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            foreach ([
+                'ImportArmHome',
+                'ImportArmAway',
+                'ImportArmNight',
+                'ImportAllowAutomaticBypass',
+                'ImportAllowPassage',
+                'ImportExitDelay',
+                'ImportEntryDelay'
+            ] as $field) {
+                $this->UpdateFormField($field, 'enabled', !$AlwaysActive);
+                if ($AlwaysActive) {
+                    $this->UpdateFormField($field, 'value', false);
+                }
             }
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
@@ -2581,22 +3480,37 @@ class OpenHomeAlarm extends IPSModuleStrict
         bool $IncludeHidden,
         string $SensorsJson
     ): void {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $sensors = $this->DecodeSensorImportRows($SensorsJson);
-            $result = $this->FindSensorCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $sensors);
-            $this->UpdateFormField('ImportCandidates', 'values', json_encode($result['rows'], JSON_THROW_ON_ERROR));
-            $summary = sprintf(
-                $this->Translate('%d matching variables; %d already configured.'),
-                count($result['rows']),
-                $result['existing']
-            );
-            if ($result['truncated']) {
-                $summary .= ' ' . $this->Translate('The search limit was reached; select a narrower root or use a more specific name.');
+            try {
+                $sensors = $this->DecodeSensorImportRows($SensorsJson);
+                $result = $this->FindSensorCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $sensors);
+                $this->UpdateFormField('ImportCandidates', 'values', json_encode($result['rows'], JSON_THROW_ON_ERROR));
+                $summary = sprintf(
+                    $this->Translate('%d matching variables; %d already configured.'),
+                    count($result['rows']),
+                    $result['existing']
+                );
+                if ($result['truncated']) {
+                    $summary .= ' ' . $this->Translate('The search limit was reached; select a narrower root or use a more specific name.');
+                }
+                $this->UpdateFormField('ImportSearchSummary', 'caption', $summary);
+            } catch (Throwable $exception) {
+                $this->UpdateFormField('ImportCandidates', 'values', '[]');
+                $this->UpdateFormField('ImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
             }
-            $this->UpdateFormField('ImportSearchSummary', 'caption', $summary);
-        } catch (Throwable $exception) {
-            $this->UpdateFormField('ImportCandidates', 'values', '[]');
-            $this->UpdateFormField('ImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
@@ -2612,105 +3526,150 @@ class OpenHomeAlarm extends IPSModuleStrict
         string $SensorsJson,
         string $CandidatesJson
     ): string {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $settings = json_decode($SettingsJson, true, 64, JSON_THROW_ON_ERROR);
-            $selectedPartitionRows = json_decode($SelectedPartitionsJson, true, 64, JSON_THROW_ON_ERROR);
-            $configuredPartitions = AlarmPartitionRegistry::partitions($ConfiguredPartitionsJson);
-            $sensors = $this->DecodeSensorImportRows($SensorsJson);
-            $candidates = json_decode($CandidatesJson, true, 64, JSON_THROW_ON_ERROR);
-            if (!is_array($settings) || !is_array($selectedPartitionRows) || !array_is_list($selectedPartitionRows)
-                || !is_array($candidates) || !array_is_list($candidates)) {
-                throw new InvalidArgumentException('Correct the sensor import settings and search again.');
-            }
-
-            $normalizedSettings = $this->NormalizeSensorImportSettings($settings, $Type);
-            $selectedPartitionIDs = $this->ResolveSensorImportPartitionIDs(
-                $selectedPartitionRows,
-                $configuredPartitions
-            );
-            $fresh = $this->FindSensorCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $sensors);
-            $selectedVariableIDs = VariableSearchHelper::ResolveSelectedVariableIDs($candidates, $fresh['rows']);
-            if ($selectedVariableIDs === []) {
-                throw new InvalidArgumentException('Select at least one matching variable.');
-            }
-            if (count($sensors) + count($selectedVariableIDs) > 3000) {
-                throw new InvalidArgumentException('At most 3000 sensors and triggers are allowed.');
-            }
-
-            foreach ($sensors as &$sensor) {
-                unset($sensor['rowColor']);
-            }
-            unset($sensor);
-            $candidateByID = [];
-            foreach ($fresh['rows'] as $candidate) {
-                $candidateByID[$candidate['VariableID']] = $candidate;
-            }
-            $partitionNames = [];
-            foreach ($configuredPartitions as $partition) {
-                if (in_array($partition['ID'], $selectedPartitionIDs, true)) {
-                    $partitionNames[] = $partition['Name'];
+            try {
+                $settings = json_decode($SettingsJson, true, 64, JSON_THROW_ON_ERROR);
+                $selectedPartitionRows = json_decode($SelectedPartitionsJson, true, 64, JSON_THROW_ON_ERROR);
+                $configuredPartitions = AlarmPartitionRegistry::partitions($ConfiguredPartitionsJson);
+                $sensors = $this->DecodeSensorImportRows($SensorsJson);
+                $candidates = json_decode($CandidatesJson, true, 64, JSON_THROW_ON_ERROR);
+                if (!is_array($settings) || !is_array($selectedPartitionRows) || !array_is_list($selectedPartitionRows)
+                    || !is_array($candidates) || !array_is_list($candidates)) {
+                    throw new InvalidArgumentException('Correct the sensor import settings and search again.');
                 }
-            }
-            foreach ($selectedVariableIDs as $variableID) {
-                $row = [
-                    ...$normalizedSettings,
-                    'PartitionID'    => $selectedPartitionIDs[0],
-                    'PartitionNames' => implode(', ', $partitionNames),
-                    'Name'           => $this->CreateImportedSensorName(
-                        $variableID,
-                        $candidateByID[$variableID]['Name']
-                    ),
-                    'VariableID'            => $variableID,
-                    'TriggerValueSelection' => $normalizedSettings['TriggerValue'],
-                    'TriggerValueManual'    => $normalizedSettings['TriggerValue']
-                ];
+
+                $normalizedSettings = $this->NormalizeSensorImportSettings($settings, $Type);
+                $selectedPartitionIDs = $this->ResolveSensorImportPartitionIDs(
+                    $selectedPartitionRows,
+                    $configuredPartitions
+                );
+                $fresh = $this->FindSensorCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $sensors);
+                $selectedVariableIDs = VariableSearchHelper::ResolveSelectedVariableIDs($candidates, $fresh['rows']);
+                if ($selectedVariableIDs === []) {
+                    throw new InvalidArgumentException('Select at least one matching variable.');
+                }
+                if (count($sensors) + count($selectedVariableIDs) > 3000) {
+                    throw new InvalidArgumentException('At most 3000 sensors and triggers are allowed.');
+                }
+
+                foreach ($sensors as &$sensor) {
+                    unset($sensor['rowColor']);
+                }
+                unset($sensor);
+                $candidateByID = [];
+                foreach ($fresh['rows'] as $candidate) {
+                    $candidateByID[$candidate['VariableID']] = $candidate;
+                }
+                $partitionNames = [];
                 foreach ($configuredPartitions as $partition) {
-                    $row['Partition_' . $partition['ID']] = in_array(
-                        $partition['ID'],
-                        $selectedPartitionIDs,
-                        true
-                    );
+                    if (in_array($partition['ID'], $selectedPartitionIDs, true)) {
+                        $partitionNames[] = $partition['Name'];
+                    }
                 }
-                $sensors[] = $row;
+                foreach ($selectedVariableIDs as $variableID) {
+                    $row = [
+                        ...$normalizedSettings,
+                        'PartitionID'    => $selectedPartitionIDs[0],
+                        'PartitionNames' => implode(', ', $partitionNames),
+                        'Name'           => $this->CreateImportedSensorName(
+                            $variableID,
+                            $candidateByID[$variableID]['Name']
+                        ),
+                        'VariableID'            => $variableID,
+                        'TriggerValueSelection' => $normalizedSettings['TriggerValue'],
+                        'TriggerValueManual'    => $normalizedSettings['TriggerValue']
+                    ];
+                    foreach ($configuredPartitions as $partition) {
+                        $row['Partition_' . $partition['ID']] = in_array(
+                            $partition['ID'],
+                            $selectedPartitionIDs,
+                            true
+                        );
+                    }
+                    $sensors[] = $row;
+                }
+
+                $this->UpdateFormField('Sensors', 'values', json_encode($sensors, JSON_THROW_ON_ERROR));
+
+                return $debugResult = '';
+            } catch (Throwable $exception) {
+                return $debugResult = $this->Translate($exception->getMessage());
             }
-
-            $this->UpdateFormField('Sensors', 'values', json_encode($sensors, JSON_THROW_ON_ERROR));
-
-            return '';
-        } catch (Throwable $exception) {
-            return $this->Translate($exception->getMessage());
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
     }
 
     /** Prepares the alarm-partition choice for the bulk fault-input importer. */
     public function PrepareFaultInputImport(string $PartitionsJson): void
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $partitions = AlarmPartitionRegistry::partitions($PartitionsJson);
-            $options = $this->CreatePartitionOptions($partitions);
-            $defaultPartition = AlarmPartitionRegistry::defaultPartition($partitions);
-            $this->UpdateFormField(
-                'FaultImportPartitionID',
-                'options',
-                json_encode($options, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            );
-            $this->UpdateFormField('FaultImportPartitionID', 'value', $defaultPartition['ID']);
-            $this->InvalidateFaultInputCandidates();
-        } catch (Throwable $exception) {
-            $this->UpdateFormField('FaultImportCandidates', 'values', '[]');
-            $this->UpdateFormField('FaultImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
+            try {
+                $partitions = AlarmPartitionRegistry::partitions($PartitionsJson);
+                $options = $this->CreatePartitionOptions($partitions);
+                $defaultPartition = AlarmPartitionRegistry::defaultPartition($partitions);
+                $this->UpdateFormField(
+                    'FaultImportPartitionID',
+                    'options',
+                    json_encode($options, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                );
+                $this->UpdateFormField('FaultImportPartitionID', 'value', $defaultPartition['ID']);
+                $this->InvalidateFaultInputCandidates();
+            } catch (Throwable $exception) {
+                $this->UpdateFormField('FaultImportCandidates', 'values', '[]');
+                $this->UpdateFormField('FaultImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
+            }
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
     /** Clears transient fault-input search results after a search criterion changed. */
     public function InvalidateFaultInputCandidates(): void
     {
-        $this->UpdateFormField('FaultImportCandidates', 'values', '[]');
-        $this->UpdateFormField(
-            'FaultImportSearchSummary',
-            'caption',
-            $this->Translate('Enter a name and click Search.')
-        );
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $this->UpdateFormField('FaultImportCandidates', 'values', '[]');
+            $this->UpdateFormField(
+                'FaultImportSearchSummary',
+                'caption',
+                $this->Translate('Enter a name and click Search.')
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /** Searches matching variables for the transient bulk fault-input list. */
@@ -2721,31 +3680,46 @@ class OpenHomeAlarm extends IPSModuleStrict
         bool $IncludeHidden,
         string $FaultInputsJson
     ): void {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $faultInputs = $this->DecodeImportRows(
-                $FaultInputsJson,
-                'Correct the fault input list before searching.'
-            );
-            $result = $this->FindVariableCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $faultInputs);
-            $this->UpdateFormField(
-                'FaultImportCandidates',
-                'values',
-                json_encode($result['rows'], JSON_THROW_ON_ERROR)
-            );
-            $summary = sprintf(
-                $this->Translate('%d matching variables; %d already configured.'),
-                count($result['rows']),
-                $result['existing']
-            );
-            if ($result['truncated']) {
-                $summary .= ' ' . $this->Translate(
-                    'The search limit was reached; select a narrower root or use a more specific name.'
+            try {
+                $faultInputs = $this->DecodeImportRows(
+                    $FaultInputsJson,
+                    'Correct the fault input list before searching.'
                 );
+                $result = $this->FindVariableCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $faultInputs);
+                $this->UpdateFormField(
+                    'FaultImportCandidates',
+                    'values',
+                    json_encode($result['rows'], JSON_THROW_ON_ERROR)
+                );
+                $summary = sprintf(
+                    $this->Translate('%d matching variables; %d already configured.'),
+                    count($result['rows']),
+                    $result['existing']
+                );
+                if ($result['truncated']) {
+                    $summary .= ' ' . $this->Translate(
+                        'The search limit was reached; select a narrower root or use a more specific name.'
+                    );
+                }
+                $this->UpdateFormField('FaultImportSearchSummary', 'caption', $summary);
+            } catch (Throwable $exception) {
+                $this->UpdateFormField('FaultImportCandidates', 'values', '[]');
+                $this->UpdateFormField('FaultImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
             }
-            $this->UpdateFormField('FaultImportSearchSummary', 'caption', $summary);
-        } catch (Throwable $exception) {
-            $this->UpdateFormField('FaultImportCandidates', 'values', '[]');
-            $this->UpdateFormField('FaultImportSearchSummary', 'caption', $this->Translate($exception->getMessage()));
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
@@ -2760,51 +3734,66 @@ class OpenHomeAlarm extends IPSModuleStrict
         string $FaultInputsJson,
         string $CandidatesJson
     ): string {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $settings = json_decode($SettingsJson, true, 64, JSON_THROW_ON_ERROR);
-            $configuredPartitions = AlarmPartitionRegistry::partitions($ConfiguredPartitionsJson);
-            $faultInputs = $this->DecodeImportRows(
-                $FaultInputsJson,
-                'Correct the fault input list before adding.'
-            );
-            $candidates = json_decode($CandidatesJson, true, 64, JSON_THROW_ON_ERROR);
-            if (!is_array($settings) || !is_array($candidates) || !array_is_list($candidates)) {
-                throw new InvalidArgumentException('Correct the fault input import settings and search again.');
-            }
+            try {
+                $settings = json_decode($SettingsJson, true, 64, JSON_THROW_ON_ERROR);
+                $configuredPartitions = AlarmPartitionRegistry::partitions($ConfiguredPartitionsJson);
+                $faultInputs = $this->DecodeImportRows(
+                    $FaultInputsJson,
+                    'Correct the fault input list before adding.'
+                );
+                $candidates = json_decode($CandidatesJson, true, 64, JSON_THROW_ON_ERROR);
+                if (!is_array($settings) || !is_array($candidates) || !array_is_list($candidates)) {
+                    throw new InvalidArgumentException('Correct the fault input import settings and search again.');
+                }
 
-            $normalizedSettings = $this->NormalizeFaultInputImportSettings($settings, $Type, $configuredPartitions);
-            $fresh = $this->FindVariableCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $faultInputs);
-            $selectedVariableIDs = VariableSearchHelper::ResolveSelectedVariableIDs($candidates, $fresh['rows']);
-            if ($selectedVariableIDs === []) {
-                throw new InvalidArgumentException('Select at least one matching variable.');
-            }
-            if (count($faultInputs) + count($selectedVariableIDs) > 3000) {
-                throw new InvalidArgumentException('At most 3000 fault inputs are allowed.');
-            }
+                $normalizedSettings = $this->NormalizeFaultInputImportSettings($settings, $Type, $configuredPartitions);
+                $fresh = $this->FindVariableCandidates($Name, $Type, $RootObjectID, $IncludeHidden, $faultInputs);
+                $selectedVariableIDs = VariableSearchHelper::ResolveSelectedVariableIDs($candidates, $fresh['rows']);
+                if ($selectedVariableIDs === []) {
+                    throw new InvalidArgumentException('Select at least one matching variable.');
+                }
+                if (count($faultInputs) + count($selectedVariableIDs) > 3000) {
+                    throw new InvalidArgumentException('At most 3000 fault inputs are allowed.');
+                }
 
-            foreach ($faultInputs as &$faultInput) {
-                unset($faultInput['rowColor']);
-            }
-            unset($faultInput);
-            $candidateByID = [];
-            foreach ($fresh['rows'] as $candidate) {
-                $candidateByID[$candidate['VariableID']] = $candidate;
-            }
-            foreach ($selectedVariableIDs as $variableID) {
-                $faultInputs[] = [
-                    ...$normalizedSettings,
-                    'Name'                  => $candidateByID[$variableID]['Name'],
-                    'VariableID'            => $variableID,
-                    'TriggerValueSelection' => $normalizedSettings['TriggerValue'],
-                    'TriggerValueManual'    => $normalizedSettings['TriggerValue']
-                ];
-            }
+                foreach ($faultInputs as &$faultInput) {
+                    unset($faultInput['rowColor']);
+                }
+                unset($faultInput);
+                $candidateByID = [];
+                foreach ($fresh['rows'] as $candidate) {
+                    $candidateByID[$candidate['VariableID']] = $candidate;
+                }
+                foreach ($selectedVariableIDs as $variableID) {
+                    $faultInputs[] = [
+                        ...$normalizedSettings,
+                        'Name'                  => $candidateByID[$variableID]['Name'],
+                        'VariableID'            => $variableID,
+                        'TriggerValueSelection' => $normalizedSettings['TriggerValue'],
+                        'TriggerValueManual'    => $normalizedSettings['TriggerValue']
+                    ];
+                }
 
-            $this->UpdateFormField('FaultInputs', 'values', json_encode($faultInputs, JSON_THROW_ON_ERROR));
+                $this->UpdateFormField('FaultInputs', 'values', json_encode($faultInputs, JSON_THROW_ON_ERROR));
 
-            return '';
-        } catch (Throwable $exception) {
-            return $this->Translate($exception->getMessage());
+                return $debugResult = '';
+            } catch (Throwable $exception) {
+                return $debugResult = $this->Translate($exception->getMessage());
+            }
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
     }
 
@@ -2820,275 +3809,290 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetSensorEditForm(mixed $sensor): array
     {
-        $variableID = $this->ReadSensorEditInteger($sensor, 'VariableID', 0);
-        $triggerCondition = $this->ReadSensorEditString(
-            $sensor,
-            'TriggerCondition',
-            AlarmTriggerValue::CONDITION_EQUALS
-        );
-        if (!in_array($triggerCondition, [
-            AlarmTriggerValue::CONDITION_EQUALS,
-            AlarmTriggerValue::CONDITION_NOT_EQUALS
-        ], true)) {
-            $triggerCondition = AlarmTriggerValue::CONDITION_EQUALS;
-        }
-        $triggerValue = $this->ReadSensorEditString($sensor, 'TriggerValue', '1');
-        $partitions = $this->ConfigurationFormPartitions();
-        $legacyPartitionID = strtolower(trim($this->ReadSensorEditString($sensor, 'PartitionID', '')));
-        if ($legacyPartitionID === '') {
-            $legacyPartitionID = AlarmPartitionRegistry::defaultPartition($partitions)['ID'];
-        }
-        $sensorEditRow = $this->ReadSensorEditRow($sensor);
-        $hasExplicitAssignments = false;
-        $explicitPartitionIDs = [];
-        foreach ($sensorEditRow as $key => $value) {
-            if (!is_string($key) || !str_starts_with($key, 'Partition_')) {
-                continue;
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $variableID = $this->ReadSensorEditInteger($sensor, 'VariableID', 0);
+            $triggerCondition = $this->ReadSensorEditString(
+                $sensor,
+                'TriggerCondition',
+                AlarmTriggerValue::CONDITION_EQUALS
+            );
+            if (!in_array($triggerCondition, [
+                AlarmTriggerValue::CONDITION_EQUALS,
+                AlarmTriggerValue::CONDITION_NOT_EQUALS
+            ], true)) {
+                $triggerCondition = AlarmTriggerValue::CONDITION_EQUALS;
             }
-            $hasExplicitAssignments = true;
-            $partitionID = strtolower(substr($key, strlen('Partition_')));
-            if ($value === true && preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $partitionID) === 1) {
-                $explicitPartitionIDs[] = $partitionID;
+            $triggerValue = $this->ReadSensorEditString($sensor, 'TriggerValue', '1');
+            $partitions = $this->ConfigurationFormPartitions();
+            $legacyPartitionID = strtolower(trim($this->ReadSensorEditString($sensor, 'PartitionID', '')));
+            if ($legacyPartitionID === '') {
+                $legacyPartitionID = AlarmPartitionRegistry::defaultPartition($partitions)['ID'];
             }
-        }
-        if (!$hasExplicitAssignments) {
-            foreach ($partitions as $partition) {
-                if (!$this->SensorEditHasKey($sensor, 'Partition_' . $partition['ID'])) {
+            $sensorEditRow = $this->ReadSensorEditRow($sensor);
+            $hasExplicitAssignments = false;
+            $explicitPartitionIDs = [];
+            foreach ($sensorEditRow as $key => $value) {
+                if (!is_string($key) || !str_starts_with($key, 'Partition_')) {
                     continue;
                 }
                 $hasExplicitAssignments = true;
-                break;
+                $partitionID = strtolower(substr($key, strlen('Partition_')));
+                if ($value === true && preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $partitionID) === 1) {
+                    $explicitPartitionIDs[] = $partitionID;
+                }
             }
-        }
-        $knownPartitionIDs = array_column($partitions, 'ID');
-        if (!in_array($legacyPartitionID, $knownPartitionIDs, true)) {
-            $hasExplicitAssignments = $hasExplicitAssignments
-                || $this->SensorEditHasKey($sensor, 'Partition_' . $legacyPartitionID);
-            if (preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $legacyPartitionID) === 1) {
+            if (!$hasExplicitAssignments) {
+                foreach ($partitions as $partition) {
+                    if (!$this->SensorEditHasKey($sensor, 'Partition_' . $partition['ID'])) {
+                        continue;
+                    }
+                    $hasExplicitAssignments = true;
+                    break;
+                }
+            }
+            $knownPartitionIDs = array_column($partitions, 'ID');
+            if (!in_array($legacyPartitionID, $knownPartitionIDs, true)) {
+                $hasExplicitAssignments = $hasExplicitAssignments
+                    || $this->SensorEditHasKey($sensor, 'Partition_' . $legacyPartitionID);
+                if (preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $legacyPartitionID) === 1) {
+                    $partitions[] = [
+                        'Enabled' => true,
+                        'ID'      => $legacyPartitionID,
+                        'Name'    => sprintf($this->Translate('Missing alarm partition: %s'), $legacyPartitionID),
+                        'Default' => false
+                    ];
+                }
+            }
+            foreach (array_values(array_unique($explicitPartitionIDs)) as $partitionID) {
+                if (in_array($partitionID, $knownPartitionIDs, true) || $partitionID === $legacyPartitionID) {
+                    continue;
+                }
                 $partitions[] = [
                     'Enabled' => true,
-                    'ID'      => $legacyPartitionID,
-                    'Name'    => sprintf($this->Translate('Missing alarm partition: %s'), $legacyPartitionID),
+                    'ID'      => $partitionID,
+                    'Name'    => sprintf($this->Translate('Missing alarm partition: %s'), $partitionID),
                     'Default' => false
                 ];
             }
-        }
-        foreach (array_values(array_unique($explicitPartitionIDs)) as $partitionID) {
-            if (in_array($partitionID, $knownPartitionIDs, true) || $partitionID === $legacyPartitionID) {
-                continue;
+            $partitionNamesOnChange = $this->SensorPartitionNamesOnChangeScript(
+                array_column($partitions, 'ID')
+            );
+            $partitionFields = [];
+            $partitionSelectionRow = ['PartitionID' => $legacyPartitionID];
+            foreach ($partitions as $partition) {
+                $selected = $hasExplicitAssignments
+                    ? $this->ReadSensorEditBoolean($sensor, 'Partition_' . $partition['ID'], false)
+                    : $partition['ID'] === $legacyPartitionID;
+                $partitionSelectionRow['Partition_' . $partition['ID']] = $selected;
+                $partitionFields[] = [
+                    'type'     => 'CheckBox',
+                    'name'     => 'Partition_' . $partition['ID'],
+                    'caption'  => $partition['Name'],
+                    'value'    => $selected,
+                    'enabled'  => $partition['Enabled'] || $selected,
+                    'onChange' => $partitionNamesOnChange
+                ];
             }
-            $partitions[] = [
-                'Enabled' => true,
-                'ID'      => $partitionID,
-                'Name'    => sprintf($this->Translate('Missing alarm partition: %s'), $partitionID),
-                'Default' => false
-            ];
-        }
-        $partitionNamesOnChange = $this->SensorPartitionNamesOnChangeScript(
-            array_column($partitions, 'ID')
-        );
-        $partitionFields = [];
-        $partitionSelectionRow = ['PartitionID' => $legacyPartitionID];
-        foreach ($partitions as $partition) {
-            $selected = $hasExplicitAssignments
-                ? $this->ReadSensorEditBoolean($sensor, 'Partition_' . $partition['ID'], false)
-                : $partition['ID'] === $legacyPartitionID;
-            $partitionSelectionRow['Partition_' . $partition['ID']] = $selected;
-            $partitionFields[] = [
-                'type'     => 'CheckBox',
-                'name'     => 'Partition_' . $partition['ID'],
-                'caption'  => $partition['Name'],
-                'value'    => $selected,
-                'enabled'  => $partition['Enabled'] || $selected,
-                'onChange' => $partitionNamesOnChange
-            ];
-        }
-        $hasVariable = $this->IsExistingVariable($variableID);
-        $alwaysActive = $this->ReadSensorEditBoolean($sensor, 'AlwaysActive', false);
-        $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
-        $hasTriggerOptions = $triggerOptions !== [];
-        $selectedTriggerValue = $hasTriggerOptions
-            ? $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions)
-            : $triggerValue;
-        $usesNormalValue = $triggerCondition === AlarmTriggerValue::CONDITION_NOT_EQUALS;
-        $triggerValueCaption = $usesNormalValue ? 'Normal value' : 'Trigger value';
+            $hasVariable = $this->IsExistingVariable($variableID);
+            $alwaysActive = $this->ReadSensorEditBoolean($sensor, 'AlwaysActive', false);
+            $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
+            $hasTriggerOptions = $triggerOptions !== [];
+            $selectedTriggerValue = $hasTriggerOptions
+                ? $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions)
+                : $triggerValue;
+            $usesNormalValue = $triggerCondition === AlarmTriggerValue::CONDITION_NOT_EQUALS;
+            $triggerValueCaption = $usesNormalValue ? 'Normal value' : 'Trigger value';
 
-        return [
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'Enabled',
-                'caption' => $this->Translate('Enabled')
-            ],
-            [
-                'type'    => 'ValidationTextBox',
-                'name'    => 'Name',
-                'caption' => $this->Translate('Name')
-            ],
-            [
-                'type'    => 'ValidationTextBox',
-                'name'    => 'PartitionID',
-                'value'   => $legacyPartitionID,
-                'visible' => false
-            ],
-            [
-                'type'    => 'ValidationTextBox',
-                'name'    => 'PartitionNames',
-                'value'   => $this->SensorPartitionNames($partitionSelectionRow),
-                'visible' => false
-            ],
-            [
-                'type'    => 'Label',
-                'caption' => $this->Translate('Select every alarm partition that should monitor this sensor.')
-            ],
-            ...$partitionFields,
-            [
-                'type'     => 'SelectVariable',
-                'name'     => 'VariableID',
-                'caption'  => $this->Translate('Variable'),
-                'onChange' => 'OHA_UpdateSensorTriggerValueForm($id, $VariableID, $TriggerValue);'
-            ],
-            [
-                'type'    => 'Select',
-                'name'    => 'SensorType',
-                'caption' => $this->Translate('Sensor type'),
-                'options' => $this->CreateSensorTypeOptions()
-            ],
-            [
-                'type'     => 'Select',
-                'name'     => 'TriggerCondition',
-                'caption'  => $this->Translate('Evaluation'),
-                'options'  => [
-                    [
-                        'caption' => $this->Translate('Trigger at selected value'),
-                        'value'   => AlarmTriggerValue::CONDITION_EQUALS
-                    ],
-                    [
-                        'caption' => $this->Translate('Trigger when different from normal value'),
-                        'value'   => AlarmTriggerValue::CONDITION_NOT_EQUALS
-                    ]
+            return $debugResult = [
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'Enabled',
+                    'caption' => $this->Translate('Enabled')
                 ],
-                'value'    => $triggerCondition,
-                'onChange' => 'OHA_UpdateSensorTriggerConditionForm($id, $TriggerCondition);'
-            ],
-            [
-                'type'    => 'ValidationTextBox',
-                'name'    => 'TriggerValue',
-                'visible' => false
-            ],
-            [
-                'type'     => 'Select',
-                'name'     => 'TriggerValueSelection',
-                'caption'  => $this->Translate($triggerValueCaption),
-                'options'  => $hasTriggerOptions ? $triggerOptions : $this->CreateEmptyTriggerValueOptions(),
-                'value'    => $selectedTriggerValue,
-                'visible'  => $hasVariable && $hasTriggerOptions,
-                'onChange' => 'OHA_SetSensorTriggerValue($id, $TriggerValueSelection);'
-            ],
-            [
-                'type'     => 'ValidationTextBox',
-                'name'     => 'TriggerValueManual',
-                'caption'  => $this->Translate($triggerValueCaption),
-                'value'    => $triggerValue,
-                'visible'  => $hasVariable && !$hasTriggerOptions,
-                'onChange' => 'OHA_SetSensorTriggerValue($id, $TriggerValueManual);'
-            ],
-            [
-                'type'    => 'Label',
-                'name'    => 'TriggerValueHint',
-                'caption' => $this->Translate($usesNormalValue
-                    ? 'Select a variable to choose its normal value.'
-                    : 'Select a variable to choose its trigger value.'),
-                'visible' => !$hasVariable
-            ],
-            [
-                'type'    => 'Label',
-                'name'    => 'TriggerValueManualHint',
-                'caption' => $this->Translate($usesNormalValue
-                    ? 'This variable has no selectable states. Enter the raw normal value.'
-                    : 'This variable has no selectable states. Enter the raw trigger value.'),
-                'visible' => $hasVariable && !$hasTriggerOptions
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'ArmHome',
-                'caption' => $this->Translate('Home'),
-                'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ArmHome', false),
-                'enabled' => !$alwaysActive
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'ArmAway',
-                'caption' => $this->Translate('Away'),
-                'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ArmAway', true),
-                'enabled' => !$alwaysActive
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'ArmNight',
-                'caption' => $this->Translate('Night'),
-                'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ArmNight', false),
-                'enabled' => !$alwaysActive
-            ],
-            [
-                'type'     => 'CheckBox',
-                'name'     => 'AlwaysActive',
-                'caption'  => $this->Translate('24/7 active'),
-                'onChange' => 'OHA_UpdateSensorAlwaysActiveForm($id, $AlwaysActive);'
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'AllowAutomaticBypass',
-                'caption' => $this->Translate('Allow automatic bypass'),
-                'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'AllowAutomaticBypass', false),
-                'enabled' => !$alwaysActive
-            ],
-            [
-                'type'    => 'Label',
-                'caption' => $this->Translate('Only an explicit arming override can bypass this sensor while it is triggered. Monitoring resumes when it returns to normal.')
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'AllowPassage',
-                'caption' => $this->Translate('Allow temporary passage'),
-                'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'AllowPassage', false),
-                'enabled' => !$alwaysActive
-            ],
-            [
-                'type'    => 'Label',
-                'caption' => $this->Translate('Trusted automations may release this sensor for one passage while its alarm partition remains armed.')
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'ExitDelay',
-                'caption' => $this->Translate('Exit route (Away only)'),
-                'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ExitDelay', false),
-                'enabled' => !$alwaysActive
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'EntryDelay',
-                'caption' => $this->Translate('Entry delay'),
-                'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'EntryDelay', false),
-                'enabled' => !$alwaysActive
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'RetriggerAlarm',
-                'caption' => $this->Translate('Retrigger alarm while active')
-            ],
-            [
-                'type'    => 'Label',
-                'caption' => $this->Translate('Use this for motion detectors or other sensors that should restart the alarm duration and escalation actions when they trigger again during an active alarm.')
-            ],
-            [
-                'type'    => 'Label',
-                'caption' => $this->Translate('Exit-route motion detectors may remain active through the end of a configured exit delay; all other sensors must be ready.')
-            ],
-            [
-                'type'    => 'Label',
-                'caption' => $this->Translate('24/7 sensors trigger immediately as normal alarms in every system state. Arming modes, entry/exit delays and temporary passage do not apply.')
-            ]
-        ];
+                [
+                    'type'    => 'ValidationTextBox',
+                    'name'    => 'Name',
+                    'caption' => $this->Translate('Name')
+                ],
+                [
+                    'type'    => 'ValidationTextBox',
+                    'name'    => 'PartitionID',
+                    'value'   => $legacyPartitionID,
+                    'visible' => false
+                ],
+                [
+                    'type'    => 'ValidationTextBox',
+                    'name'    => 'PartitionNames',
+                    'value'   => $this->SensorPartitionNames($partitionSelectionRow),
+                    'visible' => false
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate('Select every alarm partition that should monitor this sensor.')
+                ],
+                ...$partitionFields,
+                [
+                    'type'     => 'SelectVariable',
+                    'name'     => 'VariableID',
+                    'caption'  => $this->Translate('Variable'),
+                    'onChange' => 'OHA_UpdateSensorTriggerValueForm($id, $VariableID, $TriggerValue);'
+                ],
+                [
+                    'type'    => 'Select',
+                    'name'    => 'SensorType',
+                    'caption' => $this->Translate('Sensor type'),
+                    'options' => $this->CreateSensorTypeOptions()
+                ],
+                [
+                    'type'     => 'Select',
+                    'name'     => 'TriggerCondition',
+                    'caption'  => $this->Translate('Evaluation'),
+                    'options'  => [
+                        [
+                            'caption' => $this->Translate('Trigger at selected value'),
+                            'value'   => AlarmTriggerValue::CONDITION_EQUALS
+                        ],
+                        [
+                            'caption' => $this->Translate('Trigger when different from normal value'),
+                            'value'   => AlarmTriggerValue::CONDITION_NOT_EQUALS
+                        ]
+                    ],
+                    'value'    => $triggerCondition,
+                    'onChange' => 'OHA_UpdateSensorTriggerConditionForm($id, $TriggerCondition);'
+                ],
+                [
+                    'type'    => 'ValidationTextBox',
+                    'name'    => 'TriggerValue',
+                    'visible' => false
+                ],
+                [
+                    'type'     => 'Select',
+                    'name'     => 'TriggerValueSelection',
+                    'caption'  => $this->Translate($triggerValueCaption),
+                    'options'  => $hasTriggerOptions ? $triggerOptions : $this->CreateEmptyTriggerValueOptions(),
+                    'value'    => $selectedTriggerValue,
+                    'visible'  => $hasVariable && $hasTriggerOptions,
+                    'onChange' => 'OHA_SetSensorTriggerValue($id, $TriggerValueSelection);'
+                ],
+                [
+                    'type'     => 'ValidationTextBox',
+                    'name'     => 'TriggerValueManual',
+                    'caption'  => $this->Translate($triggerValueCaption),
+                    'value'    => $triggerValue,
+                    'visible'  => $hasVariable && !$hasTriggerOptions,
+                    'onChange' => 'OHA_SetSensorTriggerValue($id, $TriggerValueManual);'
+                ],
+                [
+                    'type'    => 'Label',
+                    'name'    => 'TriggerValueHint',
+                    'caption' => $this->Translate($usesNormalValue
+                        ? 'Select a variable to choose its normal value.'
+                        : 'Select a variable to choose its trigger value.'),
+                    'visible' => !$hasVariable
+                ],
+                [
+                    'type'    => 'Label',
+                    'name'    => 'TriggerValueManualHint',
+                    'caption' => $this->Translate($usesNormalValue
+                        ? 'This variable has no selectable states. Enter the raw normal value.'
+                        : 'This variable has no selectable states. Enter the raw trigger value.'),
+                    'visible' => $hasVariable && !$hasTriggerOptions
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'ArmHome',
+                    'caption' => $this->Translate('Home'),
+                    'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ArmHome', false),
+                    'enabled' => !$alwaysActive
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'ArmAway',
+                    'caption' => $this->Translate('Away'),
+                    'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ArmAway', true),
+                    'enabled' => !$alwaysActive
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'ArmNight',
+                    'caption' => $this->Translate('Night'),
+                    'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ArmNight', false),
+                    'enabled' => !$alwaysActive
+                ],
+                [
+                    'type'     => 'CheckBox',
+                    'name'     => 'AlwaysActive',
+                    'caption'  => $this->Translate('24/7 active'),
+                    'onChange' => 'OHA_UpdateSensorAlwaysActiveForm($id, $AlwaysActive);'
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'AllowAutomaticBypass',
+                    'caption' => $this->Translate('Allow automatic bypass'),
+                    'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'AllowAutomaticBypass', false),
+                    'enabled' => !$alwaysActive
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate('Only an explicit arming override can bypass this sensor while it is triggered. Monitoring resumes when it returns to normal.')
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'AllowPassage',
+                    'caption' => $this->Translate('Allow temporary passage'),
+                    'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'AllowPassage', false),
+                    'enabled' => !$alwaysActive
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate('Trusted automations may release this sensor for one passage while its alarm partition remains armed.')
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'ExitDelay',
+                    'caption' => $this->Translate('Exit route (Away only)'),
+                    'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'ExitDelay', false),
+                    'enabled' => !$alwaysActive
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'EntryDelay',
+                    'caption' => $this->Translate('Entry delay'),
+                    'value'   => !$alwaysActive && $this->ReadSensorEditBoolean($sensor, 'EntryDelay', false),
+                    'enabled' => !$alwaysActive
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'RetriggerAlarm',
+                    'caption' => $this->Translate('Retrigger alarm while active')
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate('Use this for motion detectors or other sensors that should restart the alarm duration and escalation actions when they trigger again during an active alarm.')
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate('Exit-route motion detectors may remain active through the end of a configured exit delay; all other sensors must be ready.')
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate('24/7 sensors trigger immediately as normal alarms in every system state. Arming modes, entry/exit delays and temporary passage do not apply.')
+                ]
+            ];
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -3101,109 +4105,124 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetAlarmEscalationEditForm(mixed $step): array
     {
-        $resetMode = $this->ReadSensorEditInteger($step, 'ResetMode', 0);
-        $action = $this->ReadSensorEditString($step, 'Action', '');
-        $resetAction = $this->ReadSensorEditString($step, 'ResetAction', '');
-        $signalGenerator = $this->ReadSensorEditBoolean($step, 'SignalGenerator', false);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $resetMode = $this->ReadSensorEditInteger($step, 'ResetMode', 0);
+            $action = $this->ReadSensorEditString($step, 'Action', '');
+            $resetAction = $this->ReadSensorEditString($step, 'ResetAction', '');
+            $signalGenerator = $this->ReadSensorEditBoolean($step, 'SignalGenerator', false);
 
-        $actionSelector = [
-            'type'     => 'SelectAction',
-            'name'     => 'Action',
-            'caption'  => $this->Translate('Action'),
-            'targetID' => -2
-        ];
-        if ($action !== '') {
-            $actionSelector['value'] = $action;
-        }
+            $actionSelector = [
+                'type'     => 'SelectAction',
+                'name'     => 'Action',
+                'caption'  => $this->Translate('Action'),
+                'targetID' => -2
+            ];
+            if ($action !== '') {
+                $actionSelector['value'] = $action;
+            }
 
-        return [
-            ['type' => 'CheckBox', 'name' => 'Enabled', 'caption' => $this->Translate('Enabled')],
-            ['type' => 'ValidationTextBox', 'name' => 'Name', 'caption' => $this->Translate('Name')],
-            [
-                'type'    => 'NumberSpinner',
-                'name'    => 'DelaySeconds',
-                'caption' => $this->Translate('Delay (seconds)'),
-                'minimum' => 0,
-                'maximum' => AlarmEscalationPlan::MAX_DELAY_SECONDS
-            ],
-            $actionSelector,
-            [
-                'type'     => 'CheckBox',
-                'name'     => 'SignalGenerator',
-                'caption'  => $this->Translate('Signal generator'),
-                'onChange' => 'OHA_UpdateAlarmEscalationApplicabilityForm($id, $SignalGenerator);'
-            ],
-            [
-                'type'    => 'Select',
-                'name'    => 'ApplicableTo',
-                'caption' => $this->Translate('Run for alarm response'),
-                'options' => [
-                    ['caption' => $this->Translate('Normal only'), 'value' => 'normal'],
-                    ['caption' => $this->Translate('Silent only'), 'value' => 'silent'],
-                    ['caption' => $this->Translate('Normal and silent'), 'value' => 'always']
+            return $debugResult = [
+                ['type' => 'CheckBox', 'name' => 'Enabled', 'caption' => $this->Translate('Enabled')],
+                ['type' => 'ValidationTextBox', 'name' => 'Name', 'caption' => $this->Translate('Name')],
+                [
+                    'type'    => 'NumberSpinner',
+                    'name'    => 'DelaySeconds',
+                    'caption' => $this->Translate('Delay (seconds)'),
+                    'minimum' => 0,
+                    'maximum' => AlarmEscalationPlan::MAX_DELAY_SECONDS
                 ],
-                'value'   => $signalGenerator
-                    ? 'normal'
-                    : $this->ReadSensorEditString($step, 'ApplicableTo', 'always'),
-                'visible' => !$signalGenerator
-            ],
-            [
-                'type'    => 'Label',
-                'name'    => 'SignalGeneratorApplicabilityHint',
-                'caption' => $this->Translate('Signal generators run only during normal alarms.'),
-                'visible' => $signalGenerator
-            ],
-            [
-                'type'    => 'Label',
-                'caption' => $this->Translate('Run for alarm source category')
-            ],
-            [
-                'type'  => 'RowLayout',
-                'items' => [
-                    [
-                        'type'    => 'CheckBox',
-                        'name'    => 'ApplyHome',
-                        'caption' => $this->Translate('Home'),
-                        'value'   => $this->ReadSensorEditBoolean($step, 'ApplyHome', true)
+                $actionSelector,
+                [
+                    'type'     => 'CheckBox',
+                    'name'     => 'SignalGenerator',
+                    'caption'  => $this->Translate('Signal generator'),
+                    'onChange' => 'OHA_UpdateAlarmEscalationApplicabilityForm($id, $SignalGenerator);'
+                ],
+                [
+                    'type'    => 'Select',
+                    'name'    => 'ApplicableTo',
+                    'caption' => $this->Translate('Run for alarm response'),
+                    'options' => [
+                        ['caption' => $this->Translate('Normal only'), 'value' => 'normal'],
+                        ['caption' => $this->Translate('Silent only'), 'value' => 'silent'],
+                        ['caption' => $this->Translate('Normal and silent'), 'value' => 'always']
                     ],
-                    [
-                        'type'    => 'CheckBox',
-                        'name'    => 'ApplyAway',
-                        'caption' => $this->Translate('Away'),
-                        'value'   => $this->ReadSensorEditBoolean($step, 'ApplyAway', true)
-                    ],
-                    [
-                        'type'    => 'CheckBox',
-                        'name'    => 'ApplyNight',
-                        'caption' => $this->Translate('Night'),
-                        'value'   => $this->ReadSensorEditBoolean($step, 'ApplyNight', true)
-                    ],
-                    [
-                        'type'    => 'CheckBox',
-                        'name'    => 'ApplyAlwaysActive',
-                        'caption' => $this->Translate('24/7'),
-                        'value'   => $this->ReadSensorEditBoolean($step, 'ApplyAlwaysActive', true)
+                    'value'   => $signalGenerator
+                        ? 'normal'
+                        : $this->ReadSensorEditString($step, 'ApplicableTo', 'always'),
+                    'visible' => !$signalGenerator
+                ],
+                [
+                    'type'    => 'Label',
+                    'name'    => 'SignalGeneratorApplicabilityHint',
+                    'caption' => $this->Translate('Signal generators run only during normal alarms.'),
+                    'visible' => $signalGenerator
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate('Run for alarm source category')
+                ],
+                [
+                    'type'  => 'RowLayout',
+                    'items' => [
+                        [
+                            'type'    => 'CheckBox',
+                            'name'    => 'ApplyHome',
+                            'caption' => $this->Translate('Home'),
+                            'value'   => $this->ReadSensorEditBoolean($step, 'ApplyHome', true)
+                        ],
+                        [
+                            'type'    => 'CheckBox',
+                            'name'    => 'ApplyAway',
+                            'caption' => $this->Translate('Away'),
+                            'value'   => $this->ReadSensorEditBoolean($step, 'ApplyAway', true)
+                        ],
+                        [
+                            'type'    => 'CheckBox',
+                            'name'    => 'ApplyNight',
+                            'caption' => $this->Translate('Night'),
+                            'value'   => $this->ReadSensorEditBoolean($step, 'ApplyNight', true)
+                        ],
+                        [
+                            'type'    => 'CheckBox',
+                            'name'    => 'ApplyAlwaysActive',
+                            'caption' => $this->Translate('24/7'),
+                            'value'   => $this->ReadSensorEditBoolean($step, 'ApplyAlwaysActive', true)
+                        ]
                     ]
+                ],
+                [
+                    'type'     => 'Select',
+                    'name'     => 'ResetMode',
+                    'caption'  => $this->Translate('Reset behavior'),
+                    'options'  => $this->AlarmEscalationResetModeOptions(),
+                    'value'    => $resetMode,
+                    'onChange' => 'OHA_UpdateAlarmEscalationResetForm($id, $ResetMode);'
+                ],
+                [
+                    'type'  => 'ColumnLayout',
+                    'name'  => 'CustomResetActionContainer',
+                    'items' => $this->CustomResetActionFormItems($resetMode, $resetAction)
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate('Boolean values can be inverted automatically. For shutters, dimmers, scenes and other multi-value targets, select a custom reset action with the exact desired return value.')
                 ]
-            ],
-            [
-                'type'     => 'Select',
-                'name'     => 'ResetMode',
-                'caption'  => $this->Translate('Reset behavior'),
-                'options'  => $this->AlarmEscalationResetModeOptions(),
-                'value'    => $resetMode,
-                'onChange' => 'OHA_UpdateAlarmEscalationResetForm($id, $ResetMode);'
-            ],
-            [
-                'type'  => 'ColumnLayout',
-                'name'  => 'CustomResetActionContainer',
-                'items' => $this->CustomResetActionFormItems($resetMode, $resetAction)
-            ],
-            [
-                'type'    => 'Label',
-                'caption' => $this->Translate('Boolean values can be inverted automatically. For shutters, dimmers, scenes and other multi-value targets, select a custom reset action with the exact desired return value.')
-            ]
-        ];
+            ];
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -3217,42 +4236,87 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetOptionalActionEditForm(mixed $configuredAction): array
     {
-        $action = $this->ReadSensorEditString($configuredAction, 'Action', '');
-        $actionSelector = [
-            'type'     => 'SelectAction',
-            'name'     => 'Action',
-            'caption'  => $this->Translate('Action'),
-            'targetID' => -2
-        ];
-        if ($action !== '') {
-            $actionSelector['value'] = $action;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $action = $this->ReadSensorEditString($configuredAction, 'Action', '');
+            $actionSelector = [
+                'type'     => 'SelectAction',
+                'name'     => 'Action',
+                'caption'  => $this->Translate('Action'),
+                'targetID' => -2
+            ];
+            if ($action !== '') {
+                $actionSelector['value'] = $action;
+            }
 
-        return [
-            ['type' => 'CheckBox', 'name' => 'Enabled', 'caption' => $this->Translate('Enabled')],
-            ['type' => 'ValidationTextBox', 'name' => 'Name', 'caption' => $this->Translate('Name')],
-            $actionSelector
-        ];
+            return $debugResult = [
+                ['type' => 'CheckBox', 'name' => 'Enabled', 'caption' => $this->Translate('Enabled')],
+                ['type' => 'ValidationTextBox', 'name' => 'Name', 'caption' => $this->Translate('Name')],
+                $actionSelector
+            ];
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** Updates the custom reset selector without leaving the List edit dialog. */
     public function UpdateAlarmEscalationResetForm(int $resetMode): void
     {
-        $this->UpdateFormField(
-            'CustomResetActionContainer',
-            'items',
-            json_encode($this->CustomResetActionFormItems($resetMode), JSON_THROW_ON_ERROR)
-        );
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $this->UpdateFormField(
+                'CustomResetActionContainer',
+                'items',
+                json_encode($this->CustomResetActionFormItems($resetMode), JSON_THROW_ON_ERROR)
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /** Keeps the action applicability consistent with the signal-generator switch. */
     public function UpdateAlarmEscalationApplicabilityForm(bool $signalGenerator): void
     {
-        if ($signalGenerator) {
-            $this->UpdateFormField('ApplicableTo', 'value', 'normal');
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if ($signalGenerator) {
+                $this->UpdateFormField('ApplicableTo', 'value', 'normal');
+            }
+            $this->UpdateFormField('ApplicableTo', 'visible', !$signalGenerator);
+            $this->UpdateFormField('SignalGeneratorApplicabilityHint', 'visible', $signalGenerator);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-        $this->UpdateFormField('ApplicableTo', 'visible', !$signalGenerator);
-        $this->UpdateFormField('SignalGeneratorApplicabilityHint', 'visible', $signalGenerator);
     }
 
     /**
@@ -3263,88 +4327,148 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function UpdateSensorTriggerValueForm(int $variableID, string $triggerValue): void
     {
-        $hasVariable = $this->IsExistingVariable($variableID);
-        $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
-        $hasTriggerOptions = $triggerOptions !== [];
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Variable' => $variableID]);
+        try {
+            $hasVariable = $this->IsExistingVariable($variableID);
+            $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
+            $hasTriggerOptions = $triggerOptions !== [];
 
-        if ($hasTriggerOptions) {
-            $selectedTriggerValue = $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions);
+            if ($hasTriggerOptions) {
+                $selectedTriggerValue = $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions);
 
-            $this->UpdateFormField(
-                'TriggerValueSelection',
-                'options',
-                json_encode($triggerOptions, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            );
-            $this->UpdateFormField('TriggerValueSelection', 'value', $selectedTriggerValue);
-            $this->UpdateFormField('TriggerValue', 'value', $selectedTriggerValue);
-        } elseif ($hasVariable) {
-            $this->UpdateFormField('TriggerValueManual', 'value', $triggerValue);
+                $this->UpdateFormField(
+                    'TriggerValueSelection',
+                    'options',
+                    json_encode($triggerOptions, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                );
+                $this->UpdateFormField('TriggerValueSelection', 'value', $selectedTriggerValue);
+                $this->UpdateFormField('TriggerValue', 'value', $selectedTriggerValue);
+            } elseif ($hasVariable) {
+                $this->UpdateFormField('TriggerValueManual', 'value', $triggerValue);
+            }
+
+            $this->UpdateFormField('TriggerValueSelection', 'visible', $hasVariable && $hasTriggerOptions);
+            $this->UpdateFormField('TriggerValueManual', 'visible', $hasVariable && !$hasTriggerOptions);
+            $this->UpdateFormField('TriggerValueHint', 'visible', !$hasVariable);
+            $this->UpdateFormField('TriggerValueManualHint', 'visible', $hasVariable && !$hasTriggerOptions);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-
-        $this->UpdateFormField('TriggerValueSelection', 'visible', $hasVariable && $hasTriggerOptions);
-        $this->UpdateFormField('TriggerValueManual', 'visible', $hasVariable && !$hasTriggerOptions);
-        $this->UpdateFormField('TriggerValueHint', 'visible', !$hasVariable);
-        $this->UpdateFormField('TriggerValueManualHint', 'visible', $hasVariable && !$hasTriggerOptions);
     }
 
     /** Updates the comparison-value labels after the sensor evaluation rule changes. */
     public function UpdateSensorTriggerConditionForm(string $triggerCondition): void
     {
-        $usesNormalValue = $triggerCondition === AlarmTriggerValue::CONDITION_NOT_EQUALS;
-        $valueCaption = $this->Translate($usesNormalValue ? 'Normal value' : 'Trigger value');
-        $this->UpdateFormField('TriggerValueSelection', 'caption', $valueCaption);
-        $this->UpdateFormField('TriggerValueManual', 'caption', $valueCaption);
-        $this->UpdateFormField(
-            'TriggerValueHint',
-            'caption',
-            $this->Translate($usesNormalValue
-                ? 'Select a variable to choose its normal value.'
-                : 'Select a variable to choose its trigger value.')
-        );
-        $this->UpdateFormField(
-            'TriggerValueManualHint',
-            'caption',
-            $this->Translate($usesNormalValue
-                ? 'This variable has no selectable states. Enter the raw normal value.'
-                : 'This variable has no selectable states. Enter the raw trigger value.')
-        );
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $usesNormalValue = $triggerCondition === AlarmTriggerValue::CONDITION_NOT_EQUALS;
+            $valueCaption = $this->Translate($usesNormalValue ? 'Normal value' : 'Trigger value');
+            $this->UpdateFormField('TriggerValueSelection', 'caption', $valueCaption);
+            $this->UpdateFormField('TriggerValueManual', 'caption', $valueCaption);
+            $this->UpdateFormField(
+                'TriggerValueHint',
+                'caption',
+                $this->Translate($usesNormalValue
+                    ? 'Select a variable to choose its normal value.'
+                    : 'Select a variable to choose its trigger value.')
+            );
+            $this->UpdateFormField(
+                'TriggerValueManualHint',
+                'caption',
+                $this->Translate($usesNormalValue
+                    ? 'This variable has no selectable states. Enter the raw normal value.'
+                    : 'This variable has no selectable states. Enter the raw trigger value.')
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /** Updates the readable alarm-area summary before the sensor row is applied. */
     public function UpdateSensorPartitionNamesForm(string $partitionSelectionJson): void
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $selection = json_decode($partitionSelectionJson, true, 64, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return;
-        }
-        if (!is_array($selection) || array_is_list($selection)) {
-            return;
-        }
-
-        $sensor = [];
-        foreach ($selection as $partitionID => $selected) {
-            if (!is_string($partitionID) || !is_bool($selected)
-                || preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $partitionID) !== 1) {
-                continue;
+            try {
+                $selection = json_decode($partitionSelectionJson, true, 64, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                return;
             }
-            $sensor['Partition_' . $partitionID] = $selected;
-        }
-        if ($sensor === []) {
-            return;
-        }
+            if (!is_array($selection) || array_is_list($selection)) {
+                return;
+            }
 
-        $this->UpdateFormField('PartitionNames', 'value', $this->SensorPartitionNames($sensor));
+            $sensor = [];
+            foreach ($selection as $partitionID => $selected) {
+                if (!is_string($partitionID) || !is_bool($selected)
+                    || preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $partitionID) !== 1) {
+                    continue;
+                }
+                $sensor['Partition_' . $partitionID] = $selected;
+            }
+            if ($sensor === []) {
+                return;
+            }
+
+            $this->UpdateFormField('PartitionNames', 'value', $this->SensorPartitionNames($sensor));
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /** Removes arming-mode and delay choices when a sensor monitors around the clock. */
     public function UpdateSensorAlwaysActiveForm(bool $alwaysActive): void
     {
-        foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay', 'AllowAutomaticBypass', 'AllowPassage'] as $fieldName) {
-            if ($alwaysActive) {
-                $this->UpdateFormField($fieldName, 'value', false);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay', 'AllowAutomaticBypass', 'AllowPassage'] as $fieldName) {
+                if ($alwaysActive) {
+                    $this->UpdateFormField($fieldName, 'value', false);
+                }
+                $this->UpdateFormField($fieldName, 'enabled', !$alwaysActive);
             }
-            $this->UpdateFormField($fieldName, 'enabled', !$alwaysActive);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
@@ -3353,7 +4477,22 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function SetSensorTriggerValue(string $triggerValue): void
     {
-        $this->UpdateFormField('TriggerValue', 'value', $triggerValue);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $this->UpdateFormField('TriggerValue', 'value', $triggerValue);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /**
@@ -3369,106 +4508,121 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function GetFaultInputEditForm(mixed $faultInput): array
     {
-        $variableID = $this->ReadSensorEditInteger($faultInput, 'VariableID', 0);
-        $triggerValue = $this->ReadSensorEditString($faultInput, 'TriggerValue', '1');
-        $partitions = $this->ConfigurationFormPartitions();
-        $partitionID = strtolower(trim($this->ReadSensorEditString($faultInput, 'PartitionID', '')));
-        if ($partitionID === '') {
-            $partitionID = AlarmPartitionRegistry::defaultPartition($partitions)['ID'];
-        }
-        $partitionOptions = $this->CreatePartitionOptions($partitions);
-        if (!in_array($partitionID, array_column($partitionOptions, 'value'), true)) {
-            array_unshift($partitionOptions, [
-                'caption' => sprintf($this->Translate('Missing or disabled alarm partition: %s'), $partitionID),
-                'value'   => $partitionID
-            ]);
-        }
-        $hasVariable = $this->IsExistingVariable($variableID);
-        $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
-        $hasTriggerOptions = $triggerOptions !== [];
-        $selectedTriggerValue = $hasTriggerOptions
-            ? $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions)
-            : $triggerValue;
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $variableID = $this->ReadSensorEditInteger($faultInput, 'VariableID', 0);
+            $triggerValue = $this->ReadSensorEditString($faultInput, 'TriggerValue', '1');
+            $partitions = $this->ConfigurationFormPartitions();
+            $partitionID = strtolower(trim($this->ReadSensorEditString($faultInput, 'PartitionID', '')));
+            if ($partitionID === '') {
+                $partitionID = AlarmPartitionRegistry::defaultPartition($partitions)['ID'];
+            }
+            $partitionOptions = $this->CreatePartitionOptions($partitions);
+            if (!in_array($partitionID, array_column($partitionOptions, 'value'), true)) {
+                array_unshift($partitionOptions, [
+                    'caption' => sprintf($this->Translate('Missing or disabled alarm partition: %s'), $partitionID),
+                    'value'   => $partitionID
+                ]);
+            }
+            $hasVariable = $this->IsExistingVariable($variableID);
+            $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
+            $hasTriggerOptions = $triggerOptions !== [];
+            $selectedTriggerValue = $hasTriggerOptions
+                ? $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions)
+                : $triggerValue;
 
-        return [
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'Enabled',
-                'caption' => $this->Translate('Enabled')
-            ],
-            [
-                'type'    => 'ValidationTextBox',
-                'name'    => 'Name',
-                'caption' => $this->Translate('Name')
-            ],
-            [
-                'type'    => 'Select',
-                'name'    => 'PartitionID',
-                'caption' => $this->Translate('Alarm partition'),
-                'options' => $partitionOptions,
-                'value'   => $partitionID
-            ],
-            [
-                'type'     => 'SelectVariable',
-                'name'     => 'VariableID',
-                'caption'  => $this->Translate('Variable'),
-                'onChange' => 'OHA_UpdateFaultTriggerValueForm($id, $VariableID, $TriggerValue);'
-            ],
-            [
-                'type'    => 'Select',
-                'name'    => 'FaultType',
-                'caption' => $this->Translate('Fault type'),
-                'options' => $this->CreateFaultTypeOptions()
-            ],
-            [
-                'type'    => 'ValidationTextBox',
-                'name'    => 'TriggerValue',
-                'visible' => false
-            ],
-            [
-                'type'     => 'Select',
-                'name'     => 'TriggerValueSelection',
-                'caption'  => $this->Translate('Fault value'),
-                'options'  => $hasTriggerOptions ? $triggerOptions : $this->CreateEmptyTriggerValueOptions(),
-                'value'    => $selectedTriggerValue,
-                'visible'  => $hasVariable && $hasTriggerOptions,
-                'onChange' => 'OHA_SetFaultTriggerValue($id, $TriggerValueSelection);'
-            ],
-            [
-                'type'     => 'ValidationTextBox',
-                'name'     => 'TriggerValueManual',
-                'caption'  => $this->Translate('Fault value'),
-                'value'    => $triggerValue,
-                'visible'  => $hasVariable && !$hasTriggerOptions,
-                'onChange' => 'OHA_SetFaultTriggerValue($id, $TriggerValueManual);'
-            ],
-            [
-                'type'    => 'Label',
-                'name'    => 'TriggerValueHint',
-                'caption' => $this->Translate('Select a variable to choose its fault value.'),
-                'visible' => !$hasVariable
-            ],
-            [
-                'type'    => 'Label',
-                'name'    => 'TriggerValueManualHint',
-                'caption' => $this->Translate('This variable has no selectable states. Enter the raw fault value.'),
-                'visible' => $hasVariable && !$hasTriggerOptions
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'BlockArming',
-                'caption' => $this->Translate('Block arming')
-            ],
-            [
-                'type'    => 'CheckBox',
-                'name'    => 'TriggerAlarm',
-                'caption' => $this->Translate('Trigger alarm (24/7)')
-            ],
-            [
-                'type'    => 'Label',
-                'caption' => $this->Translate('Fault inputs are monitored continuously. Alarm triggering is immediate and independent of the selected arming mode.')
-            ]
-        ];
+            return $debugResult = [
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'Enabled',
+                    'caption' => $this->Translate('Enabled')
+                ],
+                [
+                    'type'    => 'ValidationTextBox',
+                    'name'    => 'Name',
+                    'caption' => $this->Translate('Name')
+                ],
+                [
+                    'type'    => 'Select',
+                    'name'    => 'PartitionID',
+                    'caption' => $this->Translate('Alarm partition'),
+                    'options' => $partitionOptions,
+                    'value'   => $partitionID
+                ],
+                [
+                    'type'     => 'SelectVariable',
+                    'name'     => 'VariableID',
+                    'caption'  => $this->Translate('Variable'),
+                    'onChange' => 'OHA_UpdateFaultTriggerValueForm($id, $VariableID, $TriggerValue);'
+                ],
+                [
+                    'type'    => 'Select',
+                    'name'    => 'FaultType',
+                    'caption' => $this->Translate('Fault type'),
+                    'options' => $this->CreateFaultTypeOptions()
+                ],
+                [
+                    'type'    => 'ValidationTextBox',
+                    'name'    => 'TriggerValue',
+                    'visible' => false
+                ],
+                [
+                    'type'     => 'Select',
+                    'name'     => 'TriggerValueSelection',
+                    'caption'  => $this->Translate('Fault value'),
+                    'options'  => $hasTriggerOptions ? $triggerOptions : $this->CreateEmptyTriggerValueOptions(),
+                    'value'    => $selectedTriggerValue,
+                    'visible'  => $hasVariable && $hasTriggerOptions,
+                    'onChange' => 'OHA_SetFaultTriggerValue($id, $TriggerValueSelection);'
+                ],
+                [
+                    'type'     => 'ValidationTextBox',
+                    'name'     => 'TriggerValueManual',
+                    'caption'  => $this->Translate('Fault value'),
+                    'value'    => $triggerValue,
+                    'visible'  => $hasVariable && !$hasTriggerOptions,
+                    'onChange' => 'OHA_SetFaultTriggerValue($id, $TriggerValueManual);'
+                ],
+                [
+                    'type'    => 'Label',
+                    'name'    => 'TriggerValueHint',
+                    'caption' => $this->Translate('Select a variable to choose its fault value.'),
+                    'visible' => !$hasVariable
+                ],
+                [
+                    'type'    => 'Label',
+                    'name'    => 'TriggerValueManualHint',
+                    'caption' => $this->Translate('This variable has no selectable states. Enter the raw fault value.'),
+                    'visible' => $hasVariable && !$hasTriggerOptions
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'BlockArming',
+                    'caption' => $this->Translate('Block arming')
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'TriggerAlarm',
+                    'caption' => $this->Translate('Trigger alarm (24/7)')
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => $this->Translate('Fault inputs are monitored continuously. Alarm triggering is immediate and independent of the selected arming mode.')
+                ]
+            ];
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -3476,28 +4630,43 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function UpdateFaultTriggerValueForm(int $variableID, string $triggerValue): void
     {
-        $hasVariable = $this->IsExistingVariable($variableID);
-        $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
-        $hasTriggerOptions = $triggerOptions !== [];
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Variable' => $variableID]);
+        try {
+            $hasVariable = $this->IsExistingVariable($variableID);
+            $triggerOptions = $hasVariable ? $this->CreateTriggerValueOptions($variableID) : [];
+            $hasTriggerOptions = $triggerOptions !== [];
 
-        if ($hasTriggerOptions) {
-            $selectedTriggerValue = $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions);
+            if ($hasTriggerOptions) {
+                $selectedTriggerValue = $this->ResolveTriggerValueSelection($triggerValue, $triggerOptions);
 
-            $this->UpdateFormField(
-                'TriggerValueSelection',
-                'options',
-                json_encode($triggerOptions, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            );
-            $this->UpdateFormField('TriggerValueSelection', 'value', $selectedTriggerValue);
-            $this->UpdateFormField('TriggerValue', 'value', $selectedTriggerValue);
-        } elseif ($hasVariable) {
-            $this->UpdateFormField('TriggerValueManual', 'value', $triggerValue);
+                $this->UpdateFormField(
+                    'TriggerValueSelection',
+                    'options',
+                    json_encode($triggerOptions, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                );
+                $this->UpdateFormField('TriggerValueSelection', 'value', $selectedTriggerValue);
+                $this->UpdateFormField('TriggerValue', 'value', $selectedTriggerValue);
+            } elseif ($hasVariable) {
+                $this->UpdateFormField('TriggerValueManual', 'value', $triggerValue);
+            }
+
+            $this->UpdateFormField('TriggerValueSelection', 'visible', $hasVariable && $hasTriggerOptions);
+            $this->UpdateFormField('TriggerValueManual', 'visible', $hasVariable && !$hasTriggerOptions);
+            $this->UpdateFormField('TriggerValueHint', 'visible', !$hasVariable);
+            $this->UpdateFormField('TriggerValueManualHint', 'visible', $hasVariable && !$hasTriggerOptions);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
-
-        $this->UpdateFormField('TriggerValueSelection', 'visible', $hasVariable && $hasTriggerOptions);
-        $this->UpdateFormField('TriggerValueManual', 'visible', $hasVariable && !$hasTriggerOptions);
-        $this->UpdateFormField('TriggerValueHint', 'visible', !$hasVariable);
-        $this->UpdateFormField('TriggerValueManualHint', 'visible', $hasVariable && !$hasTriggerOptions);
     }
 
     /**
@@ -3505,7 +4674,47 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     public function SetFaultTriggerValue(string $triggerValue): void
     {
-        $this->UpdateFormField('TriggerValue', 'value', $triggerValue);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $this->UpdateFormField('TriggerValue', 'value', $triggerValue);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
+    }
+
+    /** Adapts legacy helper diagnostics to the alarm envelope without changing vendored sources. */
+    protected function SendDebug(string $Message, string $Data, int $Format): bool
+    {
+        if (str_starts_with($Message, 'OpenHomeAlarm | ')) {
+            return parent::SendDebug($Message, $Data, $Format);
+        }
+
+        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
+        $standalone = $this->alarmDebugCalls === [];
+        if ($standalone) {
+            $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        }
+        try {
+            $this->AlarmDebug($trace[1]['function'] ?? 'Modulhilfe', (int) ($trace[0]['line'] ?? __LINE__), 'FEHLER', 'Die gemeinsame Modulhilfe konnte den Vorgang nicht abschließen.', [
+                'Quelldatei' => basename((string) ($trace[0]['file'] ?? 'module.php')),
+                'Ursache'    => $this->ExplainAlarmDebugError($Data)
+            ]);
+        } finally {
+            if ($standalone) {
+                $this->EndAlarmDebug(__FUNCTION__, __LINE__, null, false, true);
+            }
+        }
+        return true;
     }
 
     /**
@@ -3526,98 +4735,263 @@ class OpenHomeAlarm extends IPSModuleStrict
      */
     protected function ProcessHookData(): void
     {
-        if (!$this->IsIPSViewHTMLPageEnabled()) {
-            $this->OutputIPSViewResponse(['Error' => 'IPSView is disabled.'], 404);
-
-            return;
-        }
-
-        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
-            $this->OutputIPSViewResponse(['Error' => 'Method not allowed.'], 405);
-
-            return;
-        }
-
-        $request = $_POST;
-        if ($request === []) {
-            parse_str((string) file_get_contents('php://input'), $request);
-        }
-
-        $token = is_string($request['token'] ?? null) ? $request['token'] : '';
-        if ($token === '' || !hash_equals($this->IPSViewToken(), $token)) {
-            $this->OutputIPSViewResponse(['Error' => 'Unauthorized.'], 403);
-
-            return;
-        }
-
-        $action = is_string($request['action'] ?? null) ? $request['action'] : '';
-        if ($action === 'GetState') {
-            $this->OutputIPSViewResponse($this->ControlStatePayload());
-
-            return;
-        }
-
-        $rawValue = $request['value'] ?? 'null';
-        $value = null;
-        if (is_string($rawValue)) {
-            try {
-                $value = json_decode($rawValue, true, 32, JSON_THROW_ON_ERROR);
-            } catch (JsonException) {
-                $this->OutputIPSViewResponse(['Error' => 'Invalid value.'], 400);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if (!$this->IsIPSViewHTMLPageEnabled()) {
+                $this->OutputIPSViewResponse(['Error' => 'IPSView is disabled.'], 404);
 
                 return;
             }
-        }
 
-        try {
-            $interaction = $this->ExecuteVisualizationAction($action, $value);
-            $this->OutputIPSViewResponse($this->ControlStatePayload($interaction));
-        } catch (InvalidArgumentException $exception) {
-            $this->OutputIPSViewResponse(['Error' => $exception->getMessage()], 400);
-        } catch (Throwable $exception) {
-            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
-            $this->OutputIPSViewResponse(['Error' => 'Action failed.'], 500);
+            if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
+                $this->OutputIPSViewResponse(['Error' => 'Method not allowed.'], 405);
+
+                return;
+            }
+
+            $request = $_POST;
+            if ($request === []) {
+                parse_str((string) file_get_contents('php://input'), $request);
+            }
+
+            $token = is_string($request['token'] ?? null) ? $request['token'] : '';
+            if ($token === '' || !hash_equals($this->IPSViewToken(), $token)) {
+                $this->OutputIPSViewResponse(['Error' => 'Unauthorized.'], 403);
+
+                return;
+            }
+
+            $action = is_string($request['action'] ?? null) ? $request['action'] : '';
+            if ($action === 'GetState') {
+                $this->OutputIPSViewResponse($this->ControlStatePayload());
+
+                return;
+            }
+
+            $rawValue = $request['value'] ?? 'null';
+            $value = null;
+            if (is_string($rawValue)) {
+                try {
+                    $value = json_decode($rawValue, true, 32, JSON_THROW_ON_ERROR);
+                } catch (JsonException) {
+                    $this->OutputIPSViewResponse(['Error' => 'Invalid value.'], 400);
+
+                    return;
+                }
+            }
+
+            try {
+                $interaction = $this->ExecuteVisualizationAction($action, $value);
+                $this->OutputIPSViewResponse($this->ControlStatePayload($interaction));
+            } catch (InvalidArgumentException $exception) {
+                $this->OutputIPSViewResponse(['Error' => $exception->getMessage()], 400);
+            } catch (Throwable $exception) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die IPSView-Anfrage konnte nicht verarbeitet werden.', ['Ursache' => $this->ExplainAlarmDebugError($exception->getMessage()), 'Fehlertyp' => $exception::class, 'Fehlerzeile' => $exception->getLine()]);
+                $this->OutputIPSViewResponse(['Error' => 'Action failed.'], 500);
+            }
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
     /** @param array<string,string|int> $parameters */
     protected function PerformPushoverRequest(string $url, array $parameters): string
     {
-        if (!function_exists('curl_init')) {
-            throw new RuntimeException('The PHP cURL extension required for Pushover is unavailable.');
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if (!function_exists('curl_init')) {
+                throw new RuntimeException('The PHP cURL extension required for Pushover is unavailable.');
+            }
 
-        $handle = curl_init($url);
-        if ($handle === false) {
-            throw new RuntimeException('The Pushover HTTPS request could not be initialized.');
-        }
-        $configured = curl_setopt_array($handle, [
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => http_build_query($parameters, '', '&', PHP_QUERY_RFC3986),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT        => 15,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_USERAGENT      => 'OpenHomeAlarm'
-        ]);
-        if (!$configured) {
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'HTTPS-Anfrage an Pushover wird gesendet.', ['Schnittstelle' => 'Pushover', 'Operation' => str_starts_with($url, self::PUSHOVER_RECEIPTS_URL) ? 'Notfallbenachrichtigung beenden' : 'Nachricht senden', 'Priorität' => $parameters['priority'] ?? null]);
+            $handle = curl_init($url);
+            if ($handle === false) {
+                throw new RuntimeException('The Pushover HTTPS request could not be initialized.');
+            }
+            $configured = curl_setopt_array($handle, [
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => http_build_query($parameters, '', '&', PHP_QUERY_RFC3986),
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT        => 15,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_USERAGENT      => 'OpenHomeAlarm'
+            ]);
+            if (!$configured) {
+                curl_close($handle);
+                throw new RuntimeException('The Pushover HTTPS request could not be configured.');
+            }
+
+            $response = curl_exec($handle);
+            $error = curl_error($handle);
+            $status = (int) curl_getinfo($handle, CURLINFO_HTTP_CODE);
             curl_close($handle);
-            throw new RuntimeException('The Pushover HTTPS request could not be configured.');
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'EMPFANG', 'HTTPS-Anfrage an Pushover beendet.', ['HTTPStatus' => $status, 'TransportErfolgreich' => $response !== false, 'AntwortBytes' => is_string($response) ? strlen($response) : 0]);
+            if ($response === false) {
+                throw new RuntimeException($error !== '' ? 'Pushover transport error: ' . $error : 'Pushover transport error.');
+            }
+            if ($status < 200 || $status >= 300) {
+                throw new RuntimeException(sprintf('Pushover returned HTTP status %d.', $status));
+            }
+
+            return $debugResult = $response;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /**
+     * Keeps nested alarm commands on one operation without logging arguments or secrets.
+     */
+    private function BeginAlarmDebug(string $function, int $line, array $context = []): void
+    {
+        if ($this->alarmDebugCalls === []) {
+            $this->alarmDebugOperation = uniqid('oha-');
+            $this->alarmDebugSequence = 0;
+        }
+        $this->alarmDebugCalls[] = ++$this->alarmDebugSequence;
+        $this->AlarmDebug($function, $line, 'START', 'Funktion gestartet.', $context);
+    }
+
+    private function EndAlarmDebug(string $function, int $line, mixed $result, bool $failed, bool $withoutReturnValue): void
+    {
+        $description = match (true) {
+            $failed             => 'Durch Ausnahme abgebrochen.',
+            $withoutReturnValue => 'Ohne Rückgabewert beendet; Einzelheiten siehe Ablauf.',
+            $result === true    => 'Ja / erfolgreich.',
+            $result === false   => 'Nein / abgelehnt oder fehlgeschlagen.',
+            $result === null    => 'Kein Ergebnis.',
+            is_string($result)  => sprintf('Text zurückgegeben (%d Bytes); Inhalt wird nicht protokolliert.', strlen($result)),
+            is_array($result)   => sprintf('Liste oder Struktur zurückgegeben (%d Einträge); Inhalt wird nicht protokolliert.', count($result)),
+            default             => 'Ergebnis vom Typ ' . get_debug_type($result) . '.'
+        };
+        $this->AlarmDebug($function, $line, 'ENDE', 'Funktion beendet.', ['Ergebnis' => $description]);
+        array_pop($this->alarmDebugCalls);
+    }
+
+    /**
+     * Alarm-specific envelope. Sanitization and size limits belong to the central DebugHelper.
+     * Raw codes, configuration backups, action parameters and transport bodies never enter it.
+     */
+    private function AlarmDebug(string $function, int $line, string $event, string $message, array $context = []): void
+    {
+        try {
+            $this->SendSafeDebug(
+                sprintf('OpenHomeAlarm | %s | %s:%d', $event, $function, $line),
+                [
+                    'Instanz' => $this->InstanceID ?? 0,
+                    'Vorgang' => $this->alarmDebugOperation,
+                    'Aufruf'  => end($this->alarmDebugCalls) ?: 0,
+                    'Meldung' => $message,
+                    'Bezug'   => $context
+                ],
+                4096,
+                ['code', 'pin', 'token', 'user', 'receipt', 'DisarmCode', 'DisarmCodeHash', 'PushoverApplicationToken', 'PushoverUserKey']
+            );
+        } catch (Throwable) {
+            // Diagnostic failures must never prevent arming, disarming or alarm handling.
+        }
+    }
+
+    /** Maps known alarm and transport failures without copying arbitrary exception text into logs. */
+    private function ExplainAlarmDebugError(string $error): string
+    {
+        $causes = [
+            'Visualization asset could not be loaded:'                                  => 'Eine benötigte Visualisierungsdatei konnte nicht geladen werden.',
+            'Invalid locale.json:'                                                      => 'Die Übersetzungsdatei enthält ungültiges JSON.',
+            'Unknown visualization action.'                                             => 'Die angeforderte Visualisierungsaktion ist unbekannt.',
+            'Invalid sensor configuration JSON.'                                        => 'Die Sensorliste enthält ungültiges JSON.',
+            'Sensor configuration must be a list.'                                      => 'Die Sensor-Konfiguration muss eine Liste sein.',
+            'Every sensor configuration must be an object.'                             => 'Ein Eintrag der Sensorliste hat ein ungültiges Format.',
+            'Sensor VariableID must not be negative.'                                   => 'Eine Sensor-Variablen-ID ist negativ.',
+            'Unsupported sensor type.'                                                  => 'Ein Sensortyp wird nicht unterstützt.',
+            'Unsupported sensor trigger condition.'                                     => 'Eine Sensor-Auslösebedingung wird nicht unterstützt.',
+            'An identical sensor configuration can only be configured once.'            => 'Eine identische Sensor-Konfiguration ist mehrfach eingetragen.',
+            'Invalid fault input configuration JSON.'                                   => 'Die Störungsliste enthält ungültiges JSON.',
+            'Fault input configuration must be a list.'                                 => 'Die Störungseingänge müssen als Liste konfiguriert sein.',
+            'Every fault input configuration must be an object.'                        => 'Ein Störungseingang hat ein ungültiges Format.',
+            'Fault input VariableID must not be negative.'                              => 'Die Variablen-ID eines Störungseingangs ist negativ.',
+            'Unsupported fault input type.'                                             => 'Ein Störungstyp wird nicht unterstützt.',
+            'A fault input variable can only be configured once.'                       => 'Eine Störungsvariable ist mehrfach eingetragen.',
+            'Invalid partition configuration JSON.'                                     => 'Die Bereichsliste enthält ungültiges JSON.',
+            'Partition configuration must be a non-empty list.'                         => 'Die Bereichsliste ist leer oder hat ein ungültiges Format.',
+            'Every partition configuration must be an object.'                          => 'Ein Bereichseintrag hat ein ungültiges Format.',
+            'Invalid partition field type.'                                             => 'Ein Bereichsfeld hat einen ungültigen Datentyp.',
+            'Partition IDs must use'                                                    => 'Eine Bereichs-ID entspricht nicht dem zulässigen Format.',
+            'The main partition is required.'                                           => 'Der Hauptbereich main fehlt.',
+            'The main partition must be enabled.'                                       => 'Der Hauptbereich main ist deaktiviert.',
+            'Default partition is missing.'                                             => 'Der Standardbereich fehlt.',
+            'Invalid configured action:'                                                => 'Die Aktion enthält ungültiges JSON.',
+            'Configured action must decode to an object.'                               => 'Die Aktion muss als JSON-Objekt konfiguriert sein.',
+            'Configured action is missing actionID or parameters.'                      => 'Der Aktion fehlen actionID oder Parameter.',
+            'Configured action failed:'                                                 => 'Die Symcon-Aktionsschnittstelle hat eine Ausnahme ausgelöst.',
+            'Configured action could not be started.'                                   => 'Symcon hat den Aktionsstart abgelehnt.',
+            'The PHP cURL extension'                                                    => 'Die für Pushover benötigte PHP-cURL-Erweiterung fehlt.',
+            'The Pushover HTTPS request could not be initialized.'                      => 'Die HTTPS-Verbindung konnte nicht initialisiert werden.',
+            'The Pushover HTTPS request could not be configured.'                       => 'Die HTTPS-Verbindung konnte nicht konfiguriert werden.',
+            'Pushover transport error'                                                  => 'Die HTTPS-Übertragung ist fehlgeschlagen, beispielsweise durch Verbindung, TLS oder Zeitüberschreitung.',
+            'Pushover returned HTTP status'                                             => 'Pushover hat einen HTTP-Fehler geliefert; Status siehe Empfangsmeldung.',
+            'Pushover returned an invalid JSON response.'                               => 'Die Pushover-Antwort enthält ungültiges JSON.',
+            'Pushover returned an invalid response.'                                    => 'Die Pushover-Antwort hat ein ungültiges Format.',
+            'Pushover rejected the request'                                             => 'Pushover hat die Anfrage fachlich abgelehnt.',
+            'Pushover accepted the emergency notification without returning a receipt.' => 'Pushover hat für die Notfallnachricht keine Empfangskennung geliefert.'
+        ];
+        foreach ($causes as $prefix => $description) {
+            if (str_starts_with($error, $prefix)) {
+                return $description;
+            }
         }
 
-        $response = curl_exec($handle);
-        $error = curl_error($handle);
-        $status = (int) curl_getinfo($handle, CURLINFO_HTTP_CODE);
-        curl_close($handle);
-        if ($response === false) {
-            throw new RuntimeException($error !== '' ? 'Pushover transport error: ' . $error : 'Pushover transport error.');
-        }
-        if ($status < 200 || $status >= 300) {
-            throw new RuntimeException(sprintf('Pushover returned HTTP status %d.', $status));
-        }
+        return 'Die Verarbeitung hat ungültige Daten oder einen Laufzeitfehler gemeldet; Bezug und Fehlertyp eingrenzen.';
+    }
 
-        return $response;
+    /** Sends configured alarm actions without exposing arbitrary script parameters. */
+    private function RunAlarmInterfaceAction(string $actionID, array $parameters): bool
+    {
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        $result = false;
+        $failed = false;
+        try {
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Konfigurierte Aktion wird an Symcon übergeben.', [
+                'Schnittstelle'   => 'IPS_RunAction',
+                'Aktion'          => $actionID,
+                'Parameteranzahl' => count($parameters),
+                'Ziel'            => is_int($parameters['TARGET'] ?? null) ? $parameters['TARGET'] : null,
+                'Wert'            => '[Aktionsparameter geschützt]'
+            ]);
+            $result = IPS_RunAction($actionID, $parameters);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, $result ? 'EMPFANG' : 'FEHLER', $result
+                ? 'Symcon hat den Aktionsstart angenommen; die Wirkung am Ziel ist damit noch nicht bestätigt.'
+                : 'Symcon hat den Aktionsstart abgelehnt.', ['Aktion' => $actionID]);
+            return $result;
+        } catch (Throwable $exception) {
+            $failed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Symcon-Aktionsschnittstelle hat eine Ausnahme ausgelöst.', ['Fehlertyp' => $exception::class]);
+            throw $exception;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $result, $failed, false);
+        }
     }
 
     /** @param array<string,mixed> $form */
@@ -3893,14 +5267,14 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
 
         if ($configuredCode !== '' && preg_match('/^[0-9]{4,8}$/', $configuredCode) !== 1) {
-            $this->SendDebug(__FUNCTION__, 'Configured disarm code is invalid.', 0);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Der konfigurierte Unscharfschaltcode hat ein ungültiges Format; Bedienung verweigert.');
 
             return false;
         }
 
         $codeProtection = $this->ReadDisarmCodeProtectionStatus();
         if ($codeProtection['Locked']) {
-            $this->SendDebug(__FUNCTION__, 'Disarm code entry is temporarily locked.', 0);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Code-Eingabe ist vorübergehend gesperrt; Bedienung verweigert.');
 
             return false;
         }
@@ -3908,7 +5282,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $userName = AlarmDisarmUserRegistry::matchingUser($code, $users);
         $legacyCodeMatches = $configuredCode !== '' && hash_equals($configuredCode, trim($code));
         if ($userName === null && !$legacyCodeMatches) {
-            $this->SendDebug(__FUNCTION__, 'Disarm code rejected.', 0);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Der eingegebene Code wurde abgelehnt; der Fehlversuch wird gezählt.');
             $this->AppendEvent(self::EVENT_DISARM_CODE_REJECTED);
             $codeProtection = $this->RegisterRejectedDisarmCode($codeProtection);
             if ($codeProtection['Locked']) {
@@ -4924,57 +6298,72 @@ class OpenHomeAlarm extends IPSModuleStrict
 
     private function InitializeRuntimeSafely(): bool
     {
-        $configurationChecks = [
-            [
-                'Debug'     => 'Invalid partition configuration',
-                'Status'    => self::STATUS_INVALID_PARTITIONS,
-                'Validator' => fn (): array => $this->ReadConfiguredPartitions()
-            ],
-            [
-                'Debug'     => 'Invalid sensor or fault configuration',
-                'Status'    => self::STATUS_INVALID_CONFIGURATION,
-                'Validator' => function (): void
-                {
-                    $this->ReadConfiguredSensors();
-                    $this->ReadConfiguredFaultInputs();
-                }
-            ],
-            [
-                'Debug'     => 'Invalid automatic arming configuration',
-                'Status'    => self::STATUS_INVALID_AUTOMATIC_ARMING,
-                'Validator' => fn (): array => $this->ReadConfiguredAutomaticArmingSchedules()
-            ],
-            [
-                'Debug'     => 'Invalid alarm action configuration',
-                'Status'    => self::STATUS_INVALID_ALARM_ACTIONS,
-                'Validator' => fn (): array => $this->ReadConfiguredAlarmEscalationSteps()
-            ]
-        ];
-        foreach ($configurationChecks as $check) {
-            try {
-                $check['Validator']();
-            } catch (UnexpectedValueException $exception) {
-                $this->SendDebug($check['Debug'], $exception->getMessage(), 0);
-                $this->SetStatus($check['Status']);
-
-                return false;
-            }
-        }
-
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $this->InitializeRuntime();
-        } catch (UnexpectedValueException $exception) {
-            $this->SendDebug('Invalid alarm runtime state', $exception->getMessage(), 0);
-            $this->SetStatus(self::STATUS_INVALID_RUNTIME);
+            $configurationChecks = [
+                [
+                    'Debug'     => 'Die Bereichskonfiguration ist ungültig.',
+                    'Status'    => self::STATUS_INVALID_PARTITIONS,
+                    'Validator' => fn (): array => $this->ReadConfiguredPartitions()
+                ],
+                [
+                    'Debug'     => 'Die Sensor- oder Störungskonfiguration ist ungültig.',
+                    'Status'    => self::STATUS_INVALID_CONFIGURATION,
+                    'Validator' => function (): void
+                    {
+                        $this->ReadConfiguredSensors();
+                        $this->ReadConfiguredFaultInputs();
+                    }
+                ],
+                [
+                    'Debug'     => 'Die automatische Scharfschaltung ist ungültig konfiguriert.',
+                    'Status'    => self::STATUS_INVALID_AUTOMATIC_ARMING,
+                    'Validator' => fn (): array => $this->ReadConfiguredAutomaticArmingSchedules()
+                ],
+                [
+                    'Debug'     => 'Die Alarmaktionen sind ungültig konfiguriert.',
+                    'Status'    => self::STATUS_INVALID_ALARM_ACTIONS,
+                    'Validator' => fn (): array => $this->ReadConfiguredAlarmEscalationSteps()
+                ]
+            ];
+            foreach ($configurationChecks as $check) {
+                try {
+                    $check['Validator']();
+                } catch (UnexpectedValueException $exception) {
+                    $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Der Alarmbetrieb konnte nicht initialisiert werden.', ['Prüfung' => $check['Debug'], 'Ursache' => $this->ExplainAlarmDebugError($exception->getMessage())]);
+                    $this->SetStatus($check['Status']);
 
-            return false;
+                    return $debugResult = false;
+                }
+            }
+
+            try {
+                $this->InitializeRuntime();
+            } catch (UnexpectedValueException $exception) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Der Alarmbetrieb konnte nicht initialisiert werden.', ['Ursache' => $this->ExplainAlarmDebugError($exception->getMessage()), 'Fehlertyp' => $exception::class, 'Fehlerzeile' => $exception->getLine()]);
+                $this->SetStatus(self::STATUS_INVALID_RUNTIME);
+
+                return $debugResult = false;
+            }
+
+            if (method_exists($this, 'SetStatus')) {
+                $this->SetStatus(self::STATUS_ACTIVE);
+            }
+
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
-
-        if (method_exists($this, 'SetStatus')) {
-            $this->SetStatus(self::STATUS_ACTIVE);
-        }
-
-        return true;
     }
 
     private function ExecuteAutomaticArmingAt(int $timestamp): void
@@ -5420,11 +6809,7 @@ PHP,
         }
 
         IPS_ResetChanges($this->InstanceID);
-        $this->SendDebug(
-            'Configuration change rejected',
-            $this->Translate('Alarm settings can only be changed while all alarm partitions are disarmed.'),
-            0
-        );
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Änderung der Alarmkonfiguration verweigert: Zuerst alle Bereiche unscharf schalten.');
         if (method_exists($this, 'ReloadForm')) {
             $this->ReloadForm();
         }
@@ -5613,205 +6998,236 @@ PHP,
     /** @return array<string,mixed>|null */
     private function ExecuteVisualizationAction(string $Ident, mixed $Value): ?array
     {
-        $command = AlarmVisualizationAdapter::command($Ident, $Value);
-        $Value = $command['Value'];
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Aktion' => $Ident]);
+        try {
+            $command = AlarmVisualizationAdapter::command($Ident, $Value);
+            $Value = $command['Value'];
 
-        switch ($command['Action']) {
-            case 'ArmPartition':
-                $this->ArmPartition(
-                    $Value['PartitionID'],
-                    $Value['Value'],
-                    null,
-                    $Value['Silent'],
-                    $Value['BypassActiveSensors']
-                );
+            switch ($command['Action']) {
+                case 'ArmPartition':
+                    $this->ArmPartition(
+                        $Value['PartitionID'],
+                        $Value['Value'],
+                        null,
+                        $Value['Silent'],
+                        $Value['BypassActiveSensors']
+                    );
 
-                return null;
+                    return $debugResult = null;
 
-            case 'ArmPartitions':
-                $this->ArmPartitions(
-                    $Value['PartitionIDs'],
-                    $Value['Value'],
-                    null,
-                    $Value['Silent'],
-                    $Value['BypassActiveSensors']
-                );
+                case 'ArmPartitions':
+                    $this->ArmPartitions(
+                        $Value['PartitionIDs'],
+                        $Value['Value'],
+                        null,
+                        $Value['Silent'],
+                        $Value['BypassActiveSensors']
+                    );
 
-                return null;
+                    return $debugResult = null;
 
-            case 'DisarmPartition':
-                $this->DisarmPartitionWithCode($Value['PartitionID'], '');
+                case 'DisarmPartition':
+                    $this->DisarmPartitionWithCode($Value['PartitionID'], '');
 
-                return null;
+                    return $debugResult = null;
 
-            case 'DisarmPartitionWithCode':
-                if ($this->DisarmPartitionWithCode($Value['PartitionID'], $Value['Value'])) {
-                    return ['Type' => 'disarm_code', 'Success' => true];
-                }
+                case 'DisarmPartitionWithCode':
+                    if ($this->DisarmPartitionWithCode($Value['PartitionID'], $Value['Value'])) {
+                        return $debugResult = ['Type' => 'disarm_code', 'Success' => true];
+                    }
 
-                $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+                    $codeProtection = $this->ReadDisarmCodeProtectionStatus();
 
-                return [
-                    'Type'             => 'disarm_code',
-                    'Success'          => false,
-                    'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
-                    'LockoutRemaining' => $codeProtection['LockoutRemaining']
-                ];
+                    return $debugResult = [
+                        'Type'             => 'disarm_code',
+                        'Success'          => false,
+                        'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
+                        'LockoutRemaining' => $codeProtection['LockoutRemaining']
+                    ];
 
-            case 'ClearAlarmMemoryPartition':
-                $this->ClearAlarmMemoryPartition($Value['PartitionID']);
+                case 'ClearAlarmMemoryPartition':
+                    $this->ClearAlarmMemoryPartition($Value['PartitionID']);
 
-                return null;
+                    return $debugResult = null;
 
-            case 'ClearSensorBypassesPartition':
-                $this->ClearSensorBypassesPartition($Value['PartitionID']);
+                case 'ClearSensorBypassesPartition':
+                    $this->ClearSensorBypassesPartition($Value['PartitionID']);
 
-                return null;
+                    return $debugResult = null;
 
-            case 'BypassSensorPartition':
-                $this->BypassSensorPartition($Value['PartitionID'], $Value['Value']);
+                case 'BypassSensorPartition':
+                    $this->BypassSensorPartition($Value['PartitionID'], $Value['Value']);
 
-                return null;
+                    return $debugResult = null;
 
-            case 'RemoveSensorBypassPartition':
-                $this->RemoveSensorBypassPartition($Value['PartitionID'], $Value['Value']);
+                case 'RemoveSensorBypassPartition':
+                    $this->RemoveSensorBypassPartition($Value['PartitionID'], $Value['Value']);
 
-                return null;
+                    return $debugResult = null;
 
-            case 'ResetAlarmOutputPartition':
-                $this->ResetAlarmOutputPartition($Value['PartitionID']);
+                case 'ResetAlarmOutputPartition':
+                    $this->ResetAlarmOutputPartition($Value['PartitionID']);
 
-                return null;
+                    return $debugResult = null;
 
-            case 'ResetFalseAlarmPartition':
-                $this->ResetFalseAlarmPartition($Value['PartitionID']);
+                case 'ResetFalseAlarmPartition':
+                    $this->ResetFalseAlarmPartition($Value['PartitionID']);
 
-                return null;
+                    return $debugResult = null;
 
-            case 'ResetFalseAlarmPartitionWithCode':
-                if ($this->ResetFalseAlarmPartitionWithCode($Value['PartitionID'], $Value['Value'])) {
-                    return ['Type' => 'disarm_code', 'Success' => true];
-                }
+                case 'ResetFalseAlarmPartitionWithCode':
+                    if ($this->ResetFalseAlarmPartitionWithCode($Value['PartitionID'], $Value['Value'])) {
+                        return $debugResult = ['Type' => 'disarm_code', 'Success' => true];
+                    }
 
-                $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+                    $codeProtection = $this->ReadDisarmCodeProtectionStatus();
 
-                return [
-                    'Type'             => 'disarm_code',
-                    'Success'          => false,
-                    'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
-                    'LockoutRemaining' => $codeProtection['LockoutRemaining']
-                ];
+                    return $debugResult = [
+                        'Type'             => 'disarm_code',
+                        'Success'          => false,
+                        'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
+                        'LockoutRemaining' => $codeProtection['LockoutRemaining']
+                    ];
 
-            case 'StopSignalGenerator':
-                $this->StopSignalGenerator();
+                case 'StopSignalGenerator':
+                    $this->StopSignalGenerator();
 
-                return null;
+                    return $debugResult = null;
 
-            case 'StopSignalGeneratorWithCode':
-                if ($this->StopSignalGeneratorWithCode($Value)) {
-                    return ['Type' => 'disarm_code', 'Success' => true];
-                }
+                case 'StopSignalGeneratorWithCode':
+                    if ($this->StopSignalGeneratorWithCode($Value)) {
+                        return $debugResult = ['Type' => 'disarm_code', 'Success' => true];
+                    }
 
-                $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+                    $codeProtection = $this->ReadDisarmCodeProtectionStatus();
 
-                return [
-                    'Type'             => 'disarm_code',
-                    'Success'          => false,
-                    'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
-                    'LockoutRemaining' => $codeProtection['LockoutRemaining']
-                ];
+                    return $debugResult = [
+                        'Type'             => 'disarm_code',
+                        'Success'          => false,
+                        'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
+                        'LockoutRemaining' => $codeProtection['LockoutRemaining']
+                    ];
 
-            case 'Arm':
-                $this->Arm($Value);
+                case 'Arm':
+                    $this->Arm($Value);
 
-                return null;
+                    return $debugResult = null;
 
-            case 'Disarm':
-                $this->DisarmWithCode('');
+                case 'Disarm':
+                    $this->DisarmWithCode('');
 
-                return null;
+                    return $debugResult = null;
 
-            case 'DisarmWithCode':
-                if ($this->DisarmWithCode($Value)) {
-                    return ['Type' => 'disarm_code', 'Success' => true];
-                }
+                case 'DisarmWithCode':
+                    if ($this->DisarmWithCode($Value)) {
+                        return $debugResult = ['Type' => 'disarm_code', 'Success' => true];
+                    }
 
-                $codeProtection = $this->ReadDisarmCodeProtectionStatus();
+                    $codeProtection = $this->ReadDisarmCodeProtectionStatus();
 
-                return [
-                    'Type'             => 'disarm_code',
-                    'Success'          => false,
-                    'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
-                    'LockoutRemaining' => $codeProtection['LockoutRemaining']
-                ];
+                    return $debugResult = [
+                        'Type'             => 'disarm_code',
+                        'Success'          => false,
+                        'Reason'           => $codeProtection['Locked'] ? 'locked' : 'rejected',
+                        'LockoutRemaining' => $codeProtection['LockoutRemaining']
+                    ];
 
-            case 'RefreshVisualization':
-                return null;
+                case 'RefreshVisualization':
+                    return $debugResult = null;
 
-            case 'ExportEventHistory':
-                return [
-                    'Type'     => 'event_history_export',
-                    'Format'   => $Value,
-                    'Filename' => sprintf('openhomealarm-events-%s.%s', date('Ymd-His'), $Value),
-                    'Content'  => $this->ExportEventHistory($Value)
-                ];
+                case 'ExportEventHistory':
+                    return $debugResult = [
+                        'Type'     => 'event_history_export',
+                        'Format'   => $Value,
+                        'Filename' => sprintf('openhomealarm-events-%s.%s', date('Ymd-His'), $Value),
+                        'Content'  => $this->ExportEventHistory($Value)
+                    ];
 
-            case 'ExportDiagnostics':
-                return [
-                    'Type'     => 'diagnostics_export',
-                    'Format'   => $Value,
-                    'Filename' => sprintf('openhomealarm-diagnostics-%s.%s', date('Ymd-His'), $Value),
-                    'Content'  => $this->ExportDiagnostics($Value)
-                ];
+                case 'ExportDiagnostics':
+                    return $debugResult = [
+                        'Type'     => 'diagnostics_export',
+                        'Format'   => $Value,
+                        'Filename' => sprintf('openhomealarm-diagnostics-%s.%s', date('Ymd-His'), $Value),
+                        'Content'  => $this->ExportDiagnostics($Value)
+                    ];
 
-            case 'BypassSensor':
-                $this->BypassSensor($Value);
+                case 'BypassSensor':
+                    $this->BypassSensor($Value);
 
-                return null;
+                    return $debugResult = null;
 
-            case 'RemoveSensorBypass':
-                $this->RemoveSensorBypass($Value);
+                case 'RemoveSensorBypass':
+                    $this->RemoveSensorBypass($Value);
 
-                return null;
+                    return $debugResult = null;
 
-            case 'ClearSensorBypasses':
-                $this->ClearSensorBypasses();
+                case 'ClearSensorBypasses':
+                    $this->ClearSensorBypasses();
 
-                return null;
+                    return $debugResult = null;
 
-            case 'ClearAlarmMemory':
-                $this->ClearAlarmMemory();
+                case 'ClearAlarmMemory':
+                    $this->ClearAlarmMemory();
 
-                return null;
+                    return $debugResult = null;
 
-            case 'ResetAlarmOutput':
-                $this->ResetAlarmOutput();
+                case 'ResetAlarmOutput':
+                    $this->ResetAlarmOutput();
 
-                return null;
+                    return $debugResult = null;
 
-            case 'ResetFalseAlarm':
-                $this->ResetFalseAlarm();
+                case 'ResetFalseAlarm':
+                    $this->ResetFalseAlarm();
 
-                return null;
+                    return $debugResult = null;
 
-            default:
-                throw new InvalidArgumentException('Unknown visualization action.');
+                default:
+                    throw new InvalidArgumentException('Unknown visualization action.');
+            }
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
     }
 
     /** @param array<string,mixed> $payload */
     private function OutputIPSViewResponse(array $payload, int $statusCode = 200): void
     {
-        http_response_code($statusCode);
-        header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-        header('X-Content-Type-Options: nosniff');
-        header('Access-Control-Allow-Origin: *');
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Antwort an IPSView wird übergeben.', ['HTTPStatus' => $statusCode, 'EnthältFehler' => isset($payload['Error'])]);
+            http_response_code($statusCode);
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('X-Content-Type-Options: nosniff');
+            header('Access-Control-Allow-Origin: *');
 
-        echo json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+            echo json_encode(
+                $payload,
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
     }
 
     /**
@@ -5822,18 +7238,40 @@ PHP,
      */
     private function PublishVisualizationState(?array $interaction = null): void
     {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            if ($interaction === null) {
-                $this->UpdateVisualizationValue($this->GetControlState());
+            try {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Bedienzustand wird an die HTML-SDK-Visualisierung übergeben.');
+                if ($interaction === null) {
+                    $accepted = $this->UpdateVisualizationValue($this->GetControlState());
+                    $this->AlarmDebug(__FUNCTION__, __LINE__, $accepted ? 'EMPFANG' : 'FEHLER', $accepted
+                        ? 'Symcon hat den Bedienzustand angenommen; die Anzeige beim Client ist damit noch nicht bestätigt.'
+                        : 'Symcon hat die Aktualisierung der Visualisierung abgelehnt.');
 
-                return;
+                    return;
+                }
+
+                $accepted = $this->UpdateVisualizationValue(AlarmControlStateAdapter::encode(
+                    $this->ControlStatePayload($interaction)
+                ));
+                $this->AlarmDebug(__FUNCTION__, __LINE__, $accepted ? 'EMPFANG' : 'FEHLER', $accepted
+                    ? 'Symcon hat den Bedienzustand angenommen; die Anzeige beim Client ist damit noch nicht bestätigt.'
+                    : 'Symcon hat die Aktualisierung der Visualisierung abgelehnt.');
+            } catch (Throwable $exception) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Der Zustand konnte nicht an die Visualisierung übergeben werden; die Alarmverarbeitung läuft weiter.', ['Ursache' => $this->ExplainAlarmDebugError($exception->getMessage()), 'Fehlertyp' => $exception::class, 'Fehlerzeile' => $exception->getLine()]);
             }
-
-            $this->UpdateVisualizationValue(AlarmControlStateAdapter::encode(
-                $this->ControlStatePayload($interaction)
-            ));
-        } catch (Throwable $exception) {
-            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
@@ -7309,6 +8747,7 @@ PHP,
 
         try {
             $currentValue = GetValue($variableID);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'EMPFANG', 'Quellwert aus Symcon gelesen.', ['Variable' => $variableID, 'Wert' => $currentValue]);
         } catch (\Throwable) {
             return null;
         }
@@ -8534,6 +9973,7 @@ PHP,
 
         try {
             $currentValue = GetValue($sensor['VariableID']);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'EMPFANG', 'Sensorwert aus Symcon gelesen.', ['Variable' => $sensor['VariableID'], 'Wert' => $currentValue]);
         } catch (\Throwable) {
             return null;
         }
@@ -8774,7 +10214,7 @@ PHP,
         try {
             $this->UpdateReadinessFromSensors($this->ReadConfiguredSensors());
         } catch (\Throwable $exception) {
-            $this->SendDebug(__FUNCTION__, 'Unable to refresh readiness after clearing sensor bypasses: ' . $exception->getMessage(), 0);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Verarbeitung ist fehlgeschlagen; der Fehler wurde behandelt.', ['Ursache' => $this->ExplainAlarmDebugError($exception->getMessage()), 'Fehlertyp' => $exception::class, 'Fehlerzeile' => $exception->getLine()]);
         }
     }
 
@@ -9322,6 +10762,45 @@ PHP,
         ?int $state = null,
         ?string $partitionID = null
     ): void {
+        $debugMessage = match ($event) {
+            self::EVENT_ARM_REJECTED                => 'Scharfschaltung durch Sensoren oder Störungen blockiert.',
+            self::EVENT_ARM_CANCELLED               => 'Scharfschaltung während der Ausgangsverzögerung abgebrochen.',
+            self::EVENT_EXIT_DELAY_STARTED          => 'Ausgangsverzögerung gestartet.',
+            self::EVENT_ARMED                       => 'Bereich scharfgeschaltet.',
+            self::EVENT_ENTRY_DELAY_STARTED         => 'Sensor ausgelöst; Eingangsverzögerung gestartet.',
+            self::EVENT_ALARM                       => 'Alarm ausgelöst.',
+            self::EVENT_ALARM_RETRIGGERED           => 'Alarm erneut ausgelöst.',
+            self::EVENT_ALARM_OUTPUT_RESET          => 'Alarmausgabe zurückgesetzt.',
+            self::EVENT_ALARM_REARMED               => 'Alarmüberwachung erneut aktiviert.',
+            self::EVENT_FALSE_ALARM_RESET           => 'Fehlalarm zurückgesetzt.',
+            self::EVENT_DISARMED                    => 'Bereich unscharfgeschaltet.',
+            self::EVENT_DISARM_CODE_REJECTED        => 'Unscharfschaltcode abgelehnt.',
+            self::EVENT_DISARM_CODE_LOCKED          => 'Code-Eingabe nach Fehlversuchen gesperrt.',
+            self::EVENT_SENSOR_BYPASSED             => 'Sensor manuell überbrückt.',
+            self::EVENT_SENSOR_AUTO_BYPASSED        => 'Sensor für diesen Scharfschaltzyklus automatisch überbrückt.',
+            self::EVENT_SENSOR_AUTO_BYPASS_RESTORED => 'Sensor wieder im Normalzustand; Überwachung wiederhergestellt.',
+            self::EVENT_SENSOR_BYPASS_REMOVED       => 'Sensorüberbrückung entfernt.',
+            self::EVENT_SENSOR_BYPASSES_CLEARED     => 'Sensorüberbrückungen gelöscht.',
+            self::EVENT_PASSAGE_GRANTED             => 'Zeitbegrenzte Durchgangsfreigabe erteilt.',
+            self::EVENT_PASSAGE_STARTED             => 'Freigegebener Durchgang gestartet.',
+            self::EVENT_PASSAGE_COMPLETED           => 'Durchgang abgeschlossen; Überwachung wieder aktiv.',
+            self::EVENT_PASSAGE_EXPIRED             => 'Durchgangsfreigabe abgelaufen.',
+            self::EVENT_ALARM_MEMORY_CLEARED        => 'Alarmgedächtnis gelöscht.',
+            self::EVENT_FAULT_ACTIVATED             => 'Technische Störung erkannt.',
+            self::EVENT_FAULT_CLEARED               => 'Technische Störung behoben.',
+            self::EVENT_AUTOMATIC_ARMING_SUCCEEDED  => 'Automatische Scharfschaltung erfolgreich.',
+            self::EVENT_AUTOMATIC_ARMING_REJECTED   => 'Automatische Scharfschaltung abgelehnt.',
+            self::EVENT_ALARM_ACTION_EXECUTED       => 'Symcon hat die Alarmaktion angenommen.',
+            self::EVENT_ALARM_NOTIFICATION_SENT     => 'Die Benachrichtigungsschnittstelle hat den Versand angenommen.',
+            default                                 => 'Alarmereignis gespeichert.'
+        };
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', $debugMessage, [
+            'Ereignis'          => $event,
+            'Bereich'           => $partitionID ?? 'Standardbereich',
+            'QuelleOderBlocker' => $source,
+            'Modus'             => $mode,
+            'Zustand'           => $state
+        ]);
         $this->WritePersistentJsonCache(
             self::ATTRIBUTE_EVENT_HISTORY,
             AlarmEventHistory::prepend(
@@ -9390,53 +10869,68 @@ PHP,
 
     private function RunConfiguredAction(string $propertyName): bool
     {
-        $encodedActions = trim($this->ReadPropertyString($propertyName));
-        if (in_array($encodedActions, ['', '{}', 'false', 'null'], true)) {
-            return true;
-        }
-
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Konfiguration' => $propertyName]);
         try {
-            $configuredActions = json_decode($encodedActions, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            $configuredActions = null;
-        }
-        if (is_array($configuredActions) && array_is_list($configuredActions)) {
-            $succeeded = true;
-            foreach ($configuredActions as $configuredAction) {
-                if (!is_array($configuredAction) || ($configuredAction['Enabled'] ?? true) !== true) {
-                    continue;
-                }
-                $action = $configuredAction['Action'] ?? '';
-                if (!is_string($action)) {
-                    $succeeded = false;
-                    $this->SendDebug(__FUNCTION__, 'Optional action has an invalid action value.', 0);
-
-                    continue;
-                }
-                $result = AlarmActionExecutor::execute(
-                    true,
-                    $action,
-                    static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
-                );
-                if ($result['Error'] !== null) {
-                    $succeeded = false;
-                    $this->SendDebug(__FUNCTION__, $result['Error'], 0);
-                }
+            $encodedActions = trim($this->ReadPropertyString($propertyName));
+            if (in_array($encodedActions, ['', '{}', 'false', 'null'], true)) {
+                return $debugResult = true;
             }
 
-            return $succeeded;
-        }
+            try {
+                $configuredActions = json_decode($encodedActions, true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                $configuredActions = null;
+            }
+            if (is_array($configuredActions) && array_is_list($configuredActions)) {
+                $succeeded = true;
+                foreach ($configuredActions as $configuredAction) {
+                    if (!is_array($configuredAction) || ($configuredAction['Enabled'] ?? true) !== true) {
+                        continue;
+                    }
+                    $action = $configuredAction['Action'] ?? '';
+                    if (!is_string($action)) {
+                        $succeeded = false;
+                        $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die optionale Aktion ist ungültig; sie wird nicht ausgeführt.');
 
-        $result = AlarmActionExecutor::execute(
-            true,
-            $encodedActions,
-            static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
-        );
-        if ($result['Error'] !== null) {
-            $this->SendDebug(__FUNCTION__, $result['Error'], 0);
-        }
+                        continue;
+                    }
+                    $result = AlarmActionExecutor::execute(
+                        true,
+                        $action,
+                        fn (string $actionID, array $parameters): bool => $this->RunAlarmInterfaceAction($actionID, $parameters)
+                    );
+                    if ($result['Error'] !== null) {
+                        $succeeded = false;
+                        $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die konfigurierte Aktion ist fehlgeschlagen.', ['Ursache' => $this->ExplainAlarmDebugError($result['Error'])]);
+                    }
+                }
 
-        return $result['Succeeded'];
+                return $debugResult = $succeeded;
+            }
+
+            $result = AlarmActionExecutor::execute(
+                true,
+                $encodedActions,
+                fn (string $actionID, array $parameters): bool => $this->RunAlarmInterfaceAction($actionID, $parameters)
+            );
+            if ($result['Error'] !== null) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die konfigurierte Aktion ist fehlgeschlagen.', ['Ursache' => $this->ExplainAlarmDebugError($result['Error'])]);
+            }
+
+            return $debugResult = $result['Succeeded'];
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     private function StartAlarmEscalation(): void
@@ -9554,28 +11048,45 @@ PHP,
 
     private function PostConfiguredAlarmNotification(string $applicability): bool
     {
-        if (!function_exists('VISU_PostNotificationEx')) {
-            $this->SendDebug(__FUNCTION__, 'Tile visualization push notifications are not available.', 0);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if (!function_exists('VISU_PostNotificationEx')) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Symcon-Schnittstelle für Kachel-Benachrichtigungen ist nicht verfügbar.');
 
-            return false;
+                return $debugResult = false;
+            }
+
+            [$title, $message] = $this->BuildAlarmNotificationText($applicability);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Alarmbenachrichtigung wird an Symcon übergeben.', ['Kachel' => $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID)]);
+            $notificationID = VISU_PostNotificationEx(
+                $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
+                $title,
+                $message,
+                'Alert',
+                'siren',
+                $this->InstanceID
+            );
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'EMPFANG', 'Symcon hat den Benachrichtigungsauftrag beantwortet.', ['Angenommen' => $notificationID !== false]);
+            if ($notificationID === false) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Symcon hat den Versand der konfigurierten Benachrichtigung abgelehnt.');
+
+                return $debugResult = false;
+            }
+
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
-
-        [$title, $message] = $this->BuildAlarmNotificationText($applicability);
-        $notificationID = VISU_PostNotificationEx(
-            $this->ReadPropertyInteger(self::PROPERTY_PUSH_NOTIFICATION_TILE_ID),
-            $title,
-            $message,
-            'Alert',
-            'siren',
-            $this->InstanceID
-        );
-        if ($notificationID === false) {
-            $this->SendDebug(__FUNCTION__, 'The configured push notification could not be sent.', 0);
-
-            return false;
-        }
-
-        return true;
     }
 
     /** @return array{0:string,1:string} */
@@ -9615,19 +11126,34 @@ PHP,
 
     private function PostConfiguredPushoverNotification(string $applicability): bool
     {
-        [$title, $message] = $this->BuildAlarmNotificationText($applicability);
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $receipt = $this->SendPushoverMessage($title, $message, $this->ConfiguredPushoverPriority());
-            if ($receipt !== '') {
-                $this->WriteAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, $receipt);
+            [$title, $message] = $this->BuildAlarmNotificationText($applicability);
+            try {
+                $receipt = $this->SendPushoverMessage($title, $message, $this->ConfiguredPushoverPriority());
+                if ($receipt !== '') {
+                    $this->WriteAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, $receipt);
+                }
+            } catch (Throwable $exception) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Pushover-Alarmnachricht konnte nicht versendet werden.', ['Ursache' => $this->ExplainAlarmDebugError($exception->getMessage()), 'Fehlertyp' => $exception::class, 'Fehlerzeile' => $exception->getLine()]);
+
+                return $debugResult = false;
             }
-        } catch (Throwable $exception) {
-            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
 
-            return false;
+            return $debugResult = true;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
-
-        return true;
     }
 
     private function ConfiguredPushoverPriority(): int
@@ -9639,37 +11165,53 @@ PHP,
 
     private function SendPushoverMessage(string $title, string $message, int $priority): string
     {
-        $parameters = [
-            'token'    => trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN)),
-            'user'     => trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_USER_KEY)),
-            'title'    => $title,
-            'message'  => $message,
-            'priority' => $priority
-        ];
-        $device = trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_DEVICE));
-        if ($device !== '') {
-            $parameters['device'] = $device;
-        }
-        $sound = trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_SOUND));
-        if ($sound !== '') {
-            $parameters['sound'] = $sound;
-        }
-        if ($priority === 2) {
-            $retry = min(10800, max(30, $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS)));
-            $expire = min(10800, max($retry, $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS)));
-            $parameters['retry'] = $retry;
-            $parameters['expire'] = $expire;
-        }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $parameters = [
+                'token'    => trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN)),
+                'user'     => trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_USER_KEY)),
+                'title'    => $title,
+                'message'  => $message,
+                'priority' => $priority
+            ];
+            $device = trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_DEVICE));
+            if ($device !== '') {
+                $parameters['device'] = $device;
+            }
+            $sound = trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_SOUND));
+            if ($sound !== '') {
+                $parameters['sound'] = $sound;
+            }
+            if ($priority === 2) {
+                $retry = min(10800, max(30, $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_RETRY_SECONDS)));
+                $expire = min(10800, max($retry, $this->ReadPropertyInteger(self::PROPERTY_PUSHOVER_EMERGENCY_EXPIRE_SECONDS)));
+                $parameters['retry'] = $retry;
+                $parameters['expire'] = $expire;
+            }
 
-        $response = $this->ParsePushoverResponse(
-            $this->PerformPushoverRequest(self::PUSHOVER_MESSAGES_URL, $parameters)
-        );
-        $receipt = $response['receipt'] ?? '';
-        if ($priority === 2 && (!is_string($receipt) || trim($receipt) === '')) {
-            throw new RuntimeException('Pushover accepted the emergency notification without returning a receipt.');
-        }
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Pushover-Nachrichtenauftrag wird an die HTTPS-Schnittstelle übergeben.', ['Priorität' => $priority]);
+            $response = $this->ParsePushoverResponse(
+                $this->PerformPushoverRequest(self::PUSHOVER_MESSAGES_URL, $parameters)
+            );
+            $receipt = $response['receipt'] ?? '';
+            if ($priority === 2 && (!is_string($receipt) || trim($receipt) === '')) {
+                throw new RuntimeException('Pushover accepted the emergency notification without returning a receipt.');
+            }
 
-        return is_string($receipt) ? trim($receipt) : '';
+            return $debugResult = is_string($receipt) ? trim($receipt) : '';
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /** @return array<string,mixed> */
@@ -9691,29 +11233,45 @@ PHP,
             throw new RuntimeException($details !== '' ? 'Pushover rejected the request: ' . $details : 'Pushover rejected the request.');
         }
 
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'EMPFANG', 'Pushover hat die Anfrage bestätigt.', ['Status' => 1]);
         return $payload;
     }
 
     private function CancelConfiguredPushoverEmergencyNotification(): void
     {
-        $receipt = trim($this->ReadAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT));
-        if ($receipt === '') {
-            return;
-        }
-        if (!$this->HasValidPushoverCredentials()) {
-            $this->SendDebug(__FUNCTION__, 'The Pushover emergency receipt cannot be cancelled without valid credentials.', 0);
-
-            return;
-        }
-
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $this->ParsePushoverResponse($this->PerformPushoverRequest(
-                self::PUSHOVER_RECEIPTS_URL . '/' . rawurlencode($receipt) . '/cancel.json',
-                ['token' => trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN))]
-            ));
-            $this->WriteAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
-        } catch (Throwable $exception) {
-            $this->SendDebug(__FUNCTION__, $exception->getMessage(), 0);
+            $receipt = trim($this->ReadAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT));
+            if ($receipt === '') {
+                return;
+            }
+            if (!$this->HasValidPushoverCredentials()) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Pushover-Notfallbenachrichtigung kann ohne gültige Zugangsdaten nicht beendet werden.');
+
+                return;
+            }
+
+            try {
+                $this->ParsePushoverResponse($this->PerformPushoverRequest(
+                    self::PUSHOVER_RECEIPTS_URL . '/' . rawurlencode($receipt) . '/cancel.json',
+                    ['token' => trim($this->ReadPropertyString(self::PROPERTY_PUSHOVER_APPLICATION_TOKEN))]
+                ));
+                $this->WriteAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
+            } catch (Throwable $exception) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Pushover-Notfallbenachrichtigung konnte nicht beendet werden.', ['Ursache' => $this->ExplainAlarmDebugError($exception->getMessage()), 'Fehlertyp' => $exception::class, 'Fehlerzeile' => $exception->getLine()]);
+            }
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
     }
 
@@ -9753,64 +11311,62 @@ PHP,
         ?array $activeModes = null,
         ?array $activeContexts = null
     ): bool {
-        $runtime = AlarmEscalationPlan::runtime(
-            $this->ReadPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME)
-        );
-        if ($runtime === null) {
-            return false;
-        }
-
-        $resetAnyAction = false;
-        foreach (array_reverse($runtime['ExecutedActions']) as $executedAction) {
-            if ($signalGeneratorsOnly && !$executedAction['SignalGenerator']) {
-                continue;
-            }
-            if ($activeModes !== null && AlarmEscalationPlan::appliesTo($executedAction, $activeModes, $activeContexts)) {
-                continue;
-            }
-            if ($executedAction['ResetMode'] === 0 || in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
-                continue;
-            }
-
-            // Mark the reset before executing it so a failing action cannot loop after a restart.
-            $runtime['ResetActionKeys'][] = $executedAction['Key'];
-            $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
-            $resetAction = AlarmEscalationPlan::resetAction($executedAction);
-            if ($resetAction === '') {
-                $this->SendDebug(
-                    __FUNCTION__,
-                    sprintf(
-                        'Escalation action "%s" in step "%s" has no executable reset action.',
-                        $executedAction['ActionName'],
-                        $executedAction['StepName']
-                    ),
-                    0
-                );
-                continue;
-            }
-
-            $resetAnyAction = true;
-
-            $result = AlarmActionExecutor::execute(
-                true,
-                $resetAction,
-                static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $runtime = AlarmEscalationPlan::runtime(
+                $this->ReadPersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME)
             );
-            if ($result['Error'] !== null) {
-                $this->SendDebug(
-                    __FUNCTION__,
-                    sprintf(
-                        'Reset of escalation action "%s" in step "%s": %s',
-                        $executedAction['ActionName'],
-                        $executedAction['StepName'],
-                        $result['Error']
-                    ),
-                    0
-                );
+            if ($runtime === null) {
+                return $debugResult = false;
             }
-        }
 
-        return $resetAnyAction;
+            $resetAnyAction = false;
+            foreach (array_reverse($runtime['ExecutedActions']) as $executedAction) {
+                if ($signalGeneratorsOnly && !$executedAction['SignalGenerator']) {
+                    continue;
+                }
+                if ($activeModes !== null && AlarmEscalationPlan::appliesTo($executedAction, $activeModes, $activeContexts)) {
+                    continue;
+                }
+                if ($executedAction['ResetMode'] === 0 || in_array($executedAction['Key'], $runtime['ResetActionKeys'], true)) {
+                    continue;
+                }
+
+                // Mark the reset before executing it so a failing action cannot loop after a restart.
+                $runtime['ResetActionKeys'][] = $executedAction['Key'];
+                $this->WritePersistentJsonCache(self::ATTRIBUTE_ALARM_ESCALATION_RUNTIME, $runtime);
+                $resetAction = AlarmEscalationPlan::resetAction($executedAction);
+                if ($resetAction === '') {
+                    $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Für die Eskalationsaktion fehlt eine ausführbare Rücksetz-Aktion.', ['Stufe' => $executedAction['StepName'], 'Aktion' => $executedAction['ActionName']]);
+                    continue;
+                }
+
+                $resetAnyAction = true;
+
+                $result = AlarmActionExecutor::execute(
+                    true,
+                    $resetAction,
+                    fn (string $actionID, array $parameters): bool => $this->RunAlarmInterfaceAction($actionID, $parameters)
+                );
+                if ($result['Error'] !== null) {
+                    $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Rücksetz-Aktion der Eskalationsstufe ist fehlgeschlagen.', ['Stufe' => $executedAction['StepName'], 'Aktion' => $executedAction['ActionName'], 'Ursache' => $this->ExplainAlarmDebugError($result['Error'])]);
+                }
+            }
+
+            return $debugResult = $resetAnyAction;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     private function RestoreSignalGeneratorState(): void
@@ -9866,29 +11422,40 @@ PHP,
 
     private function ResetConfiguredSignalGeneratorActions(): bool
     {
-        $resetAnyAction = false;
-        foreach (array_reverse($this->ConfiguredSignalGeneratorActions()) as $configuredAction) {
-            $resetAction = AlarmEscalationPlan::resetAction($configuredAction);
-            if ($resetAction === '') {
-                continue;
-            }
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $resetAnyAction = false;
+            foreach (array_reverse($this->ConfiguredSignalGeneratorActions()) as $configuredAction) {
+                $resetAction = AlarmEscalationPlan::resetAction($configuredAction);
+                if ($resetAction === '') {
+                    continue;
+                }
 
-            $resetAnyAction = true;
-            $result = AlarmActionExecutor::execute(
-                true,
-                $resetAction,
-                static fn (string $actionID, array $parameters): bool => IPS_RunAction($actionID, $parameters)
-            );
-            if ($result['Error'] !== null) {
-                $this->SendDebug(
-                    __FUNCTION__,
-                    sprintf('Reset of configured signal generator "%s": %s', $configuredAction['ActionName'], $result['Error']),
-                    0
+                $resetAnyAction = true;
+                $result = AlarmActionExecutor::execute(
+                    true,
+                    $resetAction,
+                    fn (string $actionID, array $parameters): bool => $this->RunAlarmInterfaceAction($actionID, $parameters)
                 );
+                if ($result['Error'] !== null) {
+                    $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die konfigurierte Aktion ist fehlgeschlagen.', ['Ursache' => $this->ExplainAlarmDebugError($result['Error'])]);
+                }
             }
-        }
 
-        return $resetAnyAction;
+            return $debugResult = $resetAnyAction;
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
     }
 
     /**
@@ -10083,6 +11650,7 @@ PHP,
 
         $wasConfigurationLocked = $this->IsSecurityConfigurationLocked();
         $this->SetValue(self::IDENT_MODE, $mode);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_MODE, 'Wert' => $mode]);
         $this->ReloadConfigurationFormIfLockChanged($wasConfigurationLocked);
     }
 
@@ -10094,6 +11662,7 @@ PHP,
 
         $wasConfigurationLocked = $this->IsSecurityConfigurationLocked();
         $this->SetValue(self::IDENT_STATE, $state);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_STATE, 'Wert' => $state]);
         $this->ReloadConfigurationFormIfLockChanged($wasConfigurationLocked);
     }
 
@@ -10110,103 +11679,123 @@ PHP,
     private function SetDelayRemaining(int $seconds): void
     {
         $this->SetValue(self::IDENT_DELAY_REMAINING, max(0, $seconds));
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_DELAY_REMAINING, 'Wert' => max(0, $seconds)]);
     }
 
     private function SetDelaySource(string $source): void
     {
         $this->SetValue(self::IDENT_DELAY_SOURCE, $source);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_DELAY_SOURCE, 'Wert' => $source]);
     }
 
     private function SetAlarmOutputActive(bool $active): void
     {
         $this->WriteAttributeInteger(self::ATTRIBUTE_ALARM_OUTPUT_ACTIVE, $active ? 1 : 0);
         $this->SetValue(self::IDENT_ALARM_OUTPUT_ACTIVE, $active);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_ALARM_OUTPUT_ACTIVE, 'Wert' => $active]);
     }
 
     private function SetSignalGeneratorActive(bool $active): void
     {
         if ($this->GetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE) !== $active) {
             $this->SetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE, $active);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_SIGNAL_GENERATOR_ACTIVE, 'Wert' => $active]);
         }
     }
 
     private function SetReadyToArm(bool $ready): void
     {
         $this->SetValue(self::IDENT_READY_TO_ARM, $ready);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_READY_TO_ARM, 'Wert' => $ready]);
     }
 
     private function SetReadyHome(bool $ready): void
     {
         $this->SetValue(self::IDENT_READY_HOME, $ready);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_READY_HOME, 'Wert' => $ready]);
     }
 
     private function SetReadyAway(bool $ready): void
     {
         $this->SetValue(self::IDENT_READY_AWAY, $ready);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_READY_AWAY, 'Wert' => $ready]);
     }
 
     private function SetReadyNight(bool $ready): void
     {
         $this->SetValue(self::IDENT_READY_NIGHT, $ready);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_READY_NIGHT, 'Wert' => $ready]);
     }
 
     private function SetBlockingHomeSensors(string $sensors): void
     {
         $this->SetValue(self::IDENT_BLOCKING_HOME_SENSORS, $sensors);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_BLOCKING_HOME_SENSORS, 'Wert' => $sensors]);
     }
 
     private function SetBlockingAwaySensors(string $sensors): void
     {
         $this->SetValue(self::IDENT_BLOCKING_AWAY_SENSORS, $sensors);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_BLOCKING_AWAY_SENSORS, 'Wert' => $sensors]);
     }
 
     private function SetBlockingNightSensors(string $sensors): void
     {
         $this->SetValue(self::IDENT_BLOCKING_NIGHT_SENSORS, $sensors);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_BLOCKING_NIGHT_SENSORS, 'Wert' => $sensors]);
     }
 
     private function SetBypassedSensors(string $sensors): void
     {
         $this->SetValue(self::IDENT_BYPASSED_SENSORS, $sensors);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_BYPASSED_SENSORS, 'Wert' => $sensors]);
     }
 
     private function SetAlarmMemory(bool $active): void
     {
         $this->SetValue(self::IDENT_ALARM_MEMORY, $active);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_ALARM_MEMORY, 'Wert' => $active]);
     }
 
     private function SetLastAlarmSource(string $source): void
     {
         $this->SetValue(self::IDENT_LAST_ALARM_SOURCE, $source);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_LAST_ALARM_SOURCE, 'Wert' => $source]);
     }
 
     private function SetLastAlarmTime(string $time): void
     {
         $this->SetValue(self::IDENT_LAST_ALARM_TIME, $time);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_LAST_ALARM_TIME, 'Wert' => $time]);
     }
 
     private function SetSystemFault(bool $active): void
     {
         $this->SetValue(self::IDENT_SYSTEM_FAULT, $active);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_SYSTEM_FAULT, 'Wert' => $active]);
     }
 
     private function SetActiveFaults(string $faults): void
     {
         $this->SetValue(self::IDENT_ACTIVE_FAULTS, $faults);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_ACTIVE_FAULTS, 'Wert' => $faults]);
     }
 
     private function SetBlockingFaults(string $faults): void
     {
         $this->SetValue(self::IDENT_BLOCKING_FAULTS, $faults);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_BLOCKING_FAULTS, 'Wert' => $faults]);
     }
 
     private function SetLastFaultSource(string $source): void
     {
         $this->SetValue(self::IDENT_LAST_FAULT_SOURCE, $source);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_LAST_FAULT_SOURCE, 'Wert' => $source]);
     }
 
     private function SetLastFaultTime(string $time): void
     {
         $this->SetValue(self::IDENT_LAST_FAULT_TIME, $time);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'SENDEN', 'Statuswert an Symcon übergeben.', ['Ziel' => self::IDENT_LAST_FAULT_TIME, 'Wert' => $time]);
     }
 }

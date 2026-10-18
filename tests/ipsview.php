@@ -47,7 +47,7 @@ assertIPSView(
 );
 assertIPSView(
     str_contains($module, 'public function GetIPSViewHTML(): string')
-        && str_contains($module, 'return $this->RenderVisualizationHTML(true);'),
+        && preg_match('/return (?:\$debugResult = )?\$this->RenderVisualizationHTML\(true\);/', $module) === 1,
     'The module must expose the standalone IPSView page.'
 );
 assertIPSView(

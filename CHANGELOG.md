@@ -1,5 +1,11 @@
 # Changelog
 
+# Unveröffentlicht
+
+## Neu
+
+- Die Debug-Ausgaben erklären Modulaufrufe, Sensorwerte, Statusänderungen, Aktionen und Schnittstellenkommunikation einheitlich auf Deutsch. Funktions- und Zeilenangaben, Vorgangskennungen sowie Start und Ende mit Ergebnis erleichtern die Nachverfolgung; Codes und Zugangsdaten bleiben geschützt.
+
 - Die erweiterten IPSView-Farbeinstellungen blenden die ausschließlich für native Kalendersteuerungen vorgesehene Farbfamilie in OpenHomeAlarm aus.
 - Der zentrale `IPSViewHTMLPageHelper` stellt nun auch in OpenHomeAlarm den Button zur manuellen IPSView-HTML-Neugenerierung bereit und verarbeitet gemeinsame IPSView-Formularaktionen.
 

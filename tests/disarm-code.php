@@ -212,9 +212,10 @@ class IPSModuleStrict
         return $text;
     }
 
-    protected function SendDebug(string $message, string $data, int $format): void
+    protected function SendDebug(string $message, string $data, int $format): bool
     {
         $this->debugMessages[] = $message . ': ' . $data;
+        return true;
     }
 }
 
