@@ -40,7 +40,7 @@ JSON-/Text-Rückgaben werden nur mit ihrer Länge, Strukturen mit ihrer Eintrags
 
 `php tests/debug-output.php` verwendet die vorhandenen Alarm-/Aktionsfixtures. Geprüft werden erfolgreiche und blockierte Scharfschaltung, Sensorwerte, Statusausgaben, verschachtelte Aufrufe, Quellzeilen, Fehler und anschließende Wiederverwendung, Codeschutz, Pushover-Bestätigung und -Ablehnung, vertrauliche Fehlerantworten, unveränderte Aktionsparameter und ein ausfallender Debug-Kanal. Der Gesamteinstieg bleibt `php tests/run.php`.
 
-Die folgende Abnahme bleibt auf einer ausdrücklich freigegebenen Symcon-Testinstanz auszuführen. Diese Änderung installiert oder aktiviert nichts:
+Die folgende Matrix beschreibt die Prüffälle für die praktische Beurteilung und spätere Änderungen:
 
 | Fall | Erwartete Beobachtung |
 | --- | --- |
@@ -54,4 +54,10 @@ Die folgende Abnahme bleibt auf einer ausdrücklich freigegebenen Symcon-Testins
 | Fehlerhafte Konfiguration und Wiederanlauf | Deutsche Ursache, betroffene Prüfung und erhaltene Status-/Wiederanlauffunktion. |
 | Ruhender und häufig aktualisierter Betrieb | Datenmenge, Lesbarkeit und Laufzeit mit aktiviertem und deaktiviertem Debug prüfen. |
 
-Die reale Abnahme und ein Performancenachweis auf der Zielinstallation sind durch lokale Tests nicht erbracht.
+## Abnahmestand vom 18.10.2026
+
+Der Benutzer hat den Debug-Aufbau im praktischen Betrieb als passend bestätigt und den Pilot damit abgenommen. OpenHomeAlarm dient für die weitere Umstellung als Referenz.
+
+Der bereitgestellte Debug-Ausschnitt wurde ergänzend gelesen: 100 gültige TXT-Einträge mit jeweils zusätzlicher HEX-Darstellung, Zeitraum 15:10:41 bis 15:12:58. Sichtbar sind Countdown, Ende der Ausgangsverzögerung, Scharfschaltung, Statusausgaben, Sensorintegritätsprüfung und Übergabe an die HTML-SDK-Visualisierung. Im Ausschnitt stehen keine FEHLER-Ereignisse. Zwei Funktionsenden am Anfang gehören zu Aufrufen, deren Start außerhalb des Ausschnitts liegt; innerhalb des Ausschnitts bleibt kein erfasster Start ohne Ende.
+
+Die Benutzerabnahme ist keine Behauptung, dass der Ausschnitt sämtliche Fehler-, Code-, Pushover- und Wiederanlauffälle der Matrix oder einen gemessenen Performancenachweis enthält. Dafür gelten weiterhin die dokumentierten automatisierten Nachweise beziehungsweise gezielte spätere Prüfungen. Private Installationsdaten und der Rohdump werden nicht in das Repository übernommen.
