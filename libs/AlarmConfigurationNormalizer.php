@@ -163,6 +163,7 @@ final class AlarmConfigurationNormalizer
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool
@@ -203,16 +204,29 @@ final class AlarmConfigurationNormalizer
             if (!in_array($faultType, $validFaultTypes, true)) {
                 throw new UnexpectedValueException('Unsupported fault input type.');
             }
+            $triggerCondition = self::stringField(
+                $faultInput,
+                'TriggerCondition',
+                AlarmTriggerValue::CONDITION_EQUALS,
+                'Fault input'
+            );
+            if (!in_array($triggerCondition, [
+                AlarmTriggerValue::CONDITION_EQUALS,
+                AlarmTriggerValue::CONDITION_NOT_EQUALS
+            ], true)) {
+                throw new UnexpectedValueException('Unsupported fault input trigger condition.');
+            }
 
             $normalized = [
-                'Enabled'      => self::booleanField($faultInput, 'Enabled', true, 'Fault input'),
-                'PartitionID'  => strtolower(trim(self::stringField($faultInput, 'PartitionID', '', 'Fault input'))),
-                'Name'         => trim(self::stringField($faultInput, 'Name', '', 'Fault input')),
-                'VariableID'   => $variableID,
-                'FaultType'    => $faultType,
-                'TriggerValue' => self::stringField($faultInput, 'TriggerValue', '1', 'Fault input'),
-                'BlockArming'  => self::booleanField($faultInput, 'BlockArming', false, 'Fault input'),
-                'TriggerAlarm' => self::booleanField($faultInput, 'TriggerAlarm', false, 'Fault input')
+                'Enabled'          => self::booleanField($faultInput, 'Enabled', true, 'Fault input'),
+                'PartitionID'      => strtolower(trim(self::stringField($faultInput, 'PartitionID', '', 'Fault input'))),
+                'Name'             => trim(self::stringField($faultInput, 'Name', '', 'Fault input')),
+                'VariableID'       => $variableID,
+                'FaultType'        => $faultType,
+                'TriggerCondition' => $triggerCondition,
+                'TriggerValue'     => self::stringField($faultInput, 'TriggerValue', '1', 'Fault input'),
+                'BlockArming'      => self::booleanField($faultInput, 'BlockArming', false, 'Fault input'),
+                'TriggerAlarm'     => self::booleanField($faultInput, 'TriggerAlarm', false, 'Fault input')
             ];
             if ($normalized['VariableID'] > 0) {
                 if (isset($usedVariableIDs[$normalized['VariableID']])) {

@@ -4,6 +4,19 @@
 
 ## Neu
 
+- Störungseingänge können jetzt wahlweise beim ausgewählten Störwert oder bei
+  jeder Abweichung von einem festgelegten Normalwert auslösen. Bestehende
+  Einträge behalten automatisch ihre bisherige exakte Auswertung. Variablenpfade
+  erhalten im Editor mehr Platz; die Mehrfachsuche übernimmt die gemeinsame
+  Regel und den Vergleichswert.
+- Konfigurationssicherungen lassen sich im Instanzformular auswählen, bewusst
+  bestätigen, vollständig validieren und wiederherstellen. Die vorhandenen
+  Schutzregeln für scharfe Bereiche, inkompatible Daten und Rollback bleiben
+  dabei unverändert wirksam.
+- Die neue vertrauenswürdige Automationsfunktion
+  `OHA_DisarmWithSource()` kann nach einer externen Berechtigungsprüfung die
+  Gesamtanlage unscharf schalten und eine verständliche Quelle im
+  Ereignisprotokoll hinterlegen.
 - Die Debug-Ausgaben erklären Modulaufrufe, Sensorwerte, Statusänderungen, Aktionen und Schnittstellenkommunikation einheitlich auf Deutsch. Funktions- und Zeilenangaben, Vorgangskennungen sowie Start und Ende mit Ergebnis erleichtern die Nachverfolgung; Codes und Zugangsdaten bleiben geschützt.
 
 - Die erweiterten IPSView-Farbeinstellungen blenden die ausschließlich für native Kalendersteuerungen vorgesehene Farbfamilie in OpenHomeAlarm aus.
@@ -15,6 +28,11 @@ aus `library.json`; der dazugehörige Git-Tag ergänzt für SemVer eine Patchste
 beispielsweise `v1.109.0`.
 
 ## Unreleased
+
+- Die Download-Schaltflächen für JSON und CSV des Ereignisprotokolls übergeben
+  nun sämtliche Pflichtparameter an den von Symcon erzeugten Funktionswrapper.
+  Dadurch funktionieren die Downloads auch in Installationen, die optionale
+  PHP-Standardparameter in generierten Wrappern nicht übernehmen.
 
 - Kachel und IPSView zeigen im Systemprotokoll jetzt die neuesten 20 statt nur
   6 Meldungen. Intern bleiben weiterhin bis zu 100 Ereignisse gespeichert und

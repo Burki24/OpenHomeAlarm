@@ -1259,9 +1259,25 @@
                                         ]
                                     },
                                     {
+                                        "type": "Select",
+                                        "name": "FaultImportTriggerCondition",
+                                        "caption": "Rule",
+                                        "value": "equals",
+                                        "options": [
+                                            {
+                                                "caption": "Trigger at selected value",
+                                                "value": "equals"
+                                            },
+                                            {
+                                                "caption": "Trigger when different from normal value",
+                                                "value": "not_equals"
+                                            }
+                                        ]
+                                    },
+                                    {
                                         "type": "ValidationTextBox",
                                         "name": "FaultImportTriggerValue",
-                                        "caption": "Shared fault value",
+                                        "caption": "Shared comparison value",
                                         "value": "true"
                                     }
                                 ]
@@ -1285,13 +1301,13 @@
                             },
                             {
                                 "type": "Label",
-                                "caption": "The shared fault value is stored as a raw value for every selected variable. Review variables with profiles or special states in the normal fault input list after adding."
+                                "caption": "The comparison value is stored as a raw value for every selected variable. Review variables with profiles or special states in the normal fault input list after adding."
                             }
                         ],
                         "buttons": [
                             {
                                 "caption": "Add selected",
-                                "onClick": "$settings = ['Enabled' => $FaultImportEnabled, 'PartitionID' => $FaultImportPartitionID, 'FaultType' => $FaultImportFaultType, 'TriggerValue' => $FaultImportTriggerValue, 'BlockArming' => $FaultImportBlockArming, 'TriggerAlarm' => $FaultImportTriggerAlarm]; $partitionRows = []; foreach ($Partitions as $partitionRow) { $partitionRows[] = $partitionRow; } $faultRows = []; foreach ($FaultInputs as $faultRow) { $faultRows[] = $faultRow; } $candidateRows = []; foreach ($FaultImportCandidates as $candidateRow) { $candidateRows[] = $candidateRow; } return OHA_AddFaultInputCandidates($id, $FaultImportName, $FaultImportType, $FaultImportRootObjectID, $FaultImportIncludeHidden, json_encode($settings), json_encode($partitionRows), json_encode($faultRows), json_encode($candidateRows));"
+                                "onClick": "$settings = ['Enabled' => $FaultImportEnabled, 'PartitionID' => $FaultImportPartitionID, 'FaultType' => $FaultImportFaultType, 'TriggerCondition' => $FaultImportTriggerCondition, 'TriggerValue' => $FaultImportTriggerValue, 'BlockArming' => $FaultImportBlockArming, 'TriggerAlarm' => $FaultImportTriggerAlarm]; $partitionRows = []; foreach ($Partitions as $partitionRow) { $partitionRows[] = $partitionRow; } $faultRows = []; foreach ($FaultInputs as $faultRow) { $faultRows[] = $faultRow; } $candidateRows = []; foreach ($FaultImportCandidates as $candidateRow) { $candidateRows[] = $candidateRow; } return OHA_AddFaultInputCandidates($id, $FaultImportName, $FaultImportType, $FaultImportRootObjectID, $FaultImportIncludeHidden, json_encode($settings), json_encode($partitionRows), json_encode($faultRows), json_encode($candidateRows));"
                             }
                         ]
                     }
@@ -1372,7 +1388,26 @@
                             }
                         },
                         {
-                            "caption": "Fault value",
+                            "caption": "Rule",
+                            "name": "TriggerCondition",
+                            "width": "180px",
+                            "add": "equals",
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "Trigger at selected value",
+                                        "value": "equals"
+                                    },
+                                    {
+                                        "caption": "Trigger when different from normal value",
+                                        "value": "not_equals"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "caption": "Comparison value",
                             "name": "TriggerValue",
                             "width": "125px",
                             "add": "1",
@@ -1955,13 +1990,13 @@
                             "type": "Button",
                             "caption": "Download event history as JSON",
                             "download": "openhomealarm-events.json",
-                            "onClick": "echo 'data:application/json;charset=utf-8;base64,' . base64_encode(OHA_ExportEventHistory($id, 'json'));"
+                            "onClick": "echo 'data:application/json;charset=utf-8;base64,' . base64_encode(OHA_ExportEventHistory($id, 'json', 0, 0, ''));"
                         },
                         {
                             "type": "Button",
                             "caption": "Download event history as CSV",
                             "download": "openhomealarm-events.csv",
-                            "onClick": "echo 'data:text/csv;charset=utf-8;base64,' . base64_encode(\"\\xEF\\xBB\\xBF\" . OHA_ExportEventHistory($id, 'csv'));"
+                            "onClick": "echo 'data:text/csv;charset=utf-8;base64,' . base64_encode(\"\\xEF\\xBB\\xBF\" . OHA_ExportEventHistory($id, 'csv', 0, 0, ''));"
                         }
                     ]
                 },
@@ -1995,6 +2030,42 @@
                     "caption": "Download configuration backup",
                     "download": "openhomealarm-configuration-backup.json",
                     "onClick": "echo 'data:application/json;charset=utf-8;base64,' . base64_encode(OHA_ExportConfigurationBackup($id));"
+                },
+                {
+                    "type": "PopupButton",
+                    "name": "RestoreConfigurationBackup",
+                    "caption": "Restore configuration backup",
+                    "popup": {
+                        "caption": "Restore configuration backup",
+                        "width": "700px",
+                        "closeCaption": "Cancel",
+                        "items": [
+                            {
+                                "type": "Label",
+                                "caption": "Restoring replaces the instance configuration. Every alarm partition must be completely disarmed. The selected file is validated before any setting is changed; a failed apply is rolled back."
+                            },
+                            {
+                                "type": "SelectFile",
+                                "name": "ConfigurationBackupFile",
+                                "caption": "OpenHomeAlarm configuration backup",
+                                "extensions": ".json",
+                                "width": "100%"
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ConfigurationBackupConfirmed",
+                                "caption": "I understand that the current instance configuration will be replaced.",
+                                "value": false
+                            }
+                        ],
+                        "buttons": [
+                            {
+                                "caption": "Validate and restore",
+                                "confirm": "Restore the selected OpenHomeAlarm configuration backup?",
+                                "onClick": "if (!$ConfigurationBackupConfirmed) { throw new InvalidArgumentException(IPS_Translate($id, 'Confirm that the current instance configuration may be replaced.')); } $configurationBackup = base64_decode($ConfigurationBackupFile, true); if (!is_string($configurationBackup) || trim($configurationBackup) === '') { throw new InvalidArgumentException(IPS_Translate($id, 'Select a valid OpenHomeAlarm configuration backup.')); } return OHA_RestoreConfigurationBackup($id, $configurationBackup);"
+                            }
+                        ]
+                    }
                 }
             ]
         }

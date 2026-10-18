@@ -478,6 +478,24 @@ $faultInputs = AlarmConfigurationNormalizer::faultInputs(
 assertDomainSame('Tamper', $faultInputs[0]['Name'], 'Fault input names must be trimmed.');
 assertDomainSame('', $faultInputs[0]['PartitionID'], 'Empty fault partition assignments must remain available for default resolution.');
 assertDomainSame(false, $faultInputs[0]['TriggerAlarm'], 'Fault input defaults must be retained.');
+assertDomainSame('equals', $faultInputs[0]['TriggerCondition'], 'Existing fault inputs must retain exact-value evaluation by default.');
+assertDomainSame(
+    'not_equals',
+    AlarmConfigurationNormalizer::faultInputs(
+        '[{"VariableID":2002,"TriggerCondition":"not_equals","TriggerValue":"OK"}]',
+        [0],
+        0
+    )[0]['TriggerCondition'],
+    'Fault inputs must support deviation from a configured normal value.'
+);
+assertDomainThrows(
+    static fn (): array => AlarmConfigurationNormalizer::faultInputs(
+        '[{"TriggerCondition":"greater_than"}]',
+        [0],
+        0
+    ),
+    'Unsupported fault input trigger condition.'
+);
 assertDomainThrows(
     static fn (): array => AlarmConfigurationNormalizer::faultInputs(
         '[{"VariableID":2001},{"VariableID":2001}]',

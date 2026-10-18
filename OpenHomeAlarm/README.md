@@ -835,7 +835,7 @@ oder eine bereits laufende Durchgangsfreigabe.
 
 ## 9. Systemüberwachung
 
-Zusätzlich zu den eigentlichen Alarmsensoren können im Abschnitt **Systemüberwachung** unabhängige 24/7-Eingänge für **Manipulation**, **Batterie/Stromversorgung**, **Kommunikation**, **Gerätestörung** oder eine sonstige Störung angelegt werden. Jeder Eintrag verweist wie ein normaler Sensor auf eine Symcon-Variable; der Störwert wird aus deren Variablendarstellung übernommen oder bei Bedarf als Rohwert eingegeben.
+Zusätzlich zu den eigentlichen Alarmsensoren können im Abschnitt **Systemüberwachung** unabhängige 24/7-Eingänge für **Manipulation**, **Batterie/Stromversorgung**, **Kommunikation**, **Gerätestörung** oder eine sonstige Störung angelegt werden. Jeder Eintrag verweist wie ein normaler Sensor auf eine Symcon-Variable. Als Regel kann entweder **Beim ausgewählten Wert auslösen** oder **Bei Abweichung vom Normalwert auslösen** gewählt werden. Der zugehörige Auslöse-/Normalwert wird aus der Variablendarstellung übernommen oder bei Bedarf als Rohwert eingegeben. Bestehende Einträge verwenden aus Kompatibilitätsgründen weiterhin die Auswertung beim ausgewählten Störwert.
 
 ### Störungseingang einrichten
 
@@ -843,7 +843,7 @@ Mehrere Eingänge lassen sich über **Störungseingänge suchen und hinzufügen*
 gemeinsam vorbereiten. Die Suche verwendet dieselbe Wurzel-, Namens-, Typ- und
 Grenzlogik wie die Sensorsuche. Bereits in der Störungsliste verwendete
 Variablen werden nicht erneut angeboten. Für alle ausgewählten Treffer werden
-Alarmbereich, Störungstyp, Störwert sowie die Optionen **Scharfschaltung
+Alarmbereich, Störungstyp, Auswertungsregel, gemeinsamer Auslöse-/Normalwert sowie die Optionen **Scharfschaltung
 blockieren** und **Alarm sofort und 24/7 auslösen** gemeinsam festgelegt. Die
 Schaltfläche **Auswahl hinzufügen** steht in der Fußleiste direkt neben
 **Abbrechen** und schließt das Suchfenster nach erfolgreicher Übernahme. Die
@@ -855,7 +855,7 @@ Ein einzelner Eingang wird folgendermaßen eingerichtet:
    oder verwenden Sie die Mehrfachsuche.
 2. Wählen Sie den Alarmbereich, einen verständlichen Namen und die
    Symcon-Variable.
-3. Wählen Sie den Störungstyp und den Wert, der eine Störung bedeutet.
+3. Wählen Sie den Störungstyp und die Auswertungsregel. Bei **Beim ausgewählten Wert auslösen** tragen Sie den Wert ein, der eine Störung bedeutet. Bei **Bei Abweichung vom Normalwert auslösen** tragen Sie den fehlerfreien Zustand ein; jeder davon abweichende gültige Wert gilt dann als Störung.
 4. Aktivieren Sie **Scharfschaltung blockieren**, wenn der Bereich mit dieser
    Störung nicht scharfgeschaltet werden darf.
 5. Aktivieren Sie **Alarm sofort und 24/7 auslösen** nur für Zustände, die
@@ -1159,7 +1159,7 @@ Quellen neu ein und aktualisiert Bereitschaft, Diagnose und Systemstörung.
 
 `OHA_ExportConfigurationBackup($InstanzID)` liefert sämtliche registrierten Moduleinstellungen als versioniertes, menschenlesbares JSON zurück. Im Instanzformular kann dieser Inhalt unter **Exporte und Konfigurationssicherung** als Datei heruntergeladen werden. Die Funktion selbst erzeugt weder automatisch noch an einem festen Ort eine Backupdatei; ein aufrufendes Skript muss den zurückgegebenen Text selbst an einem geschützten Ort speichern. Dazu gehören auch Unscharfschalt- und Benutzercodes. Der Export trägt deshalb die Kennzeichnung `ContainsSecrets: true` und muss vertraulich gespeichert sowie ausschließlich über einen geschützten Übertragungsweg weitergegeben werden. Laufzeitzustände, Timer, Alarmgedächtnis und Ereignishistorie werden nicht gesichert.
 
-`OHA_RestoreConfigurationBackup($InstanzID, $JSON)` stellt eine validierte Sicherung nur wieder her, wenn alle Alarmbereiche vollständig unscharf sind. Format, Sicherungsversion, Modul-ID, Eigenschaftsnamen und Datentypen werden vor jeder Änderung geprüft. Fremde oder beschädigte Sicherungen werden ohne Konfigurationsänderung abgewiesen. Scheitert das Anwenden einer bereits validierten Sicherung, setzt das Modul die vorherige Konfiguration zurück. Fehlt in einer älteren Sicherung eine erst später eingeführte Eigenschaft, behält diese ihren aktuellen Wert.
+`OHA_RestoreConfigurationBackup($InstanzID, $JSON)` stellt eine validierte Sicherung nur wieder her, wenn alle Alarmbereiche vollständig unscharf sind. Dieselbe Funktion steht im Instanzformular unter **Exporte und Konfigurationssicherung → Konfigurationssicherung wiederherstellen** zur Verfügung: JSON-Datei auswählen, den bewussten Austausch der aktuellen Konfiguration bestätigen und **Prüfen und wiederherstellen** wählen. Format, Sicherungsversion, Modul-ID, Eigenschaftsnamen und Datentypen werden vor jeder Änderung geprüft. Fremde oder beschädigte Sicherungen werden ohne Konfigurationsänderung abgewiesen. Scheitert das Anwenden einer bereits validierten Sicherung, setzt das Modul die vorherige Konfiguration zurück. Fehlt in einer älteren Sicherung eine erst später eingeführte Eigenschaft, behält diese ihren aktuellen Wert.
 
 Die Sicherung enthält keine Laufzeitzustände, Timer, Alarmgedächtnisse oder
 Ereignishistorie. Sie kann jedoch Unscharfschaltcodes, Pushover-Zugangsdaten und
@@ -1390,9 +1390,16 @@ $garageState = $state['Partitions']['garage']['State']['Name'] ?? 'disarmed';
 | `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet einen einzelnen Bereich scharf. `main` steht für alle aktiven Bereiche. |
 | `OHA_ArmPartitions($InstanzID, $BereichIDs, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet eine Liste ausgewählter Bereiche atomar scharf. Ist einer nicht schaltbar, bleibt die gesamte Auswahl unverändert. Enthält die Liste `main`, gilt sie für alle aktiven Bereiche. |
 | `OHA_Disarm($InstanzID)` | `bool` | Schaltet alle Bereiche als vertrauenswürdige Automation ohne Code-Prüfung unscharf. |
+| `OHA_DisarmWithSource($InstanzID, $Quelle)` | `bool` | Schaltet alle Bereiche über eine vertrauenswürdige Automation unscharf und schreibt die geprüfte Quelle, etwa `eKey Haustür`, in das Ereignisprotokoll. Die Quelle ist nur eine Zuordnung und ersetzt keine Authentifizierung. |
 | `OHA_DisarmWithCode($InstanzID, $Code)` | `bool` | Prüft Code und Sperrstatus und schaltet bei Erfolg alle Bereiche unscharf. Für benutzerseitige Oberflächen verwenden. |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen Bereich als vertrauenswürdige Automation unscharf. `main` schaltet alle Bereiche unscharf. |
 | `OHA_DisarmPartitions($InstanzID, $BereichIDs)` | `bool` | Schaltet eine Liste ausgewählter Bereiche als vertrauenswürdige Automation unscharf. Enthält die Liste `main`, werden alle Bereiche unscharf. |
+
+`OHA_DisarmWithSource()` ist für Skripte gedacht, die die Berechtigung bereits
+selbst sicher festgestellt haben, beispielsweise über eKey, RFID oder ein
+berechtigtes Nuki-Ereignis. Erst nach dieser Prüfung darf das Skript die
+Funktion mit einer kurzen, verständlichen Quellenbezeichnung aufrufen. Ein
+beliebiger Text in `$Quelle` berechtigt nicht zum Unscharfschalten.
 
 Im von Symcon erzeugten `OHA_*`-Wrapper muss `$Verzögerung` bei den
 Scharfschaltbefehlen ausdrücklich übergeben werden. Verwenden Sie `null`, wenn

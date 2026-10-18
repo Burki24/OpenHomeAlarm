@@ -89,4 +89,29 @@ assertConfigurationBackup(
     'Configuration restore must be available publicly and apply through the native Symcon configuration boundary.'
 );
 
+$form = json_decode(
+    (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$restorePopup = null;
+foreach ($form['actions'][0]['items'] ?? [] as $item) {
+    if (($item['name'] ?? null) === 'RestoreConfigurationBackup') {
+        $restorePopup = $item;
+        break;
+    }
+}
+assertConfigurationBackup(
+    is_array($restorePopup)
+        && str_contains(json_encode($restorePopup, JSON_THROW_ON_ERROR), 'ConfigurationBackupFile')
+        && str_contains(json_encode($restorePopup, JSON_THROW_ON_ERROR), 'ConfigurationBackupConfirmed')
+        && str_contains(
+            (string) ($restorePopup['popup']['buttons'][0]['onClick'] ?? ''),
+            'OHA_RestoreConfigurationBackup'
+        )
+        && isset($restorePopup['popup']['buttons'][0]['confirm']),
+    'The administration form must restore a selected backup only through an explicit confirmation flow.'
+);
+
 fwrite(STDOUT, "OpenHomeAlarm configuration backup checks passed.\n");

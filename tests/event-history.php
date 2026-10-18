@@ -376,6 +376,24 @@ $history = readEventHistory($instance);
 assertEventHistory(($history[0]['Event'] ?? null) === 'disarmed', 'Disarming must be written to the event history.');
 assertEventHistory(($history[0]['Mode'] ?? null) === 0 && ($history[0]['State'] ?? null) === 0, 'Disarmed events must describe the resulting state.');
 
+$testValues[5001] = false;
+assertEventHistory($instance->ArmAway() === true, 'Trusted-source disarm history test must arm successfully.');
+assertEventHistory($instance->DisarmWithSource('') === false, 'An empty trusted source must be rejected.');
+assertEventHistory($instance->DisarmWithSource("eKey\nHaustür") === false, 'Control characters in a trusted source must be rejected.');
+assertEventHistory($instance->DisarmWithSource("\neKey Haustür") === false, 'Leading control characters in a trusted source must not be trimmed into validity.');
+assertEventHistory($instance->DisarmWithSource(str_repeat('x', 81)) === false, 'An overlong trusted source must be rejected.');
+$history = readEventHistory($instance);
+assertEventHistory(
+    ($history[0]['Event'] ?? null) === 'armed',
+    'Rejected source labels must leave the armed state and its event history unchanged.'
+);
+assertEventHistory($instance->DisarmWithSource('eKey Haustür') === true, 'A trusted automation must disarm with its authenticated source.');
+$history = readEventHistory($instance);
+assertEventHistory(
+    ($history[0]['Event'] ?? null) === 'disarmed' && ($history[0]['Source'] ?? null) === 'eKey Haustür',
+    'Trusted-source disarming must retain its source in the security event history.'
+);
+
 assertEventHistory($instance->DisarmWithCode('9999') === false, 'A wrong code must remain rejected.');
 $encodedHistory = $instance->GetEventHistory();
 $history = json_decode($encodedHistory, true, 512, JSON_THROW_ON_ERROR);

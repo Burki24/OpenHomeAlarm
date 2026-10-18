@@ -2079,6 +2079,41 @@ class OpenHomeAlarm extends IPSModuleStrict
     }
 
     /**
+     * Disarms the system through a trusted automation and records its authenticated source.
+     *
+     * The source is audit attribution, not authentication. Callers must verify RFID, eKey,
+     * Nuki or another trusted credential before invoking this method.
+     */
+    public function DisarmWithSource(string $source): bool
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if (preg_match('/[\x00-\x1F\x7F]/', $source) === 1) {
+                return $debugResult = false;
+            }
+            $source = trim($source);
+            $length = function_exists('mb_strlen') ? mb_strlen($source) : strlen($source);
+            if ($source === '' || $length > 80) {
+                return $debugResult = false;
+            }
+
+            return $debugResult = $this->DisarmInternal($source);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /**
      * Disarms the system after validating the optional numeric disarm code.
      *
      * An empty configured code keeps code validation disabled. This method is
@@ -4513,6 +4548,17 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
             $variableID = $this->ReadSensorEditInteger($faultInput, 'VariableID', 0);
+            $triggerCondition = $this->ReadSensorEditString(
+                $faultInput,
+                'TriggerCondition',
+                AlarmTriggerValue::CONDITION_EQUALS
+            );
+            if (!in_array($triggerCondition, [
+                AlarmTriggerValue::CONDITION_EQUALS,
+                AlarmTriggerValue::CONDITION_NOT_EQUALS
+            ], true)) {
+                $triggerCondition = AlarmTriggerValue::CONDITION_EQUALS;
+            }
             $triggerValue = $this->ReadSensorEditString($faultInput, 'TriggerValue', '1');
             $partitions = $this->ConfigurationFormPartitions();
             $partitionID = strtolower(trim($this->ReadSensorEditString($faultInput, 'PartitionID', '')));
@@ -4555,6 +4601,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'type'     => 'SelectVariable',
                     'name'     => 'VariableID',
                     'caption'  => $this->Translate('Variable'),
+                    'width'    => '100%',
                     'onChange' => 'OHA_UpdateFaultTriggerValueForm($id, $VariableID, $TriggerValue);'
                 ],
                 [
@@ -4564,6 +4611,22 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'options' => $this->CreateFaultTypeOptions()
                 ],
                 [
+                    'type'    => 'Select',
+                    'name'    => 'TriggerCondition',
+                    'caption' => $this->Translate('Rule'),
+                    'value'   => $triggerCondition,
+                    'options' => [
+                        [
+                            'caption' => $this->Translate('Trigger at selected value'),
+                            'value'   => AlarmTriggerValue::CONDITION_EQUALS
+                        ],
+                        [
+                            'caption' => $this->Translate('Trigger when different from normal value'),
+                            'value'   => AlarmTriggerValue::CONDITION_NOT_EQUALS
+                        ]
+                    ]
+                ],
+                [
                     'type'    => 'ValidationTextBox',
                     'name'    => 'TriggerValue',
                     'visible' => false
@@ -4571,7 +4634,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 [
                     'type'     => 'Select',
                     'name'     => 'TriggerValueSelection',
-                    'caption'  => $this->Translate('Fault value'),
+                    'caption'  => $this->Translate('Comparison value'),
                     'options'  => $hasTriggerOptions ? $triggerOptions : $this->CreateEmptyTriggerValueOptions(),
                     'value'    => $selectedTriggerValue,
                     'visible'  => $hasVariable && $hasTriggerOptions,
@@ -4580,7 +4643,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 [
                     'type'     => 'ValidationTextBox',
                     'name'     => 'TriggerValueManual',
-                    'caption'  => $this->Translate('Fault value'),
+                    'caption'  => $this->Translate('Comparison value'),
                     'value'    => $triggerValue,
                     'visible'  => $hasVariable && !$hasTriggerOptions,
                     'onChange' => 'OHA_SetFaultTriggerValue($id, $TriggerValueManual);'
@@ -7815,10 +7878,16 @@ PHP,
         }
         $partitionID = $settings['PartitionID'] ?? null;
         $faultType = $settings['FaultType'] ?? null;
+        $triggerCondition = $settings['TriggerCondition'] ?? AlarmTriggerValue::CONDITION_EQUALS;
         $triggerValue = $settings['TriggerValue'] ?? null;
         if (!is_string($partitionID)
             || !is_int($faultType)
             || !in_array($faultType, self::VALID_FAULT_TYPES, true)
+            || !is_string($triggerCondition)
+            || !in_array($triggerCondition, [
+                AlarmTriggerValue::CONDITION_EQUALS,
+                AlarmTriggerValue::CONDITION_NOT_EQUALS
+            ], true)
             || !is_string($triggerValue)) {
             throw new InvalidArgumentException('Correct the shared fault input settings before adding.');
         }
@@ -7833,12 +7902,13 @@ PHP,
         }
 
         return [
-            'Enabled'      => $settings['Enabled'],
-            'PartitionID'  => $partitionID,
-            'FaultType'    => $faultType,
-            'TriggerValue' => $this->NormalizeSensorImportTriggerValue($type, $triggerValue),
-            'BlockArming'  => $settings['BlockArming'],
-            'TriggerAlarm' => $settings['TriggerAlarm']
+            'Enabled'          => $settings['Enabled'],
+            'PartitionID'      => $partitionID,
+            'FaultType'        => $faultType,
+            'TriggerCondition' => $triggerCondition,
+            'TriggerValue'     => $this->NormalizeSensorImportTriggerValue($type, $triggerValue),
+            'BlockArming'      => $settings['BlockArming'],
+            'TriggerAlarm'     => $settings['TriggerAlarm']
         ];
     }
 
@@ -8551,6 +8621,7 @@ PHP,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool
@@ -8707,6 +8778,7 @@ PHP,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool
@@ -8728,6 +8800,7 @@ PHP,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool
@@ -8752,10 +8825,11 @@ PHP,
             return null;
         }
 
-        return AlarmTriggerValue::matches(
+        return AlarmTriggerValue::isTriggered(
             $variable['VariableType'],
             $faultInput['TriggerValue'],
-            $currentValue
+            $currentValue,
+            $faultInput['TriggerCondition'] ?? AlarmTriggerValue::CONDITION_EQUALS
         );
     }
 
@@ -8767,6 +8841,7 @@ PHP,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool
@@ -8787,6 +8862,7 @@ PHP,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool
@@ -8992,6 +9068,7 @@ PHP,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool
@@ -9076,6 +9153,7 @@ PHP,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool
@@ -9137,6 +9215,7 @@ PHP,
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool

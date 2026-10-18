@@ -26,10 +26,10 @@ Der Release umfasst verbindlich:
 4. modusabhängige Sensoren, Ausgangswegsensoren, eingangsverzögerte Sensoren und 24/7-Sensoren,
 5. modusabhängige Bereitschaft, Blockierlisten und sicherheitsgerichtete Behandlung nicht verfügbarer Sensoren,
 6. temporäre Sensorüberbrückungen für genau einen Scharfschaltzyklus,
-7. Manipulations- und technische Störungseingänge mit konfigurierbarer Blockade oder Alarmauslösung,
+7. Manipulations- und technische Störungseingänge mit Auswertung auf einen Störwert oder jede Abweichung vom Normalwert sowie konfigurierbarer Blockade oder Alarmauslösung,
 8. konfigurierbare Symcon-Aktionen für Alarm, Alarmrücksetzung, das vollständige Unscharfschalten der Anlage sowie das Auftreten einzelner Störungen und die Behebung aller Störungen,
 9. manuelle und zeitgesteuerte Rücksetzung des Alarmausgangs,
-10. optionalen Unscharfschaltcode mit Fehlversuchszähler und wiederanlaufsicherer Sperrzeit,
+10. optionalen Unscharfschaltcode mit Fehlversuchszähler und wiederanlaufsicherer Sperrzeit sowie vertrauenswürdiges Unscharfschalten mit protokollierter externer Quelle,
 11. Alarmgedächtnis und begrenzte persistente Sicherheits-Ereignishistorie,
 12. Wiederherstellung relevanter Zustände und Fristen nach `ApplyChanges()` und Symcon-Neustart,
 13. die dokumentierte öffentliche `OHA_*`-Bedien-API und den versionierten Bedienzustand,
@@ -43,8 +43,8 @@ Der Release umfasst verbindlich:
 21. zeitgesteuerte Alarm-Eskalationsstufen,
 22. JSON- und CSV-Export der Ereignishistorie,
 23. Sensor- und Störungsdiagnose in API, Kachel und IPSView einschließlich Export,
-24. versionierte Konfigurationssicherungen und deren validierte Wiederherstellung,
-25. eine sensorbezogene Auswertung wahlweise auf einen einzelnen Auslösewert
+24. versionierte Konfigurationssicherungen und deren validierte Wiederherstellung über API und Verwaltungskonsole,
+25. eine sensor- und störungseingangsbezogene Auswertung wahlweise auf einen einzelnen Auslösewert
     oder auf jede Abweichung von einem festgelegten Normalwert,
 26. eine auf den Scharfmodus Abwesend begrenzte Ausgangsweg-Ausnahme; Zuhause
     und Nacht behandeln dieselben Sensoren ohne Ausnahme als Blocker,

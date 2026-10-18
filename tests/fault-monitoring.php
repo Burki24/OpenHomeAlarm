@@ -367,16 +367,18 @@ function faultInput(
     int $faultType,
     string $triggerValue,
     bool $blockArming,
-    bool $triggerAlarm
+    bool $triggerAlarm,
+    string $triggerCondition = 'equals'
 ): array {
     return [
-        'Enabled'      => true,
-        'Name'         => $name,
-        'VariableID'   => $variableID,
-        'FaultType'    => $faultType,
-        'TriggerValue' => $triggerValue,
-        'BlockArming'  => $blockArming,
-        'TriggerAlarm' => $triggerAlarm
+        'Enabled'          => true,
+        'Name'             => $name,
+        'VariableID'       => $variableID,
+        'FaultType'        => $faultType,
+        'TriggerCondition' => $triggerCondition,
+        'TriggerValue'     => $triggerValue,
+        'BlockArming'      => $blockArming,
+        'TriggerAlarm'     => $triggerAlarm
     ];
 }
 
@@ -450,6 +452,37 @@ assertFaultMonitoring(
     'The configured fault action must be preserved.'
 );
 assertFaultMonitoring($instance->ArmAway() === false, 'A blocking fault must reject arming.');
+
+// A normal-value rule remains healthy at the configured value and triggers on every deviation.
+$normalValueInstance = new OpenHomeAlarm();
+$normalValueInstance->Create();
+$normalValueInstance->TestSetPropertyString(
+    'FaultInputs',
+    json_encode([
+        faultInput(9002, 'Velux Status', 3, 'OK', true, false, 'not_equals')
+    ], JSON_THROW_ON_ERROR)
+);
+$testValues[9002] = 'OK';
+$normalValueInstance->ApplyChanges();
+assertFaultMonitoring(
+    ($normalValueInstance->TestWrittenValues()['SystemFault'] ?? null) === false,
+    'A fault input using a normal-value rule must remain healthy at the configured normal value.'
+);
+$testValues[9002] = 'BLOCKED';
+$normalValueInstance->TestClearWrittenValues();
+$normalValueInstance->MessageSink(1, 9002, VM_UPDATE, ['BLOCKED', true, false]);
+assertFaultMonitoring(
+    ($normalValueInstance->TestWrittenValues()['SystemFault'] ?? null) === true,
+    'A fault input using a normal-value rule must trigger on a different value.'
+);
+$testValues[9002] = 'OK';
+$normalValueInstance->TestClearWrittenValues();
+$normalValueInstance->MessageSink(1, 9002, VM_UPDATE, ['OK', true, false]);
+assertFaultMonitoring(
+    ($normalValueInstance->TestWrittenValues()['SystemFault'] ?? null) === false,
+    'Returning to the configured normal value must clear the fault.'
+);
+$testValues[9002] = 'FAULT';
 
 // Re-evaluating the same active condition must not duplicate events/actions.
 $instance->ApplyChanges();
@@ -895,12 +928,22 @@ assertFaultMonitoring(
     'Fault input configuration must expose its alarm partition.'
 );
 assertFaultMonitoring(
+    in_array('TriggerCondition', array_column($faultList['columns'] ?? [], 'name'), true),
+    'Fault input configuration must expose exact-value and normal-value rules.'
+);
+assertFaultMonitoring(
+    str_contains(json_encode($faultImporter, JSON_THROW_ON_ERROR), 'FaultImportTriggerCondition'),
+    'The bulk fault importer must expose the common evaluation rule.'
+);
+assertFaultMonitoring(
     isset($faultList['values']) && is_array($faultList['values']) && count($faultList['values']) === 3,
     'Nested fault lists must receive their non-persistent trigger editor values.'
 );
 $editForm = $instance->GetFaultInputEditForm(faultInput(9002, 'Funkverbindung', 2, 'FAULT', true, false));
 $selection = null;
 $partitionSelection = null;
+$conditionSelection = null;
+$variableSelection = null;
 foreach ($editForm as $field) {
     if (($field['name'] ?? null) === 'TriggerValueSelection') {
         $selection = $field;
@@ -908,11 +951,28 @@ foreach ($editForm as $field) {
     if (($field['name'] ?? null) === 'PartitionID') {
         $partitionSelection = $field;
     }
+    if (($field['name'] ?? null) === 'TriggerCondition') {
+        $conditionSelection = $field;
+    }
+    if (($field['name'] ?? null) === 'VariableID') {
+        $variableSelection = $field;
+    }
 }
 assertFaultMonitoring(
     ($partitionSelection['type'] ?? null) === 'Select'
     && ($partitionSelection['value'] ?? null) === 'main',
     'Fault input editor must resolve empty assignments to the default partition.'
+);
+assertFaultMonitoring(
+    ($conditionSelection['type'] ?? null) === 'Select'
+        && ($conditionSelection['value'] ?? null) === 'equals'
+        && array_column($conditionSelection['options'] ?? [], 'value') === ['equals', 'not_equals'],
+    'Fault input editor must offer exact-value and normal-value evaluation.'
+);
+assertFaultMonitoring(
+    ($variableSelection['type'] ?? null) === 'SelectVariable'
+        && ($variableSelection['width'] ?? null) === '100%',
+    'Fault input editor must provide enough width to identify the selected variable path.'
 );
 
 $orphanedFaultEditForm = $instance->GetFaultInputEditForm(array_merge(
