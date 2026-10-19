@@ -1044,6 +1044,9 @@ Sie enthält automatisch den zuletzt alarmierenden Bereich und Sensor, beispiels
 >
 > Der Sensor Fensterkontakt HAR hat ausgelöst.
 
+Zu lange Titel und Meldungstexte werden UTF-8-sicher auf die von Symcon
+zulässigen Grenzen von 32 beziehungsweise 256 Bytes gekürzt.
+
 Das vorhandene Beispielskript [push-alarm-notification.php](../docs/examples/push-alarm-notification.php) bleibt für individuell angepasste Texte, andere Ziele oder das klassische WebFront verfügbar.
 
 #### Pushover direkt verwenden

@@ -37,6 +37,10 @@ function VISU_PostNotificationEx(
 ): int|false {
     global $testPushNotifications;
 
+    if (strlen($title) > 32 || strlen($message) > 256) {
+        return false;
+    }
+
     $testPushNotifications[] = [
         'tileID'   => $tileID,
         'title'    => $title,
@@ -997,6 +1001,38 @@ assertAlarmAction(
 );
 $immediatePush->ProcessAlarmEscalation();
 assertAlarmAction(count($testPushNotifications) === 1, 'An immediate native push notification must be sent only once per alarm cycle.');
+
+// Symcon validates the UTF-8 byte length of title and message. Multibyte
+// truncation markers and source names must therefore remain within the limits.
+$testPushNotifications = [];
+$testValues[4001] = false;
+$longPush = new OpenHomeAlarm();
+$longPush->Create();
+$longPush->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$longPush->TestSetPropertyInteger('EntryDelaySeconds', 0);
+$longPush->TestSetPropertyInteger('PushNotificationMode', 1);
+$longPush->TestSetPropertyInteger('PushNotificationTileID', 12345);
+$longPush->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Überwachungsbereich mit einem sehr langen Namen']
+], JSON_THROW_ON_ERROR));
+$longPush->TestSetPropertyString('Sensors', json_encode([
+    array_merge(alarmActionSensor(4001, false), [
+        'Name' => str_repeat('Fenster Südflügel ', 20)
+    ])
+], JSON_THROW_ON_ERROR));
+assertAlarmAction($longPush->ArmAway(), 'Long native-push test must arm successfully.');
+$testValues[4001] = true;
+$longPush->MessageSink(341, 4001, VM_UPDATE, [true, true, false]);
+assertAlarmAction(
+    count($testPushNotifications) === 1
+        && strlen($testPushNotifications[0]['title']) <= 32
+        && strlen($testPushNotifications[0]['message']) <= 256
+        && preg_match('//u', $testPushNotifications[0]['title']) === 1
+        && preg_match('//u', $testPushNotifications[0]['message']) === 1
+        && str_ends_with($testPushNotifications[0]['title'], '…')
+        && str_ends_with($testPushNotifications[0]['message'], '…'),
+    'Native push text must remain valid UTF-8 and within Symcon byte limits after truncation.'
+);
 
 // The delayed mode shares the escalation timer but does not require a user-defined action.
 $testPushNotifications = [];

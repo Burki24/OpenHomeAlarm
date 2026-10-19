@@ -29,6 +29,10 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Lange Titel und Texte nativer Symcon-Push-Nachrichten werden jetzt
+  UTF-8-sicher auf die von Symcon akzeptierten Byte-Grenzen gekürzt. Das
+  mehrbyteige Auslassungszeichen kann dadurch die zulässigen 32 beziehungsweise
+  256 Bytes nicht mehr überschreiten und den Versand abbrechen.
 - Die Liste der Manipulations- und Störungseingänge zeigt Alarmbereiche jetzt
   wie die Sensorliste mit ihrem frei vergebenen Namen statt mit der technischen
   Bereichs-ID an. Gespeichert und von Skripten verwendet wird weiterhin die
