@@ -2081,8 +2081,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Disarms the system through a trusted automation and records its authenticated source.
      *
-     * The source is audit attribution, not authentication. Callers must verify RFID, eKey,
-     * Nuki or another trusted credential before invoking this method.
+     * The source is audit attribution, not authentication. Callers must verify the
+     * external access credential before invoking this method.
      */
     public function DisarmWithSource(string $source): bool
     {
@@ -3803,10 +3803,18 @@ class OpenHomeAlarm extends IPSModuleStrict
                 foreach ($fresh['rows'] as $candidate) {
                     $candidateByID[$candidate['VariableID']] = $candidate;
                 }
+                $partitionName = $normalizedSettings['PartitionID'];
+                foreach ($configuredPartitions as $partition) {
+                    if ($partition['ID'] === $normalizedSettings['PartitionID']) {
+                        $partitionName = $partition['Name'];
+                        break;
+                    }
+                }
                 foreach ($selectedVariableIDs as $variableID) {
                     $faultInputs[] = [
                         ...$normalizedSettings,
                         'Name'                  => $candidateByID[$variableID]['Name'],
+                        'PartitionName'         => $partitionName,
                         'VariableID'            => $variableID,
                         'TriggerValueSelection' => $normalizedSettings['TriggerValue'],
                         'TriggerValueManual'    => $normalizedSettings['TriggerValue']
@@ -3973,6 +3981,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'type'     => 'SelectVariable',
                     'name'     => 'VariableID',
                     'caption'  => $this->Translate('Variable'),
+                    'width'    => '100%',
                     'onChange' => 'OHA_UpdateSensorTriggerValueForm($id, $VariableID, $TriggerValue);'
                 ],
                 [
@@ -4481,6 +4490,36 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
+    /** Updates the readable alarm-area name before a fault-input row is applied. */
+    public function UpdateFaultPartitionNameForm(string $partitionID): void
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $partitionID = strtolower(trim($partitionID));
+            if (preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $partitionID) !== 1) {
+                return;
+            }
+
+            $this->UpdateFormField(
+                'PartitionName',
+                'value',
+                $this->SensorPartitionNames(['PartitionID' => $partitionID])
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
+        }
+    }
+
     /** Removes arming-mode and delay choices when a sensor monitors around the clock. */
     public function UpdateSensorAlwaysActiveForm(bool $alwaysActive): void
     {
@@ -4591,11 +4630,18 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'caption' => $this->Translate('Name')
                 ],
                 [
-                    'type'    => 'Select',
-                    'name'    => 'PartitionID',
-                    'caption' => $this->Translate('Alarm partition'),
-                    'options' => $partitionOptions,
-                    'value'   => $partitionID
+                    'type'     => 'Select',
+                    'name'     => 'PartitionID',
+                    'caption'  => $this->Translate('Alarm partition'),
+                    'options'  => $partitionOptions,
+                    'value'    => $partitionID,
+                    'onChange' => 'OHA_UpdateFaultPartitionNameForm($id, $PartitionID);'
+                ],
+                [
+                    'type'    => 'ValidationTextBox',
+                    'name'    => 'PartitionName',
+                    'value'   => $this->SensorPartitionNames(['PartitionID' => $partitionID]),
+                    'visible' => false
                 ],
                 [
                     'type'     => 'SelectVariable',
@@ -6504,6 +6550,11 @@ class OpenHomeAlarm extends IPSModuleStrict
                         $element,
                         'PartitionID',
                         $formDefaultPartition['ID']
+                    );
+                    $this->SetConfigurationListAddValue(
+                        $element,
+                        'PartitionName',
+                        $formDefaultPartition['Name']
                     );
                 } elseif (($element['name'] ?? null) === self::PROPERTY_ALARM_ESCALATION_STEPS) {
                     $element['values'] = $this->CreateAlarmEscalationListFormValues();
@@ -8551,11 +8602,13 @@ PHP,
                 'TriggerValueSelection' => $selectionValue,
                 'TriggerValueManual'    => $triggerValue
             ];
+            $value['TriggerCondition'] = is_string($row['TriggerCondition'] ?? null)
+                ? $row['TriggerCondition']
+                : AlarmTriggerValue::CONDITION_EQUALS;
             if ($propertyName === self::PROPERTY_SENSORS) {
-                $value['TriggerCondition'] = is_string($row['TriggerCondition'] ?? null)
-                    ? $row['TriggerCondition']
-                    : AlarmTriggerValue::CONDITION_EQUALS;
                 $value['PartitionNames'] = $this->SensorPartitionNames($row);
+            } elseif ($propertyName === self::PROPERTY_FAULT_INPUTS) {
+                $value['PartitionName'] = $this->SensorPartitionNames($row);
             }
             $values[] = $value;
         }

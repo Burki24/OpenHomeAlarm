@@ -976,6 +976,7 @@ assertSensorModel(
         && ($addedFaultRows[1]['VariableID'] ?? null) === 67890
         && ($addedFaultRows[1]['Name'] ?? null) === 'Door garage'
         && ($addedFaultRows[1]['PartitionID'] ?? null) === 'garage'
+        && ($addedFaultRows[1]['PartitionName'] ?? null) === 'Garage'
         && ($addedFaultRows[1]['FaultType'] ?? null) === 2
         && ($addedFaultRows[1]['BlockArming'] ?? null) === true
         && ($addedFaultRows[1]['TriggerAlarm'] ?? null) === false
@@ -1013,8 +1014,9 @@ foreach ($editForm as $field) {
     }
 }
 assertSensorModel(
-    ($editFields['VariableID']['type'] ?? null) === 'SelectVariable',
-    'Sensor editor must use SelectVariable for VariableID.'
+    ($editFields['VariableID']['type'] ?? null) === 'SelectVariable'
+        && ($editFields['VariableID']['width'] ?? null) === '100%',
+    'Sensor editor must use the available dialog width for the selected variable path.'
 );
 assertSensorModel(
     ($editFields['TriggerCondition']['type'] ?? null) === 'Select'

@@ -102,7 +102,7 @@ bleiben aktiv.
 
 Hat ein vertrauenswürdiges Skript eine Berechtigung bereits selbst geprüft,
 kann es die Gesamtanlage mit protokollierter Quelle unscharf schalten, zum
-Beispiel `OHA_DisarmWithSource(12345, 'eKey Haustür')`. Die Quellenbezeichnung
+Beispiel `OHA_DisarmWithSource(12345, 'Zutrittskontrolle Haustür')`. Die Quellenbezeichnung
 dient ausschließlich dem Ereignisprotokoll und ersetzt keine
 Berechtigungsprüfung.
 

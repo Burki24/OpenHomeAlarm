@@ -1339,13 +1339,21 @@
                             }
                         },
                         {
-                            "caption": "Alarm partition",
+                            "caption": "",
                             "name": "PartitionID",
-                            "width": "150px",
+                            "width": "1px",
+                            "visible": false,
                             "add": "",
                             "edit": {
                                 "type": "ValidationTextBox"
                             }
+                        },
+                        {
+                            "caption": "Alarm partition",
+                            "name": "PartitionName",
+                            "width": "150px",
+                            "add": "Main area",
+                            "save": false
                         },
                         {
                             "caption": "Variable",

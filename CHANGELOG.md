@@ -29,6 +29,12 @@ beispielsweise `v1.109.0`.
 
 ## Unreleased
 
+- Die Liste der Manipulations- und Störungseingänge zeigt Alarmbereiche jetzt
+  wie die Sensorliste mit ihrem frei vergebenen Namen statt mit der technischen
+  Bereichs-ID an. Gespeichert und von Skripten verwendet wird weiterhin die
+  unveränderte eindeutige ID.
+- Die Variablenauswahl nutzt beim Bearbeiten von Sensoren und Störungseingängen
+  die verfügbare Dialogbreite, damit lange Objektpfade besser lesbar bleiben.
 - Die Download-Schaltflächen für JSON und CSV des Ereignisprotokolls übergeben
   nun sämtliche Pflichtparameter an den von Symcon erzeugten Funktionswrapper.
   Dadurch funktionieren die Downloads auch in Installationen, die optionale

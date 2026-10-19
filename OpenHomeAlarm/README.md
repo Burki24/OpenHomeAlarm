@@ -851,6 +851,9 @@ blockieren** und **Alarm sofort und 24/7 auslösen** gemeinsam festgelegt. Die
 Schaltfläche **Auswahl hinzufügen** steht in der Fußleiste direkt neben
 **Abbrechen** und schließt das Suchfenster nach erfolgreicher Übernahme. Die
 erzeugten Zeilen bleiben bis **Änderungen übernehmen** bearbeitbare Entwürfe.
+In der Übersicht wird dabei der frei vergebene Name des Alarmbereichs angezeigt;
+die technische Bereichs-ID bleibt weiterhin unverändert gespeichert und wird
+für Skripte und interne Zuordnungen verwendet.
 
 Ein einzelner Eingang wird folgendermaßen eingerichtet:
 
@@ -1343,7 +1346,7 @@ müssen durch die IDs der eigenen Installation ersetzt werden.
 | `$BereichID` | Technische Bereichs-ID wie `main` oder `garage`; keine Objekt-ID |
 | `$BereichIDs` | Liste technischer Bereichs-IDs, beispielsweise `['garage', 'schuppen']`; `main` hat je nach dokumentiertem Befehl die Bedeutung Gesamtanlage oder ausdrücklich genannter Hauptbereich |
 | `$VariableID` | Objekt-ID der als Sensor konfigurierten Symcon-Variable, beispielsweise `23456` |
-| `$Quelle` | Kurze, verständliche Bezeichnung einer bereits extern geprüften Berechtigung, beispielsweise `eKey Haustür` |
+| `$Quelle` | Kurze, verständliche Bezeichnung einer bereits extern geprüften Berechtigung, beispielsweise `Zutrittskontrolle Haustür` |
 | `$Frist` | Dauer einer temporären Durchgangsfreigabe in Sekunden; zulässig sind `1` bis `3600`, Standardwert ist `60` |
 | `$Modus` | `home`, `away` oder `night` |
 | `$Verzögerung` | `null` verwendet die konfigurierte Ausgangsverzögerung, `0` schaltet sofort, ein positiver Wert überschreibt sie einmalig |
@@ -1395,21 +1398,21 @@ $garageState = $state['Partitions']['garage']['State']['Name'] ?? 'disarmed';
 | `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet einen einzelnen Bereich scharf. `main` steht für alle aktiven Bereiche. |
 | `OHA_ArmPartitions($InstanzID, $BereichIDs, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false)` | `bool` | Schaltet eine Liste ausgewählter Bereiche atomar scharf. Ist einer nicht schaltbar, bleibt die gesamte Auswahl unverändert. Enthält die Liste `main`, gilt sie für alle aktiven Bereiche. |
 | `OHA_Disarm($InstanzID)` | `bool` | Schaltet alle Bereiche als vertrauenswürdige Automation ohne Code-Prüfung unscharf. |
-| `OHA_DisarmWithSource($InstanzID, $Quelle)` | `bool` | Schaltet alle Bereiche über eine vertrauenswürdige Automation unscharf und schreibt die geprüfte Quelle, etwa `eKey Haustür`, in das Ereignisprotokoll. Die Quelle ist nur eine Zuordnung und ersetzt keine Authentifizierung. |
+| `OHA_DisarmWithSource($InstanzID, $Quelle)` | `bool` | Schaltet alle Bereiche über eine vertrauenswürdige Automation unscharf und schreibt die angegebene Quelle, etwa `Zutrittskontrolle Haustür`, in das Ereignisprotokoll. Die Quelle ist nur eine Zuordnung und ersetzt keine Authentifizierung. |
 | `OHA_DisarmWithCode($InstanzID, $Code)` | `bool` | Prüft Code und Sperrstatus und schaltet bei Erfolg alle Bereiche unscharf. Für benutzerseitige Oberflächen verwenden. |
 | `OHA_DisarmPartition($InstanzID, $BereichID)` | `bool` | Schaltet einen einzelnen Bereich als vertrauenswürdige Automation unscharf. `main` schaltet alle Bereiche unscharf. |
 | `OHA_DisarmPartitions($InstanzID, $BereichIDs)` | `bool` | Schaltet eine Liste ausgewählter Bereiche als vertrauenswürdige Automation unscharf. Enthält die Liste `main`, werden alle Bereiche unscharf. |
 
 `OHA_DisarmWithSource()` ist für Skripte gedacht, die die Berechtigung bereits
-selbst sicher festgestellt haben, beispielsweise über eKey, RFID oder ein
-berechtigtes Nuki-Ereignis. Erst nach dieser Prüfung darf das Skript die
-Funktion mit einer kurzen, verständlichen Quellenbezeichnung aufrufen. Ein
+selbst sicher festgestellt haben. Erst nach dieser hersteller- und
+modulspezifischen Prüfung darf das Skript die Funktion mit einer kurzen,
+verständlichen Quellenbezeichnung aufrufen. Ein
 beliebiger Text in `$Quelle` berechtigt nicht zum Unscharfschalten.
 
 ```php
-// Das aufrufende Skript hat die eKey-Berechtigung bereits sicher geprüft.
+// Das aufrufende Skript hat die Zutrittsberechtigung bereits sicher geprüft.
 // OpenHomeAlarm verwendet den Text ausschließlich als Protokollquelle.
-$success = OHA_DisarmWithSource(12345, 'eKey Haustür');
+$success = OHA_DisarmWithSource(12345, 'Zutrittskontrolle Haustür');
 
 if (!$success) {
     throw new RuntimeException('Die vertrauenswürdige Unscharfschaltung wurde abgelehnt.');

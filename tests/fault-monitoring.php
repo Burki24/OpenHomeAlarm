@@ -927,6 +927,13 @@ assertFaultMonitoring(
     in_array('PartitionID', array_column($faultList['columns'] ?? [], 'name'), true),
     'Fault input configuration must expose its alarm partition.'
 );
+$faultColumns = array_column($faultList['columns'] ?? [], null, 'name');
+assertFaultMonitoring(
+    ($faultColumns['PartitionID']['visible'] ?? true) === false
+        && ($faultColumns['PartitionName']['caption'] ?? null) === 'Alarm partition'
+        && ($faultColumns['PartitionName']['save'] ?? true) === false,
+    'Fault input rows must persist the technical partition ID but display the configured partition name.'
+);
 assertFaultMonitoring(
     in_array('TriggerCondition', array_column($faultList['columns'] ?? [], 'name'), true),
     'Fault input configuration must expose exact-value and normal-value rules.'
@@ -939,11 +946,16 @@ assertFaultMonitoring(
     isset($faultList['values']) && is_array($faultList['values']) && count($faultList['values']) === 3,
     'Nested fault lists must receive their non-persistent trigger editor values.'
 );
+assertFaultMonitoring(
+    array_column($faultList['values'], 'PartitionName') === ['Main area', 'Main area', 'Main area'],
+    'Fault input list helper values must resolve technical IDs to readable partition names.'
+);
 $editForm = $instance->GetFaultInputEditForm(faultInput(9002, 'Funkverbindung', 2, 'FAULT', true, false));
 $selection = null;
 $partitionSelection = null;
 $conditionSelection = null;
 $variableSelection = null;
+$partitionName = null;
 foreach ($editForm as $field) {
     if (($field['name'] ?? null) === 'TriggerValueSelection') {
         $selection = $field;
@@ -957,11 +969,20 @@ foreach ($editForm as $field) {
     if (($field['name'] ?? null) === 'VariableID') {
         $variableSelection = $field;
     }
+    if (($field['name'] ?? null) === 'PartitionName') {
+        $partitionName = $field;
+    }
 }
 assertFaultMonitoring(
     ($partitionSelection['type'] ?? null) === 'Select'
     && ($partitionSelection['value'] ?? null) === 'main',
     'Fault input editor must resolve empty assignments to the default partition.'
+);
+assertFaultMonitoring(
+    ($partitionSelection['onChange'] ?? null) === 'OHA_UpdateFaultPartitionNameForm($id, $PartitionID);'
+        && ($partitionName['visible'] ?? true) === false
+        && ($partitionName['value'] ?? null) === 'Main area',
+    'Changing a fault partition must update the readable draft-row name before saving.'
 );
 assertFaultMonitoring(
     ($conditionSelection['type'] ?? null) === 'Select'
