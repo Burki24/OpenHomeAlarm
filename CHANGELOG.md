@@ -4,7 +4,9 @@
 
 ## Neu
 
-- Alte Sicherheits-Snapshots ohne `FullyDisarmedAction` werden gezielt um den deaktivierten Standard erg‰nzt. Die Konfigurationssperre f¸r aktive Alarmbereiche bleibt unver‰ndert. Updates ¸ber Module Control und Module Store d¸rfen ausschlieﬂlich bei vollst‰ndig unscharfer Anlage erfolgen.
+- Bei aktiven Alarmbereichen warnt das Konfigurationsformular ausdr√ºcklich vor Updates √ºber Module Control oder den Symcon Module Store: Zuerst alle Bereiche unscharf schalten.
+
+- Alte Sicherheits-Snapshots ohne `FullyDisarmedAction` werden gezielt um den deaktivierten Standard erg√§nzt. Die Konfigurationssperre f√ºr aktive Alarmbereiche bleibt unver√§ndert. Updates √ºber Module Control und Module Store d√ºrfen ausschlie√ülich bei vollst√§ndig unscharfer Anlage erfolgen.
 
 - Gemeinsame Mausrad-, Scroll- und Frame-Unterst√ºtzung aus Symcon_ModuleHelper eingebunden; IPSView-Ereignisse mit umadressiertem Ziel werden zentral behandelt.
 

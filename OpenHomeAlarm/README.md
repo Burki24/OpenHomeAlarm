@@ -10,9 +10,11 @@ Benachrichtigungen und die Bedienung √ºber Kachel, IPSView oder PHP-Skripte.
 
 > **Sicherheitshinweis:** OpenHomeAlarm ist keine zertifizierte Einbruch-, Brand- oder Gefahrenmeldeanlage. Die Verf√ºgbarkeit h√§ngt von Symcon, Hostsystem, Netzwerk, Sensoren und konfigurierten Aktionen ab. F√ºr normativ oder versicherungsrechtlich geforderte Schutzaufgaben ist geeignete zertifizierte Sicherheitstechnik erforderlich. Weitere Hinweise enth√§lt die [Sicherheitsrichtlinie](../SECURITY.md).
 
-**Updates nur bei vollst‰ndig unscharfer Anlage:** Vor jeder Aktualisierung m¸ssen alle Alarmbereiche unscharf sein; Ausgangs-/Eingangsverzˆgerungen und aktive Alarme sind vorher kontrolliert zu beenden. Das gilt f¸r Module Control, den Symcon Module Store einschlieﬂlich ÑAlle aktualisierenì, Kanalwechsel und erneute Installation. OpenHomeAlarm schaltet f¸r ein Update niemals automatisch unscharf. Eine Exception in `ApplyChanges()` ist keine verl‰ssliche Sperre vor dem Dateiaustausch. Nach dem Update Instanzstatus, Einstellungen, Visualisierung und Alarmwege pr¸fen und die Anlage anschlieﬂend bewusst wieder scharf schalten.
+**Updates nur bei vollst√§ndig unscharfer Anlage:** Vor jeder Aktualisierung m√ºssen alle Alarmbereiche unscharf sein; Ausgangs-/Eingangsverz√∂gerungen und aktive Alarme sind vorher kontrolliert zu beenden. Das gilt f√ºr Module Control, den Symcon Module Store einschlie√ülich ‚ÄûAlle aktualisieren‚Äú, Kanalwechsel und erneute Installation. OpenHomeAlarm schaltet f√ºr ein Update niemals automatisch unscharf. Eine Exception in `ApplyChanges()` ist keine verl√§ssliche Sperre vor dem Dateiaustausch. Nach dem Update Instanzstatus, Einstellungen, Visualisierung und Alarmwege pr√ºfen und die Anlage anschlie√üend bewusst wieder scharf schalten.
 
 ## 1. Schnellstart
+
+Solange ein Alarmbereich aktiv ist, zeigt das Konfigurationsformular zus√§tzlich zur Konfigurationssperre einen deutlichen Update-Warnhinweis. Er erinnert daran, vor Updates √ºber Module Control oder den Symcon Module Store alle Bereiche unscharf zu schalten; er blockiert den Updatevorgang nicht technisch.
 
 1. Installieren Sie die Library √ºber die Symcon-Modulverwaltung und legen Sie eine
    **OpenHomeAlarm**-Instanz an.

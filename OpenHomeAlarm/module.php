@@ -964,6 +964,12 @@ class OpenHomeAlarm extends IPSModuleStrict
                         'caption' => $this->Translate(
                             'The instance configuration is locked while an alarm partition is active. Disarm all partitions before changing alarm settings.'
                         )
+                    ], [
+                        'type'    => 'Label',
+                        'name'    => 'ArmedUpdateWarning',
+                        'caption' => $this->Translate(
+                            'WARNING: Before updates via Module Control or the Symcon Module Store, ALL alarm partitions must be disarmed. Do not update while any partition is armed.'
+                        )
                     ]);
                 }
             }

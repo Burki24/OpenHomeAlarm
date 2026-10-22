@@ -1837,6 +1837,21 @@ $lockedFormInstance->Create();
 $lockedFormInstance->TestSetCurrentValue('Mode', 2);
 $lockedFormInstance->TestSetCurrentValue('State', 2);
 $lockedForm = json_decode($lockedFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+$updateWarning = findAlarmActionFormField($lockedForm['elements'], 'ArmedUpdateWarning');
+assertAlarmAction(
+    ($updateWarning['type'] ?? null) === 'Label'
+        && str_contains($updateWarning['caption'] ?? '', 'ALL alarm partitions must be disarmed')
+        && str_contains($updateWarning['caption'] ?? '', 'Module Control')
+        && str_contains($updateWarning['caption'] ?? '', 'Symcon Module Store'),
+    'An active partition must show the update warning at the top of the configuration form.'
+);
+$disarmedWarningInstance = new OpenHomeAlarm();
+$disarmedWarningInstance->Create();
+$disarmedForm = json_decode($disarmedWarningInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    findAlarmActionFormField($disarmedForm['elements'], 'ArmedUpdateWarning') === null,
+    'The conditional update warning must be absent when all partitions are disarmed.'
+);
 foreach (['Partitions', 'ExitDelaySeconds', 'CountdownStartAction', 'CountdownAction', 'CountdownEndAction', 'FullyDisarmedAction', 'AlarmEscalationSteps', 'AutoRearmAfterAlarm', 'PushNotificationApplicableTo', 'PushoverNotificationMode', 'PushoverNotificationApplicableTo'] as $fieldName) {
     $field = findAlarmActionFormField($lockedForm['elements'] ?? [], $fieldName);
     assertAlarmAction(
@@ -1944,12 +1959,22 @@ $lockTransitionInstance = new OpenHomeAlarm();
 $lockTransitionInstance->Create();
 $reloadCountBeforeArming = count($lockTransitionInstance->TestReloadedForms());
 assertAlarmAction($lockTransitionInstance->ArmAway(), 'The form-lock transition test must arm successfully.');
+$armedTransitionForm = json_decode($lockTransitionInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    findAlarmActionFormField($armedTransitionForm['elements'], 'ArmedUpdateWarning') !== null,
+    'Arming must show the update warning in the reloaded form.'
+);
 assertAlarmAction(
     count($lockTransitionInstance->TestReloadedForms()) === $reloadCountBeforeArming + 1,
     'Arming must reload an already open configuration form so its fields become locked.'
 );
 $reloadCountBeforeDisarming = count($lockTransitionInstance->TestReloadedForms());
 assertAlarmAction($lockTransitionInstance->Disarm(), 'The form-lock transition test must disarm successfully.');
+$disarmedTransitionForm = json_decode($lockTransitionInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    findAlarmActionFormField($disarmedTransitionForm['elements'], 'ArmedUpdateWarning') === null,
+    'Disarming all partitions must remove the conditional update warning.'
+);
 assertAlarmAction(
     count($lockTransitionInstance->TestReloadedForms()) === $reloadCountBeforeDisarming + 1,
     'Disarming must reload an already open configuration form so its fields become editable again.'
