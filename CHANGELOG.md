@@ -4,6 +4,8 @@
 
 ## Neu
 
+- Gemeinsame Mausrad-, Scroll- und Frame-Unterstützung aus Symcon_ModuleHelper eingebunden; IPSView-Ereignisse mit umadressiertem Ziel werden zentral behandelt.
+
 - Störungseingänge können jetzt wahlweise beim ausgewählten Störwert oder bei
   jeder Abweichung von einem festgelegten Normalwert auslösen. Bestehende
   Einträge behalten automatisch ihre bisherige exakte Auswertung. Variablenpfade

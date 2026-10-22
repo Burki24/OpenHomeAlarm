@@ -9,10 +9,17 @@
             "source_sha": "85edd95c7344f3740058f19fa7672cbe2e2219c0"
         },
         "IPSViewHTMLPageHelper": {
+<<<<<<< Updated upstream
             "version": "1.5.3",
             "sha256": "e03d0bf8118c550026a84b271ce17a6c48f489cf5c33b50da0e9c41daa653a2a",
             "path": "libs/helper/IPSViewHTMLPageHelper.php",
             "source_sha": "91ed2bf3426e4e7700bf79f1cda495cb9b70cb92",
+=======
+            "version": "1.5.2",
+            "sha256": "7bcaac830f174881e49b20b962f5b846eead660eacad5e0d3b673cdb1c3ec031",
+            "path": "libs/helper/IPSViewHTMLPageHelper.php",
+            "source_sha": "fb3102b210c305ea30d886b51f8c471fc266a9e0",
+>>>>>>> Stashed changes
             "assets": [
                 {
                     "path": "libs/helper/translations/IPSViewHTMLPageHelper.json",
@@ -25,14 +32,21 @@
                     "version": "1.0.0",
                     "sha256": "d3deee581eca9f8eb11e9adce060170227a2dc836ee898bd134f93d27604f639",
                     "path": "libs/helper/HelperTranslationHelper.php",
-                    "source_sha": "19ce63ec77843ed3cf845b82b346e21f10412d1a"
+                    "source_sha": "fb3102b210c305ea30d886b51f8c471fc266a9e0"
                 },
                 {
                     "name": "VisualizationAssetHelper",
+<<<<<<< Updated upstream
                     "version": "1.0.2",
                     "sha256": "d8d64bce04b48c089eb024758a135bfce1c85c4939e452ce82ae49f0e645b37e",
                     "path": "libs/helper/VisualizationAssetHelper.php",
                     "source_sha": "91ed2bf3426e4e7700bf79f1cda495cb9b70cb92",
+=======
+                    "version": "1.0.1",
+                    "sha256": "d530a0e81dde3d1410f360fc2915a523d3cf3275c9efb5e9fc304c90ad98aea3",
+                    "path": "libs/helper/VisualizationAssetHelper.php",
+                    "source_sha": "fb3102b210c305ea30d886b51f8c471fc266a9e0",
+>>>>>>> Stashed changes
                     "assets": [
                         {
                             "path": "libs/helper/visualization/http-origin.js",
@@ -371,10 +385,17 @@
             "source_sha": "82a13d236b430c0ffbcb714aed56d9e52c344ff2"
         },
         "VisualizationAssetHelper": {
+<<<<<<< Updated upstream
             "version": "1.0.2",
             "sha256": "d8d64bce04b48c089eb024758a135bfce1c85c4939e452ce82ae49f0e645b37e",
             "path": "libs/helper/VisualizationAssetHelper.php",
             "source_sha": "91ed2bf3426e4e7700bf79f1cda495cb9b70cb92",
+=======
+            "version": "1.0.1",
+            "sha256": "d530a0e81dde3d1410f360fc2915a523d3cf3275c9efb5e9fc304c90ad98aea3",
+            "path": "libs/helper/VisualizationAssetHelper.php",
+            "source_sha": "fb3102b210c305ea30d886b51f8c471fc266a9e0",
+>>>>>>> Stashed changes
             "assets": [
                 {
                     "path": "libs/helper/visualization/http-origin.js",
