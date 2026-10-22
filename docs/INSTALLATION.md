@@ -21,6 +21,8 @@
 
 ## Aktualisierung
 
+**Updates nur bei vollständig unscharfer Anlage:** Vor jeder Aktualisierung müssen alle Alarmbereiche unscharf sein; Ausgangs-/Eingangsverzögerungen und aktive Alarme sind vorher kontrolliert zu beenden. Das gilt für Module Control, den Symcon Module Store einschließlich „Alle aktualisieren“, Kanalwechsel und erneute Installation. OpenHomeAlarm schaltet für ein Update niemals automatisch unscharf. Eine Exception in `ApplyChanges()` ist keine verlässliche Sperre vor dem Dateiaustausch. Nach dem Update Instanzstatus, Einstellungen, Visualisierung und Alarmwege prüfen und die Anlage anschließend bewusst wieder scharf schalten.
+
 1. Eine aktuelle Symcon-Sicherung erstellen und den funktionierenden
    Ausgangsstand dokumentieren.
 2. Die Alarmanlage unscharf schalten und aktive VerzÃ¶gerungen oder Alarme

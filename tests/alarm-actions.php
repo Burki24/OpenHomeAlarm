@@ -165,6 +165,11 @@ class IPSModuleStrict
     {
     }
 
+    public function Migrate(string $JSONData): string
+    {
+        return $JSONData;
+    }
+
     public function TestSetPropertyString(string $name, string $value): void
     {
         $this->properties[$name] = $value;
@@ -1861,6 +1866,79 @@ assertAlarmAction(
     count($lockedFormInstance->TestReloadedForms()) === $reloadCountBeforeRejectedChange + 1,
     'Rejecting a stale configuration form must reload it with the active-state lock.'
 );
+
+// Reproduce an older v2 snapshot: the optional post-disarm action was not included.
+$snapshotInstance = new OpenHomeAlarm();
+$snapshotInstance->Create();
+$snapshotInstance->ApplyChanges();
+$currentSnapshot = $snapshotInstance->TestAttributes()['AppliedSecurityConfiguration'];
+$currentSecurity = json_decode(substr($currentSnapshot, 3), true, 512, JSON_THROW_ON_ERROR);
+$legacySecurity = $currentSecurity;
+unset($legacySecurity['FullyDisarmedAction']);
+$legacySnapshot = 'v2:' . json_encode($legacySecurity, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$legacyPersistence = ['configuration' => $currentSecurity, 'attributes' => ['AppliedSecurityConfiguration' => $legacySnapshot, 'Other' => 'keep']];
+
+$snapshotInstance->TestSetAttributeString('AppliedSecurityConfiguration', $legacySnapshot);
+$snapshotInstance->TestSetCurrentValue('Mode', 2);
+$snapshotInstance->TestSetCurrentValue('State', 2);
+$legacySnapshotBlocked = false;
+try {
+    $snapshotInstance->ApplyChanges();
+} catch (RuntimeException $exception) {
+    $legacySnapshotBlocked = str_contains($exception->getMessage(), 'all alarm partitions are disarmed');
+}
+assertAlarmAction($legacySnapshotBlocked, 'The old snapshot must reproduce the armed ApplyChanges guard failure before migration.');
+
+$migratedSnapshotJSON = $snapshotInstance->Migrate(json_encode($legacyPersistence, JSON_THROW_ON_ERROR));
+assertAlarmAction($migratedSnapshotJSON !== '', 'A legacy v2 snapshot missing FullyDisarmedAction must migrate.');
+$migratedSnapshot = json_decode($migratedSnapshotJSON, true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $migratedSnapshot['attributes']['AppliedSecurityConfiguration'] === $currentSnapshot
+        && $migratedSnapshot['configuration'] === $legacyPersistence['configuration']
+        && $migratedSnapshot['attributes']['Other'] === 'keep',
+    'Migration must add only the historic no-action baseline in the canonical position and preserve configuration.'
+);
+assertAlarmAction($snapshotInstance->Migrate($migratedSnapshotJSON) === '', 'Snapshot migration must be idempotent.');
+
+$snapshotInstance->TestSetAttributeString('AppliedSecurityConfiguration', $migratedSnapshot['attributes']['AppliedSecurityConfiguration']);
+$snapshotInstance->TestSetCurrentValue('Mode', 2);
+$snapshotInstance->TestSetCurrentValue('State', 2);
+$actionsBeforeSnapshotCheck = count($testActions);
+$snapshotStateBefore = json_decode($snapshotInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+$snapshotInstance->ApplyChanges();
+assertAlarmAction(count($testActions) === $actionsBeforeSnapshotCheck, 'Applying unchanged migrated settings must not execute alarm or disarm actions.');
+
+$snapshotStateAfter = json_decode($snapshotInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction($snapshotStateBefore['State'] === $snapshotStateAfter['State'] && $snapshotStateBefore['Mode'] === $snapshotStateAfter['Mode'], 'Snapshot migration must preserve the existing armed mode and state.');
+
+foreach (['FullyDisarmedAction' => $fullyDisarmedAction, 'Sensors' => '[{"VariableID":9999}]'] as $property => $value) {
+    $snapshotInstance->TestSetPropertyString($property, $value);
+    $blocked = false;
+    try {
+        $snapshotInstance->ApplyChanges();
+    } catch (RuntimeException $exception) {
+        $blocked = str_contains($exception->getMessage(), 'all alarm partitions are disarmed');
+    }
+    assertAlarmAction($blocked, 'Actual security changes must remain blocked after snapshot migration: ' . $property);
+    assertAlarmAction($snapshotInstance->TestAttributes()['AppliedSecurityConfiguration'] === $currentSnapshot, 'Rejected changes must not rewrite the applied baseline.');
+    $snapshotInstance->TestSetPropertyString($property, $currentSecurity[$property]);
+}
+$withNewAction = $legacyPersistence;
+$withNewAction['configuration']['FullyDisarmedAction'] = $fullyDisarmedAction;
+$withNewActionMigrated = json_decode($snapshotInstance->Migrate(json_encode($withNewAction, JSON_THROW_ON_ERROR)), true, 512, JSON_THROW_ON_ERROR);
+assertAlarmAction(
+    $withNewActionMigrated['configuration']['FullyDisarmedAction'] === $fullyDisarmedAction
+        && json_decode(substr($withNewActionMigrated['attributes']['AppliedSecurityConfiguration'], 3), true, 512, JSON_THROW_ON_ERROR)['FullyDisarmedAction'] === 'false',
+    'Migration must never adopt a newly configured action into the previously applied baseline.'
+);
+foreach (['v2:{invalid', 'v1:{}', 'v2:[]', 'v2:{}'] as $invalidSnapshot) {
+    $invalidPersistence = $legacyPersistence;
+    $invalidPersistence['attributes']['AppliedSecurityConfiguration'] = $invalidSnapshot;
+    assertAlarmAction($snapshotInstance->Migrate(json_encode($invalidPersistence, JSON_THROW_ON_ERROR)) === '', 'Unrecognized or invalid snapshots must not acquire a new baseline.');
+}
+$existingActionSnapshot = $legacyPersistence;
+$existingActionSnapshot['attributes']['AppliedSecurityConfiguration'] = 'v2:' . json_encode(array_replace($currentSecurity, ['FullyDisarmedAction' => $fullyDisarmedAction]), JSON_THROW_ON_ERROR);
+assertAlarmAction($snapshotInstance->Migrate(json_encode($existingActionSnapshot, JSON_THROW_ON_ERROR)) === '', 'An existing post-disarm action in the snapshot must never be replaced.');
 
 $lockTransitionInstance = new OpenHomeAlarm();
 $lockTransitionInstance->Create();

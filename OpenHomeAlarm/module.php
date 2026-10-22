@@ -786,6 +786,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             $configuration = &$persistence['configuration'];
             $changed = $this->RecoverLastAppliedSecurityConfiguration($persistence);
+            $changed = $this->MigrateFullyDisarmedActionSnapshot($persistence) || $changed;
 
             foreach (self::LEGACY_IPSVIEW_STRING_COLOR_PROPERTIES as $legacyProperty => $integerProperty) {
                 if (!array_key_exists($legacyProperty, $configuration)) {
@@ -6880,6 +6881,48 @@ PHP,
             }
         }
         unset($element);
+    }
+
+    /**
+     * Adds the historic no-action default to the older v2 security snapshot.
+     * Current configuration is deliberately not adopted into the applied baseline.
+     *
+     * @param array<string,mixed> $persistence
+     */
+    private function MigrateFullyDisarmedActionSnapshot(array &$persistence): bool
+    {
+        $attributes = $persistence['attributes'] ?? null;
+        $snapshot = is_array($attributes)
+            ? ($attributes[self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION] ?? null)
+            : null;
+        if (!is_string($snapshot) || !str_starts_with($snapshot, self::SECURITY_CONFIGURATION_SNAPSHOT_PREFIX)) {
+            return false;
+        }
+        try {
+            $applied = json_decode(substr($snapshot, strlen(self::SECURITY_CONFIGURATION_SNAPSHOT_PREFIX)), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return false;
+        }
+        if (!is_array($applied)
+            || array_key_exists(self::PROPERTY_FULLY_DISARMED_ACTION, $applied)
+            || !array_key_exists(self::PROPERTY_DISARM_CODE, $applied)
+        ) {
+            return false;
+        }
+
+        $migrated = [];
+        foreach ($applied as $property => $value) {
+            if ($property === self::PROPERTY_DISARM_CODE) {
+                // Preserve the ordering used by CurrentSecurityConfiguration():
+                // the guard intentionally retains its exact comparison.
+                $migrated[self::PROPERTY_FULLY_DISARMED_ACTION] = 'false';
+            }
+            $migrated[$property] = $value;
+        }
+        $persistence['attributes'][self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION] = self::SECURITY_CONFIGURATION_SNAPSHOT_PREFIX
+            . json_encode($migrated, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return true;
     }
 
     private function GuardSecurityConfigurationChanges(): void

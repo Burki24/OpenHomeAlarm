@@ -179,6 +179,8 @@ php tests/run.php
 Der verbindliche Umfang und die Freigabekriterien stehen im
 [Release-Zielbild](docs/RELEASE_SCOPE.md).
 
+**Updates nur bei vollständig unscharfer Anlage:** Vor jeder Aktualisierung müssen alle Alarmbereiche unscharf sein; Ausgangs-/Eingangsverzögerungen und aktive Alarme sind vorher kontrolliert zu beenden. Das gilt für Module Control, den Symcon Module Store einschließlich „Alle aktualisieren“, Kanalwechsel und erneute Installation. OpenHomeAlarm schaltet für ein Update niemals automatisch unscharf. Eine Exception in `ApplyChanges()` ist keine verlässliche Sperre vor dem Dateiaustausch. Nach dem Update Instanzstatus, Einstellungen, Visualisierung und Alarmwege prüfen und die Anlage anschließend bewusst wieder scharf schalten.
+
 Installation und Aktualisierung sind in der
 [Installationsanleitung](docs/INSTALLATION.md) beschrieben. Ã„nderungen stehen
 im [Changelog](CHANGELOG.md); die Freigabe wird nach dem

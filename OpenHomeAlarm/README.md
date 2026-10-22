@@ -10,6 +10,8 @@ Benachrichtigungen und die Bedienung Ã¼ber Kachel, IPSView oder PHP-Skripte.
 
 > **Sicherheitshinweis:** OpenHomeAlarm ist keine zertifizierte Einbruch-, Brand- oder Gefahrenmeldeanlage. Die VerfÃ¼gbarkeit hÃ¤ngt von Symcon, Hostsystem, Netzwerk, Sensoren und konfigurierten Aktionen ab. FÃ¼r normativ oder versicherungsrechtlich geforderte Schutzaufgaben ist geeignete zertifizierte Sicherheitstechnik erforderlich. Weitere Hinweise enthÃ¤lt die [Sicherheitsrichtlinie](../SECURITY.md).
 
+**Updates nur bei vollständig unscharfer Anlage:** Vor jeder Aktualisierung müssen alle Alarmbereiche unscharf sein; Ausgangs-/Eingangsverzögerungen und aktive Alarme sind vorher kontrolliert zu beenden. Das gilt für Module Control, den Symcon Module Store einschließlich „Alle aktualisieren“, Kanalwechsel und erneute Installation. OpenHomeAlarm schaltet für ein Update niemals automatisch unscharf. Eine Exception in `ApplyChanges()` ist keine verlässliche Sperre vor dem Dateiaustausch. Nach dem Update Instanzstatus, Einstellungen, Visualisierung und Alarmwege prüfen und die Anlage anschließend bewusst wieder scharf schalten.
+
 ## 1. Schnellstart
 
 1. Installieren Sie die Library Ã¼ber die Symcon-Modulverwaltung und legen Sie eine
