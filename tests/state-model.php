@@ -465,6 +465,30 @@ assertStateModel(
     'The module must use the centralized state definitions.'
 );
 
+$stateDiagramPath = dirname(__DIR__) . '/docs/images/openhomealarm-state-model.svg';
+$stateDiagram = is_file($stateDiagramPath) ? (string) file_get_contents($stateDiagramPath) : '';
+$moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
+$rootReadme = (string) file_get_contents(dirname(__DIR__) . '/README.md');
+assertStateModel($stateDiagram !== '', 'The documented alarm state diagram must exist.');
+foreach (['Unscharf', 'Ausgangsverzögerung', 'Scharf', 'Eingangsverzögerung', 'Alarm'] as $stateLabel) {
+    assertStateModel(
+        str_contains($stateDiagram, '>' . $stateLabel . '<'),
+        'The alarm state diagram must name state ' . $stateLabel . '.'
+    );
+}
+assertStateModel(
+    str_contains($stateDiagram, '24/7-Sensor')
+        && str_contains($stateDiagram, 'Einmalige Sensorüberbrückung')
+        && str_contains($stateDiagram, 'Temporäre Durchgangsfreigabe')
+        && str_contains($stateDiagram, 'automatische Wiederbewaffnung'),
+    'The alarm state diagram must explain the documented safety branches.'
+);
+assertStateModel(
+    str_contains($moduleReadme, '../docs/images/openhomealarm-state-model.svg')
+        && str_contains($rootReadme, 'docs/images/openhomealarm-state-model.svg'),
+    'Root and module documentation must embed the alarm state diagram.'
+);
+
 $setMode = new ReflectionMethod(OpenHomeAlarm::class, 'SetAlarmMode');
 $setState = new ReflectionMethod(OpenHomeAlarm::class, 'SetAlarmState');
 

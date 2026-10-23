@@ -39,6 +39,17 @@ aktuellen Symcon-Namen, keine automatisch ergänzten IDs.
 5. Mit einem Testlauf prüfen, ob Sensorblocker, Unscharfschaltung und Aktionen
    wie erwartet funktionieren.
 
+## Zustandsmodell
+
+Jeder aktive Alarmbereich durchläuft unabhängig die Zustände **Unscharf**,
+**Ausgangsverzögerung**, **Scharf**, **Eingangsverzögerung** und **Alarm**.
+Überbrückungen und Durchgangsfreigaben bleiben dabei zeitlich und
+bereichsbezogen begrenzte Ausnahmen; sie ersetzen keinen dieser Sicherheitszustände.
+Das Diagramm zeigt zusätzlich direkte 24/7-Alarme, kontrollierte Abbrüche und
+die optionale automatische Wiederbewaffnung.
+
+![Zustandsmodell eines OpenHomeAlarm-Alarmbereichs](docs/images/openhomealarm-state-model.svg)
+
 Die ausführliche Anleitung mit allen Einstellungen und PHP-Befehlen steht in der
 [OpenHomeAlarm-Dokumentation](OpenHomeAlarm).
 

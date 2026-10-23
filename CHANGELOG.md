@@ -4,6 +4,12 @@
 
 ## Neu
 
+- Ein neues Zustandsdiagramm in Root- und Modul-Anleitung erklärt den Ablauf
+  eines einzelnen Alarmbereichs von Unscharf über Ein-/Ausgangsverzögerung bis
+  zum Alarm. Es zeigt zusätzlich kontrollierte Abbrüche, 24/7-Auslösungen,
+  automatische Wiederbewaffnung, Sensorüberbrückungen, Durchgangsfreigaben und
+  das vom Alarmzustand getrennte Alarmgedächtnis.
+
 - Zwei dokumentierte Beispielskripte bilden Kameraerkennungen wahlweise als
   reine Push-Vorwarnung oder nach einer zweiten passenden Erkennung als
   bestätigten Boolean-Alarmsensor ab. Die Bestätigung kann mit beliebigen,

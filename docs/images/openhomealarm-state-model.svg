@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1340" viewBox="0 0 1800 1340" role="img" aria-labelledby="title desc" xml:lang="de">
+<title id="title">Zustandsmodell eines Alarmbereichs</title>
+<desc id="desc">Statisches Zustandsdiagramm für OpenHomeAlarm nach der korrigierten Vorlage: Unscharf, Ausgangsverzögerung, Scharf, Eingangsverzögerung und Alarm, mit Übergangsbedingungen und drei Sonderregeln.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M1 1 L11 6 L1 11 Z" fill="#39445a"/></marker>
+<marker id="red-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M1 1 L11 6 L1 11 Z" fill="#b8331d"/></marker>
+</defs>
+<rect width="1800" height="1340" fill="#f7f9fc" rx="24"/>
+<g font-family="DejaVu Sans, Arial, sans-serif" fill="#141b30">
+<text x="125" y="68" font-size="38" font-weight="700">Zustandsmodell eines Alarmbereichs</text>
+<text x="125" y="106" font-size="18" font-weight="400" fill="#56627b">Jeder aktive Bereich führt Modus, Zustand, Verzögerungen und Alarm unabhängig; main fasst alle aktiven Bereiche zusammen.</text>
+<path d="M 205 282 C 205 142 905 142 905 282" fill="none" stroke="#39445a" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M 340 350 H 410" fill="none" stroke="#39445a" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M 690 350 H 770" fill="none" stroke="#39445a" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M 1040 350 H 1110" fill="none" stroke="#39445a" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M 1390 350 H 1450" fill="none" stroke="#b8331d" stroke-width="3" marker-end="url(#red-arrow)"/>
+<path d="M 905 420 C 905 499 1585 499 1585 420" fill="none" stroke="#b8331d" stroke-width="3" marker-end="url(#red-arrow)"/>
+<path d="M 1585 420 C 1585 583 905 583 905 420" fill="none" stroke="#39445a" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M 550 420 V 720" fill="none" stroke="#78849b" stroke-width="2.5"/>
+<path d="M 905 420 V 720" fill="none" stroke="#78849b" stroke-width="2.5"/>
+<path d="M 1250 420 V 720" fill="none" stroke="#78849b" stroke-width="2.5"/>
+<path d="M 1585 420 V 720" fill="none" stroke="#78849b" stroke-width="2.5"/>
+<path d="M 1585 720 H 205 V 420" fill="none" stroke="#39445a" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="1240" y="132" width="475" height="91" rx="20" fill="#fcf2ef" stroke="#efb6ab" stroke-width="2.5"/>
+<text x="1266" y="157" font-size="16" font-weight="700" fill="#a52c1b">24/7-Sensor oder alarmierender</text>
+<text x="1266" y="181" font-size="16" font-weight="700" fill="#a52c1b">Störungseingang</text>
+<text x="1266" y="210" font-size="16" font-weight="400" fill="#39445a">löst aus jedem Zustand unmittelbar Alarm aus.</text>
+<path d="M 1685 223 V 282" fill="none" stroke="#b8331d" stroke-width="3" marker-end="url(#red-arrow)"/>
+<rect x="70" y="282" width="270" height="138" rx="20" fill="#eef2f7" stroke="#95a2bb" stroke-width="2.5"/>
+<circle cx="101" cy="320" r="12" fill="#65728a"/>
+<text x="126" y="328" font-size="21.0" font-weight="700">Unscharf</text>
+<text x="95" y="363" font-size="16" font-weight="400" fill="#4f5c73">Kein Scharfmodus</text>
+<text x="95" y="386" font-size="16" font-weight="400" fill="#4f5c73">24/7-Überwachung bleibt</text>
+<text x="95" y="409" font-size="16" font-weight="400" fill="#4f5c73">aktiv</text>
+<rect x="410" y="282" width="280" height="138" rx="20" fill="#fff8e7" stroke="#dfa310" stroke-width="2.5"/>
+<circle cx="441" cy="320" r="12" fill="#cc951b"/>
+<text x="466" y="328" font-size="16.0" font-weight="700">Ausgangsverzögerung</text>
+<text x="435" y="363" font-size="16" font-weight="400" fill="#4f5c73">Countdown läuft</text>
+<text x="435" y="386" font-size="16" font-weight="400" fill="#4f5c73">Abschlussprüfung folgt</text>
+<rect x="770" y="282" width="270" height="138" rx="20" fill="#eefaf2" stroke="#4aa46c" stroke-width="2.5"/>
+<circle cx="801" cy="320" r="12" fill="#438d5d"/>
+<text x="826" y="328" font-size="21.0" font-weight="700">Scharf</text>
+<text x="795" y="363" font-size="16" font-weight="400" fill="#4f5c73">Sensoren des Scharfmodus</text>
+<text x="795" y="386" font-size="16" font-weight="400" fill="#4f5c73">werden überwacht</text>
+<rect x="1110" y="282" width="280" height="138" rx="20" fill="#fff8e7" stroke="#dfa310" stroke-width="2.5"/>
+<circle cx="1141" cy="320" r="12" fill="#cc951b"/>
+<text x="1166" y="328" font-size="16.5" font-weight="700">Eingangsverzögerung</text>
+<text x="1135" y="363" font-size="16" font-weight="400" fill="#4f5c73">Countdown zum Alarm</text>
+<text x="1135" y="386" font-size="16" font-weight="400" fill="#4f5c73">Unscharfschalten bleibt</text>
+<text x="1135" y="409" font-size="16" font-weight="400" fill="#4f5c73">möglich</text>
+<rect x="1450" y="282" width="270" height="138" rx="20" fill="#fcf2ef" stroke="#cf3c25" stroke-width="2.5"/>
+<circle cx="1481" cy="320" r="12" fill="#b8331d"/>
+<text x="1506" y="328" font-size="21.0" font-weight="700">Alarm</text>
+<text x="1475" y="363" font-size="16" font-weight="400" fill="#4f5c73">Alarmaktionen laufen</text>
+<text x="1475" y="386" font-size="16" font-weight="400" fill="#4f5c73">Alarmgedächtnis gesetzt</text>
+<path d="M 205 737 V 750 M 205 813 V 857" fill="none" stroke="#9aa8c0" stroke-width="2" stroke-dasharray="8 9"/>
+<path d="M 905 737 V 818 H 1250 V 737 M 905 818 V 857" fill="none" stroke="#9aa8c0" stroke-width="2" stroke-dasharray="8 9"/>
+<path d="M 1585 737 V 857" fill="none" stroke="#9aa8c0" stroke-width="2" stroke-dasharray="8 9"/>
+<text x="82" y="791" font-size="28" font-weight="700">Sonderregeln ohne eigenen Systemzustand</text>
+<rect x="70" y="857" width="510" height="374" rx="20" fill="#ffffff" stroke="#cdd6e6" stroke-width="2.5"/>
+<text x="98" y="902" font-size="20" font-weight="700">Einmalige Sensorüberbrückung</text>
+<text x="98" y="947" font-size="16" font-weight="400">•</text>
+<text x="114" y="947" font-size="16" font-weight="400" fill="#4f5c73">Manuell nur im Zustand Unscharf vorbereitbar.</text>
+<text x="98" y="984" font-size="16" font-weight="400">•</text>
+<text x="114" y="984" font-size="16" font-weight="400" fill="#4f5c73">Gilt bereichsbezogen für den nächsten</text>
+<text x="114" y="1011" font-size="16" font-weight="400" fill="#4f5c73">Scharfschaltzyklus.</text>
+<text x="98" y="1048" font-size="16" font-weight="400">•</text>
+<text x="114" y="1048" font-size="16" font-weight="400" fill="#4f5c73">Automatisch nur für ausdrücklich freigegebene</text>
+<text x="114" y="1075" font-size="16" font-weight="400" fill="#4f5c73">Sensoren.</text>
+<text x="98" y="1112" font-size="16" font-weight="400">•</text>
+<text x="114" y="1112" font-size="16" font-weight="400" fill="#4f5c73">Fehlende Sensoren, Störungen und 24/7-Sensoren</text>
+<text x="114" y="1139" font-size="16" font-weight="400" fill="#4f5c73">bleiben blockierend.</text>
+<text x="98" y="1176" font-size="16" font-weight="400">•</text>
+<text x="114" y="1176" font-size="16" font-weight="400" fill="#4f5c73">Endet spätestens beim Unscharfschalten.</text>
+<rect x="650" y="857" width="510" height="374" rx="20" fill="#ffffff" stroke="#cdd6e6" stroke-width="2.5"/>
+<text x="678" y="902" font-size="20" font-weight="700">Temporäre Durchgangsfreigabe</text>
+<text x="678" y="947" font-size="16" font-weight="400">•</text>
+<text x="694" y="947" font-size="16" font-weight="400" fill="#4f5c73">Wird im Zustand Scharf oder während der</text>
+<text x="694" y="974" font-size="16" font-weight="400" fill="#4f5c73">passenden Eingangsverzögerung erteilt.</text>
+<text x="678" y="1011" font-size="16" font-weight="400">•</text>
+<text x="694" y="1011" font-size="16" font-weight="400" fill="#4f5c73">Der Bereich bleibt während eines</text>
+<text x="694" y="1038" font-size="16" font-weight="400" fill="#4f5c73">Öffnen-/Schließen-Zyklus scharf.</text>
+<text x="678" y="1075" font-size="16" font-weight="400">•</text>
+<text x="694" y="1075" font-size="16" font-weight="400" fill="#4f5c73">Alle anderen Sensoren bleiben überwacht.</text>
+<text x="678" y="1112" font-size="16" font-weight="400">•</text>
+<text x="694" y="1112" font-size="16" font-weight="400" fill="#4f5c73">Schließen beendet die Freigabe.</text>
+<text x="678" y="1149" font-size="16" font-weight="400">•</text>
+<text x="694" y="1149" font-size="16" font-weight="400" fill="#4f5c73">Fristablauf bei ausgelöstem Sensor führt zu Alarm.</text>
+<rect x="1230" y="857" width="500" height="374" rx="20" fill="#ffffff" stroke="#cdd6e6" stroke-width="2.5"/>
+<text x="1258" y="902" font-size="20" font-weight="700">Alarmausgang und Alarmgedächtnis</text>
+<text x="1258" y="947" font-size="16" font-weight="400">•</text>
+<text x="1274" y="947" font-size="16" font-weight="400" fill="#4f5c73">Der Alarmausgang kann enden oder zurückgesetzt</text>
+<text x="1274" y="974" font-size="16" font-weight="400" fill="#4f5c73">werden. Der Bereich bleibt im Zustand Alarm.</text>
+<text x="1258" y="1011" font-size="16" font-weight="400">•</text>
+<text x="1274" y="1011" font-size="16" font-weight="400" fill="#4f5c73">Unscharfschalten beendet den aktiven Bereich.</text>
+<text x="1258" y="1048" font-size="16" font-weight="400">•</text>
+<text x="1274" y="1048" font-size="16" font-weight="400" fill="#4f5c73">Das Alarmgedächtnis bleibt nach dem</text>
+<text x="1274" y="1075" font-size="16" font-weight="400" fill="#4f5c73">Unscharfschalten erhalten, bis es bewusst quittiert</text>
+<text x="1274" y="1102" font-size="16" font-weight="400" fill="#4f5c73">wird.</text>
+<text x="1258" y="1139" font-size="16" font-weight="400">•</text>
+<text x="1274" y="1139" font-size="16" font-weight="400" fill="#4f5c73">Automatische Wiederbewaffnung erfolgt nur bei</text>
+<text x="1274" y="1166" font-size="16" font-weight="400" fill="#4f5c73">Bereitschaft.</text>
+<path d="M 82 1273 H 1716" fill="none" stroke="#d6dfed" stroke-width="2"/>
+<text x="82" y="1310" font-size="16" font-weight="400" fill="#56627b">Farben unterstützen die Orientierung; maßgeblich bleiben die ausgeschriebenen Zustände und Übergangsbedingungen.</text>
+<rect x="414.2" y="130" width="281.5" height="25" rx="4" fill="#f7f9fc"/>
+<text x="555" y="150" font-size="17" font-weight="400" fill="#39445a" text-anchor="middle">Scharfschalten mit 0 Sekunden</text>
+<rect x="295.2" y="229" width="159.5" height="50" rx="4" fill="#f7f9fc"/>
+<text x="375" y="249" font-size="17" font-weight="400" fill="#39445a" text-anchor="middle">Scharfschalten</text>
+<text x="375" y="274" font-size="17" font-weight="400" fill="#39445a" text-anchor="middle">Verzögerung &gt; 0</text>
+<rect x="618.7" y="229" width="222.6" height="50" rx="4" fill="#f7f9fc"/>
+<text x="730" y="249" font-size="17" font-weight="400" fill="#39445a" text-anchor="middle">Countdown beendet</text>
+<text x="730" y="274" font-size="17" font-weight="400" fill="#39445a" text-anchor="middle">Abschlussprüfung bereit</text>
+<rect x="1002.1" y="229" width="145.8" height="50" rx="4" fill="#f7f9fc"/>
+<text x="1075" y="249" font-size="17" font-weight="400" fill="#39445a" text-anchor="middle">Verzögerter</text>
+<text x="1075" y="274" font-size="17" font-weight="400" fill="#39445a" text-anchor="middle">Sensor löst aus</text>
+<rect x="1313.3" y="229" width="213.4" height="50" rx="4" fill="#f7f9fc"/>
+<text x="1420" y="249" font-size="17" font-weight="400" fill="#b8331d" text-anchor="middle">Countdown abgelaufen</text>
+<text x="1420" y="274" font-size="17" font-weight="400" fill="#b8331d" text-anchor="middle">oder Sofort-Sensor</text>
+<rect x="1125.1" y="457" width="239.9" height="25" rx="4" fill="#f7f9fc"/>
+<text x="1245" y="477" font-size="17" font-weight="400" fill="#b8331d" text-anchor="middle">Sofort auslösender Sensor</text>
+<rect x="983.2" y="546" width="523.6" height="24" rx="4" fill="#f7f9fc"/>
+<text x="1245" y="565" font-size="16" font-weight="400" fill="#39445a" text-anchor="middle">Alarmdauer beendet · bereit · automatische Wiederbewaffnung</text>
+<rect x="694.4" y="643" width="401.2" height="25" rx="4" fill="#f7f9fc"/>
+<text x="895" y="663" font-size="17" font-weight="400" fill="#39445a" text-anchor="middle">Unscharfschalten aus jedem aktiven Zustand</text>
+<rect x="483.5" y="671" width="823.0" height="24" rx="4" fill="#f7f9fc"/>
+<text x="895" y="690" font-size="16" font-weight="400" fill="#637089" text-anchor="middle">Ausgangsverzögerung kehrt auch bei fehlgeschlagener Abschlussprüfung sicher zu Unscharf zurück.</text>
+</g></svg>
