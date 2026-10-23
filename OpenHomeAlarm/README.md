@@ -571,6 +571,61 @@ Beim Unscharfschalten werden laufende Eingangs- und Ausgangsverzögerungen immer
 
 Für eine einmalig gewählte Scharfschaltung darf ein bereits ausgelöster Sensor nur dann automatisch überbrückt werden, wenn am Sensor **Automatische Überbrückung erlauben** aktiviert wurde. Die Freigabe allein bewirkt nichts. Sobald ein so überbrückter Sensor seinen Normalzustand erreicht, wird er wieder überwacht und kann beim nächsten Auslösen Alarm geben. Nicht verfügbare Sensoren, 24/7-Sensoren und blockierende Störungen sind ausgeschlossen. Diese automatische Überbrückung bleibt über Neustarts erhalten, endet spätestens beim Unscharfschalten und wird in Status, Kachel, IPSView und Ereignisprotokoll sichtbar. Die bisherige manuelle Überbrückung bleibt dagegen bis zum Unscharfschalten bestehen. Hat ein Sensor während eines Symcon-Ausfalls geschlossen und wieder geöffnet, ist dieser Zwischenzustand nicht zuverlässig erkennbar; bei einem weiterhin ausgelösten Wert bleibt seine automatische Überbrückung deshalb bestehen.
 
+### Kameras als Voralarm oder bestätigten Alarm verwenden
+
+Eine einzelne Kameraerkennung ist häufig zunächst nur eine Information und
+noch kein zu quittierender Einbruchalarm. Sie sollte deshalb nicht als
+Störungseingang zweckentfremdet werden: Eine erkannte Person ist keine
+technische Störung des Alarmsystems. Der Sensortyp **Sonstiger Auslöser**
+erzeugt ebenfalls keinen schwächeren Alarm, sondern ist lediglich die neutrale
+fachliche Einordnung eines normalen Alarmsensors.
+
+Das Beispiel
+[camera-prealarm-notification.php](../docs/examples/camera-prealarm-notification.php)
+sendet bei der positiven Flanke einer Boolean-Kameravariable genau eine native
+Symcon-Push-Nachricht. Dazu wird unter dem Skript für jede gewünschte
+Kameravariable ein ausgelöstes Ereignis **Bei Variablenänderung** angelegt. Das
+Zurückfallen der Kameravariable auf `false` bleibt ohne Aktion. Im Skript sind
+die fünfstelligen Platzhalter für Kachel-Visualisierung und Zielobjekt durch die
+IDs der eigenen Installation zu ersetzen; das Zielobjekt muss in der gewählten
+Visualisierung vorhanden sein. Dieser Voralarm erzeugt bewusst weder einen
+OpenHomeAlarm-Alarmzustand noch ein Alarmgedächtnis.
+
+Soll erst eine zweite Erkennung als echter Alarm gelten, wertet
+[camera-confirmed-detection.php](../docs/examples/camera-confirmed-detection.php)
+mehrere Kameravariablen in einem gemeinsamen Zeitfenster aus. Benötigt werden
+drei vorher angelegte Hilfsvariablen:
+
+| Hilfsvariable | Typ | Bedeutung |
+| --- | --- | --- |
+| Letzte Kameraerkennung | Integer | Unix-Zeitstempel der zuletzt ausgewerteten positiven Flanke |
+| Letzte Kamera-ID | Integer | Objekt-ID der zuletzt auslösenden Kameravariable |
+| Bestätigte Kameraerkennung | Boolean | Kurzer Ausgangsimpuls, der als Sensor in OpenHomeAlarm verwendet wird |
+
+Die IDs dieser Variablen werden in das Beispielskript eingetragen. Anschließend
+wird für jede beteiligte Boolean-Kameravariable unter demselben Skript ein
+Ereignis **Bei Variablenänderung** angelegt. Die Einstellung
+`$cameraConfirmationMode` bestimmt die Regel:
+
+| Wert | Bestätigung |
+| --- | --- |
+| `any` | Zwei beliebige Erkennungen innerhalb des Zeitfensters |
+| `same` | Zwei Erkennungen derselben Kamera |
+| `different` | Erkennungen von zwei unterschiedlichen Kameras |
+
+`$cameraConfirmationWindowSeconds` legt das Zeitfenster fest. Eine nicht
+passende oder zu späte Meldung wird zum neuen Ausgangspunkt. Bei erfüllter
+Regel setzt das Skript **Bestätigte Kameraerkennung** für die mit
+`$cameraConfirmationOutputSeconds` festgelegte Impulsdauer auf `true`. Diese
+Boolean-Variable kann anschließend als normaler Sensor dem gewünschten
+Alarmbereich und Scharfmodus zugeordnet werden. Das Zurücksetzen des Impulses
+auf `false` quittiert keinen bereits ausgelösten Alarm; Alarmzustand und
+Alarmgedächtnis folgen weiterhin den normalen OpenHomeAlarm-Regeln.
+
+Damit bleiben die Zuständigkeiten getrennt: Das vorgeschaltete Skript bewertet
+die hersteller- und installationsabhängigen Kamerameldungen. OpenHomeAlarm
+erhält erst das daraus abgeleitete, eindeutig bestätigte Alarmsignal.
+
 ## 8. Temporäre Durchgangsfreigabe
 
 Die temporäre Durchgangsfreigabe erlaubt einer überwachten Tür genau einen

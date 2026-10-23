@@ -4,6 +4,12 @@
 
 ## Neu
 
+- Zwei dokumentierte Beispielskripte bilden Kameraerkennungen wahlweise als
+  reine Push-Vorwarnung oder nach einer zweiten passenden Erkennung als
+  bestätigten Boolean-Alarmsensor ab. Die Bestätigung kann mit beliebigen,
+  gleichen oder unterschiedlichen Kameras innerhalb eines einstellbaren
+  Zeitfensters erfolgen, ohne Kameralogik in das Alarmmodul zu verlagern.
+
 - Bei aktiven Alarmbereichen warnt das Konfigurationsformular ausdrücklich vor Updates über Module Control oder den Symcon Module Store: Zuerst alle Bereiche unscharf schalten.
 
 - Alte Sicherheits-Snapshots ohne `FullyDisarmedAction` werden gezielt um den deaktivierten Standard ergänzt. Die Konfigurationssperre für aktive Alarmbereiche bleibt unverändert. Updates über Module Control und Module Store dürfen ausschließlich bei vollständig unscharfer Anlage erfolgen.
