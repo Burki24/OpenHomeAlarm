@@ -89,6 +89,16 @@ OpenHomeAlarm trennt den gewählten **Scharfmodus** vom aktuellen
 | Eingangsverzögerung | Ein entsprechend konfigurierter Sensor hat ausgelöst; vor dem Alarm läuft der Countdown. |
 | Alarm | Mindestens ein Sensor hat einen Alarm ausgelöst. |
 
+Das folgende Diagramm zeigt die Zustände und die wichtigsten Übergänge eines
+einzelnen Alarmbereichs. Mehrere aktive Bereiche führen dieses Modell
+unabhängig voneinander; `main` fasst ihre Zustände für die Gesamtanlage
+zusammen. Einmalige Überbrückungen und Durchgangsfreigaben verändern nicht den
+eigentlichen Systemzustand, sondern nur die Auswertung des ausdrücklich
+freigegebenen Sensors. Das Alarmgedächtnis bleibt auch nach dem
+Unscharfschalten erhalten, bis es bewusst quittiert wird.
+
+![Zustandsmodell eines OpenHomeAlarm-Alarmbereichs](../docs/images/openhomealarm-state-model.svg)
+
 ## 3. Voraussetzungen und Installation
 
 ### Voraussetzungen
