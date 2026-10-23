@@ -1,5 +1,36 @@
 # Changelog
 
+# Unveröffentlicht
+
+## Neu
+
+- Zwei dokumentierte Beispielskripte bilden Kameraerkennungen wahlweise als
+  reine Push-Vorwarnung oder nach einer zweiten passenden Erkennung als
+  bestätigten Boolean-Alarmsensor ab. Die Bestätigung kann mit beliebigen,
+  gleichen oder unterschiedlichen Kameras innerhalb eines einstellbaren
+  Zeitfensters erfolgen, ohne Kameralogik in das Alarmmodul zu verlagern.
+
+- Bei aktiven Alarmbereichen warnt das Konfigurationsformular ausdrücklich vor Updates über Module Control oder den Symcon Module Store: Zuerst alle Bereiche unscharf schalten.
+
+- Alte Sicherheits-Snapshots ohne `FullyDisarmedAction` werden gezielt um den deaktivierten Standard ergänzt. Die Konfigurationssperre für aktive Alarmbereiche bleibt unverändert. Updates über Module Control und Module Store dürfen ausschließlich bei vollständig unscharfer Anlage erfolgen.
+
+- Gemeinsame Mausrad-, Scroll- und Frame-Unterstützung aus Symcon_ModuleHelper eingebunden; IPSView-Ereignisse mit umadressiertem Ziel werden zentral behandelt.
+
+- Störungseingänge können jetzt wahlweise beim ausgewählten Störwert oder bei
+  jeder Abweichung von einem festgelegten Normalwert auslösen. Bestehende
+  Einträge behalten automatisch ihre bisherige exakte Auswertung. Variablenpfade
+  erhalten im Editor mehr Platz; die Mehrfachsuche übernimmt die gemeinsame
+  Regel und den Vergleichswert.
+- Konfigurationssicherungen lassen sich im Instanzformular auswählen, bewusst
+  bestätigen, vollständig validieren und wiederherstellen. Die vorhandenen
+  Schutzregeln für scharfe Bereiche, inkompatible Daten und Rollback bleiben
+  dabei unverändert wirksam.
+- Die neue vertrauenswürdige Automationsfunktion
+  `OHA_DisarmWithSource()` kann nach einer externen Berechtigungsprüfung die
+  Gesamtanlage unscharf schalten und eine verständliche Quelle im
+  Ereignisprotokoll hinterlegen.
+- Die Debug-Ausgaben erklären Modulaufrufe, Sensorwerte, Statusänderungen, Aktionen und Schnittstellenkommunikation einheitlich auf Deutsch. Funktions- und Zeilenangaben, Vorgangskennungen sowie Start und Ende mit Ergebnis erleichtern die Nachverfolgung; Codes und Zugangsdaten bleiben geschützt.
+
 - Die erweiterten IPSView-Farbeinstellungen blenden die ausschließlich für native Kalendersteuerungen vorgesehene Farbfamilie in OpenHomeAlarm aus.
 - Der zentrale `IPSViewHTMLPageHelper` stellt nun auch in OpenHomeAlarm den Button zur manuellen IPSView-HTML-Neugenerierung bereit und verarbeitet gemeinsame IPSView-Formularaktionen.
 
@@ -9,6 +40,230 @@ aus `library.json`; der dazugehörige Git-Tag ergänzt für SemVer eine Patchste
 beispielsweise `v1.109.0`.
 
 ## Unreleased
+
+- Lange Titel und Texte nativer Symcon-Push-Nachrichten werden jetzt
+  UTF-8-sicher auf die von Symcon akzeptierten Byte-Grenzen gekürzt. Das
+  mehrbyteige Auslassungszeichen kann dadurch die zulässigen 32 beziehungsweise
+  256 Bytes nicht mehr überschreiten und den Versand abbrechen.
+- Die Liste der Manipulations- und Störungseingänge zeigt Alarmbereiche jetzt
+  wie die Sensorliste mit ihrem frei vergebenen Namen statt mit der technischen
+  Bereichs-ID an. Gespeichert und von Skripten verwendet wird weiterhin die
+  unveränderte eindeutige ID.
+- Die Variablenauswahl nutzt beim Bearbeiten von Sensoren und Störungseingängen
+  die verfügbare Dialogbreite, damit lange Objektpfade besser lesbar bleiben.
+- Die Download-Schaltflächen für JSON und CSV des Ereignisprotokolls übergeben
+  nun sämtliche Pflichtparameter an den von Symcon erzeugten Funktionswrapper.
+  Dadurch funktionieren die Downloads auch in Installationen, die optionale
+  PHP-Standardparameter in generierten Wrappern nicht übernehmen.
+
+- Kachel und IPSView zeigen im Systemprotokoll jetzt die neuesten 20 statt nur
+  6 Meldungen. Intern bleiben weiterhin bis zu 100 Ereignisse gespeichert und
+  vollständig über JSON, CSV und die öffentliche API verfügbar. Die Downloads
+  für Ereignishistorie, Diagnose und Konfigurationssicherung befinden sich nun
+  gebündelt im Instanzformular statt in Kachel oder IPSView. Die Anleitung
+  stellt außerdem klar, dass diese Downloads und der von der Backup-API
+  zurückgegebene JSON-Text nicht automatisch als Moduldateien auf dem
+  Symcon-Server abgelegt werden.
+
+- Die Spalte **Bereiche** der Sensorliste wird unmittelbar nach dem Bestätigen
+  des Sensor-Editors aus den gewählten Bereichs-Checkboxen aktualisiert. Sie
+  zeigt nicht mehr bis zum nächsten **Änderungen übernehmen** den vorherigen
+  beziehungsweise standardmäßigen Hauptbereich an.
+
+- Neue Alarmbereichszeilen erhalten keine pauschale Bereichs-ID `area` mehr.
+  Doppelt vergebene Bereichs-IDs werden weiterhin sicher abgewiesen; Status 201
+  nennt jetzt die konkrete doppelte ID und den erforderlichen Korrekturschritt.
+  Formular und Anleitung weisen ausdrücklich darauf hin, dass jede technische
+  Bereichs-ID innerhalb der Instanz eindeutig sein muss.
+
+- Eine ungültige doppelte Sensor- oder Störungszuordnung lässt die zyklische
+  Bedienabfrage nicht mehr mit einer Exception abbrechen. Kachel und IPSView
+  bleiben erreichbar, sperren sicherheitshalber alle Scharfschaltaktionen und
+  nennen den konkreten Korrekturschritt als Blockiergrund und Diagnoseproblem.
+
+- Die sichtbaren Bezeichnungen der Scharfmodi Zuhause, Abwesend und Nacht
+  können für Kachel und IPSView gemeinsam geändert und einzelne Moduskarten
+  ausgeblendet werden. Technische Modusnamen und öffentliche APIs bleiben
+  unverändert kompatibel.
+
+- Erfolgreich ausgeführte Alarm-Eskalationsaktionen sowie versandte Symcon- und
+  Pushover-Alarmbenachrichtigungen erscheinen jetzt mit ihrem Namen im
+  persistenten Systemprotokoll. Fehlgeschlagene Ausführungen werden nicht als
+  Erfolg protokolliert.
+
+- Deaktivierte Diagnoseeingänge verwenden in Kachel und IPSView nun die
+  neutrale graue Inaktiv-Rolle statt einer grün wirkenden Oberfläche.
+
+- Die mobile native Kachel berechnet die Höhe des mehrzeiligen
+  Alarmbereichsrahmens aus den tatsächlich sichtbaren Teilbereichen. Dadurch
+  überlagert die Legende der Mehrfachauswahl auch in der Symcon-App keine
+  Bereichsbuttons mehr.
+
+- Ungültige Konfigurationen werden nicht mehr pauschal als Sensor- oder
+  Störungsfehler gemeldet. Eigene Statusmeldungen unterscheiden jetzt
+  Alarmbereiche, Sensoren/Störungen, automatische Scharfschaltzeitpläne,
+  Alarmaktionen und beschädigte Laufzeitdaten. Bei einer fehlerhaften
+  Alarmaktion nennt die Statusmeldung jetzt zusätzlich den Namen der betroffenen
+  Zeile, die widersprüchliche Einstellung und die konkreten Schritte zur
+  Korrektur, etwa die beiden zulässigen Rücksetzarten eines Signalgebers.
+
+- Die Alarmbereichsbuttons brechen in schmalen Kachel- und IPSView-Ansichten
+  nun automatisch auf mehrere Zeilen um. Der Bereichsrahmen berücksichtigt
+  dabei auch die eingeblendete Mehrfachauswahl vollständig. Die Schalter für
+  Alarmierungsart und automatische Überbrückung bleiben platzsparend am
+  rechten Rand ihrer jeweiligen Zeile ausgerichtet.
+
+- Über die Mehrfachsuche hinzugefügte Sensoren erhalten automatisch den Namen
+  **Variablenname (Parentname)**. Nach erfolgreicher Übernahme schließt das
+  jeweilige Sensor- oder Störungssuchfenster unmittelbar; bei einem Fehler
+  bleibt es zur Korrektur geöffnet. Die Übernahmeschaltfläche der
+  Störungssuche steht nun konsistent in der Fußleiste neben **Abbrechen**.
+  Der gewählte Auslöse- beziehungsweise Störwert ist außerdem bereits vor dem
+  Speichern beim Bearbeiten einer neuen Sensor- oder Störungszeile verfügbar.
+
+- Die Variablensuche verarbeitet jetzt auch sehr große Symcon-Objektbäume mit
+  bis zu 100 Ebenen, 100.000 besuchten Objekten und 10.000 Treffern pro Lauf.
+  Unter **Systemüberwachung** können mehrere Manipulations- und
+  Störungseingänge gesucht und mit gemeinsamen Einstellungen angelegt werden.
+
+- Doppelt verwendete Variablen-IDs in den Störungseingängen erzeugen beim
+  Anwenden keinen PHP-Fatal-Error mehr. Die Instanz meldet stattdessen eine
+  kontrolliert ungültige Konfiguration, sodass das sichtbare Duplikat entfernt
+  werden kann.
+
+- Funktional identische Sensorzeilen werden ebenfalls kontrolliert als
+  ungültige Konfiguration gemeldet. Dieselbe Variable darf weiterhin mehrfach
+  verwendet werden, wenn sich Alarmbereiche, Auswertung, Scharfmodi,
+  Verzögerungen oder Sonderoptionen tatsächlich unterscheiden.
+
+- In breiten Kachel- und IPSView-Darstellungen wird der zusätzliche
+  Deaktivierungsbutton ausgeblendet, sobald das fest eingeblendete Codepad
+  dessen Funktion übernimmt. In schmalen Ansichten bleibt der Button als
+  Auslöser für das Popup-Codepad erhalten.
+
+- Die Sensorliste verwendet kompaktere Spaltenbreiten und kurze, eindeutige
+  Überschriften. Dadurch bleiben Bearbeiten und Löschen auf üblichen
+  Bildschirmbreiten ohne horizontales Hin- und Herscrollen erreichbar.
+
+- Die Konfiguration kann vorhandene Symcon-Variablen jetzt nach Name und Typ
+  suchen, mehrere Treffer auswählen und mit gemeinsamen Sensor-, Bereichs-,
+  Scharfmodus- und Sondereinstellungen als einzeln nachbearbeitbare Entwürfe
+  in die Sensorliste übernehmen.
+
+- Alarm-Eskalationsaktionen lassen sich zusätzlich zur Alarmierungsart gezielt
+  den Auslösekategorien **Zuhause**, **Abwesend**, **Nacht** und **24/7**
+  zuordnen. Bestehende Aktionen gelten weiterhin für alle Kategorien. Mehrere
+  gleichzeitig aktive Alarmursachen werden paarweise ausgewertet und führen
+  keine bereits ausgeführte Aktion ein zweites Mal aus.
+
+- Unter **Unscharfschalten** kann jetzt eine optionale Aktion hinterlegt werden,
+  die genau einmal nach dem erfolgreichen Übergang des letzten aktiven Bereichs
+  zur vollständig unscharfen Anlage ausgeführt wird. Teilweises oder wiederholtes
+  Unscharfschalten vervielfacht die Aktion nicht.
+
+- Nach dem Löschen oder Deaktivieren eines noch zugeordneten Alarmbereichs zeigt
+  der Sensor-Editor die verwaiste Zuordnung weiterhin als markierte Checkbox an.
+  Sie kann dadurch direkt entfernt werden, ohne den Bereich erneut anzulegen.
+
+- Konfigurierte Countdown-Aktionen laufen jetzt auch bei einzeln oder gemeinsam
+  geschalteten Zusatzbereichen. Eine neue optionale Startaktion ermöglicht einen
+  einmaligen Signalton oder Hinweis; gemeinsam gestartete Bereiche führen Start-,
+  Sekunden- und Endaktionen jeweils nur einmal aus. Das Formular trennt
+  diese drei Zeitpunkte jetzt eindeutig und zeigt den jeweiligen Hilfetext direkt
+  vor der zugehörigen Aktionsliste.
+
+- Native Kachelaktionen veröffentlichen nach ihrer vollständigen Verarbeitung
+  immer noch einmal den aktuellen Bedienzustand. Dadurch erscheinen insbesondere
+  abgelehnte Schaltversuche sofort im Systemprotokoll statt erst nach der
+  nächsten Bedienaktion.
+
+- Das Systemprotokoll zeigt unabhängig vom ausgewählten Alarmbereich die
+  neuesten Ereignisse aller Bereiche und kennzeichnet auch den Hauptbereich
+  mit seinem konfigurierten Namen. Systemweit ausgeführte Alarmaktionen und
+  Benachrichtigungen werden nicht mehr fälschlich `main` zugeordnet;
+  identische Namen von Eskalationsstufe und Aktion erscheinen nur einmal.
+
+- Auf schmalen Kachel- und IPSView-Darstellungen stehen Diagnosezähler sowie
+  JSON- und CSV-Export in einer eigenen umbrechenden Aktionszeile und werden
+  nicht mehr am rechten Rand abgeschnitten.
+
+- Kachel und IPSView berechnen den sichtbaren Countdown einer Eingangs- oder Ausgangsverzögerung nun
+  zwischen den Backend-Aktualisierungen aus der veröffentlichten Frist. Das
+  verhindert insbesondere in iOS-WebViews stockende Sekundenanzeigen, ohne die
+  sicherheitsrelevante Zeitsteuerung aus dem Modul zu verlagern.
+
+- Sind nur einzelne Alarmbereiche scharf, kann über den ausgewählten
+  Hauptbereich jetzt mit einer einzigen Aktion und gegebenenfalls einer
+  einzigen Code-Eingabe die gesamte Anlage deaktiviert werden. Die gezielte
+  Deaktivierung eines einzelnen ausgewählten Bereichs bleibt erhalten.
+
+- In der zusammengefassten Bereitschaftsanzeige des Hauptbereichs erscheint
+  ein physischer Sensor nur noch einmal, auch wenn er mehreren ausgewählten
+  Alarmbereichen zugeordnet ist. Die Sicherheitsprüfung jedes Bereichs bleibt
+  davon unberührt.
+
+- Die Systemdiagnose von Kachel und IPSView beschreibt ihren Problemzähler nun
+  als „Keine Probleme“, „1 Problem“ oder „n Probleme“. Die bereichsbezogene
+  Anzeige zählt ausgelöste Störungseingänge jetzt ebenso wie das zentrale
+  Diagnosemodell.
+
+- Die ausführliche Modulanleitung zeigt die zentralen Konfigurationsschritte,
+  die Kachelbedienung und das Sicherheits-Ereignisprotokoll jetzt zusätzlich
+  anhand geprüfter Screenshots aus einer Symcon-9-Testinstallation.
+
+- Beim gemeinsamen Scharfschalten einer Teilmenge folgt die Detailanzeige nun
+  einem beteiligten Bereich, sodass Ausgangsverzögerung und Countdown sichtbar
+  bleiben. Auch eine einzelne Markierung wird zuverlässig an den tatsächlich
+  gewählten statt an den zuvor angezeigten Bereich gesendet.
+
+- Die Bereichsbuttons von Kachel und IPSView vereinen Detailauswahl und
+  Mehrbereichs-Scharfschaltung platzsparend in einer Zeile, kennzeichnen beide
+  Zustände jedoch getrennt durch Außenrahmen und Auswahlhaken. Alarmierungsart
+  und optionale Sensorüberbrückung stehen auf breiten Ansichten nebeneinander.
+
+- Kachel und IPSView zeigen bei einem bereits geschalteten Bereich wieder die
+  tatsächliche Sensorbereitschaft statt pauschal „Nicht bereit“. Die nur zum
+  Scharfschalten bestimmte Mehrbereichsauswahl wird währenddessen ausgeblendet.
+
+- Kachel und IPSView brechen den Aufbau des Scharfmodus-Bereichs nach der
+  Einführung der Mehrbereichsauswahl nicht mehr wegen eines ungültigen
+  JavaScript-Hilfsfunktionsaufrufs ab.
+
+- Mehrere frei gewählte Alarmbereiche können über die neue atomare API und die
+  gemeinsame Kachel-/IPSView-Auswahl zusammen scharfgeschaltet werden. Ein
+  Blocker oder eine ungültige Bereichs-ID verhindert den gesamten Auftrag;
+  `main` bleibt die bewusste Auswahl der Gesamtanlage.
+
+- Kachel und IPSView bieten beim Scharfschalten die einmalige automatische
+  Überbrückung nur für Sensoren an, die dafür ausdrücklich freigegeben sind.
+  Nicht verfügbare und 24/7-Sensoren sowie Störungen bleiben unverändert
+  blockierend.
+
+- Ein Sensor kann mit `OHA_GrantPassagePartitions()` atomar in mehreren
+  gleichzeitig scharfen Bereichen für denselben Durchgang freigegeben werden.
+  Die Anleitung beschreibt zusätzlich die eingeschränkte Verwendung eines
+  Nuki-Verriegelungszustands, wenn kein separater Türkontakt vorhanden ist.
+
+- Neben der Aktion für jeden positiven Countdown-Schritt kann eine getrennte
+  Endaktion konfiguriert werden. Sie läuft nach regulärem Ende oder
+  kontrolliertem Abbruch eines begonnenen Countdowns genau einmal und eignet
+  sich zum ausdrücklichen Ausschalten von Ton, Licht oder Statusausgaben.
+
+- Normale Sensoren können einzeln für eine vertrauenswürdige, zeitlich begrenzte
+  Durchgangsfreigabe zugelassen werden. Die neuen PHP-Funktionen geben genau
+  einen Öffnen-/Schließen-Zyklus frei, lassen den Bereich scharf und beenden
+  eine passende Eingangsverzögerung. Andere und 24/7-Sensoren bleiben aktiv;
+  eine bei Fristablauf noch offene Freigabe löst Alarm aus. Laufzeit und
+  Restfrist sind neustartsicher im Bedienzustand der API-Version 3 enthalten.
+
+- Gleichnamige Sensoren und Störungseingänge bleiben in Blockierungs-, Störungs-
+  und Überbrückungslisten intern anhand ihrer Variablen-IDs getrennt. Sichtbar
+  bleiben konfigurierte oder aktuelle Symcon-Namen ohne ID-Zusatz.
+
+- Sensoren können weiterhin auf einen einzelnen Auslösewert oder neu auf jede
+  Abweichung von einem festgelegten Normalwert reagieren. Dadurch lassen sich
+  mehrwertige Zustandsvariablen etwa von Fenstergriffen, Türschlössern oder
+  Wassermeldern ohne mehrfachen Sensoreintrag auswerten.
 
 - Die Kachel- und IPSView-Oberfläche zeigen den Sicherheitsstatus zuerst. Die
   Bereichsauswahl erhält einen eigenen Rahmen; Scharfmodi-Überschrift,
@@ -39,6 +294,24 @@ beispielsweise `v1.109.0`.
 
 ### Fixed
 
+- Die konfigurierte Entstörungsaktion wird bei mehreren gleichzeitigen
+  Störungen erst ausgeführt, nachdem die letzte Störung behoben wurde. Einzelne
+  Behebungen bleiben im Ereignisprotokoll sichtbar, lösen aber keine vorzeitige
+  Entwarnung mehr aus.
+- Das Ziel nativer Symcon-Push-Nachrichten wird als Kachel-Visualisierung direkt
+  aus dem Instanzbaum gewählt, statt eine fehleranfällige numerische ID zu
+  verlangen.
+- Die Ausnahme für aktive Ausgangswegsensoren gilt nur noch beim Scharfmodus
+  **Abwesend**. Bei **Zuhause** und **Nacht** werden dieselben Sensoren sofort als
+  Blocker angezeigt und verhindern die Scharfschaltung.
+- Das Konfigurationsformular bleibt bei einem fehlenden oder deaktivierten
+  Hauptbereich `main` erreichbar, damit die ungültige Bereichskonfiguration
+  direkt korrigiert werden kann.
+- Drei gleichzeitig sichtbare Detailbereiche bleiben in Kachel und IPSView bis
+  zum direkten Wechsel auf die einspaltige Mobilansicht gleich breit.
+- Auf schmalen IPSView-Flächen scrollt die vollständige Seite statt einzelner
+  Detaillisten, damit insbesondere die Systemdiagnose jederzeit wieder bis zu
+  ihrem Kopfbereich zurückgescrollt werden kann.
 - Verwaiste Sensor- oder Störungszuordnungen zu einem fehlenden bzw. deaktivierten
   Alarmbereich führen beim Anwenden oder Neustart nicht mehr zu einem PHP-Fatal.
   Die Instanz meldet stattdessen einen verständlichen Konfigurationsstatus, und
@@ -73,7 +346,7 @@ beispielsweise `v1.109.0`.
   Fehlversuchs- und Sperrzeitbehandlung.
 - Wöchentliche automatische Scharfschaltung über die regulären
   Bereitschaftsprüfungen.
-- Optionale Countdown-Aktion für Ein- und Ausgangsverzögerungen sowie
+- Optionale Countdown-Aktion für Eingangs- und Ausgangsverzögerungen sowie
   zeitgesteuerte Alarm-Eskalationsstufen.
 - JSON- und CSV-Export für Ereignishistorie und Systemdiagnose.
 - Gemeinsame Diagnoseansicht für HTML-SDK-Kachel und IPSView mit Sensor-,

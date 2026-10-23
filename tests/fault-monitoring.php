@@ -108,6 +108,8 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $currentValues = [];
 
+    private int $status = 102;
+
     public function Create(): void
     {
     }
@@ -136,9 +138,20 @@ class IPSModuleStrict
         return $this->writtenValues;
     }
 
+    /** @return array<string,int|string> */
+    public function TestAttributes(): array
+    {
+        return $this->attributes;
+    }
+
     public function TestClearWrittenValues(): void
     {
         $this->writtenValues = [];
+    }
+
+    public function TestStatus(): int
+    {
+        return $this->status;
     }
 
     /** @return array<int,list<int>> */
@@ -327,6 +340,11 @@ class IPSModuleStrict
         return true;
     }
 
+    protected function SetStatus(int $status): void
+    {
+        $this->status = $status;
+    }
+
     protected function SendDebug(string $message, string $data, int $format): bool
     {
         return true;
@@ -349,16 +367,18 @@ function faultInput(
     int $faultType,
     string $triggerValue,
     bool $blockArming,
-    bool $triggerAlarm
+    bool $triggerAlarm,
+    string $triggerCondition = 'equals'
 ): array {
     return [
-        'Enabled'      => true,
-        'Name'         => $name,
-        'VariableID'   => $variableID,
-        'FaultType'    => $faultType,
-        'TriggerValue' => $triggerValue,
-        'BlockArming'  => $blockArming,
-        'TriggerAlarm' => $triggerAlarm
+        'Enabled'          => true,
+        'Name'             => $name,
+        'VariableID'       => $variableID,
+        'FaultType'        => $faultType,
+        'TriggerCondition' => $triggerCondition,
+        'TriggerValue'     => $triggerValue,
+        'BlockArming'      => $blockArming,
+        'TriggerAlarm'     => $triggerAlarm
     ];
 }
 
@@ -376,6 +396,16 @@ $instance->Create();
 $instance->TestSetPropertyInteger('ExitDelaySeconds', 0);
 $instance->TestSetPropertyString('FaultAction', $faultAction);
 $instance->TestSetPropertyString('FaultClearedAction', $faultClearedAction);
+$instance->TestSetPropertyString('AlarmEscalationSteps', json_encode([[
+    'Enabled'           => true,
+    'Name'              => '24/7 fault output',
+    'DelaySeconds'      => 0,
+    'Action'            => ['actionID' => '{CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC}', 'parameters' => ['VALUE' => true]],
+    'ApplyHome'         => false,
+    'ApplyAway'         => false,
+    'ApplyNight'        => false,
+    'ApplyAlwaysActive' => true
+]], JSON_THROW_ON_ERROR));
 $instance->TestSetPropertyString(
     'FaultInputs',
     json_encode([
@@ -423,6 +453,37 @@ assertFaultMonitoring(
 );
 assertFaultMonitoring($instance->ArmAway() === false, 'A blocking fault must reject arming.');
 
+// A normal-value rule remains healthy at the configured value and triggers on every deviation.
+$normalValueInstance = new OpenHomeAlarm();
+$normalValueInstance->Create();
+$normalValueInstance->TestSetPropertyString(
+    'FaultInputs',
+    json_encode([
+        faultInput(9002, 'Velux Status', 3, 'OK', true, false, 'not_equals')
+    ], JSON_THROW_ON_ERROR)
+);
+$testValues[9002] = 'OK';
+$normalValueInstance->ApplyChanges();
+assertFaultMonitoring(
+    ($normalValueInstance->TestWrittenValues()['SystemFault'] ?? null) === false,
+    'A fault input using a normal-value rule must remain healthy at the configured normal value.'
+);
+$testValues[9002] = 'BLOCKED';
+$normalValueInstance->TestClearWrittenValues();
+$normalValueInstance->MessageSink(1, 9002, VM_UPDATE, ['BLOCKED', true, false]);
+assertFaultMonitoring(
+    ($normalValueInstance->TestWrittenValues()['SystemFault'] ?? null) === true,
+    'A fault input using a normal-value rule must trigger on a different value.'
+);
+$testValues[9002] = 'OK';
+$normalValueInstance->TestClearWrittenValues();
+$normalValueInstance->MessageSink(1, 9002, VM_UPDATE, ['OK', true, false]);
+assertFaultMonitoring(
+    ($normalValueInstance->TestWrittenValues()['SystemFault'] ?? null) === false,
+    'Returning to the configured normal value must clear the fault.'
+);
+$testValues[9002] = 'FAULT';
+
 // Re-evaluating the same active condition must not duplicate events/actions.
 $instance->ApplyChanges();
 assertFaultMonitoring(count($testActions) === 1, 'ApplyChanges must not repeat an already active fault action.');
@@ -442,6 +503,65 @@ assertFaultMonitoring(
     'The configured fault-cleared action must be preserved.'
 );
 
+// Clearing one of several active faults must not signal an all-clear prematurely.
+$testValues[9002] = 'OK';
+$testValues[9003] = false;
+$multipleFaults = new OpenHomeAlarm();
+$multipleFaults->Create();
+$multipleFaults->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$multipleFaults->TestSetPropertyString('FaultAction', $faultAction);
+$multipleFaults->TestSetPropertyString('FaultClearedAction', $faultClearedAction);
+$multipleFaults->TestSetPropertyString(
+    'FaultInputs',
+    json_encode([
+        faultInput(9002, 'Funkverbindung', 2, 'FAULT', false, false),
+        faultInput(9003, 'Batterie Fenster', 1, 'true', false, false)
+    ], JSON_THROW_ON_ERROR)
+);
+$multipleFaults->ApplyChanges();
+$testActions = [];
+
+$testValues[9002] = 'FAULT';
+$multipleFaults->MessageSink(10, 9002, VM_UPDATE, ['FAULT', true, false]);
+$testValues[9003] = true;
+$multipleFaults->MessageSink(11, 9003, VM_UPDATE, [true, true, false]);
+assertFaultMonitoring(count($testActions) === 2, 'Every newly active fault must still run the configured fault action.');
+
+$testValues[9002] = 'OK';
+$multipleFaults->TestClearWrittenValues();
+$multipleFaults->MessageSink(12, 9002, VM_UPDATE, ['OK', true, true]);
+$multipleWritten = $multipleFaults->TestWrittenValues();
+assertFaultMonitoring(
+    ($multipleWritten['SystemFault'] ?? null) === true
+    && ($multipleWritten['ActiveFaults'] ?? null) === 'Batterie Fenster',
+    'Clearing one of several active faults must keep the aggregate system fault active.'
+);
+assertFaultMonitoring(
+    count($testActions) === 2,
+    'Clearing one of several active faults must not run the configured all-clear action.'
+);
+
+$multipleFaults->ApplyChanges();
+assertFaultMonitoring(
+    count($testActions) === 2,
+    'ApplyChanges with a remaining active fault must not run the configured all-clear action.'
+);
+
+$testValues[9003] = false;
+$multipleFaults->TestClearWrittenValues();
+$multipleFaults->MessageSink(13, 9003, VM_UPDATE, [false, true, true]);
+$multipleWritten = $multipleFaults->TestWrittenValues();
+assertFaultMonitoring(
+    ($multipleWritten['SystemFault'] ?? null) === false
+    && ($multipleWritten['ActiveFaults'] ?? null) === '',
+    'Clearing the last active fault must clear the aggregate system fault.'
+);
+assertFaultMonitoring(
+    count($testActions) === 3
+    && $testActions[2]['actionID'] === '{BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB}',
+    'Clearing the last active fault must run the configured all-clear action exactly once.'
+);
+
 // A tamper input configured for alarm is 24/7 and alarms even while disarmed.
 $testValues[9001] = true;
 $instance->TestClearWrittenValues();
@@ -455,6 +575,23 @@ assertFaultMonitoring(
 );
 assertFaultMonitoring(($written['LastFaultSource'] ?? null) === 'Sabotage Zentrale', 'LastFaultSource must track the new fault.');
 assertFaultMonitoring(is_string($written['LastFaultTime'] ?? null) && $written['LastFaultTime'] !== '', 'LastFaultTime must be published.');
+assertFaultMonitoring(
+    array_column(array_slice($testActions, -2), 'actionID') === [
+        '{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}',
+        '{CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC}'
+    ],
+    'An alarm-triggering fault must execute escalation actions assigned to the 24/7 source category.'
+);
+$faultAlarmStates = json_decode(
+    (string) $instance->TestAttributes()['PartitionAlarms'],
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertFaultMonitoring(
+    ($faultAlarmStates['main']['AlarmSources'] ?? null) === ['always_active'],
+    'An alarm-triggering fault must persist its 24/7 source category.'
+);
 
 // Missing variables are fail-safe faults for status/blocking, but do not create Alarm without a positive value match.
 $missing = new OpenHomeAlarm();
@@ -473,7 +610,30 @@ assertFaultMonitoring(($missingWritten['SystemFault'] ?? null) === true, 'A miss
 assertFaultMonitoring(($missingWritten['BlockingFaults'] ?? null) === 'Gateway nicht erreichbar', 'A missing blocking fault input must block arming.');
 assertFaultMonitoring(!array_key_exists('State', $missingWritten), 'An unreadable fault input must not trigger the main alarm by itself.');
 
-// Duplicate positive variable IDs are rejected to keep transition tracking unambiguous.
+// Different source IDs with the same name must stay visible as separate faults.
+$sameNames = new OpenHomeAlarm();
+$sameNames->Create();
+$sameNames->TestSetPropertyString(
+    'FaultInputs',
+    json_encode([
+        faultInput(9002, 'Funkverbindung', 2, 'FAULT', true, false),
+        faultInput(9003, 'Funkverbindung', 1, 'true', true, false)
+    ], JSON_THROW_ON_ERROR)
+);
+$testValues[9002] = 'FAULT';
+$testValues[9003] = true;
+$sameNames->ApplyChanges();
+$sameNamesWritten = $sameNames->TestWrittenValues();
+assertFaultMonitoring(
+    ($sameNamesWritten['ActiveFaults'] ?? null) === 'Funkverbindung, Funkverbindung',
+    'Different fault variable IDs with the same label must remain separate without visible IDs.'
+);
+assertFaultMonitoring(
+    ($sameNamesWritten['BlockingFaults'] ?? null) === 'Funkverbindung, Funkverbindung',
+    'Different blocking fault IDs with the same label must not collapse into one entry.'
+);
+
+// Duplicate positive variable IDs are rejected without crashing ApplyChanges.
 $duplicate = new OpenHomeAlarm();
 $duplicate->Create();
 $duplicate->TestSetPropertyString(
@@ -483,11 +643,254 @@ $duplicate->TestSetPropertyString(
         faultInput(9001, 'B', 4, 'true', false, false)
     ], JSON_THROW_ON_ERROR)
 );
-try {
-    $duplicate->ApplyChanges();
-    throw new RuntimeException('Duplicate fault input variable IDs must be rejected.');
-} catch (UnexpectedValueException) {
+$duplicate->ApplyChanges();
+assertFaultMonitoring(
+    $duplicate->TestStatus() === 202,
+    'Duplicate fault input variable IDs must produce a controlled invalid-configuration status.'
+);
+$duplicateControlState = json_decode($duplicate->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertFaultMonitoring(
+    ($duplicateControlState['Configuration']['Valid'] ?? true) === false
+        && str_contains(
+            (string) ($duplicateControlState['Configuration']['Message'] ?? ''),
+            'same variable is assigned to more than one fault input'
+        )
+        && ($duplicateControlState['Modes']['away']['CanArm'] ?? true) === false
+        && ($duplicateControlState['Diagnostics']['Summary']['Problems'] ?? 0) === 1,
+    'A duplicate fault input must keep control polling available, block arming and expose an actionable diagnostic.'
+);
+$duplicateForm = json_decode($duplicate->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+$duplicateStatusCaption = '';
+foreach ($duplicateForm['status'] ?? [] as $status) {
+    if (($status['code'] ?? null) === 202) {
+        $duplicateStatusCaption = (string) ($status['caption'] ?? '');
+        break;
+    }
 }
+assertFaultMonitoring(
+    str_contains($duplicateStatusCaption, 'same variable is assigned to more than one fault input')
+        && str_contains($duplicateStatusCaption, 'Remove the duplicate row'),
+    'Status 202 must explain the concrete duplicate and correction instead of only naming a generic invalid configuration.'
+);
+$duplicateDiagnostics = json_decode($duplicate->GetDiagnostics(), true, 512, JSON_THROW_ON_ERROR);
+assertFaultMonitoring(
+    ($duplicateDiagnostics['Summary']['Problems'] ?? 0) === 1
+        && ($duplicateDiagnostics['Items'][0]['Kind'] ?? null) === 'configuration',
+    'The public diagnostics snapshot must report an invalid duplicate as a problem instead of throwing the normalizer exception.'
+);
+
+// Functionally identical sensor rows are rejected without crashing ApplyChanges.
+$duplicateSensors = new OpenHomeAlarm();
+$duplicateSensors->Create();
+$duplicateSensors->TestSetPropertyString(
+    'Sensors',
+    json_encode([
+        [
+            'Name'           => 'Front door',
+            'VariableID'     => 9001,
+            'Partition_main' => true,
+            'ArmAway'        => true,
+            'EntryDelay'     => true
+        ],
+        [
+            'Name'           => 'Renamed front door',
+            'VariableID'     => 9001,
+            'Partition_main' => true,
+            'ArmAway'        => true,
+            'EntryDelay'     => true
+        ]
+    ], JSON_THROW_ON_ERROR)
+);
+$duplicateSensors->ApplyChanges();
+assertFaultMonitoring(
+    $duplicateSensors->TestStatus() === 202,
+    'Functionally identical sensor rows must produce a controlled invalid-configuration status.'
+);
+$duplicateSensorControlState = json_decode($duplicateSensors->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertFaultMonitoring(
+    ($duplicateSensorControlState['Configuration']['Valid'] ?? true) === false
+        && str_contains(
+            (string) ($duplicateSensorControlState['Configuration']['Message'] ?? ''),
+            'identical sensor row exists more than once'
+        )
+        && ($duplicateSensorControlState['Modes']['home']['Ready'] ?? true) === false,
+    'An identical sensor row must produce a stable, visibly blocked control state instead of a polling exception.'
+);
+
+// Invalid schedules and alarm actions need their own actionable status instead of a sensor/fault error.
+$invalidSchedule = new OpenHomeAlarm();
+$invalidSchedule->Create();
+$invalidSchedule->TestSetPropertyString(
+    'AutomaticArmingSchedules',
+    json_encode([[
+        'Enabled'   => true,
+        'Name'      => 'No weekday',
+        'Monday'    => false,
+        'Tuesday'   => false,
+        'Wednesday' => false,
+        'Thursday'  => false,
+        'Friday'    => false,
+        'Saturday'  => false,
+        'Sunday'    => false,
+        'Time'      => '08:00',
+        'Mode'      => 'away'
+    ]], JSON_THROW_ON_ERROR)
+);
+$invalidSchedule->ApplyChanges();
+assertFaultMonitoring(
+    $invalidSchedule->TestStatus() === 203,
+    'Invalid automatic arming schedules must produce their dedicated configuration status.'
+);
+
+$invalidSignalGenerator = new OpenHomeAlarm();
+$invalidSignalGenerator->Create();
+$invalidSignalGenerator->TestSetPropertyString(
+    'AlarmEscalationSteps',
+    json_encode([[
+        'Enabled'      => true,
+        'Name'         => 'Immediate alarm actions',
+        'DelaySeconds' => 0,
+        'Actions'      => [[
+            'Enabled'           => true,
+            'Name'              => 'Hall strobe',
+            'Action'            => [
+                'actionID'   => '{11111111-1111-1111-1111-111111111111}',
+                'parameters' => ['VALUE' => true]
+            ],
+            'ResetMode'         => 0,
+            'ResetAction'       => '',
+            'SignalGenerator'   => true,
+            'ApplicableTo'      => 'normal',
+            'ApplyHome'         => true,
+            'ApplyAway'         => false,
+            'ApplyNight'        => true,
+            'ApplyAlwaysActive' => true
+        ]]
+    ]], JSON_THROW_ON_ERROR)
+);
+$invalidSignalGenerator->ApplyChanges();
+assertFaultMonitoring(
+    $invalidSignalGenerator->TestStatus() === 204,
+    'A signal generator without reset must produce the dedicated alarm-action status.'
+);
+
+/**
+ * @param array<string,mixed> $action
+ */
+function detailedAlarmActionStatusCaption(array $action): string
+{
+    $instance = new OpenHomeAlarm();
+    $instance->Create();
+    $instance->TestSetPropertyString(
+        'AlarmEscalationSteps',
+        json_encode([[
+            'Enabled'      => true,
+            'Name'         => 'Detailed validation',
+            'DelaySeconds' => 0,
+            'Actions'      => [$action]
+        ]], JSON_THROW_ON_ERROR)
+    );
+    $instance->ApplyChanges();
+    assertFaultMonitoring(
+        $instance->TestStatus() === 204,
+        sprintf('Invalid alarm action "%s" must produce status 204.', $action['Name'] ?? '')
+    );
+    $form = json_decode($instance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+    foreach ($form['status'] ?? [] as $status) {
+        if (($status['code'] ?? null) === 204) {
+            return (string) ($status['caption'] ?? '');
+        }
+    }
+
+    return '';
+}
+
+$validAlarmAction = [
+    'Enabled'           => true,
+    'Name'              => 'Test action',
+    'Action'            => [
+        'actionID'   => '{11111111-1111-1111-1111-111111111111}',
+        'parameters' => ['VALUE' => true]
+    ],
+    'ResetMode'         => 0,
+    'ResetAction'       => '',
+    'SignalGenerator'   => false,
+    'ApplicableTo'      => 'normal',
+    'ApplyHome'         => true,
+    'ApplyAway'         => false,
+    'ApplyNight'        => false,
+    'ApplyAlwaysActive' => false
+];
+
+$missingActionCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    ['Name' => 'Empty hallway action', 'Action' => '']
+));
+assertFaultMonitoring(
+    str_contains($missingActionCaption, 'Empty hallway action')
+        && str_contains($missingActionCaption, 'no action is selected')
+        && str_contains($missingActionCaption, 'Open the row'),
+    'Status 204 must name the row and explain how to select a missing action.'
+);
+
+$invalidAutomaticResetCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    [
+        'Name'      => 'Spoken warning',
+        'Action'    => [
+            'actionID'   => '{11111111-1111-1111-1111-111111111111}',
+            'parameters' => ['VALUE' => 'Alarm']
+        ],
+        'ResetMode' => 1
+    ]
+));
+assertFaultMonitoring(
+    str_contains($invalidAutomaticResetCaption, 'Spoken warning')
+        && str_contains($invalidAutomaticResetCaption, 'Invert Boolean automatically')
+        && str_contains($invalidAutomaticResetCaption, 'Use custom reset action'),
+    'Status 204 must explain that automatic inversion only works for Boolean set-value actions.'
+);
+
+$missingCustomResetCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    ['Name' => 'Outside strobe', 'ResetMode' => 2]
+));
+assertFaultMonitoring(
+    str_contains($missingCustomResetCaption, 'Outside strobe')
+        && str_contains($missingCustomResetCaption, 'Use custom reset action')
+        && str_contains($missingCustomResetCaption, 'no reset action is selected'),
+    'Status 204 must explain how to complete a missing custom reset action.'
+);
+
+$signalGeneratorCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    ['Name' => 'Hall strobe', 'SignalGenerator' => true]
+));
+assertFaultMonitoring(
+    str_contains($signalGeneratorCaption, 'Hall strobe')
+        && str_contains($signalGeneratorCaption, 'Signal generator')
+        && str_contains($signalGeneratorCaption, 'No reset')
+        && str_contains($signalGeneratorCaption, 'Invert Boolean automatically')
+        && str_contains($signalGeneratorCaption, 'Use custom reset action'),
+    'Status 204 must name a signal generator and list both valid reset choices.'
+);
+
+$missingCategoryCaption = detailedAlarmActionStatusCaption(array_replace(
+    $validAlarmAction,
+    [
+        'Name'              => 'Unassigned siren',
+        'ApplyHome'         => false,
+        'ApplyAway'         => false,
+        'ApplyNight'        => false,
+        'ApplyAlwaysActive' => false
+    ]
+));
+assertFaultMonitoring(
+    str_contains($missingCategoryCaption, 'Unassigned siren')
+        && str_contains($missingCategoryCaption, 'no trigger category is selected')
+        && str_contains($missingCategoryCaption, 'Home, Away, Night or 24/7'),
+    'Status 204 must list the exact trigger categories required by an unassigned action.'
+);
 
 // Configuration form and dynamic fault-value selection must expose the new system-monitoring controls.
 $form = json_decode($instance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
@@ -500,24 +903,59 @@ foreach ($form['elements'] ?? [] as $element) {
 }
 assertFaultMonitoring(is_array($systemPanel), 'A18 must add a System monitoring panel.');
 $faultList = null;
+$faultImporter = null;
 foreach ($systemPanel['items'] ?? [] as $item) {
     if (($item['type'] ?? null) === 'List' && ($item['name'] ?? null) === 'FaultInputs') {
         $faultList = $item;
-        break;
+    }
+    if (($item['type'] ?? null) === 'PopupButton' && ($item['name'] ?? null) === 'FaultInputImport') {
+        $faultImporter = $item;
     }
 }
 assertFaultMonitoring(is_array($faultList), 'System monitoring must contain the FaultInputs list.');
 assertFaultMonitoring(
+    is_array($faultImporter)
+        && ($faultImporter['caption'] ?? null) === 'Find and add fault inputs'
+        && str_contains(json_encode($faultImporter, JSON_THROW_ON_ERROR), 'FaultImportCandidates')
+        && str_contains(
+            (string) ($faultImporter['popup']['buttons'][0]['onClick'] ?? ''),
+            'OHA_AddFaultInputCandidates'
+        ),
+    'System monitoring must offer bulk variable search with its add action in the popup footer.'
+);
+assertFaultMonitoring(
     in_array('PartitionID', array_column($faultList['columns'] ?? [], 'name'), true),
     'Fault input configuration must expose its alarm partition.'
+);
+$faultColumns = array_column($faultList['columns'] ?? [], null, 'name');
+assertFaultMonitoring(
+    ($faultColumns['PartitionID']['visible'] ?? true) === false
+        && ($faultColumns['PartitionName']['caption'] ?? null) === 'Alarm partition'
+        && ($faultColumns['PartitionName']['save'] ?? true) === false,
+    'Fault input rows must persist the technical partition ID but display the configured partition name.'
+);
+assertFaultMonitoring(
+    in_array('TriggerCondition', array_column($faultList['columns'] ?? [], 'name'), true),
+    'Fault input configuration must expose exact-value and normal-value rules.'
+);
+assertFaultMonitoring(
+    str_contains(json_encode($faultImporter, JSON_THROW_ON_ERROR), 'FaultImportTriggerCondition'),
+    'The bulk fault importer must expose the common evaluation rule.'
 );
 assertFaultMonitoring(
     isset($faultList['values']) && is_array($faultList['values']) && count($faultList['values']) === 3,
     'Nested fault lists must receive their non-persistent trigger editor values.'
 );
+assertFaultMonitoring(
+    array_column($faultList['values'], 'PartitionName') === ['Main area', 'Main area', 'Main area'],
+    'Fault input list helper values must resolve technical IDs to readable partition names.'
+);
 $editForm = $instance->GetFaultInputEditForm(faultInput(9002, 'Funkverbindung', 2, 'FAULT', true, false));
 $selection = null;
 $partitionSelection = null;
+$conditionSelection = null;
+$variableSelection = null;
+$partitionName = null;
 foreach ($editForm as $field) {
     if (($field['name'] ?? null) === 'TriggerValueSelection') {
         $selection = $field;
@@ -525,11 +963,37 @@ foreach ($editForm as $field) {
     if (($field['name'] ?? null) === 'PartitionID') {
         $partitionSelection = $field;
     }
+    if (($field['name'] ?? null) === 'TriggerCondition') {
+        $conditionSelection = $field;
+    }
+    if (($field['name'] ?? null) === 'VariableID') {
+        $variableSelection = $field;
+    }
+    if (($field['name'] ?? null) === 'PartitionName') {
+        $partitionName = $field;
+    }
 }
 assertFaultMonitoring(
     ($partitionSelection['type'] ?? null) === 'Select'
     && ($partitionSelection['value'] ?? null) === 'main',
     'Fault input editor must resolve empty assignments to the default partition.'
+);
+assertFaultMonitoring(
+    ($partitionSelection['onChange'] ?? null) === 'OHA_UpdateFaultPartitionNameForm($id, $PartitionID);'
+        && ($partitionName['visible'] ?? true) === false
+        && ($partitionName['value'] ?? null) === 'Main area',
+    'Changing a fault partition must update the readable draft-row name before saving.'
+);
+assertFaultMonitoring(
+    ($conditionSelection['type'] ?? null) === 'Select'
+        && ($conditionSelection['value'] ?? null) === 'equals'
+        && array_column($conditionSelection['options'] ?? [], 'value') === ['equals', 'not_equals'],
+    'Fault input editor must offer exact-value and normal-value evaluation.'
+);
+assertFaultMonitoring(
+    ($variableSelection['type'] ?? null) === 'SelectVariable'
+        && ($variableSelection['width'] ?? null) === '100%',
+    'Fault input editor must provide enough width to identify the selected variable path.'
 );
 
 $orphanedFaultEditForm = $instance->GetFaultInputEditForm(array_merge(

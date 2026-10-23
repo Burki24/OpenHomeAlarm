@@ -22,12 +22,14 @@ final class AlarmConfigurationNormalizer
      *     Name: string,
      *     VariableID: int,
      *     SensorType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     ArmHome: bool,
      *     ArmAway: bool,
      *     ArmNight: bool,
      *     AlwaysActive: bool,
      *     AllowAutomaticBypass: bool,
+     *     AllowPassage: bool,
      *     ExitDelay: bool,
      *     EntryDelay: bool,
      *     RetriggerAlarm: bool
@@ -49,6 +51,7 @@ final class AlarmConfigurationNormalizer
         }
 
         $normalizedSensors = [];
+        $usedConfigurations = [];
         foreach ($sensors as $sensor) {
             if (!is_array($sensor)) {
                 throw new UnexpectedValueException('Every sensor configuration must be an object.');
@@ -62,6 +65,19 @@ final class AlarmConfigurationNormalizer
             $sensorType = self::integerField($sensor, 'SensorType', $defaultSensorType, 'Sensor');
             if (!in_array($sensorType, $validSensorTypes, true)) {
                 throw new UnexpectedValueException('Unsupported sensor type.');
+            }
+
+            $triggerCondition = self::stringField(
+                $sensor,
+                'TriggerCondition',
+                AlarmTriggerValue::CONDITION_EQUALS,
+                'Sensor'
+            );
+            if (!in_array($triggerCondition, [
+                AlarmTriggerValue::CONDITION_EQUALS,
+                AlarmTriggerValue::CONDITION_NOT_EQUALS
+            ], true)) {
+                throw new UnexpectedValueException('Unsupported sensor trigger condition.');
             }
 
             $legacyPartitionID = strtolower(trim(self::stringField($sensor, 'PartitionID', '', 'Sensor')));
@@ -82,28 +98,57 @@ final class AlarmConfigurationNormalizer
 
             $alwaysActive = self::booleanField($sensor, 'AlwaysActive', false, 'Sensor');
             $allowAutomaticBypass = self::booleanField($sensor, 'AllowAutomaticBypass', false, 'Sensor');
+            $allowPassage = self::booleanField($sensor, 'AllowPassage', false, 'Sensor');
             $armHome = self::booleanField($sensor, 'ArmHome', false, 'Sensor');
             $armAway = self::booleanField($sensor, 'ArmAway', true, 'Sensor');
             $armNight = self::booleanField($sensor, 'ArmNight', false, 'Sensor');
             $exitDelay = self::booleanField($sensor, 'ExitDelay', false, 'Sensor');
             $entryDelay = self::booleanField($sensor, 'EntryDelay', false, 'Sensor');
-            $normalizedSensors[] = [
+            $normalized = [
                 'Enabled'              => self::booleanField($sensor, 'Enabled', true, 'Sensor'),
                 'PartitionID'          => $legacyPartitionID,
                 'PartitionIDs'         => array_values(array_unique($partitionIDs)),
                 'Name'                 => trim(self::stringField($sensor, 'Name', '', 'Sensor')),
                 'VariableID'           => $variableID,
                 'SensorType'           => $sensorType,
+                'TriggerCondition'     => $triggerCondition,
                 'TriggerValue'         => self::stringField($sensor, 'TriggerValue', '1', 'Sensor'),
                 'ArmHome'              => !$alwaysActive && $armHome,
                 'ArmAway'              => !$alwaysActive && $armAway,
                 'ArmNight'             => !$alwaysActive && $armNight,
                 'AlwaysActive'         => $alwaysActive,
                 'AllowAutomaticBypass' => !$alwaysActive && $allowAutomaticBypass,
+                'AllowPassage'         => !$alwaysActive && $allowPassage,
                 'ExitDelay'            => !$alwaysActive && $exitDelay,
                 'EntryDelay'           => !$alwaysActive && $entryDelay,
                 'RetriggerAlarm'       => self::booleanField($sensor, 'RetriggerAlarm', false, 'Sensor')
             ];
+            if ($normalized['VariableID'] > 0) {
+                $signaturePartitionIDs = $normalized['PartitionIDs'];
+                sort($signaturePartitionIDs, SORT_STRING);
+                $signature = json_encode([
+                    'Enabled'              => $normalized['Enabled'],
+                    'PartitionIDs'         => $signaturePartitionIDs,
+                    'VariableID'           => $normalized['VariableID'],
+                    'SensorType'           => $normalized['SensorType'],
+                    'TriggerCondition'     => $normalized['TriggerCondition'],
+                    'TriggerValue'         => $normalized['TriggerValue'],
+                    'ArmHome'              => $normalized['ArmHome'],
+                    'ArmAway'              => $normalized['ArmAway'],
+                    'ArmNight'             => $normalized['ArmNight'],
+                    'AlwaysActive'         => $normalized['AlwaysActive'],
+                    'AllowAutomaticBypass' => $normalized['AllowAutomaticBypass'],
+                    'AllowPassage'         => $normalized['AllowPassage'],
+                    'ExitDelay'            => $normalized['ExitDelay'],
+                    'EntryDelay'           => $normalized['EntryDelay'],
+                    'RetriggerAlarm'       => $normalized['RetriggerAlarm']
+                ], JSON_THROW_ON_ERROR);
+                if (isset($usedConfigurations[$signature])) {
+                    throw new UnexpectedValueException('An identical sensor configuration can only be configured once.');
+                }
+                $usedConfigurations[$signature] = true;
+            }
+            $normalizedSensors[] = $normalized;
         }
 
         return $normalizedSensors;
@@ -118,6 +163,7 @@ final class AlarmConfigurationNormalizer
      *     Name: string,
      *     VariableID: int,
      *     FaultType: int,
+     *     TriggerCondition: string,
      *     TriggerValue: string,
      *     BlockArming: bool,
      *     TriggerAlarm: bool
@@ -158,16 +204,29 @@ final class AlarmConfigurationNormalizer
             if (!in_array($faultType, $validFaultTypes, true)) {
                 throw new UnexpectedValueException('Unsupported fault input type.');
             }
+            $triggerCondition = self::stringField(
+                $faultInput,
+                'TriggerCondition',
+                AlarmTriggerValue::CONDITION_EQUALS,
+                'Fault input'
+            );
+            if (!in_array($triggerCondition, [
+                AlarmTriggerValue::CONDITION_EQUALS,
+                AlarmTriggerValue::CONDITION_NOT_EQUALS
+            ], true)) {
+                throw new UnexpectedValueException('Unsupported fault input trigger condition.');
+            }
 
             $normalized = [
-                'Enabled'      => self::booleanField($faultInput, 'Enabled', true, 'Fault input'),
-                'PartitionID'  => strtolower(trim(self::stringField($faultInput, 'PartitionID', '', 'Fault input'))),
-                'Name'         => trim(self::stringField($faultInput, 'Name', '', 'Fault input')),
-                'VariableID'   => $variableID,
-                'FaultType'    => $faultType,
-                'TriggerValue' => self::stringField($faultInput, 'TriggerValue', '1', 'Fault input'),
-                'BlockArming'  => self::booleanField($faultInput, 'BlockArming', false, 'Fault input'),
-                'TriggerAlarm' => self::booleanField($faultInput, 'TriggerAlarm', false, 'Fault input')
+                'Enabled'          => self::booleanField($faultInput, 'Enabled', true, 'Fault input'),
+                'PartitionID'      => strtolower(trim(self::stringField($faultInput, 'PartitionID', '', 'Fault input'))),
+                'Name'             => trim(self::stringField($faultInput, 'Name', '', 'Fault input')),
+                'VariableID'       => $variableID,
+                'FaultType'        => $faultType,
+                'TriggerCondition' => $triggerCondition,
+                'TriggerValue'     => self::stringField($faultInput, 'TriggerValue', '1', 'Fault input'),
+                'BlockArming'      => self::booleanField($faultInput, 'BlockArming', false, 'Fault input'),
+                'TriggerAlarm'     => self::booleanField($faultInput, 'TriggerAlarm', false, 'Fault input')
             ];
             if ($normalized['VariableID'] > 0) {
                 if (isset($usedVariableIDs[$normalized['VariableID']])) {

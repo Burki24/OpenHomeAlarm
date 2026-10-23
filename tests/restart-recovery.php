@@ -14,7 +14,9 @@ $testVariables = [
     8003 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     8004 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     8005 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    8006 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    8006 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    8007 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    8008 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
@@ -24,7 +26,9 @@ $testValues = [
     8003 => false,
     8004 => false,
     8005 => false,
-    8006 => false
+    8006 => false,
+    8007 => 0,
+    8008 => true
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -327,19 +331,24 @@ function restartSensor(
     bool $entryDelay = false,
     bool $armHome = false,
     bool $armAway = true,
-    bool $armNight = false
+    bool $armNight = false,
+    string $triggerValue = 'true',
+    string $triggerCondition = 'equals',
+    bool $exitDelay = false
 ): array {
     return [
-        'Enabled'      => true,
-        'Name'         => $name,
-        'VariableID'   => $variableID,
-        'SensorType'   => 0,
-        'TriggerValue' => 'true',
-        'ArmHome'      => $armHome,
-        'ArmAway'      => $armAway,
-        'ArmNight'     => $armNight,
-        'AlwaysActive' => false,
-        'EntryDelay'   => $entryDelay
+        'Enabled'          => true,
+        'Name'             => $name,
+        'VariableID'       => $variableID,
+        'SensorType'       => 0,
+        'TriggerCondition' => $triggerCondition,
+        'TriggerValue'     => $triggerValue,
+        'ArmHome'          => $armHome,
+        'ArmAway'          => $armAway,
+        'ArmNight'         => $armNight,
+        'AlwaysActive'     => false,
+        'ExitDelay'        => $exitDelay,
+        'EntryDelay'       => $entryDelay
     ];
 }
 
@@ -366,6 +375,29 @@ function createArmedRestartInstance(array $sensors, int $entryDelaySeconds = 5):
 }
 
 global $testValues;
+
+// A restart must preserve the mode boundary of the exit-route exception.
+$exitRouteRestartInstance = new OpenHomeAlarm();
+$exitRouteRestartInstance->Create();
+$exitRouteRestartInstance->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$exitRouteRestartInstance->TestSetPropertyString(
+    'Sensors',
+    json_encode([
+        restartSensor(8008, 'Front door', armHome: true, armNight: true, exitDelay: true)
+    ], JSON_THROW_ON_ERROR)
+);
+$exitRouteRestartInstance->TestClearWrittenValues();
+$exitRouteRestartInstance->ApplyChanges();
+$exitRouteRestartWrites = $exitRouteRestartInstance->TestWrittenValues();
+assertRestartRecovery(
+    ($exitRouteRestartWrites['ReadyHome'] ?? true) === false
+        && ($exitRouteRestartWrites['BlockingHomeSensors'] ?? null) === 'Front door'
+        && ($exitRouteRestartWrites['ReadyAway'] ?? false) === true
+        && ($exitRouteRestartWrites['BlockingAwaySensors'] ?? null) === ''
+        && ($exitRouteRestartWrites['ReadyNight'] ?? true) === false
+        && ($exitRouteRestartWrites['BlockingNightSensors'] ?? null) === 'Front door',
+    'Restart recovery must waive an active exit-route sensor only for Away.'
+);
 
 // ApplyChanges must defer runtime access until Symcon reports a ready kernel.
 $immediateInstance = createArmedRestartInstance([
@@ -450,6 +482,19 @@ $otherModeInstance->ApplyChanges();
 assertRestartRecovery(
     !array_key_exists('State', $otherModeInstance->TestWrittenValues()),
     'A sensor that is irrelevant for the active mode must not enter Alarm after restart.'
+);
+
+// A multi-state sensor that left its configured normal value while offline must alarm after restart.
+$testValues[8007] = 0;
+$normalValueInstance = createArmedRestartInstance([
+    restartSensor(8007, 'Door lock', triggerValue: '0', triggerCondition: 'not_equals')
+]);
+$testValues[8007] = 2;
+$normalValueInstance->ApplyChanges();
+assertRestartRecovery(
+    ($normalValueInstance->TestWrittenValues()['State'] ?? null) === 4
+        && ($normalValueInstance->TestWrittenValues()['LastAlarmSource'] ?? null) === 'Door lock',
+    'Restart recovery must alarm when a multi-state sensor differs from its configured normal value.'
 );
 
 // An unreadable sensor is a system fault, but not a confirmed alarm signal.

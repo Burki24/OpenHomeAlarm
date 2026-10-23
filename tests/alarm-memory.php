@@ -19,6 +19,23 @@ $testValues = [
     5002 => false
 ];
 
+/** @var array<int,string> */
+$testNames = [5002 => 'Fensterkontakt'];
+
+function IPS_ObjectExists(int $objectID): bool
+{
+    global $testNames;
+
+    return isset($testNames[$objectID]);
+}
+
+function IPS_GetName(int $objectID): string
+{
+    global $testNames;
+
+    return $testNames[$objectID];
+}
+
 function IPS_VariableExists(int $variableID): bool
 {
     global $testVariables;
@@ -408,8 +425,26 @@ $testValues[5001] = true;
 $fallback->TestClearWrittenValues();
 $fallback->MessageSink(3, 5001, VM_UPDATE, [true, true, false]);
 assertAlarmMemory(
-    ($fallback->TestWrittenValues()['LastAlarmSource'] ?? null) === 'Variable #5001',
-    'A sensor without a configured name must fall back to its variable ID.'
+    ($fallback->TestWrittenValues()['LastAlarmSource'] ?? null) === 'Unknown source',
+    'A source without a resolvable name must not expose its internal ID.'
+);
+
+$testValues[5002] = false;
+$namedFallback = new OpenHomeAlarm();
+$namedFallback->Create();
+$namedFallback->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$namedFallback->TestSetPropertyString(
+    'Sensors',
+    json_encode([alarmMemorySensor(5002, '', false)], JSON_THROW_ON_ERROR)
+);
+assertAlarmMemory($namedFallback->ArmAway() === true, 'An unnamed source with a Symcon name must arm.');
+$testNames[5002] = 'Neuer Fensterkontakt';
+$testValues[5002] = true;
+$namedFallback->TestClearWrittenValues();
+$namedFallback->MessageSink(3, 5002, VM_UPDATE, [true, true, false]);
+assertAlarmMemory(
+    ($namedFallback->TestWrittenValues()['LastAlarmSource'] ?? null) === 'Neuer Fensterkontakt',
+    'An unnamed source must show the current Symcon name without its internal ID.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm alarm memory checks passed.\n");

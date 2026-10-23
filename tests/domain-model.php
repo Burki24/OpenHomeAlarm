@@ -264,12 +264,12 @@ assertDomainSame(
     'Visualization diagnostics exports must normalize their selected format.'
 );
 assertDomainSame(
-    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => null]],
+    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => null, 'BypassActiveSensors' => false]],
     AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"Garage","Value":"night"}'),
     'Partition visualization commands must decode scalar JSON transport, normalize their partition ID and preserve their action value.'
 );
 assertDomainSame(
-    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => true]],
+    ['Action' => 'ArmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => 'night', 'Silent' => true, 'BypassActiveSensors' => false]],
     AlarmVisualizationAdapter::command('ArmPartition', '{"PartitionID":"Garage","Value":"night","Silent":true}'),
     'The visualization must preserve an explicit silent arming override.'
 );
@@ -278,6 +278,34 @@ try {
     throw new RuntimeException('An invalid silent arming override must be rejected.');
 } catch (InvalidArgumentException $exception) {
     assertDomainSame('Silent arming option must be a Boolean.', $exception->getMessage(), 'Silent arming must have a strict transport contract.');
+}
+assertDomainSame(
+    [
+        'Action' => 'ArmPartitions',
+        'Value'  => [
+            'PartitionIDs'        => ['garage', 'shed'],
+            'Value'               => 'away',
+            'Silent'              => null,
+            'BypassActiveSensors' => true
+        ]
+    ],
+    AlarmVisualizationAdapter::command(
+        'ArmPartitions',
+        '{"PartitionIDs":["Garage","shed","garage"],"Value":"away","BypassActiveSensors":true}'
+    ),
+    'Multi-partition arming must normalize and deduplicate every target before execution.'
+);
+try {
+    AlarmVisualizationAdapter::command('ArmPartitions', '{"PartitionIDs":[],"Value":"away"}');
+    throw new RuntimeException('An empty multi-partition selection must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Multi-partition arming requires at least one partition.', $exception->getMessage(), 'Empty multi-partition requests must fail safely.');
+}
+try {
+    AlarmVisualizationAdapter::command('ArmPartitions', '{"Value":"away"}');
+    throw new RuntimeException('A missing multi-partition list must be rejected.');
+} catch (InvalidArgumentException $exception) {
+    assertDomainSame('Multi-partition arming requires a partition ID list.', $exception->getMessage(), 'Missing multi-partition lists must fail without a transport type error.');
 }
 assertDomainSame(
     ['Action' => 'DisarmPartition', 'Value' => ['PartitionID' => 'garage', 'Value' => null]],
@@ -350,12 +378,14 @@ assertDomainSame(
             'Name'                 => 'Front door',
             'VariableID'           => 1001,
             'SensorType'           => 1,
+            'TriggerCondition'     => 'equals',
             'TriggerValue'         => '1',
             'ArmHome'              => true,
             'ArmAway'              => true,
             'ArmNight'             => false,
             'AlwaysActive'         => false,
             'AllowAutomaticBypass' => false,
+            'AllowPassage'         => false,
             'ExitDelay'            => false,
             'EntryDelay'           => false,
             'RetriggerAlarm'       => false
@@ -372,6 +402,15 @@ assertDomainSame(
         0
     ), 'AllowAutomaticBypass'),
     'Only normal sensors may opt in to automatic bypasses.'
+);
+assertDomainSame(
+    [true, false],
+    array_column(AlarmConfigurationNormalizer::sensors(
+        '[{"AllowPassage":true},{"AlwaysActive":true,"AllowPassage":true}]',
+        [0],
+        0
+    ), 'AllowPassage'),
+    'Only normal sensors may opt in to temporary passage.'
 );
 assertDomainSame(
     ['house', 'garage'],
@@ -398,6 +437,33 @@ assertDomainThrows(
     ),
     'Unsupported sensor type.'
 );
+assertDomainThrows(
+    static fn (): array => AlarmConfigurationNormalizer::sensors(
+        '[{"TriggerCondition":"greater_than"}]',
+        [0],
+        0
+    ),
+    'Unsupported sensor trigger condition.'
+);
+assertDomainThrows(
+    static fn (): array => AlarmConfigurationNormalizer::sensors(
+        '[{"Name":"Front door","VariableID":2001,"Partition_house":true,"Partition_garage":true,"ArmHome":true},'
+        . '{"Name":"Renamed front door","VariableID":2001,"Partition_garage":true,"Partition_house":true,"ArmHome":true}]',
+        [0],
+        0
+    ),
+    'An identical sensor configuration can only be configured once.'
+);
+assertDomainSame(
+    2,
+    count(AlarmConfigurationNormalizer::sensors(
+        '[{"VariableID":2001,"Partition_house":true,"ArmAway":true,"EntryDelay":true},'
+        . '{"VariableID":2001,"Partition_house":true,"ArmAway":true,"EntryDelay":false}]',
+        [0],
+        0
+    )),
+    'The same sensor variable must remain valid when its functional configuration differs.'
+);
 
 assertDomainSame(
     [],
@@ -412,6 +478,24 @@ $faultInputs = AlarmConfigurationNormalizer::faultInputs(
 assertDomainSame('Tamper', $faultInputs[0]['Name'], 'Fault input names must be trimmed.');
 assertDomainSame('', $faultInputs[0]['PartitionID'], 'Empty fault partition assignments must remain available for default resolution.');
 assertDomainSame(false, $faultInputs[0]['TriggerAlarm'], 'Fault input defaults must be retained.');
+assertDomainSame('equals', $faultInputs[0]['TriggerCondition'], 'Existing fault inputs must retain exact-value evaluation by default.');
+assertDomainSame(
+    'not_equals',
+    AlarmConfigurationNormalizer::faultInputs(
+        '[{"VariableID":2002,"TriggerCondition":"not_equals","TriggerValue":"OK"}]',
+        [0],
+        0
+    )[0]['TriggerCondition'],
+    'Fault inputs must support deviation from a configured normal value.'
+);
+assertDomainThrows(
+    static fn (): array => AlarmConfigurationNormalizer::faultInputs(
+        '[{"TriggerCondition":"greater_than"}]',
+        [0],
+        0
+    ),
+    'Unsupported fault input trigger condition.'
+);
 assertDomainThrows(
     static fn (): array => AlarmConfigurationNormalizer::faultInputs(
         '[{"VariableID":2001},{"VariableID":2001}]',
@@ -429,6 +513,21 @@ assertDomainSame(true, AlarmTriggerValue::matches(0, '1', true), 'Boolean trigge
 assertDomainSame(false, AlarmTriggerValue::matches(1, '7', 8), 'Integer trigger mismatch failed.');
 assertDomainSame(true, AlarmTriggerValue::matches(2, '2.5', 2.5), 'Float trigger comparison failed.');
 assertDomainSame(null, AlarmTriggerValue::matches(1, 'invalid', 1), 'Invalid trigger text must be rejected.');
+assertDomainSame(
+    false,
+    AlarmTriggerValue::isTriggered(1, '0', 0, 'not_equals'),
+    'A configured normal value must not trigger.'
+);
+assertDomainSame(
+    true,
+    AlarmTriggerValue::isTriggered(1, '0', 4, 'not_equals'),
+    'Every valid value different from the configured normal value must trigger.'
+);
+assertDomainSame(
+    null,
+    AlarmTriggerValue::isTriggered(1, 'invalid', 4, 'not_equals'),
+    'An invalid normal value must remain unevaluable instead of being inverted into an alarm.'
+);
 
 $validEntry = [
     'Time'   => 100,

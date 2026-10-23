@@ -11,14 +11,16 @@ const VM_UPDATE = 10603;
 $testVariables = [
     7001 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
     7002 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
-    7003 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => '']
+    7003 => ['VariableType' => 0, 'VariableCustomProfile' => '', 'VariableProfile' => ''],
+    7004 => ['VariableType' => 1, 'VariableCustomProfile' => '', 'VariableProfile' => '']
 ];
 
 /** @var array<int,mixed> */
 $testValues = [
     7001 => true,
     7002 => false,
-    7003 => false
+    7003 => false,
+    7004 => 2
 ];
 
 function IPS_VariableExists(int $variableID): bool
@@ -112,6 +114,11 @@ class IPSModuleStrict
         $value = $this->attributes[$name] ?? '';
 
         return is_string($value) ? $value : '';
+    }
+
+    public function TestSetAttributeString(string $name, string $value): void
+    {
+        $this->attributes[$name] = $value;
     }
 
     protected function SetVisualizationType(int $type): bool
@@ -276,8 +283,9 @@ class IPSModuleStrict
         return $text;
     }
 
-    protected function SendDebug(string $message, mixed $data, int $format): void
+    protected function SendDebug(string $message, string $data, int $format): bool
     {
+        return true;
     }
 }
 
@@ -299,20 +307,26 @@ function bypassSensor(
     bool $armNight = false,
     bool $alwaysActive = false,
     bool $enabled = true,
-    bool $allowAutomaticBypass = false
+    bool $allowAutomaticBypass = false,
+    bool $allowPassage = false,
+    bool $entryDelay = false,
+    string $triggerValue = 'true',
+    string $triggerCondition = 'equals'
 ): array {
     return [
         'Enabled'              => $enabled,
         'Name'                 => $name,
         'VariableID'           => $variableID,
         'SensorType'           => 0,
-        'TriggerValue'         => 'true',
+        'TriggerCondition'     => $triggerCondition,
+        'TriggerValue'         => $triggerValue,
         'ArmHome'              => $armHome,
         'ArmAway'              => $armAway,
         'ArmNight'             => $armNight,
         'AlwaysActive'         => $alwaysActive,
         'AllowAutomaticBypass' => $allowAutomaticBypass,
-        'EntryDelay'           => false
+        'AllowPassage'         => $allowPassage,
+        'EntryDelay'           => $entryDelay
     ];
 }
 
@@ -348,6 +362,20 @@ assertBypass($instance->TestValue('ReadyNight') === true, 'Bypassing a missing N
 assertBypass(
     $instance->TestValue('BypassedSensors') === 'Haustür (main), Defekter Nachtkontakt (main)',
     'Multiple bypasses must be published in deterministic sensor order.'
+);
+
+$sameNames = new OpenHomeAlarm();
+$sameNames->Create();
+$sameNames->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Fenster', armHome: true),
+    bypassSensor(7003, 'Fenster', armAway: true)
+], JSON_THROW_ON_ERROR));
+$sameNames->ApplyChanges();
+assertBypass($sameNames->BypassSensor(7001), 'The first equally named sensor must be bypassable by ID.');
+assertBypass($sameNames->BypassSensor(7003), 'The second equally named sensor must be bypassable by ID.');
+assertBypass(
+    $sameNames->TestValue('BypassedSensors') === 'Fenster (main), Fenster (main)',
+    'Equal sensor names must not hide different bypassed sources or expose IDs.'
 );
 
 assertBypass($instance->BypassSensor(7002) === false, 'A 24/7 sensor must never be bypassable.');
@@ -425,6 +453,32 @@ $events = json_decode($automatic->GetEventHistory(), true, 512, JSON_THROW_ON_ER
 assertBypass(in_array('sensor_auto_bypassed', array_column($events, 'Event'), true), 'Automatic bypass creation must be logged.');
 assertBypass(in_array('sensor_auto_bypass_restored', array_column($events, 'Event'), true), 'Automatic bypass restoration must be logged.');
 $automatic->Disarm();
+
+$normalValueBypass = new OpenHomeAlarm();
+$normalValueBypass->Create();
+$normalValueBypass->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$normalValueBypass->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(
+        7004,
+        'Multi-state window',
+        armAway: true,
+        allowAutomaticBypass: true,
+        triggerValue: '0',
+        triggerCondition: 'not_equals'
+    )
+], JSON_THROW_ON_ERROR));
+$normalValueBypass->ApplyChanges();
+assertBypass(
+    $normalValueBypass->ArmAway(null, null, true) === true,
+    'A permitted multi-state sensor outside its normal value may be bypassed for one arming call.'
+);
+$testValues[7004] = 0;
+$normalValueBypass->MessageSink(1, 7004, VM_UPDATE, [0, true, 2]);
+assertBypass(
+    json_decode($normalValueBypass->TestAttributeString('AutoBypassedSensorIDs'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'A multi-state automatic bypass must end when the configured normal value returns.'
+);
+$normalValueBypass->Disarm();
 
 $testValues[7003] = true;
 $notPermitted = new OpenHomeAlarm();
@@ -603,4 +657,193 @@ assertBypass(
 assertBypass($lostSensor->TestValue('SystemFault') === true, 'A lost automatically bypassed sensor must still be reported as a system fault.');
 $testVariables[7001] = $savedVariable;
 
-fwrite(STDOUT, "OpenHomeAlarm manual and automatic sensor bypass checks passed.\n");
+$testValues[7001] = false;
+$testValues[7002] = false;
+$passage = new OpenHomeAlarm();
+$passage->Create();
+$passage->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$passage->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Front door', armAway: true, allowPassage: true),
+    bypassSensor(7002, 'Kitchen window', armAway: true)
+], JSON_THROW_ON_ERROR));
+$passage->ApplyChanges();
+assertBypass($passage->GrantPassage(7001) === false, 'Passage must be rejected while the area is disarmed.');
+assertBypass($passage->ArmAway(), 'The passage test requires an armed area.');
+assertBypass($passage->GrantPassage(7002) === false, 'A sensor without explicit passage permission must be rejected.');
+assertBypass($passage->GrantPassage(7001, 0) === false, 'A zero passage timeout must be rejected.');
+assertBypass($passage->GrantPassage(7001, 3601) === false, 'An excessive passage timeout must be rejected.');
+assertBypass($passage->GrantPassage(7001, 120), 'An approved sensor must receive one passage release while armed.');
+$passageState = json_decode($passage->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(
+    ($passageState['Passage']['Active'] ?? false) === true
+    && ($passageState['Passage']['Phase'] ?? null) === 'waiting'
+    && ($passageState['Passage']['Sensor'] ?? null) === 'Front door'
+    && !array_key_exists('VariableID', $passageState['Passage']),
+    'The control state must publish the waiting passage without exposing its source ID.'
+);
+assertBypass($passage->GrantPassage(7001) === false, 'An active release must not be extended by repeated calls.');
+$testValues[7001] = true;
+$passage->MessageSink(1, 7001, VM_UPDATE, [true, false, 0]);
+assertBypass($passage->TestValue('State') === 2, 'Opening the released sensor must keep the area armed.');
+$passage->ApplyChanges();
+assertBypass($passage->TestValue('State') === 2, 'A triggered passage release must survive ApplyChanges without raising an alarm.');
+$passageState = json_decode($passage->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(($passageState['Passage']['Phase'] ?? null) === 'triggered', 'The passage phase must survive restart recovery.');
+$testValues[7001] = false;
+$passage->ApplyChanges();
+$passageState = json_decode($passage->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(($passageState['Passage']['Active'] ?? true) === false, 'Restart recovery must complete a passage whose sensor returned to normal while offline.');
+$testValues[7001] = true;
+$passage->MessageSink(1, 7001, VM_UPDATE, [true, false, 0]);
+assertBypass($passage->TestValue('State') === 4, 'Reopening after a completed passage must raise the normal alarm.');
+$passage->Disarm();
+
+$testValues[7001] = false;
+$testValues[7002] = false;
+$otherSensor = new OpenHomeAlarm();
+$otherSensor->Create();
+$otherSensor->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$otherSensor->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Front door', armAway: true, allowPassage: true),
+    bypassSensor(7002, 'Kitchen window', armAway: true)
+], JSON_THROW_ON_ERROR));
+$otherSensor->ApplyChanges();
+assertBypass($otherSensor->ArmAway() && $otherSensor->GrantPassage(7001), 'The independent-sensor test requires an active release.');
+$testValues[7002] = true;
+$otherSensor->MessageSink(1, 7002, VM_UPDATE, [true, false, 0]);
+assertBypass($otherSensor->TestValue('State') === 4, 'A passage release must never suppress another sensor.');
+$otherSensor->Disarm();
+
+$testValues[7001] = false;
+$entryPassage = new OpenHomeAlarm();
+$entryPassage->Create();
+$entryPassage->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$entryPassage->TestSetPropertyInteger('EntryDelaySeconds', 30);
+$entryPassage->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Front door', armHome: true, allowPassage: true, entryDelay: true)
+], JSON_THROW_ON_ERROR));
+$entryPassage->ApplyChanges();
+assertBypass($entryPassage->ArmHome(), 'The entry-delay passage test requires Home to be armed.');
+$testValues[7001] = true;
+$entryPassage->MessageSink(1, 7001, VM_UPDATE, [true, false, 0]);
+assertBypass($entryPassage->TestValue('State') === 3, 'The protected door must first start its normal entry delay.');
+$testValues[7001] = false;
+assertBypass($entryPassage->GrantPassage(7001), 'A trusted automation must be able to acknowledge the matching entry delay.');
+assertBypass($entryPassage->TestValue('State') === 2, 'Acknowledging passage must restore Armed without disarming.');
+$entryState = json_decode($entryPassage->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(
+    ($entryState['Passage']['Active'] ?? true) === false,
+    'Acknowledging an entry delay after the door has closed must not authorize another future opening.'
+);
+$entryPassage->Disarm();
+
+$testValues[7001] = false;
+$timeoutPassage = new OpenHomeAlarm();
+$timeoutPassage->Create();
+$timeoutPassage->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$timeoutPassage->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Front door', armAway: true, allowPassage: true)
+], JSON_THROW_ON_ERROR));
+$timeoutPassage->ApplyChanges();
+assertBypass($timeoutPassage->ArmAway() && $timeoutPassage->GrantPassage(7001), 'The timeout test requires an active passage release.');
+$testValues[7001] = true;
+$timeoutPassage->MessageSink(1, 7001, VM_UPDATE, [true, false, 0]);
+$runtime = json_decode($timeoutPassage->TestAttributeString('PassageRuntime'), true, 512, JSON_THROW_ON_ERROR);
+$runtime['main']['Deadline'] = time() - 1;
+$timeoutPassage->TestSetAttributeString('PassageRuntime', json_encode($runtime, JSON_THROW_ON_ERROR));
+$timeoutPassage->UpdatePassageRuntime();
+assertBypass($timeoutPassage->TestValue('State') === 4, 'An open sensor at passage timeout must raise the normal alarm immediately.');
+
+$testValues[7001] = false;
+$waitingExpiry = new OpenHomeAlarm();
+$waitingExpiry->Create();
+$waitingExpiry->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$waitingExpiry->TestSetPropertyString('Sensors', json_encode([
+    bypassSensor(7001, 'Front door', armAway: true, allowPassage: true)
+], JSON_THROW_ON_ERROR));
+$waitingExpiry->ApplyChanges();
+assertBypass($waitingExpiry->ArmAway() && $waitingExpiry->GrantPassage(7001), 'The waiting-expiry test requires an active release.');
+$runtime = json_decode($waitingExpiry->TestAttributeString('PassageRuntime'), true, 512, JSON_THROW_ON_ERROR);
+$runtime['main']['Deadline'] = time() - 1;
+$waitingExpiry->TestSetAttributeString('PassageRuntime', json_encode($runtime, JSON_THROW_ON_ERROR));
+$waitingExpiry->UpdatePassageRuntime();
+$waitingState = json_decode($waitingExpiry->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(
+    $waitingExpiry->TestValue('State') === 2 && ($waitingState['Passage']['Active'] ?? true) === false,
+    'An unused passage release must expire without changing the armed state.'
+);
+
+$testValues[7003] = false;
+$partitionPassage = new OpenHomeAlarm();
+$partitionPassage->Create();
+$partitionPassage->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$partitionPassage->TestSetPropertyString('Partitions', '[{"Enabled":true,"ID":"main","Name":"House"},{"Enabled":true,"ID":"garage","Name":"Garage"}]');
+$partitionPassage->TestSetPropertyString('Sensors', json_encode([
+    array_merge(
+        bypassSensor(7003, 'Garage door', armAway: true, allowPassage: true),
+        ['Partition_main' => false, 'Partition_garage' => true]
+    )
+], JSON_THROW_ON_ERROR));
+$partitionPassage->ApplyChanges();
+assertBypass($partitionPassage->ArmPartition('garage', 'away', 0), 'The garage must arm independently for its passage test.');
+assertBypass($partitionPassage->GrantPassagePartition('garage', 7003, 90), 'A passage release must be assignable to one non-default area.');
+$testValues[7003] = true;
+$partitionPassage->MessageSink(1, 7003, VM_UPDATE, [true, false, 0]);
+$partitionState = json_decode($partitionPassage->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(
+    ($partitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+    && ($partitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed'
+    && ($partitionState['Partitions']['garage']['Passage']['Phase'] ?? null) === 'triggered',
+    'An area-local passage must leave other areas unchanged and its own area armed.'
+);
+$testValues[7003] = false;
+$partitionPassage->MessageSink(1, 7003, VM_UPDATE, [false, true, 0]);
+$partitionState = json_decode($partitionPassage->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(($partitionState['Partitions']['garage']['Passage']['Active'] ?? true) === false, 'Closing must complete an area-local passage.');
+assertBypass($partitionPassage->GrantPassagePartition('garage', 7003), 'The garage must accept another release after completing the first.');
+$partitionPassage->DisarmPartition('garage');
+assertBypass(
+    json_decode($partitionPassage->TestAttributeString('PassageRuntime'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'Disarming an area must clear its pending passage release.'
+);
+
+$testValues[7003] = false;
+$multiPassage = new OpenHomeAlarm();
+$multiPassage->Create();
+$multiPassage->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$multiPassage->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House"},{"Enabled":true,"ID":"garage","Name":"Garage"},{"Enabled":true,"ID":"shed","Name":"Shed"}]'
+);
+$multiPassage->TestSetPropertyString('Sensors', json_encode([
+    array_merge(
+        bypassSensor(7003, 'Shared door', armAway: true, allowPassage: true),
+        ['Partition_main' => false, 'Partition_garage' => true, 'Partition_shed' => true]
+    )
+], JSON_THROW_ON_ERROR));
+$multiPassage->ApplyChanges();
+assertBypass($multiPassage->ArmPartitions(['garage', 'shed'], 'away', 0), 'Both shared-door areas must arm for the multi-passage test.');
+assertBypass(
+    !$multiPassage->GrantPassagePartitions(['garage', 'main', 'shed'], 7003, 90),
+    'One invalid target must reject a multi-area passage without creating partial grants.'
+);
+assertBypass(
+    json_decode($multiPassage->TestAttributeString('PassageRuntime'), true, 512, JSON_THROW_ON_ERROR) === [],
+    'Rejected multi-area passage must leave every selected area protected.'
+);
+assertBypass(
+    $multiPassage->GrantPassagePartitions(['garage', 'shed'], 7003, 90),
+    'The same approved sensor must be releasable atomically in two armed areas.'
+);
+$multiPassageRuntime = json_decode($multiPassage->TestAttributeString('PassageRuntime'), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(
+    array_keys($multiPassageRuntime) === ['garage', 'shed'],
+    'A valid multi-area passage must create matching releases only for the requested areas.'
+);
+
+$passageEvents = json_decode($passage->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertBypass(in_array('passage_granted', array_column($passageEvents, 'Event'), true), 'Passage creation must be logged.');
+assertBypass(in_array('passage_started', array_column($passageEvents, 'Event'), true), 'Passage start must be logged.');
+assertBypass(in_array('passage_completed', array_column($passageEvents, 'Event'), true), 'Passage completion must be logged.');
+
+fwrite(STDOUT, "OpenHomeAlarm sensor bypass and passage checks passed.\n");

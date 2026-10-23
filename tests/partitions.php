@@ -71,6 +71,21 @@ foreach ([
     }
 }
 
+try {
+    AlarmPartitionRegistry::partitions(json_encode([
+        ['Enabled' => true, 'ID' => 'main', 'Name' => 'Ground floor'],
+        ['Enabled' => true, 'ID' => 'area', 'Name' => 'Basement'],
+        ['Enabled' => true, 'ID' => 'area', 'Name' => 'Upper floor']
+    ], JSON_THROW_ON_ERROR));
+    throw new RuntimeException('A duplicate partition ID must be rejected with its concrete value.');
+} catch (\Burki24\OpenHomeAlarm\AlarmPartitionConfigurationException $exception) {
+    assertPartition(
+        $exception->reason === \Burki24\OpenHomeAlarm\AlarmPartitionConfigurationException::DUPLICATE_ID
+            && $exception->partitionID === 'area',
+        'Duplicate partition IDs must retain a machine-readable reason and the conflicting ID.'
+    );
+}
+
 $form = json_decode(
     (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'),
     true,
@@ -89,6 +104,14 @@ assertPartition(
     is_array($partitionList) && ($partitionList['type'] ?? null) === 'List',
     'Alarm partitions must be configurable as a list.'
 );
+foreach ($partitionList['columns'] ?? [] as $column) {
+    if (($column['name'] ?? null) === 'ID') {
+        assertPartition(
+            ($column['add'] ?? null) === '',
+            'A new partition row must not silently reuse a fixed partition ID.'
+        );
+    }
+}
 assertPartition(
     array_column($partitionList['columns'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'SilentByDefault'],
     'The partition form must expose stable identity without a selectable default area.'
@@ -96,13 +119,14 @@ assertPartition(
 assertPartition(
     ($partitionList['add'] ?? false) === true
         && ($partitionList['delete'] ?? false) === true
-        && array_column($partitionList['form'] ?? [], 'name') === ['Enabled', 'ID', 'Name', 'SilentByDefault'],
+        && array_values(array_filter(array_column($partitionList['form'] ?? [], 'name'))) === ['Enabled', 'ID', 'Name', 'SilentByDefault'],
     'Alarm partitions must provide explicit add, edit and delete controls.'
 );
 $formJSON = json_encode($form, JSON_THROW_ON_ERROR);
 assertPartition(
     str_contains($formJSON, 'The required area main is the complete alarm system')
         && str_contains($formJSON, 'The area main is the fixed complete alarm system')
+        && str_contains($formJSON, 'Every area ID must be unique')
         && str_contains($formJSON, 'garage or area_1'),
     'The partition form must explain activation semantics, the fixed main area and valid ID examples.'
 );
@@ -115,8 +139,28 @@ assertPartition(
 assertPartition(
     ($form['status'][1]['code'] ?? null) === 202
         && ($form['status'][1]['icon'] ?? null) === 'error'
-        && str_contains($form['status'][1]['caption'] ?? '', 'missing or disabled alarm partition'),
+        && str_contains($form['status'][1]['caption'] ?? '', 'missing or disabled alarm partitions')
+        && str_contains($form['status'][1]['caption'] ?? '', 'remove duplicate sensor or fault entries'),
     'Invalid sensor and fault assignments must have a user-facing Symcon status instead of producing an uncaught exception.'
+);
+assertPartition(
+    ($form['status'][2]['code'] ?? null) === 203
+        && ($form['status'][2]['icon'] ?? null) === 'error'
+        && str_contains($form['status'][2]['caption'] ?? '', 'automatic arming schedule'),
+    'Invalid automatic arming schedules must have a dedicated user-facing Symcon status.'
+);
+assertPartition(
+    ($form['status'][3]['code'] ?? null) === 204
+        && ($form['status'][3]['icon'] ?? null) === 'error'
+        && str_contains($form['status'][3]['caption'] ?? '', 'alarm action')
+        && str_contains($form['status'][3]['caption'] ?? '', 'Signal generators require'),
+    'Invalid alarm actions must have an actionable dedicated Symcon status.'
+);
+assertPartition(
+    ($form['status'][4]['code'] ?? null) === 205
+        && ($form['status'][4]['icon'] ?? null) === 'error'
+        && str_contains($form['status'][4]['caption'] ?? '', 'stored runtime state'),
+    'Invalid persisted runtime data must not be mislabeled as a sensor configuration error.'
 );
 
 $mainPartitions = AlarmPartitionRegistry::partitions(json_encode([
@@ -155,8 +199,8 @@ foreach ([$moduleReadme, $rootReadme] as $readme) {
 
 $moduleSource = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/module.php');
 assertPartition(
-    str_contains($moduleSource, 'private const CONTROL_API_VERSION = 2;'),
-    'Partition-aware control state must use API version 2.'
+    str_contains($moduleSource, 'private const CONTROL_API_VERSION = 3;'),
+    'Passage-aware control state must use API version 3.'
 );
 assertPartition(
     str_contains($moduleSource, 'public function GetPartitions(): string'),

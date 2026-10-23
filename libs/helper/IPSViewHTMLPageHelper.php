@@ -11,6 +11,7 @@ use RuntimeException;
 use Throwable;
 
 require_once __DIR__ . '/HelperTranslationHelper.php';
+require_once __DIR__ . '/VisualizationAssetHelper.php';
 
 /**
  * Renders native and IPSView HTML pages through one shared asset contract.
@@ -19,11 +20,12 @@ require_once __DIR__ . '/HelperTranslationHelper.php';
  * visual implementation in style.css/app.js. The helper owns asset loading,
  * bootstrap encoding, page metadata, fixed placeholders and validation.
  *
- * @version 1.5.1
+ * @version 1.5.3
  */
 trait IPSViewHTMLPageHelper
 {
     use HelperTranslationHelper;
+    use VisualizationAssetHelper;
 
     public const IPSVIEW_HTML_CONTRACT_VERSION = 1;
 
@@ -382,6 +384,9 @@ trait IPSViewHTMLPageHelper
     /**
      * Renders a complete visualization document from index.html, style.css and app.js.
      *
+     * Replacement values are inserted once and are never interpreted as template syntax.
+     * Unknown placeholders are rejected in the template itself, not in rendered payloads.
+     *
      * Required template placeholders:
      * {{HTML_LANGUAGE}}, {{HTML_CLASSES}}, {{VIEWPORT_CONTENT}},
      * {{ROOT_FONT_SIZE}}, {{VISUALIZATION_THEME}}, {{MODULE_STYLE}},
@@ -435,6 +440,11 @@ trait IPSViewHTMLPageHelper
         $visualizationTheme = $this->IPSViewHTMLStringOption($configuration, 'visualizationTheme', '');
         $ipsViewStyle = $this->IPSViewHTMLStringOption($configuration, 'ipsViewStyle', '');
         $bootstrap = $this->BuildVisualizationHTMLBootstrap($ipsView, $configuration);
+        $interactionURL = method_exists($this, 'VisualizationInteractionScriptURL') ? $this->VisualizationInteractionScriptURL() : '';
+        if (!is_string($interactionURL) || ($interactionURL !== '' && (preg_match('#^/hook/[A-Za-z0-9/_.-]+$#D', $interactionURL) !== 1 || str_contains($interactionURL, '..')))) {
+            throw new InvalidArgumentException('The interaction asset must use a fixed same-origin hook path.');
+        }
+        $externalInteraction = $interactionURL !== '' && str_contains($template, '{{INTERACTION_SCRIPT}}');
 
         $replacements = [
             '{{HTML_LANGUAGE}}'       => htmlspecialchars($language, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
@@ -446,7 +456,8 @@ trait IPSViewHTMLPageHelper
             '{{MODULE_STYLE}}'        => $moduleStyle,
             '{{IPSVIEW_STYLE}}'       => $ipsView ? $ipsViewStyle : '',
             '{{BOOTSTRAP_JSON}}'      => $this->EncodeVisualizationHTMLJSON($bootstrap),
-            '{{MODULE_SCRIPT}}'       => $moduleScript
+            '{{MODULE_SCRIPT}}'       => $moduleScript,
+            '{{INTERACTION_SCRIPT}}'  => $externalInteraction ? '<script src="' . htmlspecialchars($interactionURL, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"></script>' : ''
         ];
 
         foreach ($this->NormalizeIPSViewHTMLReplacements($configuration['replacements'] ?? []) as $placeholder => $value) {
@@ -457,12 +468,20 @@ trait IPSViewHTMLPageHelper
             $replacements[$placeholder] = $value;
         }
 
-        $html = str_replace(array_keys($replacements), array_values($replacements), $template);
-        if (preg_match('/\{\{[A-Z][A-Z0-9_]*\}\}/', $html, $match) === 1) {
-            throw new RuntimeException('Unresolved visualization placeholder: ' . $match[0]);
+        if (!$externalInteraction) {
+            $replacements['{{MODULE_SCRIPT}}'] = $this->VisualizationInteractionScript() . "\n" . $replacements['{{MODULE_SCRIPT}}'];
         }
 
-        return $html;
+        // Validate only the template: marker-shaped device names and other payloads are data.
+        preg_match_all('/\{\{[A-Z][A-Z0-9_]*\}\}/', $template, $matches);
+        foreach ($matches[0] as $placeholder) {
+            if (!array_key_exists($placeholder, $replacements)) {
+                throw new RuntimeException('Unresolved visualization placeholder: ' . $placeholder);
+            }
+        }
+
+        // A single pass must never expand placeholders introduced by a replacement value.
+        return strtr($template, $replacements);
     }
 
     /**

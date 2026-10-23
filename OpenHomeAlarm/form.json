@@ -8,7 +8,22 @@
         {
             "code": 202,
             "icon": "error",
-            "caption": "Invalid sensor or fault configuration. At least one entry references a missing or disabled alarm partition. Recreate that area or assign the entry to an existing enabled area."
+            "caption": "Invalid sensor or fault configuration. Reassign entries from missing or disabled alarm partitions and remove duplicate sensor or fault entries."
+        },
+        {
+            "code": 203,
+            "icon": "error",
+            "caption": "Invalid automatic arming schedule. Check enabled schedules for a valid time, mode and at least one weekday."
+        },
+        {
+            "code": 204,
+            "icon": "error",
+            "caption": "Invalid alarm action configuration. Check enabled alarm actions: select an action and at least one trigger category. Signal generators require an automatic Boolean reset or a custom reset action."
+        },
+        {
+            "code": 205,
+            "icon": "error",
+            "caption": "Invalid stored runtime state. Open the module debug log for the exact cause before applying the configuration again."
         }
     ],
     "elements": [
@@ -41,8 +56,12 @@
                         {
                             "type": "ValidationTextBox",
                             "name": "ID",
-                            "caption": "Partition ID",
+                            "caption": "Partition ID (unique)",
                             "validate": "^[a-z][a-z0-9_-]{0,31}$"
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "Each partition ID can be assigned only once. An ID that is already in use cannot be confirmed."
                         },
                         {
                             "type": "ValidationTextBox",
@@ -69,7 +88,7 @@
                             "caption": "Partition ID",
                             "name": "ID",
                             "width": "180px",
-                            "add": "area",
+                            "add": "",
                             "edit": {
                                 "type": "ValidationTextBox",
                                 "validate": "^[a-z][a-z0-9_-]{0,31}$"
@@ -97,7 +116,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "The area main is the fixed complete alarm system. Additional areas can be switched independently. Silent by default suppresses signal generators; the arming command can override it. Area IDs must start with a lowercase letter and may contain up to 32 lowercase letters, digits, underscores or hyphens (for example garage or area_1). The name is freely selectable."
+                    "caption": "The area main is the fixed complete alarm system. Additional areas can be switched independently. Silent by default suppresses signal generators; the arming command can override it. Every area ID must be unique, start with a lowercase letter and may contain up to 32 lowercase letters, digits, underscores or hyphens (for example garage or area_1). The name is freely selectable."
                 }
             ]
         },
@@ -106,6 +125,65 @@
             "caption": "View",
             "expanded": false,
             "items": [
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "Arming mode display",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "The technical modes Home, Away and Night remain unchanged for scripts. Here you can rename or hide their cards in the tile and IPSView."
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ShowHomeMode",
+                                    "caption": "Show Home"
+                                },
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "HomeModeLabel",
+                                    "caption": "Home label",
+                                    "width": "260px"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ShowAwayMode",
+                                    "caption": "Show Away"
+                                },
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "AwayModeLabel",
+                                    "caption": "Away label",
+                                    "width": "260px"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ShowNightMode",
+                                    "caption": "Show Night"
+                                },
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "NightModeLabel",
+                                    "caption": "Night label",
+                                    "width": "260px"
+                                }
+                            ]
+                        }
+                    ]
+                },
                 {
                     "type": "ExpansionPanel",
                     "caption": "Tile view",
@@ -140,7 +218,7 @@
         },
         {
             "type": "ExpansionPanel",
-            "caption": "Arming delays",
+            "caption": "Delays and countdown actions",
             "expanded": false,
             "items": [
                 {
@@ -167,9 +245,48 @@
                     "caption": "A value of 0 disables the corresponding delay."
                 },
                 {
+                    "type": "Label",
+                    "caption": "Optional. Runs exactly once when an entry or exit delay starts. Use it for a single beep, an announcement or to switch on a continuous signal. If the list is empty, no start action runs."
+                },
+                {
+                    "type": "List",
+                    "name": "CountdownStartAction",
+                    "caption": "One-time action at countdown start",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $CountdownStartAction);"
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Optional. Runs once for every remaining second while an entry or exit delay is active. Use it for a remaining-time announcement or a repeating signal. Scripts can read the remaining time, triggering sensor, arming mode and state through OHA_GetControlState(). If the list is empty, no per-second action runs."
+                },
+                {
                     "type": "List",
                     "name": "CountdownAction",
-                    "caption": "Countdown actions",
+                    "caption": "Action during countdown (every second)",
                     "rowCount": 2,
                     "add": true,
                     "delete": true,
@@ -199,7 +316,80 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Optional: Add an action for output on every second of an active entry or exit delay. Typical uses are a spoken remaining time, a gong, a signal tone or a status display. An empty list runs no action. Scripts can read the remaining time, triggering sensor, arming mode and state through the public OHA_GetControlState() API."
+                    "caption": "Optional. Runs exactly once when a started entry or exit delay ends, both after normal expiry and after controlled cancellation by disarming or granting passage. Use it to switch off a continuous signal, light or status output. If the list is empty, no end action runs."
+                },
+                {
+                    "type": "List",
+                    "name": "CountdownEndAction",
+                    "caption": "One-time action at countdown end",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $CountdownEndAction);"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Disarming",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Optional. Runs exactly once when the last active alarm area has been successfully disarmed. It does not run when the system was already fully disarmed, while another area remains active, or after an internal arming cancellation."
+                },
+                {
+                    "type": "List",
+                    "name": "FullyDisarmedAction",
+                    "caption": "One-time action after fully disarming",
+                    "rowCount": 2,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ],
+                    "form": [
+                        "return OHA_GetOptionalActionEditForm($id, $FullyDisarmedAction);"
+                    ]
                 }
             ]
         },
@@ -470,6 +660,10 @@
                     "caption": "Add one row for each escalation action. Actions with the same delay run together. Use the gear button to select the Symcon action."
                 },
                 {
+                    "type": "Label",
+                    "caption": "Use the Home, Away, Night and 24/7 source matrix to decide which alarm origins may run each action. Existing actions remain enabled for all four categories."
+                },
+                {
                     "type": "List",
                     "name": "AlarmEscalationSteps",
                     "caption": "Alarm escalation actions",
@@ -560,6 +754,42 @@
                                     }
                                 ]
                             }
+                        },
+                        {
+                            "caption": "Home",
+                            "name": "ApplyHome",
+                            "width": "85px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Away",
+                            "name": "ApplyAway",
+                            "width": "85px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Night",
+                            "name": "ApplyNight",
+                            "width": "85px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "24/7",
+                            "name": "ApplyAlwaysActive",
+                            "width": "85px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
                         }
                     ],
                     "form": [
@@ -621,11 +851,13 @@
                             ]
                         },
                         {
-                            "type": "NumberSpinner",
+                            "type": "SelectInstance",
                             "name": "PushNotificationTileID",
-                            "caption": "Tile visualization ID",
-                            "minimum": 0,
-                            "width": "250px"
+                            "caption": "Tile visualization",
+                            "validModules": [
+                                "{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}"
+                            ],
+                            "width": "350px"
                         },
                         {
                             "type": "NumberSpinner",
@@ -827,7 +1059,7 @@
                 {
                     "type": "List",
                     "name": "FaultClearedAction",
-                    "caption": "Actions on fault cleared",
+                    "caption": "Actions after all faults are cleared",
                     "rowCount": 2,
                     "add": true,
                     "delete": true,
@@ -857,7 +1089,228 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Optional: Add an action that runs once when a previously active fault is cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action."
+                    "caption": "Optional: Add an action that runs once after the last active fault has been cleared. Typical uses are an all-clear notification or switching off a warning light. An empty list runs no action."
+                },
+                {
+                    "type": "PopupButton",
+                    "name": "FaultInputImport",
+                    "caption": "Find and add fault inputs",
+                    "onClick": "$partitionRows = []; foreach ($Partitions as $partitionRow) { $partitionRows[] = $partitionRow; } OHA_PrepareFaultInputImport($id, json_encode($partitionRows));",
+                    "popup": {
+                        "caption": "Find and add fault inputs",
+                        "width": "90%",
+                        "closeCaption": "Cancel",
+                        "items": [
+                            {
+                                "type": "Label",
+                                "caption": "Search variables by name, select the matches and apply the common fault settings below. Existing fault variables are not offered again. Added rows remain drafts until you apply the instance configuration."
+                            },
+                            {
+                                "type": "RowLayout",
+                                "items": [
+                                    {
+                                        "type": "SelectObject",
+                                        "name": "FaultImportRootObjectID",
+                                        "caption": "Search root (empty means entire object tree)",
+                                        "value": 0,
+                                        "onChange": "OHA_InvalidateFaultInputCandidates($id);"
+                                    },
+                                    {
+                                        "type": "ValidationTextBox",
+                                        "name": "FaultImportName",
+                                        "caption": "Variable name contains",
+                                        "value": "",
+                                        "onChange": "OHA_InvalidateFaultInputCandidates($id);"
+                                    },
+                                    {
+                                        "type": "Select",
+                                        "name": "FaultImportType",
+                                        "caption": "Variable type",
+                                        "value": "bool",
+                                        "onChange": "OHA_UpdateFaultInputImportTypeForm($id, $FaultImportType); OHA_InvalidateFaultInputCandidates($id);",
+                                        "options": [
+                                            {
+                                                "caption": "Boolean",
+                                                "value": "bool"
+                                            },
+                                            {
+                                                "caption": "Integer",
+                                                "value": "int"
+                                            },
+                                            {
+                                                "caption": "Float",
+                                                "value": "float"
+                                            },
+                                            {
+                                                "caption": "String",
+                                                "value": "string"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "CheckBox",
+                                        "name": "FaultImportIncludeHidden",
+                                        "caption": "Include hidden objects",
+                                        "value": false,
+                                        "onChange": "OHA_InvalidateFaultInputCandidates($id);"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Button",
+                                "caption": "Search",
+                                "onClick": "$faultRows = []; foreach ($FaultInputs as $faultRow) { $faultRows[] = $faultRow; } OHA_SearchFaultInputCandidates($id, $FaultImportName, $FaultImportType, $FaultImportRootObjectID, $FaultImportIncludeHidden, json_encode($faultRows));"
+                            },
+                            {
+                                "type": "Label",
+                                "name": "FaultImportSearchSummary",
+                                "caption": "Enter a name and click Search."
+                            },
+                            {
+                                "type": "List",
+                                "name": "FaultImportCandidates",
+                                "caption": "Matching variables",
+                                "rowCount": 8,
+                                "add": false,
+                                "delete": false,
+                                "columns": [
+                                    {
+                                        "caption": "Add",
+                                        "name": "Selected",
+                                        "width": "70px",
+                                        "edit": {
+                                            "type": "CheckBox"
+                                        }
+                                    },
+                                    {
+                                        "caption": "Name",
+                                        "name": "Name",
+                                        "width": "220px"
+                                    },
+                                    {
+                                        "caption": "Path",
+                                        "name": "Path",
+                                        "width": "auto"
+                                    },
+                                    {
+                                        "caption": "Type",
+                                        "name": "VariableType",
+                                        "width": "110px"
+                                    },
+                                    {
+                                        "caption": "Variable ID",
+                                        "name": "VariableID",
+                                        "width": "1px",
+                                        "visible": false
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Label",
+                                "caption": "Common settings for all selected variables"
+                            },
+                            {
+                                "type": "RowLayout",
+                                "items": [
+                                    {
+                                        "type": "CheckBox",
+                                        "name": "FaultImportEnabled",
+                                        "caption": "Enabled",
+                                        "value": true
+                                    },
+                                    {
+                                        "type": "Select",
+                                        "name": "FaultImportPartitionID",
+                                        "caption": "Alarm partition",
+                                        "value": "main",
+                                        "options": [
+                                            {
+                                                "caption": "Main area",
+                                                "value": "main"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "Select",
+                                        "name": "FaultImportFaultType",
+                                        "caption": "Fault type",
+                                        "value": 0,
+                                        "options": [
+                                            {
+                                                "caption": "Tamper",
+                                                "value": 0
+                                            },
+                                            {
+                                                "caption": "Battery / power",
+                                                "value": 1
+                                            },
+                                            {
+                                                "caption": "Communication",
+                                                "value": 2
+                                            },
+                                            {
+                                                "caption": "Device fault",
+                                                "value": 3
+                                            },
+                                            {
+                                                "caption": "Other fault",
+                                                "value": 4
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "Select",
+                                        "name": "FaultImportTriggerCondition",
+                                        "caption": "Rule",
+                                        "value": "equals",
+                                        "options": [
+                                            {
+                                                "caption": "Trigger at selected value",
+                                                "value": "equals"
+                                            },
+                                            {
+                                                "caption": "Trigger when different from normal value",
+                                                "value": "not_equals"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "ValidationTextBox",
+                                        "name": "FaultImportTriggerValue",
+                                        "caption": "Shared comparison value",
+                                        "value": "true"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "RowLayout",
+                                "items": [
+                                    {
+                                        "type": "CheckBox",
+                                        "name": "FaultImportBlockArming",
+                                        "caption": "Block arming",
+                                        "value": false
+                                    },
+                                    {
+                                        "type": "CheckBox",
+                                        "name": "FaultImportTriggerAlarm",
+                                        "caption": "Trigger alarm (24/7)",
+                                        "value": false
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Label",
+                                "caption": "The comparison value is stored as a raw value for every selected variable. Review variables with profiles or special states in the normal fault input list after adding."
+                            }
+                        ],
+                        "buttons": [
+                            {
+                                "caption": "Add selected",
+                                "onClick": "$settings = ['Enabled' => $FaultImportEnabled, 'PartitionID' => $FaultImportPartitionID, 'FaultType' => $FaultImportFaultType, 'TriggerCondition' => $FaultImportTriggerCondition, 'TriggerValue' => $FaultImportTriggerValue, 'BlockArming' => $FaultImportBlockArming, 'TriggerAlarm' => $FaultImportTriggerAlarm]; $partitionRows = []; foreach ($Partitions as $partitionRow) { $partitionRows[] = $partitionRow; } $faultRows = []; foreach ($FaultInputs as $faultRow) { $faultRows[] = $faultRow; } $candidateRows = []; foreach ($FaultImportCandidates as $candidateRow) { $candidateRows[] = $candidateRow; } return OHA_AddFaultInputCandidates($id, $FaultImportName, $FaultImportType, $FaultImportRootObjectID, $FaultImportIncludeHidden, json_encode($settings), json_encode($partitionRows), json_encode($faultRows), json_encode($candidateRows));"
+                            }
+                        ]
+                    }
                 },
                 {
                     "type": "List",
@@ -886,13 +1339,21 @@
                             }
                         },
                         {
-                            "caption": "Alarm partition",
+                            "caption": "",
                             "name": "PartitionID",
-                            "width": "150px",
+                            "width": "1px",
+                            "visible": false,
                             "add": "",
                             "edit": {
                                 "type": "ValidationTextBox"
                             }
+                        },
+                        {
+                            "caption": "Alarm partition",
+                            "name": "PartitionName",
+                            "width": "150px",
+                            "add": "Main area",
+                            "save": false
                         },
                         {
                             "caption": "Variable",
@@ -935,7 +1396,26 @@
                             }
                         },
                         {
-                            "caption": "Fault value",
+                            "caption": "Rule",
+                            "name": "TriggerCondition",
+                            "width": "180px",
+                            "add": "equals",
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "Trigger at selected value",
+                                        "value": "equals"
+                                    },
+                                    {
+                                        "caption": "Trigger when different from normal value",
+                                        "value": "not_equals"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "caption": "Comparison value",
                             "name": "TriggerValue",
                             "width": "125px",
                             "add": "1",
@@ -989,6 +1469,304 @@
             ]
         },
         {
+            "type": "PopupButton",
+            "name": "SensorImport",
+            "caption": "Find and add sensors",
+            "onClick": "$partitionRows = []; foreach ($Partitions as $partitionRow) { $partitionRows[] = $partitionRow; } OHA_PrepareSensorImport($id, json_encode($partitionRows));",
+            "popup": {
+                "caption": "Find and add sensors",
+                "width": "90%",
+                "closeCaption": "Cancel",
+                "items": [
+                    {
+                        "type": "Label",
+                        "caption": "Search variables by name, select the matches and apply the common sensor settings below. Existing sensor variables are not offered again. Added rows remain drafts until you apply the instance configuration."
+                    },
+                    {
+                        "type": "RowLayout",
+                        "items": [
+                            {
+                                "type": "SelectObject",
+                                "name": "ImportRootObjectID",
+                                "caption": "Search root (empty means entire object tree)",
+                                "value": 0,
+                                "onChange": "OHA_InvalidateSensorCandidates($id);"
+                            },
+                            {
+                                "type": "ValidationTextBox",
+                                "name": "ImportName",
+                                "caption": "Variable name contains",
+                                "value": "",
+                                "onChange": "OHA_InvalidateSensorCandidates($id);"
+                            },
+                            {
+                                "type": "Select",
+                                "name": "ImportType",
+                                "caption": "Variable type",
+                                "value": "bool",
+                                "onChange": "OHA_UpdateSensorImportTypeForm($id, $ImportType); OHA_InvalidateSensorCandidates($id);",
+                                "options": [
+                                    {
+                                        "caption": "Boolean",
+                                        "value": "bool"
+                                    },
+                                    {
+                                        "caption": "Integer",
+                                        "value": "int"
+                                    },
+                                    {
+                                        "caption": "Float",
+                                        "value": "float"
+                                    },
+                                    {
+                                        "caption": "String",
+                                        "value": "string"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportIncludeHidden",
+                                "caption": "Include hidden objects",
+                                "value": false,
+                                "onChange": "OHA_InvalidateSensorCandidates($id);"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Button",
+                        "caption": "Search",
+                        "onClick": "$sensorRows = []; foreach ($Sensors as $sensorRow) { $sensorRows[] = $sensorRow; } OHA_SearchSensorCandidates($id, $ImportName, $ImportType, $ImportRootObjectID, $ImportIncludeHidden, json_encode($sensorRows));"
+                    },
+                    {
+                        "type": "Label",
+                        "name": "ImportSearchSummary",
+                        "caption": "Enter a name and click Search."
+                    },
+                    {
+                        "type": "List",
+                        "name": "ImportCandidates",
+                        "caption": "Matching variables",
+                        "rowCount": 8,
+                        "add": false,
+                        "delete": false,
+                        "columns": [
+                            {
+                                "caption": "Add",
+                                "name": "Selected",
+                                "width": "70px",
+                                "edit": {
+                                    "type": "CheckBox"
+                                }
+                            },
+                            {
+                                "caption": "Name",
+                                "name": "Name",
+                                "width": "220px"
+                            },
+                            {
+                                "caption": "Path",
+                                "name": "Path",
+                                "width": "auto"
+                            },
+                            {
+                                "caption": "Type",
+                                "name": "VariableType",
+                                "width": "110px"
+                            },
+                            {
+                                "caption": "Variable ID",
+                                "name": "VariableID",
+                                "width": "1px",
+                                "visible": false
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Label",
+                        "caption": "Common settings for all selected variables"
+                    },
+                    {
+                        "type": "RowLayout",
+                        "items": [
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportEnabled",
+                                "caption": "Enabled",
+                                "value": true
+                            },
+                            {
+                                "type": "Select",
+                                "name": "ImportSensorType",
+                                "caption": "Sensor type",
+                                "value": 0,
+                                "options": [
+                                    {
+                                        "caption": "Opening contact",
+                                        "value": 0
+                                    },
+                                    {
+                                        "caption": "Motion detector",
+                                        "value": 1
+                                    },
+                                    {
+                                        "caption": "Glass break detector",
+                                        "value": 2
+                                    },
+                                    {
+                                        "caption": "Smoke detector",
+                                        "value": 3
+                                    },
+                                    {
+                                        "caption": "Water detector",
+                                        "value": 4
+                                    },
+                                    {
+                                        "caption": "Panic trigger",
+                                        "value": 5
+                                    },
+                                    {
+                                        "caption": "Other trigger",
+                                        "value": 6
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "Select",
+                                "name": "ImportTriggerCondition",
+                                "caption": "Evaluation",
+                                "value": "equals",
+                                "options": [
+                                    {
+                                        "caption": "Trigger at selected value",
+                                        "value": "equals"
+                                    },
+                                    {
+                                        "caption": "Trigger when different from normal value",
+                                        "value": "not_equals"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "ValidationTextBox",
+                                "name": "ImportTriggerValue",
+                                "caption": "Shared comparison value",
+                                "value": "true"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Label",
+                        "caption": "The comparison value is stored as a raw value for every selected variable. Review variables with profiles or special states in the normal sensor list after adding."
+                    },
+                    {
+                        "type": "List",
+                        "name": "ImportPartitions",
+                        "caption": "Alarm partitions",
+                        "rowCount": 4,
+                        "add": false,
+                        "delete": false,
+                        "columns": [
+                            {
+                                "caption": "Use",
+                                "name": "Selected",
+                                "width": "70px",
+                                "edit": {
+                                    "type": "CheckBox"
+                                }
+                            },
+                            {
+                                "caption": "Alarm partition",
+                                "name": "Name",
+                                "width": "auto"
+                            },
+                            {
+                                "caption": "Partition ID",
+                                "name": "ID",
+                                "width": "1px",
+                                "visible": false
+                            }
+                        ]
+                    },
+                    {
+                        "type": "RowLayout",
+                        "items": [
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportArmHome",
+                                "caption": "Home",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportArmAway",
+                                "caption": "Away",
+                                "value": true
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportArmNight",
+                                "caption": "Night",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportAlwaysActive",
+                                "caption": "24/7 active",
+                                "value": false,
+                                "onChange": "OHA_UpdateSensorImportAlwaysActiveForm($id, $ImportAlwaysActive);"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "RowLayout",
+                        "items": [
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportAllowAutomaticBypass",
+                                "caption": "Allow automatic bypass",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportAllowPassage",
+                                "caption": "Allow temporary passage",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportExitDelay",
+                                "caption": "Exit route (Away only)",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportEntryDelay",
+                                "caption": "Entry delay",
+                                "value": false
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ImportRetriggerAlarm",
+                                "caption": "Retrigger alarm while active",
+                                "value": false
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Label",
+                        "caption": "24/7 sensors ignore arming modes, bypass, passage and entry/exit delays. The importer clears these incompatible settings automatically."
+                    }
+                ],
+                "buttons": [
+                    {
+                        "caption": "Add selected",
+                        "onClick": "$sensorRows = []; foreach ($Sensors as $sensorRow) { $sensorRows[] = $sensorRow; } $candidateRows = []; foreach ($ImportCandidates as $candidateRow) { $candidateRows[] = $candidateRow; } $selectedPartitionRows = []; foreach ($ImportPartitions as $partitionRow) { $selectedPartitionRows[] = $partitionRow; } $configuredPartitionRows = []; foreach ($Partitions as $partitionRow) { $configuredPartitionRows[] = $partitionRow; } $settings = ['Enabled' => $ImportEnabled, 'SensorType' => $ImportSensorType, 'TriggerCondition' => $ImportTriggerCondition, 'TriggerValue' => $ImportTriggerValue, 'ArmHome' => $ImportArmHome, 'ArmAway' => $ImportArmAway, 'ArmNight' => $ImportArmNight, 'AlwaysActive' => $ImportAlwaysActive, 'AllowAutomaticBypass' => $ImportAllowAutomaticBypass, 'AllowPassage' => $ImportAllowPassage, 'ExitDelay' => $ImportExitDelay, 'EntryDelay' => $ImportEntryDelay, 'RetriggerAlarm' => $ImportRetriggerAlarm]; return OHA_AddSensorCandidates($id, $ImportName, $ImportType, $ImportRootObjectID, $ImportIncludeHidden, json_encode($settings), json_encode($selectedPartitionRows), json_encode($configuredPartitionRows), json_encode($sensorRows), json_encode($candidateRows));"
+                    }
+                ]
+            }
+        },
+        {
             "type": "List",
             "name": "Sensors",
             "caption": "Sensors and triggers",
@@ -997,9 +1775,9 @@
             "delete": true,
             "columns": [
                 {
-                    "caption": "Enabled",
+                    "caption": "Active",
                     "name": "Enabled",
-                    "width": "70px",
+                    "width": "55px",
                     "add": true,
                     "edit": {
                         "type": "CheckBox"
@@ -1008,16 +1786,16 @@
                 {
                     "caption": "Name",
                     "name": "Name",
-                    "width": "220px",
+                    "width": "150px",
                     "add": "",
                     "edit": {
                         "type": "ValidationTextBox"
                     }
                 },
                 {
-                    "caption": "Alarm partitions",
+                    "caption": "Areas",
                     "name": "PartitionNames",
-                    "width": "150px",
+                    "width": "110px",
                     "add": "",
                     "save": false
                 },
@@ -1031,9 +1809,9 @@
                     }
                 },
                 {
-                    "caption": "Sensor type",
+                    "caption": "Type",
                     "name": "SensorType",
-                    "width": "170px",
+                    "width": "120px",
                     "add": 0,
                     "edit": {
                         "type": "Select",
@@ -1070,9 +1848,28 @@
                     }
                 },
                 {
-                    "caption": "Trigger value",
+                    "caption": "Rule",
+                    "name": "TriggerCondition",
+                    "width": "135px",
+                    "add": "equals",
+                    "edit": {
+                        "type": "Select",
+                        "options": [
+                            {
+                                "caption": "Trigger at selected value",
+                                "value": "equals"
+                            },
+                            {
+                                "caption": "Trigger when different from normal value",
+                                "value": "not_equals"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "caption": "Value",
                     "name": "TriggerValue",
-                    "width": "125px",
+                    "width": "70px",
                     "add": "1",
                     "edit": {
                         "type": "ValidationTextBox"
@@ -1097,7 +1894,7 @@
                 {
                     "caption": "Home",
                     "name": "ArmHome",
-                    "width": "90px",
+                    "width": "60px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"
@@ -1106,7 +1903,7 @@
                 {
                     "caption": "Away",
                     "name": "ArmAway",
-                    "width": "95px",
+                    "width": "65px",
                     "add": true,
                     "edit": {
                         "type": "CheckBox"
@@ -1115,7 +1912,7 @@
                 {
                     "caption": "Night",
                     "name": "ArmNight",
-                    "width": "75px",
+                    "width": "60px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"
@@ -1124,6 +1921,33 @@
                 {
                     "caption": "24/7",
                     "name": "AlwaysActive",
+                    "width": "55px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Auto bypass",
+                    "name": "AllowAutomaticBypass",
+                    "width": "85px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Passage",
+                    "name": "AllowPassage",
+                    "width": "80px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Exit",
+                    "name": "ExitDelay",
                     "width": "70px",
                     "add": false,
                     "edit": {
@@ -1131,27 +1955,9 @@
                     }
                 },
                 {
-                    "caption": "Allow automatic bypass",
-                    "name": "AllowAutomaticBypass",
-                    "width": "165px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Exit route",
-                    "name": "ExitDelay",
-                    "width": "115px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Entry delay",
+                    "caption": "Entry",
                     "name": "EntryDelay",
-                    "width": "130px",
+                    "width": "70px",
                     "add": false,
                     "edit": {
                         "type": "CheckBox"
@@ -1164,12 +1970,112 @@
         },
         {
             "type": "Label",
-            "caption": "Selectable variable states are shown as a consistent list; variables without discrete states keep a raw-value input."
+            "caption": "Choose whether the selected value itself triggers an alarm or whether every deviation from a known normal value should trigger. Variables without discrete states keep a raw-value input."
         },
         {
             "type": "Label",
-            "caption": "24/7 sensors trigger immediately as normal alarms in every system state. Arming modes and entry/exit delays do not apply."
+            "caption": "24/7 sensors trigger immediately as normal alarms in every system state. Arming modes, entry/exit delays and temporary passage do not apply."
         }
     ],
-    "actions": []
+    "actions": [
+        {
+            "type": "ExpansionPanel",
+            "caption": "Exports and configuration backup",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Exports are downloaded by the administration console. OpenHomeAlarm does not create log or backup files automatically on the Symcon server."
+                },
+                {
+                    "type": "Label",
+                    "caption": "Event history (up to 100 stored entries)"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Button",
+                            "caption": "Download event history as JSON",
+                            "download": "openhomealarm-events.json",
+                            "onClick": "echo 'data:application/json;charset=utf-8;base64,' . base64_encode(OHA_ExportEventHistory($id, 'json', 0, 0, ''));"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Download event history as CSV",
+                            "download": "openhomealarm-events.csv",
+                            "onClick": "echo 'data:text/csv;charset=utf-8;base64,' . base64_encode(\"\\xEF\\xBB\\xBF\" . OHA_ExportEventHistory($id, 'csv', 0, 0, ''));"
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "System diagnostics"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Button",
+                            "caption": "Download diagnostics as JSON",
+                            "download": "openhomealarm-diagnostics.json",
+                            "onClick": "echo 'data:application/json;charset=utf-8;base64,' . base64_encode(OHA_ExportDiagnostics($id, 'json'));"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Download diagnostics as CSV",
+                            "download": "openhomealarm-diagnostics.csv",
+                            "onClick": "echo 'data:text/csv;charset=utf-8;base64,' . base64_encode(\"\\xEF\\xBB\\xBF\" . OHA_ExportDiagnostics($id, 'csv'));"
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Configuration backup may contain codes and access tokens. Store it like a password."
+                },
+                {
+                    "type": "Button",
+                    "caption": "Download configuration backup",
+                    "download": "openhomealarm-configuration-backup.json",
+                    "onClick": "echo 'data:application/json;charset=utf-8;base64,' . base64_encode(OHA_ExportConfigurationBackup($id));"
+                },
+                {
+                    "type": "PopupButton",
+                    "name": "RestoreConfigurationBackup",
+                    "caption": "Restore configuration backup",
+                    "popup": {
+                        "caption": "Restore configuration backup",
+                        "width": "700px",
+                        "closeCaption": "Cancel",
+                        "items": [
+                            {
+                                "type": "Label",
+                                "caption": "Restoring replaces the instance configuration. Every alarm partition must be completely disarmed. The selected file is validated before any setting is changed; a failed apply is rolled back."
+                            },
+                            {
+                                "type": "SelectFile",
+                                "name": "ConfigurationBackupFile",
+                                "caption": "OpenHomeAlarm configuration backup",
+                                "extensions": ".json",
+                                "width": "100%"
+                            },
+                            {
+                                "type": "CheckBox",
+                                "name": "ConfigurationBackupConfirmed",
+                                "caption": "I understand that the current instance configuration will be replaced.",
+                                "value": false
+                            }
+                        ],
+                        "buttons": [
+                            {
+                                "caption": "Validate and restore",
+                                "confirm": "Restore the selected OpenHomeAlarm configuration backup?",
+                                "onClick": "if (!$ConfigurationBackupConfirmed) { throw new InvalidArgumentException(IPS_Translate($id, 'Confirm that the current instance configuration may be replaced.')); } $configurationBackup = base64_decode($ConfigurationBackupFile, true); if (!is_string($configurationBackup) || trim($configurationBackup) === '') { throw new InvalidArgumentException(IPS_Translate($id, 'Select a valid OpenHomeAlarm configuration backup.')); } return OHA_RestoreConfigurationBackup($id, $configurationBackup);"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
 }

@@ -9,6 +9,9 @@ namespace Burki24\OpenHomeAlarm;
  */
 final class AlarmTriggerValue
 {
+    public const CONDITION_EQUALS = 'equals';
+    public const CONDITION_NOT_EQUALS = 'not_equals';
+
     /**
      * Converts a Symcon value to the stable string representation stored in module properties.
      *
@@ -92,5 +95,29 @@ final class AlarmTriggerValue
         }
 
         return null;
+    }
+
+    /**
+     * Evaluates whether a current value represents an alarm for the configured condition.
+     *
+     * An unevaluable value always remains null. In particular, invalid or unreadable
+     * values must not become alarms merely because the normal-value rule is inverted.
+     */
+    public static function isTriggered(
+        int $variableType,
+        string $triggerValue,
+        mixed $currentValue,
+        string $condition = self::CONDITION_EQUALS
+    ): ?bool {
+        $matches = self::matches($variableType, $triggerValue, $currentValue);
+        if ($matches === null) {
+            return null;
+        }
+
+        return match ($condition) {
+            self::CONDITION_EQUALS     => $matches,
+            self::CONDITION_NOT_EQUALS => !$matches,
+            default                    => null
+        };
     }
 }

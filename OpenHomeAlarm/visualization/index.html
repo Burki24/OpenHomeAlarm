@@ -41,7 +41,12 @@
                 <span class="oha-partition-kicker" id="partitionKicker"></span>
                 <h2 class="oha-partition-title" id="partitionLabel"></h2>
             </div>
-            <div class="oha-partition-tabs" id="partitionTabs" role="tablist"></div>
+            <div class="oha-partition-tabs" id="partitionTabs" role="group"></div>
+            <div class="oha-arm-target-legend" id="armTargets" hidden>
+                <span id="armTargetsLabel"></span>
+                <span aria-hidden="true">·</span>
+                <span id="armTargetsHint"></span>
+            </div>
         </nav>
 
         <section class="oha-arm-section" id="armingSection">
@@ -54,15 +59,28 @@
                     <span class="oha-section-hint" id="armingHint"></span>
                 </div>
 
-                <div class="oha-arm-delivery" id="armDelivery">
-                    <div class="oha-arm-delivery-copy">
-                        <strong class="oha-arm-delivery-label" id="armDeliveryLabel"></strong>
-                        <span class="oha-arm-delivery-default" id="armDeliveryDefault"></span>
+                <div class="oha-arm-options">
+                    <div class="oha-arm-delivery" id="armDelivery">
+                        <div class="oha-arm-delivery-copy">
+                            <strong class="oha-arm-delivery-label" id="armDeliveryLabel"></strong>
+                            <span class="oha-arm-delivery-default" id="armDeliveryDefault"></span>
+                        </div>
+                        <button class="oha-delivery-switch" data-delivery-switch type="button" role="switch" aria-checked="false" aria-describedby="armDeliveryDefault">
+                            <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
+                            <span class="oha-delivery-switch-value" id="armDeliveryValue"></span>
+                        </button>
                     </div>
-                    <button class="oha-delivery-switch" data-delivery-switch type="button" role="switch" aria-checked="false" aria-describedby="armDeliveryDefault">
-                        <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
-                        <span class="oha-delivery-switch-value" id="armDeliveryValue"></span>
-                    </button>
+
+                    <div class="oha-arm-delivery" id="armBypass" hidden>
+                        <div class="oha-arm-delivery-copy">
+                            <strong class="oha-arm-delivery-label" id="armBypassLabel"></strong>
+                            <span class="oha-arm-delivery-default" id="armBypassHint"></span>
+                        </div>
+                        <button class="oha-delivery-switch" data-bypass-switch type="button" role="switch" aria-checked="false" aria-describedby="armBypassHint">
+                            <span class="oha-delivery-switch-track" aria-hidden="true"><span class="oha-delivery-switch-thumb"></span></span>
+                            <span class="oha-delivery-switch-value" id="armBypassValue"></span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="oha-mode-grid">
@@ -185,6 +203,16 @@
                     <span id="clearBypassesLabel"></span>
                 </button>
             </article>
+
+            <article class="oha-context-card oha-context-bypass" id="passagePanel" hidden>
+                <div class="oha-context-icon" aria-hidden="true">
+                    <i class="fa-light fa-door-open"></i>
+                </div>
+                <div class="oha-context-copy">
+                    <strong id="passageTitle"></strong>
+                    <span id="passageDetail"></span>
+                </div>
+            </article>
         </section>
 
         <section class="oha-operations-grid" id="operationsGrid">
@@ -200,29 +228,23 @@
             </article>
 
             <article class="oha-operation-panel" id="eventHistoryPanel" hidden>
-                <header class="oha-operation-head">
+                <header class="oha-operation-head oha-operation-head-actions">
                     <div>
                         <div class="oha-section-kicker" id="eventHistoryKicker"></div>
                         <h2 id="eventHistoryTitle"></h2>
-                    </div>
-                    <div class="oha-history-actions">
-                        <button class="oha-row-action" id="exportHistoryJson" data-operation="ExportEventHistory" data-format="json" data-enabled="true" type="button">JSON</button>
-                        <button class="oha-row-action" id="exportHistoryCsv" data-operation="ExportEventHistory" data-format="csv" data-enabled="true" type="button">CSV</button>
                     </div>
                 </header>
                 <div class="oha-history-list" id="eventHistoryList"></div>
             </article>
 
             <article class="oha-operation-panel" id="diagnosticsPanel" hidden>
-                <header class="oha-operation-head">
+                <header class="oha-operation-head oha-operation-head-actions">
                     <div>
                         <div class="oha-section-kicker" id="diagnosticsKicker"></div>
                         <h2 id="diagnosticsTitle"></h2>
                     </div>
                     <div class="oha-history-actions">
                         <span class="oha-operation-count" id="diagnosticsCount"></span>
-                        <button class="oha-row-action" id="exportDiagnosticsJson" data-operation="ExportDiagnostics" data-format="json" data-enabled="true" type="button">JSON</button>
-                        <button class="oha-row-action" id="exportDiagnosticsCsv" data-operation="ExportDiagnostics" data-format="csv" data-enabled="true" type="button">CSV</button>
                     </div>
                 </header>
                 <div class="oha-diagnostics-list" id="diagnosticsList"></div>

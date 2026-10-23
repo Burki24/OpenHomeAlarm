@@ -125,8 +125,11 @@ assertCodepad(str_contains($css, '.oha-inline-codepad'), 'The permanently integr
 assertCodepad(str_contains($css, '.oha-inline-disarm-button'), 'The integrated codepad must style its explicit disarm button.');
 assertCodepad(str_contains($css, '@media (min-width: 900px)'), 'The integrated codepad must use a tile-width breakpoint.');
 assertCodepad(
-    !str_contains($css, '.oha-control-bar[data-code-required="true"]'),
-    'The Deactivate control must remain visible on wide code-protected views.'
+    str_contains(
+        $css,
+        ".oha-shell[data-codepad-visible=\"true\"] .oha-disarm-button {\n        display: none;\n    }"
+    ),
+    'The duplicate Deactivate control must be hidden while the integrated codepad is visible.'
 );
 assertCodepad(
     strpos($html, 'id="armingSection"') < strpos($html, 'id="controlBar"')
@@ -152,10 +155,10 @@ assertCodepad(
     'The visualization must refresh automatically after a temporary code lockout.'
 );
 assertCodepad(
-    str_contains($javascript, 'function ohaCanDisarm(state = ohaState)')
-        && str_contains($javascript, "return stateName !== 'disarmed' || modeName !== 'none';")
+    str_contains($javascript, 'function ohaCanDisarm(state = ohaSelectedState())')
+        && str_contains($javascript, "return stateName !== 'disarmed' || modeName !== 'none' || ohaCanDisarmAllPartitions(state);")
         && !str_contains($javascript, 'Capabilities?.CanDisarm'),
-    'Disarming controls must stay available for every active alarm state even if a timer-driven capability update is stale.'
+    'Disarming controls must stay available for every active alarm state and for active subareas selected through main, even if a timer-driven capability update is stale.'
 );
 assertCodepad(
     str_contains($javascript, 'function ohaIsControlStatePayload(state)')

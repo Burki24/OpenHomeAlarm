@@ -18,6 +18,7 @@ final class AlarmVisualizationAdapter
     {
         $normalizedValue = match ($action) {
             'ArmPartition'                                                                                                                             => self::armPartitionValue($value),
+            'ArmPartitions'                                                                                                                            => self::armPartitionsValue($value),
             'DisarmPartition', 'ClearSensorBypassesPartition', 'ClearAlarmMemoryPartition', 'ResetAlarmOutputPartition', 'ResetFalseAlarmPartition'    => self::partitionValue($value, false),
             'ResetFalseAlarmPartitionWithCode'                                                                                                         => self::partitionValue($value, true),
             'DisarmPartitionWithCode'                                                                                                                  => self::partitionValue($value, true),
@@ -64,7 +65,7 @@ final class AlarmVisualizationAdapter
         ];
     }
 
-    /** @return array{PartitionID:string,Value:string,Silent:?bool} */
+    /** @return array{PartitionID:string,Value:string,Silent:?bool,BypassActiveSensors:bool} */
     private static function armPartitionValue(mixed $value): array
     {
         $decoded = is_string($value) ? json_decode($value, true) : $value;
@@ -72,8 +73,49 @@ final class AlarmVisualizationAdapter
         if (array_key_exists('Silent', $decoded) && !is_bool($decoded['Silent'])) {
             throw new InvalidArgumentException('Silent arming option must be a Boolean.');
         }
+        if (array_key_exists('BypassActiveSensors', $decoded) && !is_bool($decoded['BypassActiveSensors'])) {
+            throw new InvalidArgumentException('Active-sensor bypass option must be a Boolean.');
+        }
 
-        return $partition + ['Silent' => $decoded['Silent'] ?? null];
+        return $partition + [
+            'Silent'              => $decoded['Silent'] ?? null,
+            'BypassActiveSensors' => $decoded['BypassActiveSensors'] ?? false
+        ];
+    }
+
+    /** @return array{PartitionIDs:list<string>,Value:string,Silent:?bool,BypassActiveSensors:bool} */
+    private static function armPartitionsValue(mixed $value): array
+    {
+        $decoded = is_string($value) ? json_decode($value, true) : $value;
+        if (!is_array($decoded)
+            || !is_array($decoded['PartitionIDs'] ?? null)
+            || !array_is_list($decoded['PartitionIDs'])) {
+            throw new InvalidArgumentException('Multi-partition arming requires a partition ID list.');
+        }
+        $partitionIDs = [];
+        foreach ($decoded['PartitionIDs'] as $partitionID) {
+            $partition = self::partitionValue(['PartitionID' => $partitionID], false);
+            $partitionIDs[] = $partition['PartitionID'];
+        }
+        if ($partitionIDs === []) {
+            throw new InvalidArgumentException('Multi-partition arming requires at least one partition.');
+        }
+        if (!is_string($decoded['Value'] ?? null)) {
+            throw new InvalidArgumentException('Multi-partition arming requires a mode string.');
+        }
+        if (array_key_exists('Silent', $decoded) && !is_bool($decoded['Silent'])) {
+            throw new InvalidArgumentException('Silent arming option must be a Boolean.');
+        }
+        if (array_key_exists('BypassActiveSensors', $decoded) && !is_bool($decoded['BypassActiveSensors'])) {
+            throw new InvalidArgumentException('Active-sensor bypass option must be a Boolean.');
+        }
+
+        return [
+            'PartitionIDs'        => array_values(array_unique($partitionIDs)),
+            'Value'               => $decoded['Value'],
+            'Silent'              => $decoded['Silent'] ?? null,
+            'BypassActiveSensors' => $decoded['BypassActiveSensors'] ?? false
+        ];
     }
 
     private static function stringValue(mixed $value, string $error): string

@@ -128,8 +128,9 @@ class IPSModuleStrict
         return true;
     }
 
-    protected function SendDebug(string $message, string $data, int $format): void
+    protected function SendDebug(string $message, string $data, int $format): bool
     {
+        return true;
     }
 
     protected function RegisterPropertyString(string $name, string $default): void
@@ -298,18 +299,20 @@ function armingSensor(
     bool $enabled = true,
     bool $armHome = false,
     bool $armAway = false,
-    bool $armNight = false
+    bool $armNight = false,
+    string $triggerCondition = 'equals'
 ): array {
     return [
-        'Enabled'      => $enabled,
-        'Name'         => 'Test ' . $variableID,
-        'VariableID'   => $variableID,
-        'SensorType'   => 0,
-        'TriggerValue' => $triggerValue,
-        'ArmHome'      => $armHome,
-        'ArmAway'      => $armAway,
-        'ArmNight'     => $armNight,
-        'EntryDelay'   => false
+        'Enabled'          => $enabled,
+        'Name'             => 'Test ' . $variableID,
+        'VariableID'       => $variableID,
+        'SensorType'       => 0,
+        'TriggerCondition' => $triggerCondition,
+        'TriggerValue'     => $triggerValue,
+        'ArmHome'          => $armHome,
+        'ArmAway'          => $armAway,
+        'ArmNight'         => $armNight,
+        'EntryDelay'       => false
     ];
 }
 
@@ -480,6 +483,60 @@ $executeAutomaticArming->invoke($instance, $scheduleTimestamp);
 assertArming(
     $instance->TestWrittenValues() === [],
     'A schedule must not execute twice in the same local minute.'
+);
+
+// A multi-state sensor may treat one configured value as normal and every other value as triggered.
+$normalValueInstance = new OpenHomeAlarm();
+$normalValueInstance->Create();
+$normalValueInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$normalValueInstance->TestSetPropertyString('Sensors', json_encode([
+    armingSensor(2004, '0', armAway: true, triggerCondition: 'not_equals')
+], JSON_THROW_ON_ERROR));
+$testValues[2004] = 0;
+assertArming(
+    $normalValueInstance->ArmAway() === true,
+    'The configured normal value must permit arming.'
+);
+$normalValueInstance->Disarm();
+$testValues[2004] = 4;
+assertArming(
+    $normalValueInstance->ArmAway() === false,
+    'Every different valid state must block arming under normal-value evaluation.'
+);
+$testValues[2004] = 0;
+assertArming($normalValueInstance->ArmAway() === true, 'The normal-value alarm test must arm first.');
+$normalValueInstance->TestClearWrittenValues();
+$testValues[2004] = 2;
+$normalValueInstance->MessageSink(1, 2004, VM_UPDATE, [2, true, 0]);
+assertArming(
+    ($normalValueInstance->TestWrittenValues()['State'] ?? null) === 4,
+    'A transition away from the configured normal value must alarm while armed.'
+);
+
+$sameNames = new OpenHomeAlarm();
+$sameNames->Create();
+$sameNames->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$sameNameSensors = [
+    armingSensor(2001, 'true', armAway: true),
+    armingSensor(2002, 'true', armAway: true)
+];
+$sameNameSensors[0]['Name'] = 'Fenster';
+$sameNameSensors[1]['Name'] = 'Fenster';
+$sameNames->TestSetPropertyString('Sensors', json_encode($sameNameSensors, JSON_THROW_ON_ERROR));
+$testValues[2001] = true;
+$testValues[2002] = true;
+assertArming($sameNames->ArmAway() === false, 'Both equally named sensor IDs must block arming.');
+assertArming(
+    ($sameNames->TestWrittenValues()['BlockingAwaySensors'] ?? null) === 'Fenster, Fenster',
+    'Equal sensor names must remain separate without exposing internal IDs.'
+);
+$sameNameSensors[0]['Name'] = 'Terrassenfenster';
+$sameNames->TestSetPropertyString('Sensors', json_encode($sameNameSensors, JSON_THROW_ON_ERROR));
+$sameNames->TestClearWrittenValues();
+assertArming($sameNames->ArmAway() === false, 'Renaming a sensor must not change its source ID.');
+assertArming(
+    ($sameNames->TestWrittenValues()['BlockingAwaySensors'] ?? null) === 'Terrassenfenster, Fenster',
+    'Renaming one sensor must only change its label, not its source assignment.'
 );
 
 $moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');

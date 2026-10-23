@@ -65,4 +65,11 @@ assertEventHistoryExport(
     'The event history export must be available through a generated public OHA_ wrapper.'
 );
 
+$formSource = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json');
+assertEventHistoryExport(
+    str_contains($formSource, "OHA_ExportEventHistory(\$id, 'json', 0, 0, '')")
+        && str_contains($formSource, "OHA_ExportEventHistory(\$id, 'csv', 0, 0, '')"),
+    'Administration-form downloads must pass every generated wrapper argument explicitly.'
+);
+
 fwrite(STDOUT, "OpenHomeAlarm event history export checks passed.\n");

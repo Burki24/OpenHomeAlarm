@@ -50,13 +50,31 @@ $areaName = $areaName !== '' ? $areaName : 'Alarmbereich';
 $sensorName = $sensorName !== '' ? $sensorName : 'Unbekannter Sensor';
 
 $shorten = static function (string $text, int $maximumLength): string {
-    if (function_exists('mb_strimwidth')) {
-        return mb_strimwidth($text, 0, $maximumLength, '…', 'UTF-8');
+    if ($maximumLength <= 0) {
+        return '';
     }
 
-    return strlen($text) <= $maximumLength
-        ? $text
-        : substr($text, 0, max(0, $maximumLength - 3)) . '...';
+    if (strlen($text) <= $maximumLength) {
+        return $text;
+    }
+
+    $trimMarker = '…';
+    $trimMarkerLength = strlen($trimMarker);
+    if ($maximumLength < $trimMarkerLength) {
+        return str_repeat('.', $maximumLength);
+    }
+
+    $prefixLength = $maximumLength - $trimMarkerLength;
+    if (function_exists('mb_strcut')) {
+        return mb_strcut($text, 0, $prefixLength, 'UTF-8') . $trimMarker;
+    }
+
+    $prefix = substr($text, 0, $prefixLength);
+    while ($prefix !== '' && preg_match('//u', $prefix) !== 1) {
+        $prefix = substr($prefix, 0, -1);
+    }
+
+    return $prefix . $trimMarker;
 };
 
 $title = $shorten(sprintf('Einbruchalarm %s!', $areaName), 32);

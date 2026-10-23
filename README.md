@@ -4,7 +4,11 @@
 
 OpenHomeAlarm ist eine herstellerunabhängige Alarm- und Sicherheitszentrale für die Hausautomation auf Basis von Symcon.
 
-Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als Sensoren, 24/7-Auslöser oder technische Störungseingänge verwendet werden. Das Modul stellt unabhängige Alarmbereiche, wiederanlaufsichere Verzögerungen mit optionaler Countdown-Ausgabe, Sensorüberbrückungen, wöchentliche automatische Scharfschaltung, Alarm-Eskalationsstufen, native Symcon- und direkte Pushover-Benachrichtigungen, benutzerbezogene Unscharfschaltcodes, Alarmgedächtnis, Ereignis- und Diagnoseexporte sowie eine versionierte Konfigurationssicherung bereit. Bedient wird es über die öffentliche API, eine responsive HTML-SDK-Kachel oder die IPSView-WebContent-Seite.
+Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als Sensoren, 24/7-Auslöser oder technische Störungseingänge verwendet werden. Das Modul stellt unabhängige Alarmbereiche, wiederanlaufsichere Verzögerungen mit optionaler Countdown-Ausgabe, Sensorüberbrückungen, einmalige zeitbegrenzte Durchgangsfreigaben, eine optionale Aktion nach dem vollständigen Unscharfschalten, wöchentliche automatische Scharfschaltung, nach Alarmierungsart und Auslösekategorie steuerbare Alarm-Eskalationsstufen, native Symcon- und direkte Pushover-Benachrichtigungen, benutzerbezogene Unscharfschaltcodes, Alarmgedächtnis, Ereignis- und Diagnoseexporte sowie eine versionierte Konfigurationssicherung bereit. Bedient wird es über die öffentliche API, eine responsive HTML-SDK-Kachel oder die IPSView-WebContent-Seite.
+
+Gleichnamige Sensor- und Störungsvariablen bleiben anhand ihrer Variablen-IDs
+intern getrennt. In Ansichten stehen konfigurierte Namen beziehungsweise die
+aktuellen Symcon-Namen, keine automatisch ergänzten IDs.
 
 > [!WARNING]
 > OpenHomeAlarm ist keine zertifizierte Einbruch-, Brand- oder Gefahrenmeldeanlage nach EN-50131. Funktion und Verfügbarkeit hängen von Symcon, dem Hostsystem, dem Netzwerk, den eingebundenen Geräten und den konfigurierten Aktionen ab. Für normativ oder versicherungsrechtlich geforderte Schutzaufgaben ist geeignete zertifizierte Sicherheitstechnik erforderlich.
@@ -24,9 +28,14 @@ Vorhandene Symcon-Variablen können unabhängig von Hersteller und Protokoll als
    zusätzliche Bereiche können einzeln geschaltet werden.
 3. Unter **Sensoren und Auslöser** Variablen hinzufügen, einem oder mehreren
    Bereichen zuordnen und die gewünschten Modi (**Zuhause**, **Abwesend**,
-   **Nacht**) aktivieren.
-4. In der Kachel einen Modus auswählen. `main` schaltet alle aktiven Bereiche,
-   ein anderer Bereich nur diesen Bereich.
+   **Nacht**) aktivieren. Bei mehrwertigen Zustandsvariablen kann alternativ
+   ein sicherer Normalwert gewählt werden; jede Abweichung gilt dann als
+   Auslösung.
+4. In Kachel oder IPSView den gewünschten Bereich über Namen beziehungsweise
+   Status anzeigen. Bei mindestens drei Bereichen können über den separaten
+   Auswahlkreis im selben Bereichsbutton auch mehrere Bereiche für die nächste
+   gemeinsame Scharfschaltung markiert werden. `main` steht dabei für alle
+   aktiven Bereiche und ersetzt einzelne Markierungen.
 5. Mit einem Testlauf prüfen, ob Sensorblocker, Unscharfschaltung und Aktionen
    wie erwartet funktionieren.
 
@@ -51,6 +60,9 @@ OHA_ArmPartition(12345, 'garage', 'away', null);
 
 // Nur die Garage unscharf schalten
 OHA_DisarmPartition(12345, 'garage');
+
+// Garage und Schuppen gemeinsam, aber nicht alle Bereiche scharfschalten
+OHA_ArmPartitions(12345, ['garage', 'schuppen'], 'away', null);
 ```
 
 `12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen. Zulässige Modi
@@ -66,6 +78,33 @@ bereits ausgelöste Sensoren, die unter **Sensoren und Auslöser** einzeln dafü
 freigegeben wurden, zum Beispiel
 `OHA_ArmPartition(12345, 'garage', 'away', null, null, true)`. Sobald ein so
 überbrückter Sensor wieder normal ist, wird er erneut überwacht.
+
+`OHA_ArmPartitions()` prüft zuerst die gesamte angegebene Liste. Ist ein
+gewählter Bereich blockiert oder ungültig, wird keiner der Bereiche
+scharfgeschaltet. `main` in der Liste bedeutet weiterhin Gesamtanlage; für
+eine Teilmenge wird `main` deshalb weggelassen. Kachel und IPSView bieten bei
+mindestens drei Bereichen dieselbe Auswahl direkt in den Bereichsbuttons an:
+Der Außenrahmen markiert den angezeigten Bereich, der Auswahlkreis mit Haken
+die Bereiche für die nächste gemeinsame Scharfschaltung. Sind nur einzelne
+Bereiche scharf, kann anschließend `main` angezeigt und über **Alle Bereiche
+deaktivieren** die gesamte aktive Teilmenge mit einer Aktion beziehungsweise
+einer Code-Eingabe unscharf geschaltet werden.
+
+Für einen ausdrücklich zugelassenen normalen Sensor kann eine vertrauenswürdige
+Automation einen einmaligen Durchgang freigeben, ohne den Bereich
+unscharfzuschalten: `OHA_GrantPassage(12345, 23456, 90)` für den Hauptbereich
+oder `OHA_GrantPassagePartition(12345, 'garage', 23456, 90)` für einen einzelnen
+Bereich. Derselbe Sensor kann mit
+`OHA_GrantPassagePartitions(12345, ['eg', 'kg'], 23456, 90)` atomar in mehreren
+gleichzeitig scharfen Bereichen freigegeben werden. Die Freigabe endet nach
+Öffnen und Schließen oder spätestens nach der Frist; andere und 24/7-Sensoren
+bleiben aktiv.
+
+Hat ein vertrauenswürdiges Skript eine Berechtigung bereits selbst geprüft,
+kann es die Gesamtanlage mit protokollierter Quelle unscharf schalten, zum
+Beispiel `OHA_DisarmWithSource(12345, 'Zutrittskontrolle Haustür')`. Die Quellenbezeichnung
+dient ausschließlich dem Ereignisprotokoll und ersetzt keine
+Berechtigungsprüfung.
 
 Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
 `OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,
@@ -110,7 +149,8 @@ nicht scharf. Kachel und IPSView bieten eine Auswahl aller aktiven Bereiche.
 
 Die Bereichs-ID muss mit einem Kleinbuchstaben beginnen. Zulässig sind insgesamt
 1 bis 32 Kleinbuchstaben, Ziffern, `_` oder `-`, beispielsweise `main`, `garage`
-oder `bereich_1`. Der Anzeigename ist frei wählbar. Weitere Erläuterungen stehen
+oder `bereich_1`. Jede Bereichs-ID darf innerhalb einer Instanz nur einmal
+vergeben werden. Der Anzeigename ist frei wählbar. Weitere Erläuterungen stehen
 in der [vollständigen Anleitung](OpenHomeAlarm#alarmbereiche).
 
 ## Sicherheit
@@ -138,6 +178,8 @@ php tests/run.php
 
 Der verbindliche Umfang und die Freigabekriterien stehen im
 [Release-Zielbild](docs/RELEASE_SCOPE.md).
+
+**Updates nur bei vollständig unscharfer Anlage:** Vor jeder Aktualisierung müssen alle Alarmbereiche unscharf sein; Ausgangs-/Eingangsverzögerungen und aktive Alarme sind vorher kontrolliert zu beenden. Das gilt für Module Control, den Symcon Module Store einschließlich „Alle aktualisieren“, Kanalwechsel und erneute Installation. OpenHomeAlarm schaltet für ein Update niemals automatisch unscharf. Eine Exception in `ApplyChanges()` ist keine verlässliche Sperre vor dem Dateiaustausch. Nach dem Update Instanzstatus, Einstellungen, Visualisierung und Alarmwege prüfen und die Anlage anschließend bewusst wieder scharf schalten.
 
 Installation und Aktualisierung sind in der
 [Installationsanleitung](docs/INSTALLATION.md) beschrieben. Änderungen stehen

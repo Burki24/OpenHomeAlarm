@@ -85,6 +85,8 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $writtenValues = [];
 
+    private mixed $visualizationValue = null;
+
     private int $status = 102;
 
     public function Create(): void
@@ -130,6 +132,11 @@ class IPSModuleStrict
         return $this->status;
     }
 
+    public function TestVisualizationValue(): mixed
+    {
+        return $this->visualizationValue;
+    }
+
     protected function SetStatus(int $status): bool
     {
         $this->status = $status;
@@ -144,11 +151,14 @@ class IPSModuleStrict
 
     protected function UpdateVisualizationValue(mixed $data): bool
     {
+        $this->visualizationValue = $data;
+
         return true;
     }
 
-    protected function SendDebug(string $message, string $data, int $format): void
+    protected function SendDebug(string $message, string $data, int $format): bool
     {
+        return true;
     }
 
     protected function RegisterPropertyString(string $name, string $default): void
@@ -321,6 +331,119 @@ assertControlApi(
     $invalidPartitionInstance->TestStatus() === 201,
     'ApplyChanges must report a disabled main partition through a controlled instance status.'
 );
+$invalidPartitionForm = json_decode(
+    $invalidPartitionInstance->GetConfigurationForm(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    is_array($invalidPartitionForm),
+    'An invalid partition configuration must keep the configuration form available for repair.'
+);
+
+$duplicatePartitionInstance = new OpenHomeAlarm();
+$duplicatePartitionInstance->Create();
+$duplicatePartitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"Ground floor"},{"Enabled":true,"ID":"area","Name":"Basement"},{"Enabled":true,"ID":"area","Name":"Upper floor"}]'
+);
+$duplicatePartitionInstance->ApplyChanges();
+assertControlApi(
+    $duplicatePartitionInstance->TestStatus() === 201,
+    'ApplyChanges must reject duplicate partition IDs through the partition status.'
+);
+$duplicatePartitionForm = json_decode(
+    $duplicatePartitionInstance->GetConfigurationForm(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$duplicatePartitionStatus = array_values(array_filter(
+    $duplicatePartitionForm['status'] ?? [],
+    static fn (mixed $status): bool => is_array($status) && ($status['code'] ?? null) === 201
+));
+assertControlApi(
+    count($duplicatePartitionStatus) === 1
+        && str_contains($duplicatePartitionStatus[0]['caption'] ?? '', '"area"')
+        && str_contains($duplicatePartitionStatus[0]['caption'] ?? '', 'already exists')
+        && str_contains($duplicatePartitionStatus[0]['caption'] ?? '', 'unique ID'),
+    'Status 201 must name the duplicate partition ID and tell the user how to correct it: '
+        . json_encode($duplicatePartitionStatus, JSON_UNESCAPED_SLASHES)
+);
+$partitionList = null;
+$pendingElements = $duplicatePartitionForm['elements'] ?? [];
+while ($pendingElements !== []) {
+    $element = array_shift($pendingElements);
+    if (!is_array($element)) {
+        continue;
+    }
+    if (($element['name'] ?? null) === 'Partitions') {
+        $partitionList = $element;
+        break;
+    }
+    foreach ($element['items'] ?? [] as $item) {
+        $pendingElements[] = $item;
+    }
+}
+assertControlApi(
+    is_array($partitionList) && is_string($partitionList['form'] ?? null),
+    'The partition list must generate a row-specific validation form.'
+);
+$Partitions = ['ID' => ''];
+$newPartitionForm = eval($partitionList['form']);
+$newPartitionIDField = array_values(array_filter(
+    $newPartitionForm,
+    static fn (mixed $field): bool => is_array($field) && ($field['name'] ?? null) === 'ID'
+))[0] ?? null;
+assertControlApi(
+    is_array($newPartitionIDField)
+        && preg_match('/' . $newPartitionIDField['validate'] . '/', 'area') === 0
+        && preg_match('/' . $newPartitionIDField['validate'] . '/', 'garage') === 1,
+    'Adding a partition must reject an already configured ID before the row can be confirmed.'
+);
+$Partitions = ['ID' => 'main'];
+$existingPartitionForm = eval($partitionList['form']);
+$existingPartitionIDField = array_values(array_filter(
+    $existingPartitionForm,
+    static fn (mixed $field): bool => is_array($field) && ($field['name'] ?? null) === 'ID'
+))[0] ?? null;
+assertControlApi(
+    is_array($existingPartitionIDField)
+        && preg_match('/' . $existingPartitionIDField['validate'] . '/', 'main') === 1,
+    'Editing a uniquely configured partition must continue to allow its own ID.'
+);
+
+$missingMainPartitionInstance = new OpenHomeAlarm();
+$missingMainPartitionInstance->Create();
+$missingMainPartitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"house","Name":"House"}]'
+);
+$missingMainPartitionInstance->TestSetPropertyString(
+    'Sensors',
+    '[{"Enabled":true,"PartitionID":"house","VariableID":0,"SensorType":0}]'
+);
+$missingMainPartitionInstance->ApplyChanges();
+assertControlApi(
+    $missingMainPartitionInstance->TestStatus() === 201,
+    'ApplyChanges must report a missing main partition through a controlled instance status.'
+);
+$missingMainForm = json_decode(
+    $missingMainPartitionInstance->GetConfigurationForm(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    is_array($missingMainForm),
+    'A missing main partition must keep the configuration form available for repair.'
+);
+assertControlApi(
+    is_array($missingMainPartitionInstance->GetSensorEditForm(['PartitionID' => 'house']))
+        && is_array($missingMainPartitionInstance->GetFaultInputEditForm(['PartitionID' => 'house'])),
+    'Sensor and fault editors must remain available while the main partition is repaired.'
+);
 
 $invalidAssignmentInstance = new OpenHomeAlarm();
 $invalidAssignmentInstance->Create();
@@ -402,7 +525,11 @@ $testValues[2001] = true;
 $testValues[2002] = false;
 
 $state = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
-assertControlApi(($state['ApiVersion'] ?? null) === 2, 'The partition-aware control API must expose schema version 2.');
+assertControlApi(($state['ApiVersion'] ?? null) === 3, 'The passage-aware control API must expose schema version 3.');
+assertControlApi(
+    ($state['Passage'] ?? null) === ['Active' => false, 'Phase' => '', 'Sensor' => '', 'RemainingSeconds' => 0],
+    'The control API must expose an inactive passage state without internal variable IDs.'
+);
 assertControlApi(($state['DefaultPartition'] ?? null) === 'main', 'The control API must identify the default partition.');
 assertControlApi(
     ($state['Partitions']['main']['ID'] ?? null) === 'main'
@@ -413,6 +540,10 @@ assertControlApi(
 assertControlApi(
     ($state['Partitions']['main']['State']['Name'] ?? null) === 'disarmed',
     'Slice 1 must publish the existing runtime as the default partition state.'
+);
+assertControlApi(
+    ($state['Partitions']['main']['Delay']['Deadline'] ?? null) === 0,
+    'A disarmed partition must expose an inactive countdown deadline.'
 );
 $partitionMetadata = json_decode($instance->GetPartitions(), true, 512, JSON_THROW_ON_ERROR);
 assertControlApi(
@@ -623,6 +754,17 @@ assertControlApi(
         && ($partitionEvents[0]['State'] ?? null) === 0,
     'A rejected non-default partition arming must be retained in its event history.'
 );
+$partitionInstance->RequestAction('ArmPartition', '{"PartitionID":"garage","Value":"away"}');
+$publishedPartitionState = json_decode(
+    (string) $partitionInstance->TestVisualizationValue(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($publishedPartitionState['Partitions']['garage']['RecentEvents'][0]['Event'] ?? null) === 'arm_rejected',
+    'A rejected visualization action must immediately publish its newly appended history entry.'
+);
 $testValues[2002] = false;
 assertControlApi($partitionInstance->ArmPartition('main', 'home'), 'The main/default partition must arm all ready areas.');
 $testValues[2002] = true;
@@ -701,6 +843,85 @@ assertControlApi(
     'Each visualization partition must expose only its own recent events.'
 );
 
+$multiPartitionInstance = new OpenHomeAlarm();
+$multiPartitionInstance->Create();
+$multiPartitionInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$multiPartitionInstance->TestSetPropertyString('DisarmCode', '2468');
+$multiPartitionInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false},{"Enabled":true,"ID":"shed","Name":"Shed","Default":false}]'
+);
+$multiPartitionInstance->TestSetPropertyString('Sensors', json_encode([
+    array_merge(controlSensor(2001, 'true', true, false, true), ['PartitionID' => 'garage']),
+    array_merge(controlSensor(2002, 'true', true, false, true), ['PartitionID' => 'shed'])
+], JSON_THROW_ON_ERROR));
+$testValues[2001] = false;
+$testValues[2002] = true;
+$multiPartitionInstance->ApplyChanges();
+assertControlApi(
+    !$multiPartitionInstance->ArmPartitions(['garage', 'shed'], 'away', 0),
+    'A blocker in one selected area must reject the complete multi-area arming request.'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['shed']['State']['Name'] ?? null) === 'disarmed',
+    'Rejected multi-area arming must not leave a partially armed selection.'
+);
+$testValues[2002] = false;
+assertControlApi(
+    $multiPartitionInstance->ArmPartitions(['garage', 'shed', 'garage'], 'away', 0),
+    'Two ready areas must arm together while duplicate IDs remain harmless.'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed'
+        && ($multiPartitionState['Partitions']['shed']['State']['Name'] ?? null) === 'armed',
+    'A multi-area subset must not alter the unselected main area.'
+);
+assertControlApi(
+    $multiPartitionInstance->DisarmPartitions(['garage', 'shed']),
+    'A selected multi-area subset must disarm together through the trusted automation API.'
+);
+assertControlApi(
+    !$multiPartitionInstance->ArmPartitions(['garage', 'unknown'], 'away', 0),
+    'An unknown member must reject a multi-area request before any area changes.'
+);
+$multiPartitionInstance->RequestAction(
+    'ArmPartitions',
+    '{"PartitionIDs":["garage","shed"],"Value":"night","BypassActiveSensors":false}'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['garage']['Mode']['Name'] ?? null) === 'night'
+        && ($multiPartitionState['Partitions']['shed']['Mode']['Name'] ?? null) === 'night',
+    'The shared visualization bridge must arm the selected subset through the same atomic API.'
+);
+$multiPartitionInstance->RequestAction(
+    'DisarmPartitionWithCode',
+    '{"PartitionID":"main","Value":"0000"}'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['garage']['State']['Name'] ?? null) === 'armed'
+        && ($multiPartitionState['Partitions']['shed']['State']['Name'] ?? null) === 'armed',
+    'An invalid main-area code must not disarm any member of an armed subset.'
+);
+$multiPartitionInstance->RequestAction(
+    'DisarmPartitionWithCode',
+    '{"PartitionID":"main","Value":"2468"}'
+);
+$multiPartitionState = json_decode($multiPartitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($multiPartitionState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['garage']['State']['Name'] ?? null) === 'disarmed'
+        && ($multiPartitionState['Partitions']['shed']['State']['Name'] ?? null) === 'disarmed',
+    'One valid main-area code must disarm every member of an armed subset.'
+);
+
 $partitionDelayInstance = new OpenHomeAlarm();
 $partitionDelayInstance->Create();
 $partitionDelayInstance->TestSetPropertyInteger('ExitDelaySeconds', 60);
@@ -734,6 +955,10 @@ $partitionDelayState = json_decode($partitionDelayInstance->GetControlState(), t
 assertControlApi(
     ($partitionDelayState['Partitions']['garage']['State']['Name'] ?? null) === 'exit_delay',
     'A positive partition exit-delay override must start the exit delay for the selected partition.'
+);
+assertControlApi(
+    ($partitionDelayState['Partitions']['garage']['Delay']['Deadline'] ?? 0) > time(),
+    'A running partition delay must expose its absolute deadline for smooth client-side rendering.'
 );
 $partitionDelayEvents = json_decode($partitionDelayInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
 assertControlApi(

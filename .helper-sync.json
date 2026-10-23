@@ -19,6 +19,9 @@
         "PersistentJsonCacheHelper": {
             "target": "libs/helper/PersistentJsonCacheHelper.php"
         },
+        "VariableSearchHelper": {
+            "target": "libs/helper/VariableSearchHelper.php"
+        },
         "VariablePresentationHelper": {
             "target": "libs/helper/VariablePresentationHelper.php"
         },
@@ -30,6 +33,9 @@
         },
         "VisualizationThemeConfigurationHelper": {
             "target": "libs/helper/VisualizationThemeConfigurationHelper.php"
+        },
+        "DebugHelper": {
+            "target": "libs/helper/DebugHelper.php"
         }
     }
 }

@@ -49,6 +49,10 @@ veröffentlicht.
    prüfen.
 5. Falls der Symcon Module Store verwendet wird, exakt diesen Commit für den
    vorgesehenen Kanal einreichen.
+6. Die Angaben aus [STORE_SUBMISSION.md](STORE_SUBMISSION.md) mit der aktuellen
+   Vorlage im Symcon-Entwicklerkonto abgleichen. Kategorie und
+   Dokumentationslink müssen dort abschließend sichtbar geprüft werden, weil
+   die lokale Store-Schnittstelle diese Felder nicht ausgibt.
 
 Kein Tag darf verschoben und kein veröffentlichtes Artefakt überschrieben
 werden. Eine Korrektur erhält eine neue Library-Version und einen neuen Tag.

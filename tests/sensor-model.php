@@ -78,8 +78,9 @@ class IPSModuleStrict
         return true;
     }
 
-    protected function SendDebug(string $message, string $data, int $format): void
+    protected function SendDebug(string $message, string $data, int $format): bool
     {
+        return true;
     }
 
     protected function RegisterPropertyString(string $name, string $default): void
@@ -241,7 +242,27 @@ $testVariables = [
         'VariableType'          => 1,
         'VariableCustomProfile' => '',
         'VariableProfile'       => 'Test.Legacy'
+    ],
+    67890 => [
+        'VariableType'          => 0,
+        'VariableCustomProfile' => '',
+        'VariableProfile'       => ''
     ]
+];
+
+/** @var array<int,array<string,mixed>> */
+$testObjects = [
+    0     => ['ObjectType' => 0, 'ObjectName' => 'Symcon', 'ObjectIsHidden' => false, 'ParentID' => 0],
+    8000  => ['ObjectType' => 0, 'ObjectName' => 'Security', 'ObjectIsHidden' => false, 'ParentID' => 0],
+    12345 => ['ObjectType' => 2, 'ObjectName' => 'Door contact', 'ObjectIsHidden' => false, 'ParentID' => 8000],
+    34567 => ['ObjectType' => 2, 'ObjectName' => 'Door state', 'ObjectIsHidden' => false, 'ParentID' => 8000],
+    67890 => ['ObjectType' => 2, 'ObjectName' => 'Door garage', 'ObjectIsHidden' => false, 'ParentID' => 8000]
+];
+
+/** @var array<int,list<int>> */
+$testObjectChildren = [
+    0    => [8000],
+    8000 => [12345, 34567, 67890]
 ];
 
 /** @var array<int,array<string,mixed>> */
@@ -288,7 +309,7 @@ $testVariableProfiles = [
     ]
 ];
 
-final class IPSList implements ArrayAccess
+final class IPSList implements ArrayAccess, JsonSerializable
 {
     /**
      * @param array<string,mixed> $row
@@ -316,6 +337,12 @@ final class IPSList implements ArrayAccess
     {
         throw new LogicException('Test IPSList is read-only.');
     }
+
+    /** @return array<string,mixed> */
+    public function jsonSerialize(): array
+    {
+        return $this->row;
+    }
 }
 
 function IPS_VariableExists(int $variableID): bool
@@ -323,6 +350,29 @@ function IPS_VariableExists(int $variableID): bool
     global $testVariables;
 
     return array_key_exists($variableID, $testVariables);
+}
+
+function IPS_ObjectExists(int $objectID): bool
+{
+    global $testObjects;
+
+    return array_key_exists($objectID, $testObjects);
+}
+
+/** @return array<string,mixed> */
+function IPS_GetObject(int $objectID): array
+{
+    global $testObjects;
+
+    return $testObjects[$objectID] ?? [];
+}
+
+/** @return list<int> */
+function IPS_GetChildrenIDs(int $objectID): array
+{
+    global $testObjectChildren;
+
+    return $testObjectChildren[$objectID] ?? [];
 }
 
 /** @return array<string,mixed> */
@@ -412,12 +462,14 @@ $configuredSensors = [
         'Name'                 => 'Haustür',
         'VariableID'           => 12345,
         'SensorType'           => 0,
+        'TriggerCondition'     => 'equals',
         'TriggerValue'         => '1',
         'ArmHome'              => true,
         'ArmAway'              => true,
         'ArmNight'             => true,
         'AlwaysActive'         => false,
         'AllowAutomaticBypass' => false,
+        'AllowPassage'         => false,
         'ExitDelay'            => true,
         'EntryDelay'           => true,
         'RetriggerAlarm'       => false
@@ -428,12 +480,14 @@ $configuredSensors = [
         'Name'                 => 'Flur Bewegung',
         'VariableID'           => 23456,
         'SensorType'           => 1,
+        'TriggerCondition'     => 'equals',
         'TriggerValue'         => 'true',
         'ArmHome'              => false,
         'ArmAway'              => true,
         'ArmNight'             => false,
         'AlwaysActive'         => false,
         'AllowAutomaticBypass' => false,
+        'AllowPassage'         => false,
         'ExitDelay'            => false,
         'EntryDelay'           => false,
         'RetriggerAlarm'       => false
@@ -451,7 +505,8 @@ $alwaysActiveConfiguration = new OpenHomeAlarm();
 $alwaysActiveConfiguration->Create();
 $alwaysActiveConfiguration->TestSetPropertyString('Sensors', json_encode([array_merge($configuredSensors[0], [
     'AlwaysActive'         => true,
-    'AllowAutomaticBypass' => true
+    'AllowAutomaticBypass' => true,
+    'AllowPassage'         => true
 ])], JSON_THROW_ON_ERROR));
 $normalizedAlwaysActive = $readConfiguredSensors->invoke($alwaysActiveConfiguration)[0];
 assertSensorModel(
@@ -460,6 +515,7 @@ assertSensorModel(
     && $normalizedAlwaysActive['ArmAway'] === false
     && $normalizedAlwaysActive['ArmNight'] === false
     && $normalizedAlwaysActive['AllowAutomaticBypass'] === false
+    && $normalizedAlwaysActive['AllowPassage'] === false
     && $normalizedAlwaysActive['ExitDelay'] === false
     && $normalizedAlwaysActive['EntryDelay'] === false,
     'Legacy 24/7 sensors must ignore saved arming-mode and delay values.'
@@ -483,12 +539,14 @@ assertSensorModel(
         'Name'                 => '',
         'VariableID'           => 34567,
         'SensorType'           => 0,
+        'TriggerCondition'     => 'equals',
         'TriggerValue'         => '1',
         'ArmHome'              => false,
         'ArmAway'              => true,
         'ArmNight'             => false,
         'AlwaysActive'         => false,
         'AllowAutomaticBypass' => false,
+        'AllowPassage'         => false,
         'ExitDelay'            => false,
         'EntryDelay'           => false,
         'RetriggerAlarm'       => false
@@ -529,12 +587,25 @@ $form = json_decode(
     JSON_THROW_ON_ERROR
 );
 $list = null;
+$sensorImport = null;
 foreach ($form['elements'] ?? [] as $element) {
+    if (($element['type'] ?? null) === 'PopupButton' && ($element['name'] ?? null) === 'SensorImport') {
+        $sensorImport = $element;
+    }
     if (($element['type'] ?? null) === 'List' && ($element['name'] ?? null) === 'Sensors') {
         $list = $element;
         break;
     }
 }
+assertSensorModel(is_array($sensorImport), 'Configuration form must offer the sensor search importer.');
+assertSensorModel(
+    str_contains((string) ($sensorImport['onClick'] ?? ''), 'OHA_PrepareSensorImport')
+        && str_contains(
+            (string) ($sensorImport['popup']['buttons'][0]['onClick'] ?? ''),
+            'OHA_AddSensorCandidates'
+        ),
+    'Sensor importer actions must prepare current partitions and add selected candidates.'
+);
 assertSensorModel(is_array($list), 'Configuration form must contain the Sensors list.');
 assertSensorModel(($list['add'] ?? false) === true, 'Sensors list must allow adding entries.');
 assertSensorModel(($list['delete'] ?? false) === true, 'Sensors list must allow deleting entries.');
@@ -551,12 +622,14 @@ foreach ([
     'PartitionNames',
     'VariableID',
     'SensorType',
+    'TriggerCondition',
     'TriggerValue',
     'ArmHome',
     'ArmAway',
     'ArmNight',
     'AlwaysActive',
     'AllowAutomaticBypass',
+    'AllowPassage',
     'ExitDelay',
     'EntryDelay'
 ] as $columnName) {
@@ -580,11 +653,24 @@ assertSensorModel(
     'The readable alarm-area summary must not be persisted.'
 );
 assertSensorModel(($columns['TriggerValue']['add'] ?? null) === '1', 'New sensors must use trigger value 1 by default.');
+assertSensorModel(
+    ($columns['TriggerCondition']['add'] ?? null) === 'equals',
+    'New sensors must use exact trigger-value evaluation by default.'
+);
+assertSensorModel(
+    ($columns['TriggerCondition']['edit']['type'] ?? null) === 'Select'
+        && ($columns['TriggerCondition']['edit']['options'] ?? null) === [
+            ['caption' => 'Trigger at selected value', 'value' => 'equals'],
+            ['caption' => 'Trigger when different from normal value', 'value' => 'not_equals']
+        ],
+    'Sensor evaluation must offer exact alarm-value and normal-value rules.'
+);
 assertSensorModel(($columns['ArmHome']['add'] ?? null) === false, 'New sensors must not be active in Home by default.');
 assertSensorModel(($columns['ArmAway']['add'] ?? null) === true, 'New sensors must be active in Away by default.');
 assertSensorModel(($columns['ArmNight']['add'] ?? null) === false, 'New sensors must not be active in Night by default.');
 assertSensorModel(($columns['AlwaysActive']['add'] ?? null) === false, 'New sensors must not be 24/7 active by default.');
 assertSensorModel(($columns['AllowAutomaticBypass']['add'] ?? null) === false, 'New sensors must not permit automatic bypasses by default.');
+assertSensorModel(($columns['AllowPassage']['add'] ?? null) === false, 'New sensors must not permit temporary passage by default.');
 assertSensorModel(($columns['ExitDelay']['add'] ?? null) === false, 'New sensors must not use the exit route by default.');
 assertSensorModel(($columns['EntryDelay']['add'] ?? null) === false, 'New sensors must not use entry delay by default.');
 assertSensorModel(
@@ -592,19 +678,36 @@ assertSensorModel(
     'Variable column must use the remaining list width so long Symcon paths stay readable.'
 );
 assertSensorModel(
-    ($columns['Name']['width'] ?? null) === '220px'
-        && ($columns['SensorType']['width'] ?? null) === '170px'
-        && ($columns['TriggerValue']['width'] ?? null) === '125px',
-    'Main sensor columns must use balanced fixed widths.'
+    ($columns['Enabled']['width'] ?? null) === '55px'
+        && ($columns['Name']['width'] ?? null) === '150px'
+        && ($columns['PartitionNames']['width'] ?? null) === '110px'
+        && ($columns['SensorType']['width'] ?? null) === '120px'
+        && ($columns['TriggerCondition']['width'] ?? null) === '135px'
+        && ($columns['TriggerValue']['width'] ?? null) === '70px',
+    'Main sensor columns must use compact fixed widths.'
 );
 assertSensorModel(
-    ($columns['ArmHome']['width'] ?? null) === '90px'
-        && ($columns['ArmAway']['width'] ?? null) === '95px'
-        && ($columns['ArmNight']['width'] ?? null) === '75px'
-        && ($columns['AlwaysActive']['width'] ?? null) === '70px'
-        && ($columns['ExitDelay']['width'] ?? null) === '115px'
-        && ($columns['EntryDelay']['width'] ?? null) === '130px',
-    'Mode and delay columns must be wide enough for their captions.'
+    ($columns['ArmHome']['width'] ?? null) === '60px'
+        && ($columns['ArmAway']['width'] ?? null) === '65px'
+        && ($columns['ArmNight']['width'] ?? null) === '60px'
+        && ($columns['AlwaysActive']['width'] ?? null) === '55px'
+        && ($columns['AllowAutomaticBypass']['width'] ?? null) === '85px'
+        && ($columns['AllowPassage']['width'] ?? null) === '80px'
+        && ($columns['ExitDelay']['width'] ?? null) === '70px'
+        && ($columns['EntryDelay']['width'] ?? null) === '70px',
+    'Mode and special-behavior columns must remain compact.'
+);
+assertSensorModel(
+    ($columns['Enabled']['caption'] ?? null) === 'Active'
+        && ($columns['PartitionNames']['caption'] ?? null) === 'Areas'
+        && ($columns['SensorType']['caption'] ?? null) === 'Type'
+        && ($columns['TriggerCondition']['caption'] ?? null) === 'Rule'
+        && ($columns['TriggerValue']['caption'] ?? null) === 'Value'
+        && ($columns['AllowAutomaticBypass']['caption'] ?? null) === 'Auto bypass'
+        && ($columns['AllowPassage']['caption'] ?? null) === 'Passage'
+        && ($columns['ExitDelay']['caption'] ?? null) === 'Exit'
+        && ($columns['EntryDelay']['caption'] ?? null) === 'Entry',
+    'Long sensor-table headers must use compact captions instead of forcing horizontal scrolling.'
 );
 
 assertSensorModel(
@@ -654,20 +757,250 @@ assertSensorModel(
         [
             'TriggerValueSelection' => 'ALARM',
             'TriggerValueManual'    => 'ALARM',
+            'TriggerCondition'      => 'equals',
             'PartitionNames'        => 'Main area'
         ],
         [
             'TriggerValueSelection' => 'true',
             'TriggerValueManual'    => 'true',
+            'TriggerCondition'      => 'equals',
             'PartitionNames'        => 'Main area'
         ],
         [
             'TriggerValueSelection' => 'IDLE',
             'TriggerValueManual'    => '"IDLE"',
+            'TriggerCondition'      => 'equals',
             'PartitionNames'        => 'Main area'
         ]
     ],
     'Generated List values must restore the persisted trigger value into non-persistent edit helper fields.'
+);
+
+$importInstance = new OpenHomeAlarm();
+$importInstance->Create();
+$reflection = new ReflectionClass(OpenHomeAlarm::class);
+assertSensorModel(
+    $reflection->getReflectionConstant('SENSOR_SEARCH_MAX_DEPTH')->getValue() === 100
+        && $reflection->getReflectionConstant('SENSOR_SEARCH_MAX_OBJECTS')->getValue() === 100000
+        && $reflection->getReflectionConstant('SENSOR_SEARCH_MAX_RESULTS')->getValue() === 10000,
+    'Variable search must use the expanded helper limits for large Symcon object trees.'
+);
+$partitionDraft = json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main area', 'SilentByDefault' => false],
+    ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage', 'SilentByDefault' => false]
+], JSON_THROW_ON_ERROR);
+$importInstance->PrepareSensorImport($partitionDraft);
+$partitionUpdate = $importInstance->TestFormUpdates()[0] ?? [];
+$partitionRows = json_decode((string) ($partitionUpdate['value'] ?? ''), true, 512, JSON_THROW_ON_ERROR);
+assertSensorModel(
+    ($partitionUpdate['field'] ?? null) === 'ImportPartitions'
+        && ($partitionRows[0] ?? null) === ['Selected' => true, 'Name' => 'Main area', 'ID' => 'main']
+        && ($partitionRows[1] ?? null) === ['Selected' => false, 'Name' => 'Garage', 'ID' => 'garage'],
+    'Opening the sensor importer must use the current draft partitions and select main by default.'
+);
+
+$draftSensors = [[
+    'Enabled'    => true,
+    'Name'       => 'Existing door',
+    'VariableID' => 12345
+]];
+$importInstance->TestClearFormUpdates();
+$importInstance->SearchSensorCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($draftSensors, JSON_THROW_ON_ERROR)
+);
+$candidateUpdates = $importInstance->TestFormUpdates();
+$candidateRows = json_decode((string) ($candidateUpdates[0]['value'] ?? ''), true, 512, JSON_THROW_ON_ERROR);
+assertSensorModel(
+    ($candidateUpdates[0]['field'] ?? null) === 'ImportCandidates'
+        && count($candidateRows) === 1
+        && ($candidateRows[0]['VariableID'] ?? null) === 67890
+        && ($candidateRows[0]['Selected'] ?? null) === true
+        && str_contains((string) ($candidateUpdates[1]['value'] ?? ''), '1 already'),
+    'Sensor search must filter by name and type, exclude configured IDs and select fresh matches.'
+);
+
+$settings = [
+    'Enabled'              => true,
+    'SensorType'           => 0,
+    'TriggerCondition'     => 'equals',
+    'TriggerValue'         => '1',
+    'ArmHome'              => true,
+    'ArmAway'              => true,
+    'ArmNight'             => true,
+    'AlwaysActive'         => true,
+    'AllowAutomaticBypass' => true,
+    'AllowPassage'         => true,
+    'ExitDelay'            => true,
+    'EntryDelay'           => true,
+    'RetriggerAlarm'       => false
+];
+$partitionRows[1]['Selected'] = true;
+$importInstance->TestClearFormUpdates();
+$addResult = $importInstance->AddSensorCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($settings, JSON_THROW_ON_ERROR),
+    json_encode($partitionRows, JSON_THROW_ON_ERROR),
+    $partitionDraft,
+    json_encode($draftSensors, JSON_THROW_ON_ERROR),
+    json_encode($candidateRows, JSON_THROW_ON_ERROR)
+);
+$addedRows = json_decode(
+    (string) ($importInstance->TestFormUpdates()[0]['value'] ?? ''),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+$added = $addedRows[1] ?? [];
+assertSensorModel(
+    $addResult === ''
+        && ($added['VariableID'] ?? null) === 67890
+        && ($added['Name'] ?? null) === 'Door garage (Security)'
+        && ($added['Partition_main'] ?? null) === true
+        && ($added['Partition_garage'] ?? null) === true
+        && ($added['AlwaysActive'] ?? null) === true
+        && ($added['ArmHome'] ?? null) === false
+        && ($added['ArmAway'] ?? null) === false
+        && ($added['AllowAutomaticBypass'] ?? null) === false
+        && ($added['AllowPassage'] ?? null) === false
+        && ($added['ExitDelay'] ?? null) === false
+        && ($added['EntryDelay'] ?? null) === false
+        && ($added['TriggerValue'] ?? null) === 'true'
+        && ($added['TriggerValueSelection'] ?? null) === 'true'
+        && ($added['TriggerValueManual'] ?? null) === 'true',
+    'Bulk-added sensors must close the popup, remain immediately editable, keep their ID, include the parent in their name, use every selected partition and normalize 24/7 settings.'
+);
+
+$forgedRows = $candidateRows;
+$forgedRows[0]['VariableID'] = 34567;
+$forgedResult = $importInstance->AddSensorCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($settings, JSON_THROW_ON_ERROR),
+    json_encode($partitionRows, JSON_THROW_ON_ERROR),
+    $partitionDraft,
+    json_encode($draftSensors, JSON_THROW_ON_ERROR),
+    json_encode($forgedRows, JSON_THROW_ON_ERROR)
+);
+assertSensorModel(
+    !str_starts_with($forgedResult, 'MESSAGE:'),
+    'Bulk sensor import must reject stale or forged variable IDs after a fresh search.'
+);
+
+$importInstance->TestClearFormUpdates();
+$importInstance->PrepareFaultInputImport($partitionDraft);
+$faultPartitionUpdate = $importInstance->TestFormUpdates()[0] ?? [];
+$faultPartitionOptions = json_decode(
+    (string) ($faultPartitionUpdate['value'] ?? ''),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertSensorModel(
+    ($faultPartitionUpdate['field'] ?? null) === 'FaultImportPartitionID'
+        && ($faultPartitionUpdate['parameter'] ?? null) === 'options'
+        && $faultPartitionOptions === [
+            ['caption' => 'Main area', 'value' => 'main'],
+            ['caption' => 'Garage', 'value' => 'garage']
+        ],
+    'Opening the fault-input importer must offer the current draft partitions.'
+);
+
+$draftFaultInputs = [[
+    'Enabled'      => true,
+    'Name'         => 'Existing door fault',
+    'VariableID'   => 12345,
+    'FaultType'    => 0,
+    'TriggerValue' => 'true',
+    'BlockArming'  => false,
+    'TriggerAlarm' => false
+]];
+$importInstance->TestClearFormUpdates();
+$importInstance->SearchFaultInputCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($draftFaultInputs, JSON_THROW_ON_ERROR)
+);
+$faultCandidateUpdates = $importInstance->TestFormUpdates();
+$faultCandidateRows = json_decode(
+    (string) ($faultCandidateUpdates[0]['value'] ?? ''),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertSensorModel(
+    ($faultCandidateUpdates[0]['field'] ?? null) === 'FaultImportCandidates'
+        && count($faultCandidateRows) === 1
+        && ($faultCandidateRows[0]['VariableID'] ?? null) === 67890
+        && str_contains((string) ($faultCandidateUpdates[1]['value'] ?? ''), '1 already'),
+    'Fault-input search must exclude configured IDs and return fresh matching variables.'
+);
+
+$faultSettings = [
+    'Enabled'      => true,
+    'PartitionID'  => 'garage',
+    'FaultType'    => 2,
+    'TriggerValue' => 'true',
+    'BlockArming'  => true,
+    'TriggerAlarm' => false
+];
+$importInstance->TestClearFormUpdates();
+$faultAddResult = $importInstance->AddFaultInputCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($faultSettings, JSON_THROW_ON_ERROR),
+    $partitionDraft,
+    json_encode($draftFaultInputs, JSON_THROW_ON_ERROR),
+    json_encode($faultCandidateRows, JSON_THROW_ON_ERROR)
+);
+$addedFaultRows = json_decode(
+    (string) ($importInstance->TestFormUpdates()[0]['value'] ?? ''),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertSensorModel(
+    $faultAddResult === ''
+        && ($addedFaultRows[1]['VariableID'] ?? null) === 67890
+        && ($addedFaultRows[1]['Name'] ?? null) === 'Door garage'
+        && ($addedFaultRows[1]['PartitionID'] ?? null) === 'garage'
+        && ($addedFaultRows[1]['PartitionName'] ?? null) === 'Garage'
+        && ($addedFaultRows[1]['FaultType'] ?? null) === 2
+        && ($addedFaultRows[1]['BlockArming'] ?? null) === true
+        && ($addedFaultRows[1]['TriggerAlarm'] ?? null) === false
+        && ($addedFaultRows[1]['TriggerValue'] ?? null) === 'true'
+        && ($addedFaultRows[1]['TriggerValueSelection'] ?? null) === 'true'
+        && ($addedFaultRows[1]['TriggerValueManual'] ?? null) === 'true',
+    'Bulk-added fault inputs must remain immediately editable, keep their ID and name and apply the shared monitoring settings.'
+);
+
+$forgedFaultRows = $faultCandidateRows;
+$forgedFaultRows[0]['VariableID'] = 34567;
+$forgedFaultResult = $importInstance->AddFaultInputCandidates(
+    'door',
+    'bool',
+    8000,
+    false,
+    json_encode($faultSettings, JSON_THROW_ON_ERROR),
+    $partitionDraft,
+    json_encode($draftFaultInputs, JSON_THROW_ON_ERROR),
+    json_encode($forgedFaultRows, JSON_THROW_ON_ERROR)
+);
+assertSensorModel(
+    !str_starts_with($forgedFaultResult, 'MESSAGE:'),
+    'Bulk fault-input import must reject stale or forged variable IDs after a fresh search.'
 );
 
 $editForm = $instance->GetSensorEditForm(new IPSList([
@@ -681,8 +1014,16 @@ foreach ($editForm as $field) {
     }
 }
 assertSensorModel(
-    ($editFields['VariableID']['type'] ?? null) === 'SelectVariable',
-    'Sensor editor must use SelectVariable for VariableID.'
+    ($editFields['VariableID']['type'] ?? null) === 'SelectVariable'
+        && ($editFields['VariableID']['width'] ?? null) === '100%',
+    'Sensor editor must use the available dialog width for the selected variable path.'
+);
+assertSensorModel(
+    ($editFields['TriggerCondition']['type'] ?? null) === 'Select'
+        && ($editFields['TriggerCondition']['value'] ?? null) === 'equals'
+        && ($editFields['TriggerCondition']['onChange'] ?? null)
+            === 'OHA_UpdateSensorTriggerConditionForm($id, $TriggerCondition);',
+    'Legacy sensor rows must open with exact trigger-value evaluation.'
 );
 assertSensorModel(
     ($editFields['PartitionID']['type'] ?? null) === 'ValidationTextBox'
@@ -691,6 +1032,60 @@ assertSensorModel(
     && ($editFields['Partition_main']['type'] ?? null) === 'CheckBox'
     && ($editFields['Partition_main']['value'] ?? null) === true,
     'Sensor editor must select the default area and persist its assignment with a checkbox.'
+);
+
+$partitionDisplayInstance = new OpenHomeAlarm();
+$partitionDisplayInstance->Create();
+$partitionDisplayInstance->TestSetPropertyString('Partitions', json_encode([
+    ['Enabled' => true, 'ID' => 'main', 'Name' => 'Main area'],
+    ['Enabled' => true, 'ID' => 'garten-1', 'Name' => 'Garden 1']
+], JSON_THROW_ON_ERROR));
+$partitionDisplayForm = $partitionDisplayInstance->GetSensorEditForm(new IPSList([
+    'PartitionID'    => 'main',
+    'Partition_main' => true,
+    'VariableID'     => 12345,
+    'TriggerValue'   => 'true'
+]));
+$partitionDisplayFields = [];
+foreach ($partitionDisplayForm as $field) {
+    if (isset($field['name'])) {
+        $partitionDisplayFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($partitionDisplayFields['PartitionNames']['visible'] ?? true) === false
+        && ($partitionDisplayFields['PartitionNames']['value'] ?? null) === 'Main area'
+        && str_contains(
+            $partitionDisplayFields['Partition_main']['onChange'] ?? '',
+            'OHA_UpdateSensorPartitionNamesForm'
+        )
+        && str_contains(
+            $partitionDisplayFields['Partition_garten-1']['onChange'] ?? '',
+            '$GLOBALS[\'Partition_garten-1\']'
+        ),
+    'The sensor editor must keep a live non-persistent area-name summary for the List row.'
+);
+$partitionDisplayInstance->TestClearFormUpdates();
+$partitionDisplayInstance->UpdateSensorPartitionNamesForm(json_encode([
+    'main'     => false,
+    'garten-1' => true
+], JSON_THROW_ON_ERROR));
+assertSensorModel(
+    $partitionDisplayInstance->TestFormUpdates() === [[
+        'field'     => 'PartitionNames',
+        'parameter' => 'value',
+        'value'     => 'Garden 1'
+    ]],
+    'Changing the selected area must immediately update the readable List summary before ApplyChanges.'
+);
+$partitionDisplayInstance->TestClearFormUpdates();
+$partitionDisplayInstance->UpdateSensorPartitionNamesForm(json_encode([
+    'main'     => true,
+    'garten-1' => true
+], JSON_THROW_ON_ERROR));
+assertSensorModel(
+    ($partitionDisplayInstance->TestFormUpdates()[0]['value'] ?? null) === 'Main area, Garden 1',
+    'The immediate List summary must include every selected area in configuration order.'
 );
 
 $orphanedEditForm = $instance->GetSensorEditForm(new IPSList([
@@ -711,6 +1106,25 @@ assertSensorModel(
         && ($orphanedEditFields['Partition_schuppen']['value'] ?? null) === true
         && ($orphanedEditFields['Partition_schuppen']['enabled'] ?? false) === true,
     'Sensor editor must expose an orphaned partition assignment so the user can remove it.'
+);
+$modernOrphanedEditForm = $instance->GetSensorEditForm(new IPSList([
+    'PartitionID'        => 'main',
+    'Partition_main'     => true,
+    'Partition_schuppen' => true,
+    'VariableID'         => 12345,
+    'TriggerValue'       => 'true'
+]));
+$modernOrphanedEditFields = [];
+foreach ($modernOrphanedEditForm as $field) {
+    if (isset($field['name'])) {
+        $modernOrphanedEditFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($modernOrphanedEditFields['Partition_schuppen']['type'] ?? null) === 'CheckBox'
+        && ($modernOrphanedEditFields['Partition_schuppen']['value'] ?? null) === true
+        && ($modernOrphanedEditFields['Partition_schuppen']['enabled'] ?? false) === true,
+    'Sensor editor must expose every orphaned modern multi-area assignment even when the legacy area remains main.'
 );
 assertSensorModel(
     ($editFields['AlwaysActive']['type'] ?? null) === 'CheckBox',
@@ -735,7 +1149,7 @@ foreach ($alwaysActiveEditForm as $field) {
         $alwaysActiveEditFields[$field['name']] = $field;
     }
 }
-foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay', 'AllowAutomaticBypass'] as $fieldName) {
+foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay', 'AllowAutomaticBypass', 'AllowPassage'] as $fieldName) {
     assertSensorModel(
         ($alwaysActiveEditFields[$fieldName]['enabled'] ?? true) === false
         && ($alwaysActiveEditFields[$fieldName]['value'] ?? true) === false,
@@ -745,9 +1159,9 @@ foreach (['ArmHome', 'ArmAway', 'ArmNight', 'ExitDelay', 'EntryDelay', 'AllowAut
 $instance->TestClearFormUpdates();
 $instance->UpdateSensorAlwaysActiveForm(true);
 assertSensorModel(
-    count($instance->TestFormUpdates()) === 12
-    && array_column($instance->TestFormUpdates(), 'field') === ['ArmHome', 'ArmHome', 'ArmAway', 'ArmAway', 'ArmNight', 'ArmNight', 'ExitDelay', 'ExitDelay', 'EntryDelay', 'EntryDelay', 'AllowAutomaticBypass', 'AllowAutomaticBypass']
-    && array_column($instance->TestFormUpdates(), 'value') === array_fill(0, 12, false),
+    count($instance->TestFormUpdates()) === 14
+    && array_column($instance->TestFormUpdates(), 'field') === ['ArmHome', 'ArmHome', 'ArmAway', 'ArmAway', 'ArmNight', 'ArmNight', 'ExitDelay', 'ExitDelay', 'EntryDelay', 'EntryDelay', 'AllowAutomaticBypass', 'AllowAutomaticBypass', 'AllowPassage', 'AllowPassage']
+    && array_column($instance->TestFormUpdates(), 'value') === array_fill(0, 14, false),
     'Switching a sensor to 24/7 must immediately clear and disable every arming-mode and delay choice.'
 );
 assertSensorModel(
@@ -782,6 +1196,42 @@ assertSensorModel(
 assertSensorModel(
     ($editFields['TriggerValueManual']['visible'] ?? true) === false,
     'Manual trigger input must be hidden when selectable states exist.'
+);
+
+$normalValueEditForm = $instance->GetSensorEditForm(new IPSList([
+    'VariableID'       => 12345,
+    'TriggerCondition' => 'not_equals',
+    'TriggerValue'     => 'false'
+]));
+$normalValueFields = [];
+foreach ($normalValueEditForm as $field) {
+    if (isset($field['name'])) {
+        $normalValueFields[$field['name']] = $field;
+    }
+}
+assertSensorModel(
+    ($normalValueFields['TriggerValueSelection']['caption'] ?? null) === 'Normal value'
+        && ($normalValueFields['TriggerValueManual']['caption'] ?? null) === 'Normal value',
+    'Normal-value evaluation must label the selected comparison state as the normal value.'
+);
+$instance->TestClearFormUpdates();
+$instance->UpdateSensorTriggerConditionForm('not_equals');
+assertSensorModel(
+    $instance->TestFormUpdates() === [
+        ['field' => 'TriggerValueSelection', 'parameter' => 'caption', 'value' => 'Normal value'],
+        ['field' => 'TriggerValueManual', 'parameter' => 'caption', 'value' => 'Normal value'],
+        [
+            'field'     => 'TriggerValueHint',
+            'parameter' => 'caption',
+            'value'     => 'Select a variable to choose its normal value.'
+        ],
+        [
+            'field'     => 'TriggerValueManualHint',
+            'parameter' => 'caption',
+            'value'     => 'This variable has no selectable states. Enter the raw normal value.'
+        ]
+    ],
+    'Changing the evaluation rule must relabel the comparison value without reopening the editor.'
 );
 
 $stringEditForm = $instance->GetSensorEditForm(new IPSList([
@@ -975,7 +1425,8 @@ foreach ([
     'Panic trigger',
     'Other trigger',
     '24/7 active',
-    'Exit route',
+    'Allow temporary passage',
+    'Exit route (Away only)',
     'Exit-route motion detectors may remain active through the end of a configured exit delay; all other sensors must be ready.',
     '24/7 sensors trigger immediately in every system state; mode assignments and entry/exit delay are ignored.',
     '24/7 sensors trigger immediately regardless of the current arming mode; mode assignments and entry/exit delay are ignored.',
