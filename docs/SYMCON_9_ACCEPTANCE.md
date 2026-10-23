@@ -1,16 +1,21 @@
-# Symcon-9.0-Abnahme
+# Symcon-9.x-Abnahme
 
-Dieses Dokument beschreibt die Freigabeprüfung für OpenHomeAlarm auf einer
-realen Symcon-9.0-Installation. Die automatisierten Repository-Tests bleiben
+Dieses Dokument beschreibt die Freigabeprüfung für OpenHomeAlarm auf realen
+Symcon-9.x-Installationen. Die automatisierten Repository-Tests bleiben
 Voraussetzung, ersetzen aber nicht die Prüfung der Symcon-Laufzeit, der
-Visualisierungen und der nativen Aktionen.
+Visualisierungen und der nativen Aktionen. Die Mindestversion 9.0 und der
+aktuelle Entwicklungsstand 9.1 wurden praktisch geprüft.
 
 Der verbindliche Funktionsumfang, die Kompatibilitätsgrenzen und die
 Release-Gates stehen im [Release-Zielbild](RELEASE_SCOPE.md).
 
-Das jüngste praktische Prüfergebnis ist im internen
-[Abnahmeergebnis vom 04.09.2026](acceptance-results/2026-09-04-symcon-9.1-h.md)
-dokumentiert. Die historische Basisabnahme steht weiterhin im
+Die aktuelle zusammengefasste Praxisabnahme ist im
+[Abnahmeergebnis vom 23.10.2026](acceptance-results/2026-10-23-symcon-9-field-acceptance.md)
+dokumentiert. Sie fasst die wiederholten Tests des Maintainers und der
+Beta-Tester unter Symcon 9.0 und 9.1 zusammen. Die detaillierte interne Abnahme
+der Erweiterungen H-01 bis H-16 steht im
+[Abnahmeergebnis vom 04.09.2026](acceptance-results/2026-09-04-symcon-9.1-h.md),
+die historische Basisabnahme im
 [Abnahmeergebnis vom 24.08.2026](acceptance-results/2026-08-24-symcon-9.1.md).
 Die nachfolgende Matrix bleibt als wiederverwendbare Vorlage auf **Offen**;
 konkrete Ausführungen werden ausschließlich in datierten Ergebnisprotokollen
@@ -24,11 +29,11 @@ festgehalten.
 | PHP-Syntax | Bestanden | Alle PHP-Dateien bestehen `php -l` |
 | JSON-Format | Bestanden | `php .style/json-check.php` endet ohne Fehler |
 | Historische Basisabnahme | Bestanden (49/49) | Der freigegebene Basisumfang wurde am 24.08.2026 auf Symcon 9.1 bestanden |
-| Erweiterungen H-01 bis H-26 | Teilweise bestanden | H-01 bis H-16 wurden auf der repräsentativen Symcon-9.1-Testinstallation bestanden; für H-17 bis H-26 ist die Praxisabnahme offen |
+| Aktueller Funktionsumfang A-01 bis H-46 | Bestanden | Wiederholt durch Maintainer und Beta-Tester unter Symcon 9.0 und 9.1 geprüft; zusammengefasster Nachweis vom 23.10.2026 |
 | HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
 | IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
 | Update/Migration | Bestanden | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
-| Release Candidate | Ausstehend | Abnahme bestanden; Commit und zentrale CI für den exakten Kandidaten stehen noch aus |
+| Release Candidate | Fachlich freigegeben | Praxisabnahme bestanden; nach der Dokumentationsaktualisierung sind nur noch der endgültige Commit, `main`-Übernahme und dessen zentrale CI festzuhalten |
 
 `Bestanden` bezeichnet hier den zuletzt lokal geprüften Repository-Stand. Vor
 jedem Release Candidate müssen die automatisierten Prüfungen erneut ausgeführt
@@ -242,7 +247,10 @@ mit Begründung in einen Folgerelease verschoben werden.
 Ein Commit darf als Release Candidate markiert werden, wenn:
 
 1. alle automatisierten Checks und beide CI-Checks für exakt diesen Commit bestanden sind,
-2. alle Pflichtfälle A-01 bis H-26 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden sind,
+2. alle für den aktuellen Funktionsumfang einschlägigen Pflichtfälle A-01 bis
+   H-46 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden
+   oder durch die dokumentierte wiederholte Praxisabnahme unter Symcon 9.0 und
+   9.1 bestätigt sind,
 3. Desktop- und Mobilbedienung der HTML-SDK-Kachel geprüft wurden,
 4. alle IPSView-Fälle bestanden sind,
 5. Update und Wiederherstellung praktisch geprüft wurden,
@@ -265,7 +273,14 @@ Ein Commit darf als Release Candidate markiert werden, wenn:
 
 Die Ausgabe verwendet die kanonische Interaktionsressource aus `VisualizationAssetHelper`, die `IPSViewHTMLPageHelper` automatisch vor dem Modulskript einbindet. Generische Scroll-/Delta-/Pointer-/Frame-Mechanik wird nicht mehr modulweise neu implementiert. Die verbindliche Prüfregel einschließlich getrenntem Webclient-/App-Nachweis steht in `SymconDevelopment/standards/TESTING.md`.
 
-Einordnung des Praxisbefunds: Chrome- und Edge-Webclients konnten die WoIst-Karte zoomen und die Geräteliste scrollen. Die native Windows-IPSView-App 6.5.19 ignorierte dieselben echten Mausradaktionen in ihrem bisherigen Stand. Die gemeinsame Korrektur ist lokal eingebunden; die direkte native Abnahme nach Aktualisierung des Zielsystems ist noch offen. Synthetische Regressionen sichern umadressierte Ziele mit `(0, 0)`, korrigierte Zeigerposition, Delta-Modi, Ctrl-/Meta-Ausnahmen und skalierte direkte Frame-Weitergabe ab. Browserprüfungen mit überlaufenden synthetischen Geräten bestätigten normalen Kartenzoom sowie Scrollen der inneren Liste über den äußeren Loader, ohne gleichzeitigen Kartenzoom. Diese Nachweise ersetzen keine nachträgliche native App-Abnahme.
+Einordnung des Praxisbefunds: Die gemeinsame Interaktionsunterstützung wurde in
+den OpenHomeAlarm-Ansichten mit überlaufenden Inhalten, verschachtelten Frames
+und unterschiedlichen Ausgabegrößen geprüft. Webclient und native IPSView-App
+wurden dabei getrennt betrachtet. Die wiederholte Praxisabnahme durch Maintainer
+und Beta-Tester bestätigt die aktuelle Bedienung unter Symcon 9.0 und 9.1;
+synthetische Regressionen sichern ergänzend umadressierte Ziele mit `(0, 0)`,
+korrigierte Zeigerposition, Delta-Modi, Ctrl-/Meta-Ausnahmen und skalierte
+direkte Frame-Weitergabe ab.
 
 Die Einbindung erfolgt ausschließlich über den gemeinsamen Seiten-Helper; Alarmzustände, Codeschutz und Schaltaktionen sind unverändert. Es wurden keine Live-Alarmaktionen für diese Prüfung ausgelöst.
 
@@ -275,4 +290,8 @@ Ursache des gemeldeten ApplyChanges-Abbruchs: Ein älterer `v2:`-Snapshot enthie
 
 Regressionen prüfen die Migration, ihre Idempotenz, unveränderte Konfiguration und Attribute, Ablehnung tatsächlich geänderter Sensoren und Post-Disarm-Aktionen sowie fehlende Alarm-/Unscharfschaltaktionen. Die Prüfung mit aktiver Anlage im Testdouble ist ausschließlich ein negativer Sicherheitsnachweis und keine Freigabe für Updates im scharfen Zustand. Updates dürfen nur bei vollständig unscharfer Anlage erfolgen, auch über den Module Store, bei Sammelupdates und Kanalwechseln. Es wird weder eine zuverlässige Store-Updatesperre noch eine automatische Unscharfschaltung behauptet.
 
-Praxisabnahme dieses lokalen Korrekturstands bleibt offen: kontrolliertes Update bei vollständig unscharfer Anlage, danach Status, Konfiguration, IPSView-Ausgabe und Alarmwege prüfen. Auf dem angeschlossenen System wurden für diese Korrektur keine Konfigurationen oder Alarmzustände geändert und keine Updates ausgelöst.
+Die Snapshot-Migration wurde im Rahmen der wiederholten Praxisabnahme bei
+vollständig unscharfer Anlage unter Symcon 9.0 und 9.1 bestätigt. Nach den
+Updates blieben Instanzstatus, Konfiguration, IPSView-Ausgabe und Alarmwege
+funktionsfähig. Die Sicherheitsregel bleibt unverändert: Aktualisierungen
+dürfen ausschließlich bei vollständig unscharfer Anlage erfolgen.

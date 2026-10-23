@@ -71,7 +71,7 @@ Der Release umfasst verbindlich:
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
-[Symcon-9.0-Abnahmematrix](SYMCON_9_ACCEPTANCE.md) bestanden sind.
+[Symcon-9.x-Abnahmematrix](SYMCON_9_ACCEPTANCE.md) bestanden sind.
 
 ## Muss-Kriterien
 
@@ -123,7 +123,10 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 - Der Unscharfschaltcode erscheint weder in Statusvariablen noch in Bedienzustand, Debug-Ausgaben oder Ereignishistorie.
 - Ein falscher oder während einer Sperre eingegebener Code verändert den Alarmzustand nicht.
 - Deaktivierte IPSView-Ausgabe darf keinen weiter nutzbaren Bedien-WebHook hinterlassen.
-- Das Modul baut selbst keine ausgehenden Netzwerkverbindungen auf.
+- Ohne ausdrücklich aktivierte direkte Pushover-Benachrichtigung baut das Modul
+  keine ausgehenden externen Netzwerkverbindungen auf. Bei aktivierter
+  Pushover-Funktion werden die dokumentierten Zugangsdaten und Alarmmeldungen
+  ausschließlich per HTTPS an `api.pushover.net` übertragen.
 - Sicherheitsgrenzen und die nicht zertifizierte Einsatzart bleiben prominent dokumentiert.
 
 ### Qualität und Betrieb
@@ -146,16 +149,19 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 ### Hostsystem
 
 Der Modulcode enthält keine beabsichtigte Bindung an ein bestimmtes
-Hostbetriebssystem oder eine Prozessorarchitektur. Praktisch verifiziert ist
-jedoch nur die im Abnahmeprotokoll benannte Kombination aus Symcon-Version,
-Hostbetriebssystem, Architektur und Client. Weitere Kombinationen gelten als
-erwartet kompatibel, aber nicht als für diesen Release nachgewiesen.
+Hostbetriebssystem oder eine Prozessorarchitektur. Praktisch verifiziert sind
+die in den Abnahmeprotokollen zusammengefassten Installationen unter Symcon 9.0
+und 9.1 mit ihren jeweils verwendeten Hosts und Clients. Andere Kombinationen
+gelten als erwartet kompatibel, aber nicht automatisch als für diesen Release
+nachgewiesen.
 
 ### Sensoren und Aktoren
 
 - Unterstützt werden vorhandene Symcon-Variablen mit lesbaren Boolean-, Integer-, Float- oder Stringwerten.
 - Hersteller, Funkstandard und Geräteprotokoll sind für den Alarmkern unerheblich.
-- Externe Wirkungen werden ausschließlich über ausdrücklich konfigurierte native Symcon-Aktionen ausgelöst.
+- Externe Wirkungen werden über ausdrücklich konfigurierte native
+  Symcon-Aktionen oder die optional aktivierte direkte Pushover-Anbindung
+  ausgelöst.
 - Geräteverfügbarkeit kann generisch nur erkannt werden, wenn die Variable fehlt oder nicht lesbar ist. Herstellerabhängige Aktualitäts- oder Kommunikationswerte müssen als eigene Störungseingänge konfiguriert werden.
 
 ### Öffentliche Schnittstellen

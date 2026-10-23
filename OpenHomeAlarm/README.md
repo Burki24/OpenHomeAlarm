@@ -1115,6 +1115,14 @@ die Pushover-HTTPS-API versenden. Benötigt werden ein Pushover-Konto, der
 **Application API Token** einer bei Pushover angelegten Anwendung und der
 **User Key** beziehungsweise **Group Key** des Empfängers.
 
+Die Funktion ist standardmäßig deaktiviert. Erst nach ausdrücklicher
+Konfiguration und Aktivierung sendet OpenHomeAlarm Anwendungs-Token,
+Benutzer- oder Gruppen-Key, optional den Gerätenamen sowie Titel und Text der
+Alarmmeldung per HTTPS an `api.pushover.net`. Ohne aktivierte direkte
+Pushover-Benachrichtigung kommuniziert das Modul nicht selbst mit externen
+Diensten. Für Verarbeitung und Aufbewahrung der übertragenen Daten gelten die
+Bestimmungen des gewählten Pushover-Kontos und -Dienstes.
+
 1. Öffnen Sie in der Instanzkonfiguration **Pushover (direkt)**.
 2. Tragen Sie **Anwendungs-API-Token** und **Benutzer- oder Gruppen-Key** ein.
 3. Optional kann mit **Gerätename** auf ein bestimmtes Pushover-Gerät begrenzt
