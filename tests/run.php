@@ -60,6 +60,7 @@ $commands = [
     ['Check diagnostics export', 'php tests/diagnostics-export.php'],
     ['Check configuration backup format', 'php tests/configuration-backup.php'],
     ['Check HTML-SDK visualization foundation', 'php tests/visualization.php'],
+    ['Check module-specific color guides', 'php tests/color-guides.php'],
     ['Check visualization disarm codepad', 'php tests/codepad.php'],
     ['Check IPSView WebContent integration', 'php tests/ipsview.php'],
     ['Check IPSView style migration', 'php tests/ipsview-migration.php'],

@@ -4,6 +4,11 @@
 
 ## Neu
 
+- Kachel- und IPSView-Farbdesigner enthalten nun jeweils eine responsive,
+  modulspezifische Beispielgrafik mit nummerierter Legende. Die Legenden
+  verwenden die exakten lokalisierten Feldnamen, erklären die sichtbare
+  Zuordnung im Alarm-Dashboard und kennzeichnen derzeit reservierte Farbrollen.
+
 - Ein neues Zustandsdiagramm in Root- und Modul-Anleitung erklärt den Ablauf
   eines einzelnen Alarmbereichs von Unscharf über Ein-/Ausgangsverzögerung bis
   zum Alarm. Es zeigt zusätzlich kontrollierte Abbrüche, 24/7-Auslösungen,

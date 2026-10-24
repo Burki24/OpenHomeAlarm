@@ -1589,6 +1589,21 @@ $dynamicFormInstance->TestSetPropertyString('AlarmEscalationSteps', json_encode(
     'Action'       => $alarmAction
 ]], JSON_THROW_ON_ERROR));
 $dynamicForm = json_decode($dynamicFormInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+foreach ([
+    'OpenHomeAlarmTileColorGuide'    => 'color-guide-tile.image',
+    'OpenHomeAlarmIPSViewColorGuide' => 'color-guide-ipsview.image'
+] as $guideName => $assetName) {
+    $guideImage = findAlarmActionFormField($dynamicForm['elements'] ?? [], $guideName);
+    assertAlarmAction(
+        is_array($guideImage)
+        && ($guideImage['type'] ?? null) === 'Image'
+        && ($guideImage['width'] ?? null) === '100%'
+        && ($guideImage['image'] ?? null) === trim((string) file_get_contents(
+            dirname(__DIR__) . '/OpenHomeAlarm/visualization/' . $assetName
+        )),
+        'GetConfigurationForm must embed the responsive ' . $guideName . ' asset exactly once.'
+    );
+}
 assertAlarmAction(
     findAlarmActionFormField($dynamicForm['elements'] ?? [], 'AlarmAction') === null,
     'GetConfigurationForm must not expose removed global alarm-action fields.'

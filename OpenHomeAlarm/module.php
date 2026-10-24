@@ -957,6 +957,16 @@ class OpenHomeAlarm extends IPSModuleStrict
                 );
                 $this->InsertIPSViewStyleFormItems($form['elements'], colorWidth: '220px');
                 $this->InsertVisualizationThemeFormItems($form['elements'], colorWidth: '220px');
+                $this->InsertOpenHomeAlarmColorGuide(
+                    $form['elements'],
+                    'Tile view',
+                    $this->OpenHomeAlarmTileColorGuide()
+                );
+                $this->InsertOpenHomeAlarmColorGuide(
+                    $form['elements'],
+                    'IPSView',
+                    $this->OpenHomeAlarmIPSViewColorGuide()
+                );
                 if ($this->IsSecurityConfigurationLocked()) {
                     $this->LockSecurityConfigurationFields($form['elements']);
                     array_unshift($form['elements'], [
@@ -4975,6 +4985,140 @@ class OpenHomeAlarm extends IPSModuleStrict
         } finally {
             $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
+    }
+
+    /** Returns the module-specific color mapping for the native Symcon tile. */
+    private function OpenHomeAlarmTileColorGuide(): array
+    {
+        return $this->BuildOpenHomeAlarmColorGuide(
+            'OpenHomeAlarmTileColorGuide',
+            'Color mapping: OpenHomeAlarm tile',
+            'The numbered example shows where the tile color fields are used. It is schematic and does not preview unsaved color changes.',
+            'color-guide-tile',
+            [
+                ['color.background', 'Background', 'Background of the complete alarm dashboard.'],
+                ['color.text', 'Primary text', 'Normal values and body text.'],
+                ['color.heading', 'Headings', 'Security state and section headings.'],
+                ['color.subheading', 'Subheadings and secondary text', 'Descriptions, details and secondary information.'],
+                ['color.accent', 'Accent', 'Selected areas, focus rings and neutral active controls.'],
+                ['color.information', 'Information', 'Reserved by the shared tile theme; OpenHomeAlarm currently has no separate information-colored element.'],
+                ['color.success', 'Success', 'Ready and armed states.'],
+                ['color.warning', 'Warning', 'Countdowns and not-ready states.'],
+                ['color.danger', 'Error and danger', 'Alarms, errors and critical states.']
+            ],
+            'VisualizationThemeConfigurationHelper'
+        );
+    }
+
+    /** Returns the module-specific color mapping for the IPSView dashboard. */
+    private function OpenHomeAlarmIPSViewColorGuide(): array
+    {
+        return $this->BuildOpenHomeAlarmColorGuide(
+            'OpenHomeAlarmIPSViewColorGuide',
+            'Color mapping: OpenHomeAlarm IPSView',
+            'The numbered example shows where the universal IPSView color fields are used. It is schematic and does not preview unsaved color changes.',
+            'color-guide-ipsview',
+            [
+                ['color.view_background', 'View background', 'Background of the complete HTML-Box.'],
+                ['color.page_background', 'Page background', 'Information cards and content areas.'],
+                ['color.label_background', 'Label background', 'Background of labels and section markers.'],
+                ['color.control_background', 'Control background', 'Normal buttons, area selectors and mode cards.'],
+                ['color.control_active_background', 'Active control background', 'Selected or active controls.'],
+                ['color.control_inactive_background', 'Inactive control background', 'Disabled controls.'],
+                ['color.text_primary', 'Primary text', 'Normal content and values.'],
+                ['color.text_active', 'Active text', 'Text on selected or active controls.'],
+                ['color.text_inactive', 'Inactive text', 'Text on disabled controls.'],
+                ['color.label_text', 'Label text', 'Section markers and field labels.'],
+                ['color.icon', 'Icon color', 'Neutral icons.'],
+                ['color.border', 'Border color', 'Card, panel and control borders.'],
+                ['color.line', 'Line color', 'Separators in event and diagnostic lists.'],
+                ['color.popup_background', 'Popup background', 'Codepad and dialog background.'],
+                ['color.popup_border', 'Popup border', 'Codepad and dialog border.'],
+                ['color.accent', 'Accent color', 'Selected areas, focus rings and neutral active states.'],
+                ['color.information', 'Information color', 'Reserved by the shared IPSView style; OpenHomeAlarm currently has no separate information-colored element.'],
+                ['color.positive', 'Positive status', 'Ready and armed states.'],
+                ['color.warning', 'Warning status', 'Countdowns and not-ready states.'],
+                ['color.critical', 'Critical status', 'Alarms, errors and critical states.'],
+                ['color.shadow', 'Shadow color', 'Card and popup shadows.']
+            ],
+            'IPSViewStyleHelper'
+        );
+    }
+
+    /**
+     * Builds one localized form guide while taking every field caption from the
+     * same helper catalog as the actual color control.
+     *
+     * @param array<int,array{0:string,1:string,2:string}> $roles
+     */
+    private function BuildOpenHomeAlarmColorGuide(
+        string $name,
+        string $title,
+        string $hint,
+        string $asset,
+        array $roles,
+        string $catalog
+    ): array {
+        $german = $this->NormalizeHelperTranslationLanguage($this->ResolveHelperTranslationLanguage()) === 'de';
+        $items = [
+            ['type' => 'Label', 'caption' => $this->Translate($hint)],
+            [
+                'type'  => 'Image',
+                'name'  => $name,
+                'width' => '100%',
+                'image' => trim($this->VisualizationAsset($asset . ($german ? '-de' : '') . '.image'))
+            ]
+        ];
+
+        foreach ($roles as $index => [$key, $fallback, $description]) {
+            $items[] = [
+                'type'    => 'Label',
+                'caption' => ($index + 1) . '. '
+                    . $this->TranslateHelperText($catalog, $key, $fallback)
+                    . ': ' . $this->Translate($description)
+            ];
+        }
+
+        return [
+            'type'     => 'ExpansionPanel',
+            'name'     => $name . 'Panel',
+            'caption'  => $this->Translate($title),
+            'expanded' => false,
+            'items'    => $items
+        ];
+    }
+
+    /** Appends a guide to the matching nested configuration panel exactly once. */
+    private function InsertOpenHomeAlarmColorGuide(array &$elements, string $panelCaption, array $guide): bool
+    {
+        foreach ($elements as &$element) {
+            if (($element['type'] ?? null) === 'ExpansionPanel'
+                && ($element['caption'] ?? null) === $panelCaption
+                && isset($element['items'])
+                && is_array($element['items'])) {
+                foreach ($element['items'] as $item) {
+                    if (($guide['name'] ?? '') !== ''
+                        && ($item['name'] ?? null) === $guide['name']) {
+                        unset($element);
+
+                        return true;
+                    }
+                }
+                $element['items'][] = $guide;
+                unset($element);
+
+                return true;
+            }
+            if (isset($element['items']) && is_array($element['items'])
+                && $this->InsertOpenHomeAlarmColorGuide($element['items'], $panelCaption, $guide)) {
+                unset($element);
+
+                return true;
+            }
+        }
+        unset($element);
+
+        return false;
     }
 
     /**

@@ -1258,6 +1258,16 @@ und keinen eigenen Backupordner.
 
 OpenHomeAlarm besitzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Das Dashboard ist zustandsorientiert aufgebaut: **Unscharf**, **Scharf**, **Eingangs- oder Ausgangsverzögerung** und **Alarm** werden als zentraler Hauptzustand dargestellt. Countdown, Alarmgedächtnis, aktive Systemstörungen, temporär überbrückte Sensoren und eine laufende Durchgangsfreigabe erscheinen nur dann als zusätzliche Hinweise, wenn sie tatsächlich relevant sind. Dadurch bleibt die Normalansicht kompakt und die jeweils wichtigste Information steht im Vordergrund. Farben, Oberflächen, Abstände und Fokusdarstellung stammen aus dem gemeinsamen `VisualizationThemeConfigurationHelper`; standardmäßig folgt die Kachel den nativen Symcon-Farben einschließlich Light-/Dark-Umschaltung. Im Konfigurationsabschnitt **Symcon-Kachel** können Text-, Überschriften-, Hintergrund-, Akzent- und Statusfarben optional überschrieben werden. Nur tatsächlich vom Standard abweichende Farben werden fest vorgegeben; alle unveränderten Rollen passen sich weiterhin dem nativen Symcon-Schema an.
 
+Die Konfigurationsabschnitte **Kachel-Ansicht** und **IPSView** enthalten jeweils
+eine einklappbare, nummerierte OpenHomeAlarm-Beispielgrafik. Die Legende darunter
+verwendet exakt dieselben Feldnamen wie der jeweilige Farbdesigner und erklärt,
+welcher Teil des Alarm-Dashboards durch das Feld beeinflusst wird. Die Abbildungen
+sind schematisch und keine Live-Vorschau ungespeicherter Änderungen. Hellfarben,
+Kontraste, Transparenzen und Verläufe werden teilweise aus den Grundfarben
+abgeleitet. Das gemeinsame Feld **Information** beziehungsweise
+**Informationsfarbe** ist für zukünftige semantische Hinweise reserviert und
+steuert in OpenHomeAlarm derzeit kein eigenes sichtbares Element.
+
 Im unscharfen Grundzustand folgen auf den Sicherheitsstatus die Auswahl der
 Alarmbereiche und die Scharfmodi. Der Außenrahmen markiert den angezeigten
 Bereich, der Haken das Ziel der nächsten gemeinsamen Scharfschaltung. Nicht

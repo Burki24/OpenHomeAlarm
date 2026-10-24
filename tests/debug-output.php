@@ -23,6 +23,12 @@ final class DebugOutputAlarm extends OpenHomeAlarm
         return json_decode((string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/form.json'), true, 512, JSON_THROW_ON_ERROR);
     }
 
+    protected function VisualizationAssetDirectory(): string
+    {
+        // The production helper resolves the concrete class directory; this test subclass lives in tests/.
+        return dirname(__DIR__) . '/OpenHomeAlarm/visualization';
+    }
+
     protected function SendDebug(string $message, string $data, int $format): bool
     {
         if (!str_starts_with($message, 'OpenHomeAlarm | ')) {
@@ -79,7 +85,10 @@ foreach ($entries as $entry) {
     assertDebugOutput($entry['data']['Instanz'] === 12345, 'Every entry must identify the instance.');
     assertDebugOutput(preg_match('/^OpenHomeAlarm \| (START|ENDE|AKTION|SENDEN|EMPFANG|FEHLER) \| (\w+):(\d+)$/', $entry['category'], $location) === 1, 'Every entry needs a stable category, function and line.');
     $sourceLine = $sourceLines[(int) $location[3] - 1] ?? '';
-    assertDebugOutput(str_contains($sourceLine, 'AlarmDebug('), 'The reported line must point at the actual instrumentation.');
+    assertDebugOutput(
+        str_contains($sourceLine, 'AlarmDebug('),
+        'The reported line must point at the actual instrumentation: ' . $entry['category'] . ' -> ' . trim($sourceLine)
+    );
     if ($location[1] === 'START') {
         $calls[] = [$location[2], $entry['data']['Aufruf']];
     } elseif ($location[1] === 'ENDE') {
