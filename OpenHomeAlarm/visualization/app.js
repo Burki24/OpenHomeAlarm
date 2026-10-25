@@ -26,6 +26,7 @@ let ohaIPSViewPendingRequests = 0;
 let ohaPartitionLayoutFrame = null;
 let ohaCountdownDisplayTimer = null;
 let ohaCountdownDeadlineMilliseconds = 0;
+let ohaPartitionCountdownDisplayTimer = null;
 const ohaSystemEventTypes = new Set([
     'alarm_action_executed',
     'alarm_notification_sent'
@@ -282,6 +283,7 @@ function ohaRenderPartitions(state) {
     document.getElementById('ohaRoot').dataset.partitionSelectorVisible = nav.hidden ? 'false' : 'true';
     tabs.replaceChildren();
     if (nav.hidden) {
+        ohaClearPartitionCountdownDisplayTimer();
         ohaSchedulePartitionNavHeight();
         return;
     }
@@ -296,9 +298,12 @@ function ohaRenderPartitions(state) {
         const hasFault = Boolean(partition.Faults?.Active);
         const hasAlarmMemory = Boolean(partition.Alarm?.MemoryActive);
         const partitionName = partition.Name || partition.ID;
+        const countdownActive = partition.ID !== state.DefaultPartition
+            && (stateName === 'exit_delay' || stateName === 'entry_delay');
         control.className = 'oha-partition-control';
         control.dataset.active = partition.ID === ohaSelectedPartitionID ? 'true' : 'false';
         control.dataset.state = stateName;
+        control.dataset.countdownActive = countdownActive ? 'true' : 'false';
         button.className = 'oha-partition-tab';
         button.type = 'button';
         button.dataset.partitionId = partition.ID;
@@ -307,16 +312,16 @@ function ohaRenderPartitions(state) {
         button.dataset.fault = hasFault ? 'true' : 'false';
         button.dataset.alarmMemory = hasAlarmMemory ? 'true' : 'false';
         button.setAttribute('aria-pressed', button.dataset.active);
-        const statusDescription = [partitionName, ohaStateCaption(stateName)];
+        const statusDescription = [partitionName];
+        if (!countdownActive) {
+            statusDescription.push(ohaStateCaption(stateName));
+        }
         if (hasFault) {
             statusDescription.push(ohaTranslate('System fault active'));
         }
         if (hasAlarmMemory) {
             statusDescription.push(ohaTranslate('Alarm stored'));
         }
-        button.setAttribute('aria-label', statusDescription.join(', '));
-        button.title = statusDescription.join(' · ');
-
         const indicator = document.createElement('span');
         indicator.className = 'oha-partition-status';
         indicator.setAttribute('aria-hidden', 'true');
@@ -345,6 +350,21 @@ function ohaRenderPartitions(state) {
             memoryBadge.appendChild(memoryIcon);
             badges.appendChild(memoryBadge);
         }
+        if (countdownActive) {
+            const countdown = document.createElement('span');
+            const deadline = Math.max(0, Number(partition.Delay?.Deadline) || 0);
+            const remaining = Math.max(0, Number(partition.Delay?.Remaining) || 0);
+            countdown.className = 'oha-partition-countdown';
+            countdown.dataset.partitionCountdownDeadline = String(
+                deadline > 0 ? deadline * 1000 : Date.now() + (remaining * 1000)
+            );
+            countdown.setAttribute('aria-hidden', 'true');
+            countdown.textContent = `${remaining} s`;
+            badges.appendChild(countdown);
+            statusDescription.push(`${ohaStateCaption(stateName)} ${remaining} s`);
+        }
+        button.setAttribute('aria-label', statusDescription.join(', '));
+        button.title = statusDescription.join(' · ');
         button.append(indicator, label, badges);
         targetToggle.className = 'oha-partition-target-toggle';
         targetToggle.type = 'button';
@@ -358,6 +378,7 @@ function ohaRenderPartitions(state) {
         control.append(button, targetToggle);
         tabs.appendChild(control);
     }
+    ohaRefreshPartitionCountdownDisplays();
     ohaSchedulePartitionNavHeight();
 }
 
@@ -499,6 +520,33 @@ function ohaClearCountdownDisplayTimer() {
     }
 }
 
+function ohaClearPartitionCountdownDisplayTimer() {
+    if (ohaPartitionCountdownDisplayTimer !== null) {
+        window.clearTimeout(ohaPartitionCountdownDisplayTimer);
+        ohaPartitionCountdownDisplayTimer = null;
+    }
+}
+
+function ohaRefreshPartitionCountdownDisplays() {
+    ohaClearPartitionCountdownDisplayTimer();
+    let hasActiveCountdown = false;
+    document.querySelectorAll('[data-partition-countdown-deadline]').forEach((countdown) => {
+        const deadline = Math.max(0, Number(countdown.dataset.partitionCountdownDeadline) || 0);
+        const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        const control = countdown.closest('.oha-partition-control');
+        countdown.textContent = `${remaining} s`;
+        countdown.hidden = remaining <= 0;
+        if (control) {
+            control.dataset.countdownActive = remaining > 0 ? 'true' : 'false';
+        }
+        hasActiveCountdown ||= remaining > 0;
+    });
+
+    if (hasActiveCountdown) {
+        ohaPartitionCountdownDisplayTimer = window.setTimeout(ohaRefreshPartitionCountdownDisplays, 200);
+    }
+}
+
 function ohaRefreshCountdownDisplay() {
     ohaClearCountdownDisplayTimer();
     if (ohaCountdownDeadlineMilliseconds <= 0) {
@@ -531,6 +579,7 @@ function ohaRefreshVisibleCountdown() {
     if (['exit_delay', 'entry_delay'].includes(state?.State?.Name)) {
         ohaStartCountdownDisplay(state);
     }
+    ohaRefreshPartitionCountdownDisplays();
 }
 
 function ohaRenderHero(state) {

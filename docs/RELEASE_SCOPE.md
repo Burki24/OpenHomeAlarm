@@ -71,7 +71,11 @@ Der Release umfasst verbindlich:
 35. vier flache Statusvariablen für jeden zusätzlichen Alarmbereich; sichtbare
     Umbenennungen erhalten Objekt-IDs und Idents, entfernte Bereiche werden
     neutralisiert und erst nach ausdrücklicher Bestätigung im Instanzformular
-    dauerhaft bereinigt.
+    dauerhaft bereinigt,
+36. eine kompakte, lokal aus der veröffentlichten Frist fortgeschriebene
+    Restzeitanzeige mit Lauflicht an jedem zusätzlichen Bereichsbutton während
+    einer Ein- oder Ausgangsverzögerung; reduzierte Bewegung verwendet einen
+    statischen Warnrahmen.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der

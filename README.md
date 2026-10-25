@@ -101,6 +101,12 @@ Bereiche scharf, kann anschließend `main` angezeigt und über **Alle Bereiche
 deaktivieren** die gesamte aktive Teilmenge mit einer Aktion beziehungsweise
 einer Code-Eingabe unscharf geschaltet werden.
 
+Läuft in einem zusätzlichen Bereich eine Ein- oder Ausgangsverzögerung, zeigt
+dessen Bereichsbutton in Kachel und IPSView eine kleine Restzeit sowie ein
+gelbes Lauflicht am Rand. So bleiben parallele Bereichs-Countdowns sichtbar,
+während der große Countdown des angezeigten Bereichs unverändert erhalten
+bleibt. Bei reduzierten Systemanimationen wird der Rand statisch dargestellt.
+
 Für einen ausdrücklich zugelassenen normalen Sensor kann eine vertrauenswürdige
 Automation einen einmaligen Durchgang freigeben, ohne den Bereich
 unscharfzuschalten: `OHA_GrantPassage(12345, 23456, 90)` für den Hauptbereich

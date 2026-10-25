@@ -31,10 +31,11 @@ festgehalten.
 | Historische Basisabnahme | Bestanden (49/49) | Der freigegebene Basisumfang wurde am 24.08.2026 auf Symcon 9.1 bestanden |
 | Bisheriger Funktionsumfang A-01 bis H-46 | Bestanden | Wiederholt durch Maintainer und Beta-Tester unter Symcon 9.0 und 9.1 geprüft; zusammengefasster Nachweis vom 23.10.2026 |
 | Bereichsstatusvariablen H-47 bis H-49 | Offen | Vor der nächsten Freigabe auf der maßgeblichen Symcon-Version praktisch prüfen |
+| Bereichs-Countdown H-50 | Offen | Kachel und IPSView auf Desktop, Mobilgerät und mit reduzierter Bewegung praktisch prüfen |
 | HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
 | IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
 | Update/Migration | Bestanden | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
-| Release Candidate | Nicht freigegeben | Die neue Bereichsstatusvariablen-Lifecycle-Prüfung H-47 bis H-49 ist noch praktisch durchzuführen; anschließend sind der endgültige Commit und dessen zentrale CI festzuhalten |
+| Release Candidate | Nicht freigegeben | Die neuen Bereichsprüfungen H-47 bis H-50 sind noch praktisch durchzuführen; anschließend sind der endgültige Commit und dessen zentrale CI festzuhalten |
 
 `Bestanden` bezeichnet hier den zuletzt lokal geprüften Repository-Stand. Vor
 jedem Release Candidate müssen die automatisierten Prüfungen erneut ausgeführt
@@ -222,6 +223,7 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | H-47 | Einen Zusatzbereich anlegen, dessen Ausgangsverzögerung starten, bis Scharf weiterlaufen lassen, eine Eingangsverzögerung und einen Alarm auslösen, unscharf schalten und dieselben Übergänge nach einem Symcon-Neustart wiederholen | Die vier flachen Bereichsvariablen zeigen jeweils Modus, Zustand, sekündlich verbleibende Verzögerung und Verzögerungsquelle des Zusatzbereichs; die vier Gesamtanlagenvariablen bleiben dem Hauptbereich zugeordnet; ApplyChanges und Neustart erzeugen keine Duplikate und verlieren keinen Zustand | Offen | |
 | H-48 | Nur den sichtbaren Namen eines Zusatzbereichs ändern und übernehmen; danach seine technische Bereichs-ID ändern | Beim Ändern des sichtbaren Namens bleiben alle vier Objekt-IDs und technischen Idents erhalten und nur die Namen ändern sich. Eine neue technische ID erzeugt ein neues Variablenpaket; das Paket der alten ID bleibt neutralisiert zur bestätigten Bereinigung erhalten | Offen | |
 | H-49 | Einen Zusatzbereich löschen und übernehmen, die angebotene Bereinigung zunächst abbrechen, dieselbe technische ID erneut anlegen, anschließend wieder entfernen und die Bereinigung bestätigen | Ohne Bestätigung wird keine Variable gelöscht; die vier alten Variablen sind neutral. Eine vor der Bereinigung erneut angelegte identische ID verwendet dieselben Objekte weiter. Erst die bestätigte Bereinigung entfernt genau die vier verwaisten Variablen und warnt vor Verweisen aus Skripten, Links oder Visualisierungen | Offen | |
+| H-50 | In mindestens zwei zusätzlichen Alarmbereichen gleichzeitig unterschiedlich lange Ein- beziehungsweise Ausgangsverzögerungen starten und die Kachel sowie IPSView auf Desktop und Mobilgerät beobachten; anschließend die Betriebssystemoption für reduzierte Bewegung aktivieren und den Ablauf wiederholen | Jeder zusätzliche Bereichsbutton zeigt unabhängig eine kleine, aus der Backend-Frist lokal fortgeschriebene Restzeit. Ein gelbes Lauflicht kennzeichnet den laufenden Countdown, ohne Auswahlrahmen, Schaltziel oder Alarmstatus zu verdecken. Nach Ablauf verschwindet es. Bei reduzierter Bewegung bleibt stattdessen ein statischer Warnrahmen; der große Countdown des angezeigten Bereichs und sämtliche Backend-Zustandswechsel bleiben unverändert | Offen | |
 
 ## Automatisierte Vorprüfung
 
@@ -252,7 +254,7 @@ Ein Commit darf als Release Candidate markiert werden, wenn:
 
 1. alle automatisierten Checks und beide CI-Checks für exakt diesen Commit bestanden sind,
 2. alle für den aktuellen Funktionsumfang einschlägigen Pflichtfälle A-01 bis
-   H-49 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden
+   H-50 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden
    oder durch die dokumentierte wiederholte Praxisabnahme unter Symcon 9.0 und
    9.1 bestätigt sind,
 3. Desktop- und Mobilbedienung der HTML-SDK-Kachel geprüft wurden,

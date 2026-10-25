@@ -4,6 +4,12 @@
 
 ## Neu
 
+- Kachel und IPSView zeigen laufende Ein- und Ausgangsverzögerungen zusätzlicher
+  Alarmbereiche direkt im jeweiligen Bereichsbutton: Eine kompakte Restzeit
+  wird von einem gelben Lauflicht umrahmt. Mehrere Bereichs-Countdowns bleiben
+  gleichzeitig sichtbar; bei reduzierter Bewegung erscheint ein statischer
+  Warnrahmen.
+
 - Jeder zusätzlich konfigurierte Alarmbereich erhält vier eigene flache
   Statusvariablen für Modus, Zustand, verbleibende Verzögerung und
   Verzögerungsquelle. Die bisherigen Variablen werden eindeutig als Zustand

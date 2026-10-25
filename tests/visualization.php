@@ -237,6 +237,18 @@ assertVisualization(
     'Each area pill must distinguish the displayed area from its independent shared-arming selection.'
 );
 assertVisualization(
+    str_contains($javascript, 'partition.ID !== state.DefaultPartition')
+        && str_contains($javascript, "countdown.className = 'oha-partition-countdown';")
+        && str_contains($javascript, 'countdown.dataset.partitionCountdownDeadline')
+        && str_contains($javascript, 'function ohaRefreshPartitionCountdownDisplays()')
+        && str_contains($javascript, "control.dataset.countdownActive = remaining > 0 ? 'true' : 'false';")
+        && str_contains($css, '.oha-partition-control[data-countdown-active="true"]::before')
+        && str_contains($css, 'conic-gradient(')
+        && str_contains($css, 'animation: oha-partition-countdown-orbit 1.35s linear infinite;')
+        && preg_match('/@media \(prefers-reduced-motion: reduce\).*?\.oha-partition-control\[data-countdown-active="true"\]::before.*?animation: none;/s', $css) === 1,
+    'Non-main area countdowns must show a locally updated compact remaining time and an accessible reduced-motion countdown border.'
+);
+assertVisualization(
     str_contains($javascript, "ohaRequestPartitionAction('DisarmPartitionWithCode', code);")
         && str_contains($module, "case 'DisarmPartitionWithCode':")
         && str_contains($module, '$this->DisarmPartitionWithCode($Value[\'PartitionID\'], $Value[\'Value\'])'),
@@ -486,6 +498,7 @@ assertVisualization(
     str_contains($javascript, 'function ohaStartCountdownDisplay(state)')
         && str_contains($javascript, 'Number(state.Delay?.Deadline)')
         && str_contains($javascript, 'ohaCountdownDeadlineMilliseconds - Date.now()')
+        && str_contains($javascript, 'ohaRefreshPartitionCountdownDisplays();')
         && str_contains($javascript, "document.addEventListener('visibilitychange', ohaRefreshVisibleCountdown)"),
     'The visible countdown must advance locally from the backend deadline and resynchronize after iOS visibility changes.'
 );

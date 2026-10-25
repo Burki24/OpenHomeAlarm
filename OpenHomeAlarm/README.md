@@ -1369,6 +1369,18 @@ Kritisch. Das konkrete Farberscheinungsbild kann sich durch Hell-/Dunkelmodus,
 IPSView-Stil oder eigene Farbvorgaben ändern. Symbol und fachliche Bedeutung
 bleiben dabei unverändert.
 
+Während bei `main` beziehungsweise beim gerade angezeigten Bereich der große
+Countdown im Sicherheitsstatus sichtbar bleibt, kennzeichnet jeder weitere
+Bereich mit laufender Ein- oder Ausgangsverzögerung seinen Bereichsbutton
+zusätzlich durch ein gelbes Lauflicht und eine kleine Restzeitanzeige. Dadurch
+bleiben auch mehrere parallel laufende Bereichs-Countdowns gleichzeitig
+erkennbar. Das Lauflicht zeigt bewusst nur an, dass eine Verzögerung aktiv ist;
+die Zahl im Button nennt die verbleibenden Sekunden. Bei einer systemseitig
+aktivierten Reduzierung von Bewegungen wird statt der Animation ein statischer
+gelber Rahmen dargestellt. Frist und Zustandswechsel bleiben ausschließlich
+unter Kontrolle des Moduls; Kachel und IPSView berechnen nur die sichtbare
+Sekundenanzeige lokal weiter.
+
 Im Alarmzustand werden Bereichsbutton, Glocke, Schrift und Rand mit der
 kritischen Farbrolle dargestellt. Das Glockensymbol pulsiert, damit der Alarm
 nicht ausschließlich über die Farbe erkennbar ist. Die Auswahlkreise für einen

@@ -1,3 +1,9 @@
+@property --oha-partition-countdown-angle {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+}
+
 :root {
     --oha-bg: var(--symc-background);
     --oha-page: var(--symc-surface);
@@ -288,11 +294,45 @@ html:not(.oha-ipsview) .oha-shell {
 }
 
 .oha-partition-control {
+    --oha-partition-countdown-angle: 0deg;
     position: relative;
     display: inline-flex;
     min-width: 0;
     flex: 0 0 auto;
     border-radius: 999px;
+    isolation: isolate;
+}
+
+.oha-partition-control[data-countdown-active="true"]::before {
+    position: absolute;
+    z-index: 1;
+    inset: -3px;
+    padding: 2px;
+    border-radius: inherit;
+    animation: oha-partition-countdown-orbit 1.35s linear infinite;
+    background: conic-gradient(
+        from var(--oha-partition-countdown-angle),
+        transparent 0deg 250deg,
+        color-mix(in srgb, var(--oha-warning) 35%, transparent) 270deg,
+        var(--oha-warning) 310deg 345deg,
+        transparent 360deg
+    );
+    content: "";
+    pointer-events: none;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+}
+
+.oha-partition-control[data-active="true"][data-countdown-active="true"]::before {
+    inset: -6px;
+}
+
+@keyframes oha-partition-countdown-orbit {
+    to {
+        --oha-partition-countdown-angle: 360deg;
+    }
 }
 
 .oha-partition-tab {
@@ -413,6 +453,21 @@ html:not(.oha-ipsview) .oha-shell {
 
 .oha-partition-badge-memory {
     background: var(--oha-danger);
+}
+
+.oha-partition-countdown {
+    min-width: 33px;
+    padding: 2px 6px;
+    border: 1px solid color-mix(in srgb, var(--oha-warning) 45%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--oha-warning) 14%, var(--oha-partition-background));
+    color: var(--oha-warning);
+    font-size: 0.64rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 850;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
 }
 
 .oha-partition-tab:hover {
@@ -2134,6 +2189,11 @@ html.oha-ipsview .oha-partition-tab[data-state="alarm"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .oha-partition-control[data-countdown-active="true"]::before {
+        animation: none;
+        background: var(--oha-warning);
+    }
+
     .oha-partition-tab[data-state="alarm"] .oha-partition-status {
         animation: none;
     }
