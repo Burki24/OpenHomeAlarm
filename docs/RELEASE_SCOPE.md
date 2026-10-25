@@ -67,7 +67,11 @@ Der Release umfasst verbindlich:
     zugeordneter Alarmbereich gelöscht oder deaktiviert wurde,
 34. eine je Alarm-Eskalationsaktion wählbare Auslösekategorie für Zuhause,
     Abwesend, Nacht und 24/7; mehrere gleichzeitig aktive Alarmursachen werden
-    ohne doppelte Aktionsausführung zusammengeführt.
+    ohne doppelte Aktionsausführung zusammengeführt,
+35. vier flache Statusvariablen für jeden zusätzlichen Alarmbereich; sichtbare
+    Umbenennungen erhalten Objekt-IDs und Idents, entfernte Bereiche werden
+    neutralisiert und erst nach ausdrücklicher Bestätigung im Instanzformular
+    dauerhaft bereinigt.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der

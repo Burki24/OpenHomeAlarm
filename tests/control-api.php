@@ -85,6 +85,12 @@ class IPSModuleStrict
     /** @var array<string,mixed> */
     private array $writtenValues = [];
 
+    /** @var array<string,array{Name:string,Type:string,Position:int}> */
+    private array $registeredVariables = [];
+
+    /** @var list<string> */
+    private array $unregisteredVariables = [];
+
     private mixed $visualizationValue = null;
 
     private int $status = 102;
@@ -135,6 +141,18 @@ class IPSModuleStrict
     public function TestVisualizationValue(): mixed
     {
         return $this->visualizationValue;
+    }
+
+    /** @return array<string,array{Name:string,Type:string,Position:int}> */
+    public function TestRegisteredVariables(): array
+    {
+        return $this->registeredVariables;
+    }
+
+    /** @return list<string> */
+    public function TestUnregisteredVariables(): array
+    {
+        return $this->unregisteredVariables;
     }
 
     protected function SetStatus(int $status): bool
@@ -255,17 +273,38 @@ class IPSModuleStrict
 
     protected function RegisterVariableInteger(string $ident, string $name, array $presentation, int $position): bool
     {
-        return true;
+        $created = !isset($this->registeredVariables[$ident]);
+        $this->registeredVariables[$ident] = ['Name' => $name, 'Type' => 'integer', 'Position' => $position];
+
+        return $created;
     }
 
     protected function RegisterVariableBoolean(string $ident, string $name, array $presentation, int $position): bool
     {
-        return true;
+        $created = !isset($this->registeredVariables[$ident]);
+        $this->registeredVariables[$ident] = ['Name' => $name, 'Type' => 'boolean', 'Position' => $position];
+
+        return $created;
     }
 
     protected function RegisterVariableString(string $ident, string $name, array $presentation, int $position): bool
     {
+        $created = !isset($this->registeredVariables[$ident]);
+        $this->registeredVariables[$ident] = ['Name' => $name, 'Type' => 'string', 'Position' => $position];
+
+        return $created;
+    }
+
+    protected function UnregisterVariable(string $ident): bool
+    {
+        unset($this->registeredVariables[$ident], $this->currentValues[$ident]);
+        $this->unregisteredVariables[] = $ident;
+
         return true;
+    }
+
+    protected function ReloadForm(): void
+    {
     }
 
     protected function SetValue(string $ident, mixed $value): void
@@ -461,6 +500,113 @@ $invalidAssignmentInstance->ApplyChanges();
 assertControlApi(
     $invalidAssignmentInstance->TestStatus() === 102,
     'A corrected sensor partition assignment must restore the active instance status.'
+);
+
+$partitionStatusInstance = new OpenHomeAlarm();
+$partitionStatusInstance->Create();
+assertControlApi(
+    ($partitionStatusInstance->TestRegisteredVariables()['Mode']['Name'] ?? null) === 'Main system – Mode'
+        && ($partitionStatusInstance->TestRegisteredVariables()['State']['Name'] ?? null) === 'Main system – State'
+        && ($partitionStatusInstance->TestRegisteredVariables()['DelayRemaining']['Name'] ?? null) === 'Main system – Delay remaining'
+        && ($partitionStatusInstance->TestRegisteredVariables()['DelaySource']['Name'] ?? null) === 'Main system – Delay source',
+    'The legacy global variables must explicitly identify the complete alarm system.'
+);
+$partitionStatusInstance->TestSetPropertyInteger('ExitDelaySeconds', 30);
+$partitionStatusInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
+);
+$partitionStatusInstance->ApplyChanges();
+$garagePrefix = 'Partition_' . bin2hex('garage') . '_';
+$registeredPartitionVariables = $partitionStatusInstance->TestRegisteredVariables();
+assertControlApi(
+    ($registeredPartitionVariables[$garagePrefix . 'Mode']['Name'] ?? null) === 'Garage – Mode'
+        && ($registeredPartitionVariables[$garagePrefix . 'State']['Name'] ?? null) === 'Garage – State'
+        && ($registeredPartitionVariables[$garagePrefix . 'DelayRemaining']['Name'] ?? null) === 'Garage – Delay remaining'
+        && ($registeredPartitionVariables[$garagePrefix . 'DelaySource']['Name'] ?? null) === 'Garage – Delay source',
+    'Every configured non-main area must receive one flat, collision-free status-variable set.'
+);
+assertControlApi(
+    $partitionStatusInstance->ArmPartition('garage', 'away', 30),
+    'The partition status-variable test must start a delayed arming.'
+);
+$partitionStatusValues = $partitionStatusInstance->TestWrittenValues();
+assertControlApi(
+    ($partitionStatusValues[$garagePrefix . 'Mode'] ?? null) === 2
+        && ($partitionStatusValues[$garagePrefix . 'State'] ?? null) === 1
+        && ($partitionStatusValues[$garagePrefix . 'DelayRemaining'] ?? 0) > 0,
+    'A non-main area must publish mode, state and the running countdown through its own variables.'
+);
+assertControlApi(
+    $partitionStatusInstance->DisarmPartition('garage'),
+    'The partition status-variable test must disarm the area before changing its configuration.'
+);
+$partitionStatusInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"Workshop","Default":false}]'
+);
+$partitionStatusInstance->ApplyChanges();
+assertControlApi(
+    ($partitionStatusInstance->TestRegisteredVariables()[$garagePrefix . 'Mode']['Name'] ?? null) === 'Workshop – Mode',
+    'Renaming an area must update the visible variable names while retaining the technical idents.'
+);
+$partitionStatusInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true}]'
+);
+$partitionStatusInstance->ApplyChanges();
+$partitionStatusValues = $partitionStatusInstance->TestWrittenValues();
+assertControlApi(
+    ($partitionStatusValues[$garagePrefix . 'Mode'] ?? null) === 0
+        && ($partitionStatusValues[$garagePrefix . 'State'] ?? null) === 0
+        && ($partitionStatusValues[$garagePrefix . 'DelayRemaining'] ?? null) === 0
+        && ($partitionStatusValues[$garagePrefix . 'DelaySource'] ?? null) === '',
+    'Removing an area must retain its variables and reset them to neutral values.'
+);
+$partitionStatusForm = json_decode(
+    $partitionStatusInstance->GetConfigurationForm(),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    str_contains(json_encode($partitionStatusForm['actions'] ?? [], JSON_THROW_ON_ERROR), 'Workshop'),
+    'The instance form must offer an explicit cleanup action for retained variables of a removed area.'
+);
+$partitionStatusInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true},{"Enabled":true,"ID":"garage","Name":"New garage","Default":false}]'
+);
+$partitionStatusInstance->ApplyChanges();
+assertControlApi(
+    ($partitionStatusInstance->TestRegisteredVariables()[$garagePrefix . 'Mode']['Name'] ?? null) === 'New garage – Mode',
+    'Recreating the same technical area ID before cleanup must reuse and rename the retained variables.'
+);
+$configuredCleanupRejected = false;
+try {
+    $partitionStatusInstance->DeleteRetainedPartitionStatusVariables('garage');
+} catch (RuntimeException) {
+    $configuredCleanupRejected = true;
+}
+assertControlApi(
+    $configuredCleanupRejected,
+    'Cleanup must refuse to delete variables while their alarm area is configured again.'
+);
+$partitionStatusInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House","Default":true}]'
+);
+$partitionStatusInstance->ApplyChanges();
+assertControlApi(
+    $partitionStatusInstance->DeleteRetainedPartitionStatusVariables('garage'),
+    'Confirmed cleanup must delete the retained variable set.'
+);
+assertControlApi(
+    count(array_intersect(
+        $partitionStatusInstance->TestUnregisteredVariables(),
+        [$garagePrefix . 'Mode', $garagePrefix . 'State', $garagePrefix . 'DelayRemaining', $garagePrefix . 'DelaySource']
+    )) === 4,
+    'Confirmed cleanup must unregister all four retained partition variables.'
 );
 
 /** @return array<string,mixed> */

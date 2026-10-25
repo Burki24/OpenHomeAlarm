@@ -4,6 +4,13 @@
 
 ## Neu
 
+- Jeder zusätzlich konfigurierte Alarmbereich erhält vier eigene flache
+  Statusvariablen für Modus, Zustand, verbleibende Verzögerung und
+  Verzögerungsquelle. Die bisherigen Variablen werden eindeutig als Zustand
+  der Gesamtanlage bezeichnet. Umbenennungen behalten Idents und Objekt-IDs;
+  nach dem Entfernen eines Bereichs bleiben seine neutralisierten Variablen bis
+  zu einer ausdrücklich bestätigten Bereinigung im Instanzformular erhalten.
+
 - Kachel- und IPSView-Farbdesigner enthalten nun jeweils eine responsive,
   modulspezifische Beispielgrafik mit nummerierter Legende. Die Legenden
   verwenden die exakten lokalisierten Feldnamen, erklären die sichtbare

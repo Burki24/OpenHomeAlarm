@@ -462,14 +462,17 @@ oder deaktivierte Bereichs-ID wird durch den Fallback als `disarmed` behandelt.
 
 ## 6. Statusvariablen
 
-OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
+OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an. Die vier
+bereits vorhandenen Zustandsvariablen `Mode`, `State`, `DelayRemaining` und
+`DelaySource` beschreiben weiterhin die **Gesamtanlage (`main`)** und tragen im
+Objektbaum deshalb die sichtbare Bezeichnung **Gesamtanlage – …**:
 
 | Variable | Bedeutung | Initialwert |
 | --- | --- | --- |
-| `Mode` | Gewählter Scharfmodus: Kein Scharfmodus, Zuhause, Abwesend oder Nacht | Kein Scharfmodus |
-| `State` | Aktuelle Systemphase: Unscharf, Ausgangsverzögerung, Scharf, Eingangsverzögerung oder Alarm | Unscharf |
-| `DelayRemaining` | Verbleibende Sekunden einer laufenden Eingangs- oder Ausgangsverzögerung | 0 s |
-| `DelaySource` | Sensor, der die aktuelle Eingangsverzögerung gestartet hat; bei Ausgangsverzögerung leer | leer |
+| `Mode` / **Gesamtanlage – Modus** | Gewählter Scharfmodus der Gesamtanlage: Kein Scharfmodus, Zuhause, Abwesend oder Nacht | Kein Scharfmodus |
+| `State` / **Gesamtanlage – Status** | Aktuelle Systemphase der Gesamtanlage: Unscharf, Ausgangsverzögerung, Scharf, Eingangsverzögerung oder Alarm | Unscharf |
+| `DelayRemaining` / **Gesamtanlage – Verbleibende Verzögerung** | Verbleibende Sekunden einer laufenden Ein- oder Ausgangsverzögerung der Gesamtanlage | 0 s |
+| `DelaySource` / **Gesamtanlage – Quelle der Verzögerung** | Sensor, der die aktuelle Eingangsverzögerung der Gesamtanlage gestartet hat; bei Ausgangsverzögerung leer | leer |
 | `AlarmOutputActive` | Zeigt, ob der Alarmausgang innerhalb eines aktiven Alarms noch aktiv ist | Alarmausgang inaktiv |
 | `SignalGeneratorActive` | Zeigt, ob mindestens eine als Signalgeber markierte Alarmaktion erfolgreich gestartet wurde und getrennt gestoppt werden kann | Signalgeber inaktiv |
 | `ReadyToArm` | Konservative Gesamtbereitschaft über alle überwachten Sensoren | Bereit |
@@ -490,6 +493,34 @@ OpenHomeAlarm legt folgende schreibgeschützte Statusvariablen an:
 | `LastFaultTime` | Zeitpunkt der zuletzt neu aufgetretenen Störung im Format `TT.MM.JJJJ HH:MM:SS` | leer |
 
 Die Variablen verwenden native Symcon-Darstellungen. Bereits vorhandene Betriebszustände werden bei einem Modulupdate nicht auf die Initialwerte zurückgesetzt.
+
+Für jeden zusätzlich konfigurierten Alarmbereich legt das Modul direkt unter
+der Instanz ein eigenes flaches Variablenpaket an:
+
+- **_Bereichsname_ – Modus**
+- **_Bereichsname_ – Status**
+- **_Bereichsname_ – Verbleibende Verzögerung**
+- **_Bereichsname_ – Quelle der Verzögerung**
+
+Diese vier Variablen werden erst angelegt, nachdem der Zusatzbereich in der
+Instanzkonfiguration übernommen wurde. Sie zeigen dessen unabhängigen Zustand
+und Countdown auch dann korrekt an, wenn `main` unverändert unscharf bleibt.
+Die technischen Variablen-Idents werden stabil aus der Bereichs-ID gebildet.
+Wird nur der sichtbare Bereichsname geändert, bleiben deshalb Objekt-IDs,
+Idents, Skriptverknüpfungen und Visualisierungen erhalten; lediglich die
+sichtbaren Variablennamen werden angepasst.
+
+Wird ein Zusatzbereich aus der Konfiguration entfernt, löscht OpenHomeAlarm
+dessen Variablen **nicht automatisch**. Sie bleiben mit den neutralen Werten
+**Kein Scharfmodus**, **Unscharf**, `0 s` und leerer Quelle erhalten. Im
+Instanzformular erscheint danach der Abschnitt **Beibehaltene Statusvariablen
+entfernter Alarmbereiche**. Dort können die vier Variablen nach einer
+zusätzlichen Sicherheitsabfrage dauerhaft gelöscht werden. Vorher ist zu
+prüfen, ob Skripte, Links oder Visualisierungen diese Objekte noch verwenden.
+Wird dieselbe technische Bereichs-ID vor der Bereinigung erneut angelegt,
+verwendet das Modul die vorhandenen Variablen weiter. Eine Änderung der
+technischen Bereichs-ID gilt dagegen als Entfernen des alten und Anlegen eines
+neuen Bereichs.
 
 ## 7. Sensoren und Auslöser
 
@@ -1463,6 +1494,7 @@ oder eines falschen Codes.
 | `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert alle Moduleinstellungen als versioniertes JSON. Das Ergebnis kann Codes, Pushover-Zugangsdaten und andere Geheimnisse enthalten. |
 | `OHA_RestoreConfigurationBackup($InstanzID, $JSON)` | `bool` | Stellt ein validiertes Backup nur bei vollständig unscharfen Alarmbereichen wieder her. Fehler führen zur Rückkehr auf die vorherige Konfiguration. |
 | `OHA_TestPushover($InstanzID)` | `bool` | Sendet über die direkten Pushover-Zugangsdaten eine normale Testnachricht ohne Notfall-Wiederholung. |
+| `OHA_DeleteRetainedPartitionStatusVariables($InstanzID, $BereichID)` | `bool` | Löscht die vier neutralisierten Statusvariablen eines bereits entfernten Bereichs dauerhaft. Die Funktion verweigert konfigurierte Bereiche und wird normalerweise ausschließlich über die bestätigte Bereinigungsaktion im Instanzformular verwendet. |
 
 Beispiel für eine Statusabfrage:
 

@@ -129,10 +129,14 @@ einem Blocker bleibt kein Bereich teilweise scharfgeschaltet.
 
 ### Status eines Alarmbereichs im Script abfragen
 
-Die Statusvariablen unter der Instanz beschreiben den Gesamtzustand. Für einen
-einzelnen Alarmbereich lesen Sie den öffentlichen JSON-Status mit
-`OHA_GetControlState()` aus. Im folgenden Beispiel wird geprüft, ob die Garage
-gerade überwacht wird:
+Die vier mit **Gesamtanlage – …** bezeichneten Statusvariablen unter der
+Instanz beschreiben weiterhin `main`. Für jeden übernommenen Zusatzbereich legt
+OpenHomeAlarm zusätzlich ein flaches Paket aus **Modus**, **Status**,
+**Verbleibender Verzögerung** und **Quelle der Verzögerung** an. Dadurch können
+einfache Skripte und Visualisierungen den Zustand eines einzelnen Bereichs
+direkt als Symcon-Variable verwenden. Der vollständige, versionierte
+Bereichszustand steht weiterhin über `OHA_GetControlState()` zur Verfügung. Im
+folgenden Beispiel wird geprüft, ob die Garage gerade überwacht wird:
 
 ```php
 $state = json_decode(OHA_GetControlState(12345), true, 512, JSON_THROW_ON_ERROR);
@@ -154,6 +158,12 @@ if ($garageIsArmed) {
 `State.Name` ist einer der Werte `disarmed`, `exit_delay`, `armed`,
 `entry_delay` oder `alarm`. Die Bereichs-ID `garage` ersetzen Sie durch die ID
 Ihres eigenen Bereichs.
+
+Eine Umbenennung des sichtbaren Bereichsnamens behält die Objekt-IDs und Idents
+dieser vier Variablen bei. Nach dem Entfernen eines Bereichs bleiben seine
+neutralisierten Variablen zunächst erhalten und können erst nach ausdrücklicher
+Bestätigung im Instanzformular gelöscht werden. Einzelheiten beschreibt die
+[vollständige Anleitung](OpenHomeAlarm#6-statusvariablen).
 
 **Aktiv** bedeutet nur, dass ein Bereich verwendet werden kann; es schaltet ihn
 nicht scharf. Kachel und IPSView bieten eine Auswahl aller aktiven Bereiche.

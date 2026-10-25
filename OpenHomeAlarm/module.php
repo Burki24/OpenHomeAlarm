@@ -293,6 +293,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_MAIN_SILENT_ARMING = 'MainSilentArming';
     private const ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT = 'PushoverEmergencyReceipt';
     private const ATTRIBUTE_PARTITION_RUNTIME = 'PartitionRuntime';
+    private const ATTRIBUTE_PARTITION_STATUS_VARIABLES = 'PartitionStatusVariables';
     private const ATTRIBUTE_PARTITION_ALARMS = 'PartitionAlarms';
     private const ATTRIBUTE_PASSAGE_RUNTIME = 'PassageRuntime';
     private const ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION = 'AppliedSecurityConfiguration';
@@ -423,6 +424,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->RegisterAttributeInteger(self::ATTRIBUTE_MAIN_SILENT_ARMING, 0);
             $this->RegisterAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_STATUS_VARIABLES);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PASSAGE_RUNTIME);
             $this->RegisterAttributeString(self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION, '');
@@ -484,25 +486,25 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             $modeCreated = $this->RegisterVariableInteger(
                 self::IDENT_MODE,
-                $this->Translate('Mode'),
+                $this->Translate('Main system – Mode'),
                 $this->CreateModePresentation(),
                 10
             );
             $stateCreated = $this->RegisterVariableInteger(
                 self::IDENT_STATE,
-                $this->Translate('State'),
+                $this->Translate('Main system – State'),
                 $this->CreateStatePresentation(),
                 20
             );
             $delayRemainingCreated = $this->RegisterVariableInteger(
                 self::IDENT_DELAY_REMAINING,
-                $this->Translate('Delay remaining'),
+                $this->Translate('Main system – Delay remaining'),
                 $this->IntegerPresentation('s', 0),
                 21
             );
             $delaySourceCreated = $this->RegisterVariableString(
                 self::IDENT_DELAY_SOURCE,
-                $this->Translate('Delay source'),
+                $this->Translate('Main system – Delay source'),
                 $this->TextPresentation(),
                 22
             );
@@ -891,7 +893,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->GuardSecurityConfigurationChanges();
 
             try {
-                $this->ReadConfiguredPartitions();
+                $partitions = $this->ReadConfiguredPartitions();
             } catch (UnexpectedValueException $exception) {
                 $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Bereichskonfiguration ist ungültig; Übernahme abgebrochen.', ['Ursache' => $this->ExplainAlarmDebugError($exception->getMessage()), 'Fehlertyp' => $exception::class, 'Fehlerzeile' => $exception->getLine()]);
                 $this->SetStatus(self::STATUS_INVALID_PARTITIONS);
@@ -912,6 +914,24 @@ class OpenHomeAlarm extends IPSModuleStrict
             if (IPS_GetKernelRunlevel() !== KR_READY) {
                 return;
             }
+
+            $this->UpdateRegisteredVariableName(
+                self::IDENT_MODE,
+                $this->Translate('Main system – Mode')
+            );
+            $this->UpdateRegisteredVariableName(
+                self::IDENT_STATE,
+                $this->Translate('Main system – State')
+            );
+            $this->UpdateRegisteredVariableName(
+                self::IDENT_DELAY_REMAINING,
+                $this->Translate('Main system – Delay remaining')
+            );
+            $this->UpdateRegisteredVariableName(
+                self::IDENT_DELAY_SOURCE,
+                $this->Translate('Main system – Delay source')
+            );
+            $this->MaintainPartitionStatusVariables($partitions);
 
             if (!$this->InitializeRuntimeSafely()) {
                 return;
@@ -983,6 +1003,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                     ]);
                 }
             }
+            $this->InsertRetainedPartitionStatusVariableCleanup($form);
 
             return $debugResult = $this->EncodeConfigurationForm($form);
         } catch (Throwable $debugException) {
@@ -4818,6 +4839,38 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
+    /**
+     * Permanently deletes the retained status variables of a removed alarm area.
+     * This method is called only by the explicitly confirmed form action.
+     */
+    public function DeleteRetainedPartitionStatusVariables(string $partitionID): bool
+    {
+        $partitionID = trim($partitionID);
+        foreach ($this->ReadConfiguredPartitions() as $partition) {
+            if ($partition['ID'] === $partitionID) {
+                throw new RuntimeException($this->Translate(
+                    'The status variables cannot be deleted because this alarm area is configured again.'
+                ));
+            }
+        }
+
+        $registry = $this->ReadPartitionStatusVariableRegistry();
+        if (!isset($registry[$partitionID]) || !$registry[$partitionID]['Orphaned']) {
+            return false;
+        }
+
+        foreach ($this->PartitionStatusVariableIdents($partitionID) as $ident) {
+            $this->UnregisterVariable($ident);
+        }
+        unset($registry[$partitionID]);
+        $this->WritePersistentJsonCache(self::ATTRIBUTE_PARTITION_STATUS_VARIABLES, $registry);
+        if (method_exists($this, 'ReloadForm')) {
+            $this->ReloadForm();
+        }
+
+        return true;
+    }
+
     /** Adapts legacy helper diagnostics to the alarm envelope without changing vendored sources. */
     protected function SendDebug(string $Message, string $Data, int $Format): bool
     {
@@ -5274,6 +5327,57 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
+    /** @param array<string,mixed> $form */
+    private function InsertRetainedPartitionStatusVariableCleanup(array &$form): void
+    {
+        $registry = $this->ReadPartitionStatusVariableRegistry();
+        $orphaned = array_filter(
+            $registry,
+            static fn (array $entry): bool => $entry['Orphaned']
+        );
+        if ($orphaned === []) {
+            return;
+        }
+
+        $items = [[
+            'type'    => 'Label',
+            'caption' => $this->Translate(
+                'Status variables of removed alarm areas remain available with neutral values. Delete them only when they are no longer used by scripts, links or visualizations.'
+            )
+        ]];
+        foreach ($orphaned as $partitionID => $entry) {
+            $caption = sprintf(
+                $this->Translate('Delete retained status variables for "%s" (%s)'),
+                $entry['Name'],
+                $partitionID
+            );
+            $items[] = [
+                'type'    => 'Button',
+                'caption' => $caption,
+                'confirm' => sprintf(
+                    $this->Translate(
+                        'Permanently delete the four retained status variables for the removed alarm area "%s"? Existing scripts, links or visualizations may then refer to missing objects.'
+                    ),
+                    $entry['Name']
+                ),
+                'onClick' => sprintf(
+                    'return OHA_DeleteRetainedPartitionStatusVariables($id, %s);',
+                    var_export($partitionID, true)
+                )
+            ];
+        }
+
+        if (!isset($form['actions']) || !is_array($form['actions'])) {
+            $form['actions'] = [];
+        }
+        array_unshift($form['actions'], [
+            'type'     => 'ExpansionPanel',
+            'caption'  => $this->Translate('Retained status variables of removed alarm areas'),
+            'expanded' => true,
+            'items'    => $items
+        ]);
+    }
+
     private function PartitionConfigurationStatusCaption(UnexpectedValueException $exception): string
     {
         if ($exception instanceof AlarmPartitionConfigurationException
@@ -5693,6 +5797,197 @@ class OpenHomeAlarm extends IPSModuleStrict
         return AlarmPartitionRegistry::partitions($this->ReadPropertyString(self::PROPERTY_PARTITIONS));
     }
 
+    /**
+     * Creates and updates the flat status-variable set for every configured
+     * non-main alarm partition. Removed partitions deliberately remain
+     * registered until the user confirms their deletion in the instance form.
+     *
+     * @param list<array{Enabled:bool,ID:string,Name:string,Default:bool,SilentByDefault:bool}> $partitions
+     */
+    private function MaintainPartitionStatusVariables(array $partitions): void
+    {
+        $registry = $this->ReadPartitionStatusVariableRegistry();
+        $configured = [];
+        $position = 1000;
+
+        foreach ($partitions as $partition) {
+            if ($partition['Default']) {
+                continue;
+            }
+
+            $partitionID = $partition['ID'];
+            $configured[$partitionID] = true;
+            $registry[$partitionID] = [
+                'Name'     => $partition['Name'],
+                'Orphaned' => false
+            ];
+            $created = $this->RegisterPartitionStatusVariables(
+                $partitionID,
+                $partition['Name'],
+                $position
+            );
+            if ($created || !$partition['Enabled']) {
+                $this->SetPartitionStatusVariableValues(
+                    $partitionID,
+                    self::MODE_NONE,
+                    self::STATE_DISARMED,
+                    0,
+                    ''
+                );
+            }
+            $position += 10;
+        }
+
+        foreach ($registry as $partitionID => &$entry) {
+            if (isset($configured[$partitionID])) {
+                continue;
+            }
+            $entry['Orphaned'] = true;
+            $this->SetPartitionStatusVariableValues(
+                $partitionID,
+                self::MODE_NONE,
+                self::STATE_DISARMED,
+                0,
+                ''
+            );
+        }
+        unset($entry);
+
+        $this->WritePersistentJsonCache(self::ATTRIBUTE_PARTITION_STATUS_VARIABLES, $registry);
+    }
+
+    /** @return array<string,array{Name:string,Orphaned:bool}> */
+    private function ReadPartitionStatusVariableRegistry(): array
+    {
+        $stored = $this->ReadPersistentJsonCache(self::ATTRIBUTE_PARTITION_STATUS_VARIABLES);
+        $registry = [];
+        foreach ($stored as $partitionID => $entry) {
+            if (!is_string($partitionID) || !is_array($entry)) {
+                continue;
+            }
+            $name = $entry['Name'] ?? $partitionID;
+            $registry[$partitionID] = [
+                'Name'     => is_string($name) && trim($name) !== '' ? trim($name) : $partitionID,
+                'Orphaned' => (bool) ($entry['Orphaned'] ?? false)
+            ];
+        }
+
+        return $registry;
+    }
+
+    private function RegisterPartitionStatusVariables(string $partitionID, string $name, int $position): bool
+    {
+        $idents = $this->PartitionStatusVariableIdents($partitionID);
+        $modeName = sprintf($this->Translate('%s – Mode'), $name);
+        $stateName = sprintf($this->Translate('%s – State'), $name);
+        $remainingName = sprintf($this->Translate('%s – Delay remaining'), $name);
+        $sourceName = sprintf($this->Translate('%s – Delay source'), $name);
+        $created = $this->RegisterVariableInteger(
+            $idents['Mode'],
+            $modeName,
+            $this->CreateModePresentation(),
+            $position
+        );
+        $created = $this->RegisterVariableInteger(
+            $idents['State'],
+            $stateName,
+            $this->CreateStatePresentation(),
+            $position + 1
+        ) || $created;
+        $created = $this->RegisterVariableInteger(
+            $idents['DelayRemaining'],
+            $remainingName,
+            $this->IntegerPresentation('s', 0),
+            $position + 2
+        ) || $created;
+        $created = $this->RegisterVariableString(
+            $idents['DelaySource'],
+            $sourceName,
+            $this->TextPresentation(),
+            $position + 3
+        ) || $created;
+
+        $this->UpdateRegisteredVariableName($idents['Mode'], $modeName);
+        $this->UpdateRegisteredVariableName($idents['State'], $stateName);
+        $this->UpdateRegisteredVariableName($idents['DelayRemaining'], $remainingName);
+        $this->UpdateRegisteredVariableName($idents['DelaySource'], $sourceName);
+
+        return $created;
+    }
+
+    private function UpdateRegisteredVariableName(string $ident, string $name): void
+    {
+        if (!method_exists($this, 'GetIDForIdent') || !function_exists('IPS_SetName')) {
+            return;
+        }
+
+        try {
+            $variableID = $this->GetIDForIdent($ident);
+        } catch (Throwable) {
+            return;
+        }
+        if (is_int($variableID) && $variableID > 0) {
+            IPS_SetName($variableID, $name);
+        }
+    }
+
+    /** @return array{Mode:string,State:string,DelayRemaining:string,DelaySource:string} */
+    private function PartitionStatusVariableIdents(string $partitionID): array
+    {
+        $prefix = 'Partition_' . bin2hex($partitionID) . '_';
+
+        return [
+            'Mode'           => $prefix . 'Mode',
+            'State'          => $prefix . 'State',
+            'DelayRemaining' => $prefix . 'DelayRemaining',
+            'DelaySource'    => $prefix . 'DelaySource'
+        ];
+    }
+
+    private function SetPartitionStatusVariableValues(
+        string $partitionID,
+        int $mode,
+        int $state,
+        int $remaining,
+        string $source
+    ): void {
+        $idents = $this->PartitionStatusVariableIdents($partitionID);
+        $values = [
+            $idents['Mode']           => $mode,
+            $idents['State']          => $state,
+            $idents['DelayRemaining'] => max(0, $remaining),
+            $idents['DelaySource']    => $source
+        ];
+        foreach ($values as $ident => $value) {
+            if ($this->GetValue($ident) !== $value) {
+                $this->SetValue($ident, $value);
+            }
+        }
+    }
+
+    /** @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states */
+    private function PublishPartitionStatusVariableValues(array $states): void
+    {
+        $registry = $this->ReadPartitionStatusVariableRegistry();
+        $now = time();
+        foreach ($registry as $partitionID => $entry) {
+            if ($entry['Orphaned'] || !isset($states[$partitionID])) {
+                continue;
+            }
+            $state = $states[$partitionID];
+            $remaining = in_array($state['State'], [self::STATE_EXIT_DELAY, self::STATE_ENTRY_DELAY], true)
+                ? max(0, $state['Deadline'] - $now)
+                : 0;
+            $this->SetPartitionStatusVariableValues(
+                $partitionID,
+                $state['Mode'],
+                $state['State'],
+                $remaining,
+                $state['DelaySource']
+            );
+        }
+    }
+
     private function DefaultPartitionID(): string
     {
         return AlarmPartitionRegistry::defaultPartition($this->ReadConfiguredPartitions())['ID'];
@@ -5861,6 +6156,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function WritePartitionRuntime(array $states): void
     {
         $wasConfigurationLocked = $this->IsSecurityConfigurationLocked();
+        $this->PublishPartitionStatusVariableValues($states);
         unset($states[$this->DefaultPartitionID()]);
         $this->WritePersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME, $states);
         $this->ReloadConfigurationFormIfLockChanged($wasConfigurationLocked);
