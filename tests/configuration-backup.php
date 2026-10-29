@@ -96,12 +96,26 @@ $form = json_decode(
     JSON_THROW_ON_ERROR
 );
 $restorePopup = null;
-foreach ($form['actions'][0]['items'] ?? [] as $item) {
-    if (($item['name'] ?? null) === 'RestoreConfigurationBackup') {
-        $restorePopup = $item;
-        break;
+$findFormElement = static function (array $items, string $name) use (&$findFormElement): ?array
+{
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        if (($item['name'] ?? null) === $name) {
+            return $item;
+        }
+        if (isset($item['items']) && is_array($item['items'])) {
+            $found = $findFormElement($item['items'], $name);
+            if ($found !== null) {
+                return $found;
+            }
+        }
     }
-}
+
+    return null;
+};
+$restorePopup = $findFormElement($form['actions'] ?? [], 'RestoreConfigurationBackup');
 assertConfigurationBackup(
     is_array($restorePopup)
         && str_contains(json_encode($restorePopup, JSON_THROW_ON_ERROR), 'ConfigurationBackupFile')

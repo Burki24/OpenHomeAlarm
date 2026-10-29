@@ -56,6 +56,7 @@ $commands = [
     ['Check event history export', 'php tests/event-history-export.php'],
     ['Check tamper and fault monitoring', 'php tests/fault-monitoring.php'],
     ['Check stable public control API', 'php tests/control-api.php'],
+    ['Check external alarm event contract', 'php tests/external-alarm-event.php'],
     ['Check stable diagnostics model', 'php tests/diagnostics.php'],
     ['Check diagnostics export', 'php tests/diagnostics-export.php'],
     ['Check configuration backup format', 'php tests/configuration-backup.php'],

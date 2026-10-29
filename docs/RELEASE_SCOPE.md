@@ -76,6 +76,10 @@ Der Release umfasst verbindlich:
     Restzeitanzeige mit Lauflicht an jedem zusätzlichen Bereichsbutton während
     einer Ein- oder Ausgangsverzögerung; reduzierte Bewegung verwendet einen
     statischen Warnrahmen.
+37. eine optionale, herstellerneutrale Schnittstelle für bestätigte externe
+    Alarmereignisse mit ausdrücklicher Quellen-, Bereichs- und Modusfreigabe,
+    getrennt versioniertem JSON-Vertrag, token-geschütztem WebHook und
+    persistentem Wiederholungsschutz.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -118,6 +122,16 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
   vervielfacht werden.
 - Alarmgedächtnis, Ereignishistorie, Sperrzeit und laufende Fristen verhalten sich über `ApplyChanges()` und Neustarts wie dokumentiert.
 - Fehlende Sensor- oder Störungsvariablen werden sichtbar und sicherheitsgerichtet behandelt.
+- Externe Alarmereignisse können ausschließlich einen bereits scharfen,
+  freigegebenen Bereich unmittelbar in Alarm versetzen. Ereignisse aus
+  unbekannten/deaktivierten Quellen, unscharfen Bereichen, nicht freigegebenen
+  Modi, außerhalb des Zeitfensters oder mit bereits verarbeiteter Ereignis-ID
+  verändern den Alarmzustand nicht.
+- Ein bei unscharfem Bereich oder nicht freigegebenem Modus empfangenes externes
+  Ereignis darf nach einer späteren Scharfschaltung nicht nachträglich auslösen.
+- Wiederholungsschutz und Quellenzuordnung bleiben über `ApplyChanges()` und
+  Neustarts erhalten; ein externer Absender kann weder scharf-/unscharfschalten
+  noch die Instanzkonfiguration verändern.
 
 ### Bedienung
 
@@ -125,12 +139,18 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 - Alle sichtbaren Befehle liefern einen eindeutigen Erfolg oder eine verständliche Ablehnung, ohne einen unzulässigen Zwischenzustand zu hinterlassen.
 - Die HTML-SDK-Kachel bleibt auf Desktop- und kleinen mobilen Darstellungen vollständig bedienbar.
 - IPSView akzeptiert ausschließlich den vorgesehenen WebHook, gültige Token, POST und freigegebene Aktionen.
+- Der externe Alarmereignis-WebHook akzeptiert ausschließlich aktivierte
+  Instanzen, POST mit JSON, einen gültigen instanzbezogenen Schlüssel und den
+  dokumentierten Ereignisvertrag.
 
 ### Sicherheit und Datenschutz
 
 - Der Unscharfschaltcode erscheint weder in Statusvariablen noch in Bedienzustand, Debug-Ausgaben oder Ereignishistorie.
 - Ein falscher oder während einer Sperre eingegebener Code verändert den Alarmzustand nicht.
 - Deaktivierte IPSView-Ausgabe darf keinen weiter nutzbaren Bedien-WebHook hinterlassen.
+- Eine deaktivierte externe Alarmereignis-Schnittstelle nimmt keine Ereignisse
+  an. Ihr Zugangsschlüssel erscheint weder in öffentlichen Statusabfragen,
+  Debug-Ausgaben noch Konfigurationssicherungen.
 - Ohne ausdrücklich aktivierte direkte Pushover-Benachrichtigung baut das Modul
   keine ausgehenden externen Netzwerkverbindungen auf. Bei aktivierter
   Pushover-Funktion werden die dokumentierten Zugangsdaten und Alarmmeldungen
@@ -175,6 +195,10 @@ nachgewiesen.
 ### Öffentliche Schnittstellen
 
 - Die dokumentierten `OHA_*`-Funktionen und `ApiVersion` 3 bilden den öffentlichen Vertrag des aktuellen Release-Kandidaten.
+- Die externe Alarmereignis-Schnittstelle verwendet unabhängig davon
+  `ApiVersion` 1. Versionsnummern werden nur bei inkompatiblen Änderungen von
+  Struktur oder Semantik erhöht; additive optionale Felder bleiben innerhalb
+  derselben Version und müssen von Clients ignoriert werden können.
 - Änderungen an Parametern, Rückgabewerten, maschinenlesbaren Namen oder gespeicherten Eigenschaften benötigen eine dokumentierte Migration oder eine neue API-Hauptversion.
 - Bestehende Instanzkonfigurationen dürfen durch ein kompatibles Update nicht stillschweigend umgedeutet werden.
 

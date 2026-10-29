@@ -15,6 +15,7 @@ use Burki24\OpenHomeAlarm\AlarmEscalationConfigurationException;
 use Burki24\OpenHomeAlarm\AlarmEscalationPlan;
 use Burki24\OpenHomeAlarm\AlarmEventHistory;
 use Burki24\OpenHomeAlarm\AlarmEventHistoryExporter;
+use Burki24\OpenHomeAlarm\AlarmExternalEvent;
 use Burki24\OpenHomeAlarm\AlarmFaultMonitor;
 use Burki24\OpenHomeAlarm\AlarmPartitionAlarmRegistry;
 use Burki24\OpenHomeAlarm\AlarmPartitionAssignmentException;
@@ -38,6 +39,7 @@ require_once __DIR__ . '/../libs/AlarmDiagnosticsExporter.php';
 require_once __DIR__ . '/../libs/AlarmDisarmUserRegistry.php';
 require_once __DIR__ . '/../libs/AlarmEventHistory.php';
 require_once __DIR__ . '/../libs/AlarmEventHistoryExporter.php';
+require_once __DIR__ . '/../libs/AlarmExternalEvent.php';
 require_once __DIR__ . '/../libs/AlarmEscalationPlan.php';
 require_once __DIR__ . '/../libs/AlarmActionExecutor.php';
 require_once __DIR__ . '/../libs/AlarmFaultMonitor.php';
@@ -83,6 +85,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const STATUS_INVALID_AUTOMATIC_ARMING = 203;
     private const STATUS_INVALID_ALARM_ACTIONS = 204;
     private const STATUS_INVALID_RUNTIME = 205;
+    private const STATUS_INVALID_EXTERNAL_EVENT_API = 206;
     private const DEFAULT_PARTITIONS_JSON = '[{"Enabled":true,"ID":"main","Name":"Main area"}]';
     private const PUSHOVER_MESSAGES_URL = 'https://api.pushover.net/1/messages.json';
     private const PUSHOVER_RECEIPTS_URL = 'https://api.pushover.net/1/receipts';
@@ -217,6 +220,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_SHOW_DIAGNOSTICS = 'ShowDiagnostics';
     private const PROPERTY_SHOW_ALARM_RESPONSE_SELECTION = 'ShowAlarmResponseSelection';
     private const PROPERTY_SHOW_AUTOMATIC_BYPASS_SELECTION = 'ShowAutomaticBypassSelection';
+    private const PROPERTY_EXTERNAL_EVENT_API_ENABLED = 'ExternalAlarmEventApiEnabled';
+    private const PROPERTY_EXTERNAL_EVENT_SOURCES = 'ExternalAlarmEventSources';
 
     private const OPTIONAL_ACTION_PROPERTIES = [
         self::PROPERTY_COUNTDOWN_START_ACTION,
@@ -301,6 +306,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_PARTITION_ALARMS = 'PartitionAlarms';
     private const ATTRIBUTE_PASSAGE_RUNTIME = 'PassageRuntime';
     private const ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION = 'AppliedSecurityConfiguration';
+    private const ATTRIBUTE_EXTERNAL_EVENT_TOKEN = 'ExternalAlarmEventToken';
+    private const ATTRIBUTE_EXTERNAL_EVENT_RECEIPTS = 'ExternalAlarmEventReceipts';
 
     private const SECURITY_CONFIGURATION_SNAPSHOT_PREFIX = 'v2:';
     private const ATTRIBUTE_IPSVIEW_TOKEN_1 = 'IPSViewToken1';
@@ -408,6 +415,8 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->RegisterBooleanProperty(self::PROPERTY_SHOW_DIAGNOSTICS, true);
             $this->RegisterBooleanProperty(self::PROPERTY_SHOW_ALARM_RESPONSE_SELECTION, true);
             $this->RegisterBooleanProperty(self::PROPERTY_SHOW_AUTOMATIC_BYPASS_SELECTION, true);
+            $this->RegisterBooleanProperty(self::PROPERTY_EXTERNAL_EVENT_API_ENABLED, false);
+            $this->RegisterPropertyString(self::PROPERTY_EXTERNAL_EVENT_SOURCES, '[]');
             $this->RegisterIPSViewHTMLPageProperties();
             $this->RegisterIPSViewStyleProperties();
             $this->RegisterVisualizationThemeProperties();
@@ -436,14 +445,18 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PASSAGE_RUNTIME);
             $this->RegisterAttributeString(self::ATTRIBUTE_APPLIED_SECURITY_CONFIGURATION, '');
+            $this->RegisterAttributeString(self::ATTRIBUTE_EXTERNAL_EVENT_TOKEN, '');
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_EXTERNAL_EVENT_RECEIPTS);
             $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_1, 0);
             $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_2, 0);
             $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_3, 0);
             $this->RegisterAttributeInteger(self::ATTRIBUTE_IPSVIEW_TOKEN_4, 0);
             $this->EnsureIPSViewToken();
+            $this->EnsureExternalAlarmEventToken();
 
             if (method_exists($this, 'RegisterHook')) {
                 $this->RegisterHook($this->IPSViewHookAddress());
+                $this->RegisterHook($this->ExternalAlarmEventHookAddress());
             }
 
             $this->RegisterTimer(
@@ -909,6 +922,19 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return;
             }
 
+            try {
+                $this->ReadConfiguredExternalAlarmSources($partitions);
+            } catch (UnexpectedValueException $exception) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Die Konfiguration der externen Alarmereignisse ist ungültig; Übernahme abgebrochen.', [
+                    'Ursache'     => $this->ExplainAlarmDebugError($exception->getMessage()),
+                    'Fehlertyp'   => $exception::class,
+                    'Fehlerzeile' => $exception->getLine()
+                ]);
+                $this->SetStatus(self::STATUS_INVALID_EXTERNAL_EVENT_API);
+
+                return;
+            }
+
             $this->SetTimerInterval(self::TIMER_SENSOR_INTEGRITY, 0);
             $this->SetTimerInterval(self::TIMER_AUTOMATIC_ARMING, 0);
             $this->SetTimerInterval(self::TIMER_ALARM_ESCALATION, 0);
@@ -974,9 +1000,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->InsertDetailedPartitionConfigurationStatus($form);
             $this->InsertDetailedSensorFaultConfigurationStatus($form);
             $this->InsertDetailedAlarmActionConfigurationStatus($form);
+            $this->InsertDetailedExternalAlarmEventConfigurationStatus($form);
 
             if (isset($form['elements']) && is_array($form['elements'])) {
                 $this->PopulateConfigurationListValues($form['elements']);
+                $this->PopulateExternalAlarmEventForm($form['elements']);
                 $this->InsertIPSViewHTMLPageFormItems(
                     $form['elements'],
                     description: $this->Translate(
@@ -1010,6 +1038,10 @@ class OpenHomeAlarm extends IPSModuleStrict
                         )
                     ]);
                 }
+            }
+
+            if (isset($form['actions']) && is_array($form['actions'])) {
+                $this->PopulateExternalAlarmEventForm($form['actions']);
             }
             $this->InsertRetainedPartitionStatusVariableCleanup($form);
 
@@ -1332,6 +1364,108 @@ class OpenHomeAlarm extends IPSModuleStrict
         } finally {
             $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
+    }
+
+    /**
+     * Returns the versioned, provider-neutral external alarm event contract.
+     *
+     * The access token is deliberately excluded. It is visible only in the
+     * administration form of this instance.
+     */
+    public function GetExternalAlarmEventApi(): string
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            $sources = array_map(
+                static fn (array $source): array => [
+                    'Enabled'     => $source['Enabled'],
+                    'SourceID'    => $source['SourceID'],
+                    'Name'        => $source['Name'],
+                    'PartitionID' => $source['PartitionID'],
+                    'Modes'       => [
+                        'home'  => $source['ArmHome'],
+                        'away'  => $source['ArmAway'],
+                        'night' => $source['ArmNight']
+                    ]
+                ],
+                $this->ReadConfiguredExternalAlarmSources()
+            );
+
+            return $debugResult = json_encode([
+                'ApiVersion' => AlarmExternalEvent::API_VERSION,
+                'Enabled'    => $this->ReadBooleanProperty(self::PROPERTY_EXTERNAL_EVENT_API_ENABLED),
+                'Hook'       => '/hook/' . $this->ExternalAlarmEventHookAddress(),
+                'Sources'    => $sources
+            ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /**
+     * Processes one confirmed external alarm event from a trusted Symcon module
+     * or script through the same validation used by the authenticated WebHook.
+     */
+    public function TriggerExternalAlarmEvent(string $eventJSON): string
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
+        try {
+            if (!$this->ReadBooleanProperty(self::PROPERTY_EXTERNAL_EVENT_API_ENABLED)) {
+                return $debugResult = $this->EncodeExternalAlarmEventResult('api_disabled');
+            }
+
+            $event = AlarmExternalEvent::event($eventJSON, time());
+            $result = $this->ProcessExternalAlarmEvent($event);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'EMPFANG', 'Externes Alarmereignis wurde verarbeitet.', [
+                'Quelle'       => $result['SourceID'] ?? $event['SourceID'],
+                'Alarmbereich' => $result['PartitionID'] ?? null,
+                'Ergebnis'     => $result['Status']
+            ]);
+
+            return $debugResult = json_encode(
+                $result,
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Externes Alarmereignis wurde abgelehnt.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /** Rotates the confidential WebHook token while every alarm partition is disarmed. */
+    public function RotateExternalAlarmEventToken(): string
+    {
+        if ($this->IsSecurityConfigurationLocked()) {
+            throw new RuntimeException($this->Translate(
+                'The external alarm event token can only be changed while all alarm partitions are disarmed.'
+            ));
+        }
+
+        $token = $this->GenerateExternalAlarmEventToken();
+        $this->WriteAttributeString(self::ATTRIBUTE_EXTERNAL_EVENT_TOKEN, $token);
+        $this->UpdateFormField('ExternalAlarmEventToken', 'value', $token);
+        $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Zugangsschlüssel der externen Alarmereignis-Schnittstelle wurde erneuert.');
+
+        return $token;
     }
 
     /** Returns configured partition metadata without exposing runtime internals. */
@@ -4908,6 +5042,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
+            if ($this->IsExternalAlarmEventHookRequest()) {
+                $this->ProcessExternalAlarmEventHook();
+
+                return;
+            }
+
             if (!$this->IsIPSViewHTMLPageEnabled()) {
                 $this->OutputIPSViewResponse(['Error' => 'IPSView is disabled.'], 404);
 
@@ -5054,6 +5194,110 @@ class OpenHomeAlarm extends IPSModuleStrict
     protected function VisualizationAssetDirectory(): string
     {
         return __DIR__ . '/visualization';
+    }
+
+    private function IsExternalAlarmEventHookRequest(): bool
+    {
+        $requestURI = is_string($_SERVER['REQUEST_URI'] ?? null) ? $_SERVER['REQUEST_URI'] : '';
+        $path = parse_url($requestURI, PHP_URL_PATH);
+
+        return is_string($path)
+            && rtrim($path, '/') === '/hook/' . $this->ExternalAlarmEventHookAddress();
+    }
+
+    /** Handles the authenticated JSON WebHook used by external surveillance software. */
+    private function ProcessExternalAlarmEventHook(): void
+    {
+        if (!$this->ReadBooleanProperty(self::PROPERTY_EXTERNAL_EVENT_API_ENABLED)) {
+            $this->OutputExternalAlarmEventResponse([
+                'ApiVersion' => AlarmExternalEvent::API_VERSION,
+                'Status'     => 'api_disabled'
+            ], 404);
+
+            return;
+        }
+
+        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
+            header('Allow: POST');
+            $this->OutputExternalAlarmEventResponse(['Error' => 'Method not allowed.'], 405);
+
+            return;
+        }
+
+        $token = $this->ExternalAlarmEventRequestToken();
+        $expectedToken = $this->ReadAttributeString(self::ATTRIBUTE_EXTERNAL_EVENT_TOKEN);
+        if ($token === '' || $expectedToken === '' || !hash_equals($expectedToken, $token)) {
+            $this->OutputExternalAlarmEventResponse(['Error' => 'Unauthorized.'], 403);
+
+            return;
+        }
+
+        $contentType = strtolower(trim(explode(';', (string) ($_SERVER['CONTENT_TYPE'] ?? ''), 2)[0]));
+        if ($contentType !== 'application/json') {
+            $this->OutputExternalAlarmEventResponse(['Error' => 'Content-Type must be application/json.'], 415);
+
+            return;
+        }
+
+        $body = file_get_contents('php://input');
+        if (!is_string($body)) {
+            $this->OutputExternalAlarmEventResponse(['Error' => 'Request body could not be read.'], 400);
+
+            return;
+        }
+
+        try {
+            $event = AlarmExternalEvent::event($body, time());
+            $result = $this->ProcessExternalAlarmEvent($event);
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'EMPFANG', 'Authentifiziertes externes Alarmereignis wurde verarbeitet.', [
+                'Quelle'       => $result['SourceID'],
+                'Alarmbereich' => $result['PartitionID'],
+                'Ergebnis'     => $result['Status']
+            ]);
+            $this->OutputExternalAlarmEventResponse($result, $result['Status'] === 'accepted' ? 202 : 200);
+        } catch (UnexpectedValueException | InvalidArgumentException $exception) {
+            $this->OutputExternalAlarmEventResponse(['Error' => $exception->getMessage()], 400);
+        } catch (Throwable $exception) {
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Externes Alarmereignis konnte nicht verarbeitet werden.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($exception->getMessage()),
+                'Fehlertyp'   => $exception::class,
+                'Fehlerzeile' => $exception->getLine()
+            ]);
+            $this->OutputExternalAlarmEventResponse(['Error' => 'External alarm event processing failed.'], 500);
+        }
+    }
+
+    private function ExternalAlarmEventRequestToken(): string
+    {
+        $headerToken = is_string($_SERVER['HTTP_X_OPENHOMEALARM_TOKEN'] ?? null)
+            ? trim($_SERVER['HTTP_X_OPENHOMEALARM_TOKEN'])
+            : '';
+        if ($headerToken !== '') {
+            return $headerToken;
+        }
+
+        $authorization = is_string($_SERVER['HTTP_AUTHORIZATION'] ?? null)
+            ? trim($_SERVER['HTTP_AUTHORIZATION'])
+            : '';
+        if (preg_match('/^Bearer\s+([a-f0-9]{64})$/i', $authorization, $matches) === 1) {
+            return strtolower($matches[1]);
+        }
+
+        return '';
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function OutputExternalAlarmEventResponse(array $payload, int $statusCode): void
+    {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('X-Content-Type-Options: nosniff');
+
+        echo json_encode(
+            array_merge(['ApiVersion' => AlarmExternalEvent::API_VERSION], $payload),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
     }
 
     private function RefreshDelayStatus(bool $runCountdownAction): void
@@ -5495,6 +5739,74 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
+    /** @param array<string,mixed> $form */
+    private function InsertDetailedExternalAlarmEventConfigurationStatus(array &$form): void
+    {
+        try {
+            $this->ReadConfiguredExternalAlarmSources();
+        } catch (UnexpectedValueException $exception) {
+            if (!isset($form['status']) || !is_array($form['status'])) {
+                return;
+            }
+            foreach ($form['status'] as &$status) {
+                if (is_array($status) && ($status['code'] ?? null) === self::STATUS_INVALID_EXTERNAL_EVENT_API) {
+                    $status['caption'] = sprintf(
+                        $this->Translate('External alarm event configuration is invalid: %s'),
+                        $this->ExternalAlarmEventConfigurationErrorDetail($exception)
+                    );
+                    break;
+                }
+            }
+            unset($status);
+        }
+    }
+
+    private function ExternalAlarmEventConfigurationErrorDetail(UnexpectedValueException $exception): string
+    {
+        $message = $exception->getMessage();
+        if (preg_match('/^External alarm source (\d+) must be an object\.$/', $message, $matches) === 1) {
+            return sprintf($this->Translate('Entry %d is not a valid source row.'), (int) $matches[1]);
+        }
+        if (preg_match('/^External alarm source (\d+) contains a non-Boolean switch\.$/', $message, $matches) === 1) {
+            return sprintf($this->Translate('Entry %d contains an invalid switch value.'), (int) $matches[1]);
+        }
+        if (preg_match('/^External alarm source (\d+) has an invalid source ID\.$/', $message, $matches) === 1) {
+            return sprintf(
+                $this->Translate('Entry %d has an invalid source ID. Use 1 to 128 letters, digits, dots, colons, underscores or hyphens.'),
+                (int) $matches[1]
+            );
+        }
+        if (preg_match('/^External alarm source ID "([^"]+)" is configured more than once\.$/', $message, $matches) === 1) {
+            return sprintf(
+                $this->Translate('The source ID "%s" is configured more than once. Assign every source ID only once.'),
+                $matches[1]
+            );
+        }
+        if (preg_match('/^External alarm source "([^"]+)" refers to a missing or disabled alarm partition "([^"]*)"\.$/', $message, $matches) === 1) {
+            return sprintf(
+                $this->Translate('Source "%s" refers to the missing or disabled alarm partition "%s". Select an enabled alarm partition.'),
+                $matches[1],
+                $matches[2]
+            );
+        }
+        if (preg_match('/^Enabled external alarm source "([^"]+)" must allow at least one arming mode\.$/', $message, $matches) === 1) {
+            return sprintf(
+                $this->Translate('Enabled source "%s" has no permitted arming mode. Select Home, Away and/or Night.'),
+                $matches[1]
+            );
+        }
+
+        return match ($message) {
+            'External alarm sources contain invalid JSON.' => $this->Translate(
+                'The saved source list contains invalid JSON. Remove the defective row and add it again.'
+            ),
+            'External alarm sources must be a JSON list.' => $this->Translate(
+                'The saved source configuration is not a list. Recreate the external sources in the instance form.'
+            ),
+            default => $message
+        };
+    }
+
     private function AlarmActionConfigurationStatusCaption(
         AlarmEscalationConfigurationException $exception
     ): string {
@@ -5836,6 +6148,141 @@ class OpenHomeAlarm extends IPSModuleStrict
     private function ReadConfiguredPartitions(): array
     {
         return AlarmPartitionRegistry::partitions($this->ReadPropertyString(self::PROPERTY_PARTITIONS));
+    }
+
+    /**
+     * @param list<array{Enabled:bool,ID:string,Name:string,Default:bool,SilentByDefault:bool}>|null $partitions
+     *
+     * @return list<array{Enabled:bool,SourceID:string,Name:string,PartitionID:string,ArmHome:bool,ArmAway:bool,ArmNight:bool}>
+     */
+    private function ReadConfiguredExternalAlarmSources(?array $partitions = null): array
+    {
+        $partitions ??= $this->ReadConfiguredPartitions();
+        $enabledPartitionIDs = array_values(array_map(
+            static fn (array $partition): string => $partition['ID'],
+            array_filter($partitions, static fn (array $partition): bool => $partition['Enabled'])
+        ));
+
+        return AlarmExternalEvent::sources(
+            $this->ReadPropertyString(self::PROPERTY_EXTERNAL_EVENT_SOURCES),
+            $enabledPartitionIDs
+        );
+    }
+
+    /**
+     * @param array{ApiVersion:int,EventID:string,SourceID:string,EventType:string,OccurredAt:int} $event
+     *
+     * @return array{ApiVersion:int,Status:string,SourceID:string,PartitionID?:string,State?:string}
+     */
+    private function ProcessExternalAlarmEvent(array $event): array
+    {
+        $source = AlarmExternalEvent::source(
+            $this->ReadConfiguredExternalAlarmSources(),
+            $event['SourceID']
+        );
+        if ($source === null) {
+            throw new UnexpectedValueException(sprintf(
+                'External alarm source "%s" is not configured.',
+                $event['SourceID']
+            ));
+        }
+
+        $receiptKey = AlarmExternalEvent::receiptKey($event['SourceID'], $event['EventID']);
+        $receipts = AlarmExternalEvent::receipts(
+            $this->ReadPersistentJsonCache(self::ATTRIBUTE_EXTERNAL_EVENT_RECEIPTS),
+            time()
+        );
+        if (isset($receipts[$receiptKey])) {
+            return $this->ExternalAlarmEventResult('duplicate', $source, 'unchanged');
+        }
+
+        if (!$source['Enabled']) {
+            $this->StoreExternalAlarmEventReceipt($receipts, $receiptKey);
+
+            return $this->ExternalAlarmEventResult('source_disabled', $source, 'unchanged');
+        }
+
+        $runtime = $this->ReadPartitionRuntime();
+        $partitionState = $runtime[$source['PartitionID']] ?? null;
+        if (!is_array($partitionState)) {
+            throw new UnexpectedValueException(sprintf(
+                'External alarm source "%s" refers to unavailable runtime data.',
+                $source['SourceID']
+            ));
+        }
+        if ($partitionState['State'] === self::STATE_ALARM) {
+            $this->StoreExternalAlarmEventReceipt($receipts, $receiptKey);
+
+            return $this->ExternalAlarmEventResult('already_in_alarm', $source, 'alarm');
+        }
+        if (!AlarmStateMachine::isArmingMode($partitionState['Mode'])
+            || !AlarmStateMachine::monitorsArmedSensors($partitionState['State'])
+        ) {
+            $this->StoreExternalAlarmEventReceipt($receipts, $receiptKey);
+
+            return $this->ExternalAlarmEventResult('partition_not_armed', $source, 'unchanged');
+        }
+        if (!AlarmExternalEvent::allowsMode($source, $partitionState['Mode'])) {
+            $this->StoreExternalAlarmEventReceipt($receipts, $receiptKey);
+
+            return $this->ExternalAlarmEventResult('mode_not_allowed', $source, 'unchanged');
+        }
+        $displaySource = sprintf($this->Translate('External alarm: %s'), $source['Name']);
+        if ($source['PartitionID'] === $this->DefaultPartitionID()) {
+            $this->EnterAlarmState(null, 0, $displaySource);
+        } else {
+            $runtime[$source['PartitionID']] = AlarmPartitionRuntime::alarm($partitionState);
+            $this->WritePartitionRuntime($runtime);
+            $this->RecordPartitionAlarm($source['PartitionID'], $displaySource);
+            $this->AppendEvent(
+                self::EVENT_ALARM,
+                $displaySource,
+                $partitionState['Mode'],
+                self::STATE_ALARM,
+                $source['PartitionID']
+            );
+            $this->PublishVisualizationState();
+        }
+
+        $this->StoreExternalAlarmEventReceipt($receipts, $receiptKey);
+
+        return $this->ExternalAlarmEventResult('accepted', $source, 'alarm');
+    }
+
+    /**
+     * @param array<string,int> $receipts
+     */
+    private function StoreExternalAlarmEventReceipt(array $receipts, string $receiptKey): void
+    {
+        $receipts[$receiptKey] = time();
+        $this->WritePersistentJsonCache(
+            self::ATTRIBUTE_EXTERNAL_EVENT_RECEIPTS,
+            AlarmExternalEvent::receipts($receipts, time())
+        );
+    }
+
+    /**
+     * @param array{SourceID:string,PartitionID:string} $source
+     *
+     * @return array{ApiVersion:int,Status:string,SourceID:string,PartitionID:string,State:string}
+     */
+    private function ExternalAlarmEventResult(string $status, array $source, string $state): array
+    {
+        return [
+            'ApiVersion'  => AlarmExternalEvent::API_VERSION,
+            'Status'      => $status,
+            'SourceID'    => $source['SourceID'],
+            'PartitionID' => $source['PartitionID'],
+            'State'       => $state
+        ];
+    }
+
+    private function EncodeExternalAlarmEventResult(string $status): string
+    {
+        return json_encode([
+            'ApiVersion' => AlarmExternalEvent::API_VERSION,
+            'Status'     => $status
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -7044,6 +7491,8 @@ class OpenHomeAlarm extends IPSModuleStrict
                         'PartitionName',
                         $formDefaultPartition['Name']
                     );
+                } elseif (($element['name'] ?? null) === self::PROPERTY_EXTERNAL_EVENT_SOURCES) {
+                    $this->ConfigureExternalAlarmSourceList($element);
                 } elseif (($element['name'] ?? null) === self::PROPERTY_ALARM_ESCALATION_STEPS) {
                     $element['values'] = $this->CreateAlarmEscalationListFormValues();
                 } elseif (in_array($element['name'] ?? null, self::OPTIONAL_ACTION_PROPERTIES, true)) {
@@ -7056,6 +7505,70 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
         }
         unset($element);
+    }
+
+    /** @param list<array<string,mixed>> $elements */
+    private function PopulateExternalAlarmEventForm(array &$elements): void
+    {
+        foreach ($elements as &$element) {
+            if (!is_array($element)) {
+                continue;
+            }
+
+            if (($element['name'] ?? null) === 'ExternalAlarmEventHook') {
+                $element['value'] = '/hook/' . $this->ExternalAlarmEventHookAddress();
+            } elseif (($element['name'] ?? null) === 'ExternalAlarmEventToken') {
+                $element['value'] = $this->ReadAttributeString(self::ATTRIBUTE_EXTERNAL_EVENT_TOKEN);
+            }
+
+            if (isset($element['items']) && is_array($element['items'])) {
+                $this->PopulateExternalAlarmEventForm($element['items']);
+            }
+        }
+        unset($element);
+    }
+
+    /** @param array<string,mixed> $list */
+    private function ConfigureExternalAlarmSourceList(array &$list): void
+    {
+        $partitions = [];
+        try {
+            $partitions = array_values(array_filter(
+                $this->ReadConfiguredPartitions(),
+                static fn (array $partition): bool => $partition['Enabled']
+            ));
+        } catch (UnexpectedValueException) {
+        }
+        $options = array_map(
+            static fn (array $partition): array => [
+                'caption' => sprintf('%s (%s)', $partition['Name'], $partition['ID']),
+                'value'   => $partition['ID']
+            ],
+            $partitions
+        );
+
+        if (isset($list['form']) && is_array($list['form'])) {
+            foreach ($list['form'] as &$field) {
+                if (is_array($field) && ($field['name'] ?? null) === 'PartitionID') {
+                    $field['options'] = $options;
+                }
+            }
+            unset($field);
+        }
+        if (isset($list['columns']) && is_array($list['columns'])) {
+            foreach ($list['columns'] as &$column) {
+                if (!is_array($column) || ($column['name'] ?? null) !== 'PartitionID') {
+                    continue;
+                }
+                if (isset($column['edit']) && is_array($column['edit'])) {
+                    $column['edit']['options'] = $options;
+                }
+            }
+            unset($column);
+        }
+
+        $defaultPartition = $partitions[0] ?? $this->ConfigurationFormDefaultPartition();
+        $this->SetConfigurationListAddValue($list, 'PartitionID', $defaultPartition['ID']);
     }
 
     /**
@@ -7497,7 +8010,9 @@ PHP,
             self::PROPERTY_DISARM_MAX_ATTEMPTS                 => $this->ReadPropertyInteger(self::PROPERTY_DISARM_MAX_ATTEMPTS),
             self::PROPERTY_DISARM_LOCKOUT_SECONDS              => $this->ReadPropertyInteger(self::PROPERTY_DISARM_LOCKOUT_SECONDS),
             self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS   => $this->ReadPropertyInteger(self::PROPERTY_SENSOR_INTEGRITY_INTERVAL_SECONDS),
-            self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES          => $this->ReadPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES)
+            self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES          => $this->ReadPropertyString(self::PROPERTY_AUTOMATIC_ARMING_SCHEDULES),
+            self::PROPERTY_EXTERNAL_EVENT_API_ENABLED          => $this->ReadBooleanProperty(self::PROPERTY_EXTERNAL_EVENT_API_ENABLED),
+            self::PROPERTY_EXTERNAL_EVENT_SOURCES              => $this->ReadPropertyString(self::PROPERTY_EXTERNAL_EVENT_SOURCES)
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
@@ -7549,6 +8064,28 @@ PHP,
     private function IPSViewHookAddress(): string
     {
         return 'openhomealarm/' . $this->InstanceID;
+    }
+
+    private function ExternalAlarmEventHookAddress(): string
+    {
+        return 'openhomealarm-events/' . (int) ($this->InstanceID ?? 0) . '/v1/events';
+    }
+
+    private function EnsureExternalAlarmEventToken(): void
+    {
+        if (preg_match('/^[a-f0-9]{64}$/', $this->ReadAttributeString(self::ATTRIBUTE_EXTERNAL_EVENT_TOKEN)) === 1) {
+            return;
+        }
+
+        $this->WriteAttributeString(
+            self::ATTRIBUTE_EXTERNAL_EVENT_TOKEN,
+            $this->GenerateExternalAlarmEventToken()
+        );
+    }
+
+    private function GenerateExternalAlarmEventToken(): string
+    {
+        return bin2hex(random_bytes(32));
     }
 
     private function EnsureIPSViewToken(): void

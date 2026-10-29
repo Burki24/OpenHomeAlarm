@@ -156,6 +156,11 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | F-07 | IPSView-WebContent mit gültigem Token bedienen und das eingebettete Dashboard über seine WebHook-Adresse laden | Der authentifizierte GET-Aufruf liefert das Dashboard; Statusaktualisierung und erlaubte POST-Aktionen funktionieren | Offen | |
 | F-08 | IPSView-WebHook mit ungültigem Token, einem nicht freigegebenen GET-Aufruf und einer unbekannten POST-Aktion aufrufen | Zugriff wird ohne Zustandsänderung abgewiesen | Offen | |
 | F-09 | IPSView-Ausgabe deaktivieren und alten WebHook erneut aufrufen | WebHook ist nicht mehr nutzbar | Offen | |
+| F-10 | Freigegebene externe Alarmquelle bei scharfem `main` und bei einem scharfen Zusatzbereich jeweils über `OHA_TriggerExternalAlarmEvent()` auslösen | Nur der zugeordnete Bereich wechselt sofort in Alarm; Quelle und Bereich stehen korrekt im Ereignisprotokoll | Offen | |
+| F-11 | Dasselbe gültige externe Ereignis zuerst bei unscharfem Bereich beziehungsweise in einem für die Quelle nicht freigegebenen Modus senden, danach den Bereich passend scharfschalten und die Ereignis-ID wiederholen | Das erste Ereignis verändert keinen Zustand; die Wiederholung gilt als verbraucht und löst nach der Scharfschaltung nicht nachträglich aus | Offen | |
+| F-12 | Ein angenommenes externes Ereignis mit derselben Ereignis-ID wiederholen, `ApplyChanges()` ausführen beziehungsweise Symcon neu starten und erneut senden | Es erfolgt weder eine zweite Alarmaktion noch ein weiterer Alarm-Eintrag; die Antwort meldet die Wiederholung | Offen | |
+| F-13 | Externen Alarm-WebHook mit falscher Methode, falschem Token, anderem Content-Type, unbekannter Quelle, falscher API-Version sowie zu altem oder zukünftigem Zeitstempel aufrufen | Jede Anfrage wird mit verständlichem Status ohne Alarmzustandsänderung abgewiesen; Token und Request-Inhalt erscheinen nicht im Debug-Protokoll | Offen | |
+| F-14 | Externe Alarmereignis-Schnittstelle deaktivieren und den zuvor verwendeten WebHook erneut aufrufen | Der WebHook nimmt kein Ereignis an; direkte lokale Aufrufe verändern ebenfalls keinen Alarmzustand | Offen | |
 
 ### G. Neustart, Update und Wiederherstellung
 

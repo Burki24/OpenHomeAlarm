@@ -24,6 +24,11 @@
             "code": 205,
             "icon": "error",
             "caption": "Invalid stored runtime state. Open the module debug log for the exact cause before applying the configuration again."
+        },
+        {
+            "code": 206,
+            "icon": "error",
+            "caption": "Invalid external alarm event configuration. Check unique source IDs, enabled alarm partitions and at least one permitted arming mode per enabled source."
         }
     ],
     "elements": [
@@ -117,6 +122,145 @@
                 {
                     "type": "Label",
                     "caption": "The area main is the fixed complete alarm system. Additional areas can be switched independently. Silent by default suppresses signal generators; the arming command can override it. Every area ID must be unique, start with a lowercase letter and may contain up to 32 lowercase letters, digits, underscores or hyphens (for example garage or area_1). The name is freely selectable."
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "External alarm event interface",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Receives confirmed alarm events from independent surveillance software such as Frigate or Blue Iris. The interface can only trigger an immediate alarm in an already armed area; it cannot arm, disarm or reconfigure OpenHomeAlarm."
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "ExternalAlarmEventApiEnabled",
+                    "caption": "Enable external alarm event interface"
+                },
+                {
+                    "type": "List",
+                    "name": "ExternalAlarmEventSources",
+                    "caption": "Approved external alarm sources",
+                    "rowCount": 4,
+                    "add": true,
+                    "delete": true,
+                    "form": [
+                        {
+                            "type": "CheckBox",
+                            "name": "Enabled",
+                            "caption": "Enabled"
+                        },
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "SourceID",
+                            "caption": "Source ID",
+                            "validate": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+                        },
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "Name",
+                            "caption": "Display name"
+                        },
+                        {
+                            "type": "Select",
+                            "name": "PartitionID",
+                            "caption": "Alarm partition",
+                            "options": []
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ArmHome",
+                                    "caption": "Home"
+                                },
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ArmAway",
+                                    "caption": "Away"
+                                },
+                                {
+                                    "type": "CheckBox",
+                                    "name": "ArmNight",
+                                    "caption": "Night"
+                                }
+                            ]
+                        }
+                    ],
+                    "columns": [
+                        {
+                            "caption": "Enabled",
+                            "name": "Enabled",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Source ID",
+                            "name": "SourceID",
+                            "width": "230px",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox",
+                                "validate": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+                            }
+                        },
+                        {
+                            "caption": "Display name",
+                            "name": "Name",
+                            "width": "auto",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Alarm partition",
+                            "name": "PartitionID",
+                            "width": "170px",
+                            "add": "main",
+                            "edit": {
+                                "type": "Select",
+                                "options": []
+                            }
+                        },
+                        {
+                            "caption": "Home",
+                            "name": "ArmHome",
+                            "width": "70px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Away",
+                            "name": "ArmAway",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Night",
+                            "name": "ArmNight",
+                            "width": "70px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Each source ID is unique and maps an external detector to exactly one area. Events are accepted only while that area is armed in one of the selected modes. Events during disarmed or unapproved modes are consumed without triggering later."
                 }
             ]
         },
@@ -2013,6 +2157,37 @@
         }
     ],
     "actions": [
+        {
+            "type": "ExpansionPanel",
+            "caption": "External alarm event interface",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "ValidationTextBox",
+                    "name": "ExternalAlarmEventHook",
+                    "caption": "WebHook path",
+                    "enabled": false,
+                    "width": "100%"
+                },
+                {
+                    "type": "ValidationTextBox",
+                    "name": "ExternalAlarmEventToken",
+                    "caption": "Confidential access token",
+                    "enabled": false,
+                    "width": "100%"
+                },
+                {
+                    "type": "Button",
+                    "caption": "Generate new access token",
+                    "confirm": "Generate a new external alarm event token? Existing integrations will stop working until their token is updated.",
+                    "onClick": "OHA_RotateExternalAlarmEventToken($id);"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Local Symcon modules and scripts may call OHA_TriggerExternalAlarmEvent() directly. External software sends the same JSON document by HTTP POST with Content-Type application/json and the token in X-OpenHomeAlarm-Token or Authorization: Bearer."
+                }
+            ]
+        },
         {
             "type": "ExpansionPanel",
             "caption": "Exports and configuration backup",

@@ -175,6 +175,21 @@ neutralisierten Variablen zunächst erhalten und können erst nach ausdrücklich
 Bestätigung im Instanzformular gelöscht werden. Einzelheiten beschreibt die
 [vollständige Anleitung](OpenHomeAlarm#6-statusvariablen).
 
+## Externe Alarmereignisse
+
+Bestätigte Erkennungen eigenständiger Überwachungssoftware wie Frigate oder
+Blue Iris können über eine versionierte, herstellerneutrale Schnittstelle
+eingehen. OpenHomeAlarm übernimmt dabei keine Kameras oder Bilder: Jede
+Quellen-ID wird im Instanzformular ausdrücklich einem Alarmbereich und den
+erlaubten Scharfmodi zugeordnet. Nur ein bereits scharfer Bereich kann in Alarm
+wechseln; Unscharfschaltung, Konfiguration und Kameraauswertung bleiben für die
+Schnittstelle unerreichbar. Lokale Symcon-Module verwenden
+`OHA_TriggerExternalAlarmEvent()`, externe Software einen token-geschützten
+JSON-WebHook. Ereignis-ID, Zeitfenster und persistenter Wiederholungsschutz
+verhindern spätes Nachzünden und doppelte Alarmaktionen. Einrichtung, Format
+und Versionsregeln beschreibt die
+[vollständige Anleitung](OpenHomeAlarm#externe-alarmereignis-schnittstelle).
+
 **Aktiv** bedeutet nur, dass ein Bereich verwendet werden kann; es schaltet ihn
 nicht scharf. Kachel und IPSView bieten eine Auswahl aller aktiven Bereiche.
 

@@ -178,6 +178,7 @@ Instanzstatus den betroffenen Bereich und einen passenden Korrekturhinweis:
 | 203 | Automatische Scharfschaltung | Bei aktivierten Zeitplänen Uhrzeit, Modus und mindestens einen Wochentag wählen. |
 | 204 | Alarmaktionen | Die Statusmeldung nennt die betroffene Alarmaktion, die fehlerhafte Einstellung und die konkrete Korrektur. Bei jeder aktivierten Zeile eine Aktion und mindestens eine Auslösekategorie wählen. Signalgeber benötigen **Boolean automatisch umkehren** oder eine **Eigene Rücksetzaktion**. |
 | 205 | Gespeicherter Laufzeitzustand | Das Debug-Protokoll der Instanz öffnen und dessen genaue Fehlermeldung prüfen. |
+| 206 | Externe Alarmereignisse | Quellen-ID nur einmal vergeben, einen aktiven Alarmbereich zuordnen und für jede aktive Quelle mindestens einen Scharfmodus freigeben. Die Statusmeldung nennt die fehlerhafte Quelle beziehungsweise Zeile. |
 
 Die Meldung bezieht sich auf den zuletzt übernommenen Stand. Deaktivierte
 Alarmaktionszeilen dürfen unvollständig bleiben; sobald eine Zeile aktiviert
@@ -666,6 +667,137 @@ Alarmgedächtnis folgen weiterhin den normalen OpenHomeAlarm-Regeln.
 Damit bleiben die Zuständigkeiten getrennt: Das vorgeschaltete Skript bewertet
 die hersteller- und installationsabhängigen Kamerameldungen. OpenHomeAlarm
 erhält erst das daraus abgeleitete, eindeutig bestätigte Alarmsignal.
+
+### Externe Alarmereignis-Schnittstelle
+
+Für eigenständige Überwachungssoftware wie Frigate oder Blue Iris steht
+zusätzlich eine herstellerneutrale, eingehende Alarmereignis-Schnittstelle zur
+Verfügung. Sie übernimmt keine Kameras, Bilder, Zonen oder Objekterkennung.
+Diese Bewertung verbleibt vollständig bei der angebundenen Software;
+OpenHomeAlarm erhält ausschließlich deren bereits bestätigtes Alarmereignis.
+
+Die Schnittstelle besitzt bewusst enge Rechte:
+
+- Sie kann weder einen Bereich scharf- oder unscharfschalten noch die
+  Konfiguration verändern.
+- Jede externe Quellen-ID muss im Instanzformular ausdrücklich freigegeben
+  und genau einem aktiven Alarmbereich zugeordnet werden.
+- Für jede Quelle wird festgelegt, ob sie bei **Zuhause**, **Abwesend** und/oder
+  **Nacht** wirken darf.
+- Ein Ereignis löst nur aus, wenn der zugeordnete Bereich bereits **Scharf**
+  ist oder sich in der **Eingangsverzögerung** befindet. Es startet keine
+  weitere Eingangsverzögerung, sondern wechselt unmittelbar in **Alarm**.
+- Im unscharfen Zustand oder in einem nicht freigegebenen Modus empfangene
+  Ereignisse werden verbraucht. Dieselbe Ereignis-ID kann deshalb nach einer
+  späteren Scharfschaltung nicht nachträglich auslösen.
+- Bereits verarbeitete Ereignis-IDs werden 24 Stunden persistent gespeichert.
+  Wiederholte Zustellung nach `ApplyChanges()` oder Neustart löst keine zweite
+  Alarmaktion aus.
+- Das Ereignis darf höchstens fünf Minuten alt und höchstens 60 Sekunden in
+  der Zukunft liegen. Dadurch können gepufferte alte Meldungen nicht später
+  unbemerkt Alarm auslösen.
+
+#### Einrichtung
+
+1. Öffnen Sie **Externe Alarmereignis-Schnittstelle** im Instanzformular.
+2. Legen Sie für jeden externen Melder eine stabile, eindeutige Quellen-ID an,
+   beispielsweise `frigate.front-door.person` oder
+   `blueiris.driveway.person`.
+3. Ordnen Sie genau einen Alarmbereich und die erlaubten Scharfmodi zu.
+4. Aktivieren Sie die Schnittstelle und übernehmen Sie die Konfiguration bei
+   vollständig unscharfer Anlage.
+5. Übernehmen Sie für einen HTTP-Absender den angezeigten WebHook-Pfad und den
+   vertraulichen Zugangsschlüssel. Der Schlüssel wird automatisch erzeugt,
+   nicht protokolliert und gehört nicht in Forenbeiträge oder Screenshots.
+6. Testen Sie zuerst bei unscharfem Bereich die sichere Ablehnung und danach
+   kontrolliert den Alarm im gewünschten Scharfmodus.
+
+Der Zugangsschlüssel kann im selben Abschnitt bewusst erneuert werden. Dies
+ist nur bei vollständig unscharfer Anlage möglich. Danach müssen alle
+HTTP-Anbindungen auf den neuen Schlüssel umgestellt werden. Der Schlüssel ist
+ein privates Laufzeitattribut und kein Bestandteil einer
+Konfigurationssicherung; nach einer Neuinstallation muss die externe Software
+gegebenenfalls neu verbunden werden.
+
+#### Ereignisformat Version 1
+
+Lokale Module, Skripte und HTTP-Absender verwenden dasselbe JSON-Dokument:
+
+```json
+{
+  "ApiVersion": 1,
+  "EventID": "0f97293e-19e4-4aa1-a0d4-588b8cfb0ea5",
+  "SourceID": "frigate.front-door.person",
+  "EventType": "alarm",
+  "OccurredAt": 1793290000
+}
+```
+
+| Feld | Vorgabe |
+| --- | --- |
+| `ApiVersion` | Für diesen Vertrag exakt `1`. |
+| `EventID` | Pro erkanntem Ereignis eindeutige Kennung mit 1 bis 128 Buchstaben, Ziffern, Punkten, Doppelpunkten, Unterstrichen oder Bindestrichen. Wiederholungsversuche verwenden dieselbe Kennung. |
+| `SourceID` | Exakte, zuvor in OpenHomeAlarm freigegebene Quellen-ID. |
+| `EventType` | Derzeit ausschließlich `alarm`. |
+| `OccurredAt` | Unix-Zeitstempel der Erkennung in Sekunden. |
+
+Zusätzliche Felder werden bei derselben API-Version ignoriert. Dadurch kann ein
+Anbieter eigene Metadaten mitführen, ohne dass OpenHomeAlarm sie auswertet oder
+speichert.
+
+Ein lokales Symcon-Modul oder Skript ruft die Funktion ohne HTTP und ohne
+Zugangsschlüssel auf; Quellenfreigabe, Bereichszustand, Modus und
+Wiederholungsschutz gelten trotzdem vollständig:
+
+```php
+$event = [
+    'ApiVersion' => 1,
+    'EventID'    => bin2hex(random_bytes(16)),
+    'SourceID'   => 'frigate.front-door.person',
+    'EventType'  => 'alarm',
+    'OccurredAt' => time()
+];
+
+$result = json_decode(
+    OHA_TriggerExternalAlarmEvent(
+        12345,
+        json_encode($event, JSON_THROW_ON_ERROR)
+    ),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+```
+
+Externe Software sendet das Dokument per `POST` an den im Instanzformular
+angezeigten Pfad. `Content-Type` muss `application/json` sein. Der Schlüssel
+wird entweder im Header `X-OpenHomeAlarm-Token` oder als
+`Authorization: Bearer <Schlüssel>` übertragen. Bei Zugriff außerhalb eines
+vertrauenswürdigen lokalen Netzes ist ausschließlich eine verschlüsselte
+HTTPS- beziehungsweise Symcon-Connect-Verbindung zu verwenden.
+
+Die Antwort enthält `ApiVersion`, `Status`, `SourceID`, `PartitionID` und den
+resultierenden `State`. Wichtige Statuswerte sind:
+
+| Status | Bedeutung |
+| --- | --- |
+| `accepted` | Der zugeordnete Bereich ist in Alarm gewechselt. |
+| `duplicate` | Dieselbe Ereignis-ID wurde bereits verarbeitet; keine erneute Aktion. |
+| `already_in_alarm` | Der Bereich war bereits im Alarm; keine erneute Eskalation. |
+| `partition_not_armed` | Der Bereich überwachte zu diesem Zeitpunkt keine normalen Alarmquellen. |
+| `mode_not_allowed` | Die Quelle ist für den aktiven Scharfmodus nicht freigegeben. |
+| `source_disabled` | Die bekannte Quelle ist deaktiviert. |
+| `api_disabled` | Die gesamte Schnittstelle ist deaktiviert. |
+
+`OHA_GetExternalAlarmEventApi($InstanzID)` liefert die eigenständige
+Schnittstellenversion, den WebHook-Pfad und die freigegebenen Quellen ohne den
+vertraulichen Schlüssel. Die bestehende Bedienabfrage
+`OHA_GetControlState()` behält unabhängig davon `ApiVersion` 3. Bei beiden
+Verträgen wird die jeweilige `ApiVersion` nur bei einer inkompatiblen Änderung
+von Struktur oder Bedeutung erhöht. Rein additive, optionale Felder erhöhen
+die Version nicht; Clients sollen unbekannte Felder einer unterstützten
+Version ignorieren. Eine unbekannte höhere Version muss ein Client dagegen
+sicher ablehnen, bis er dafür geprüft wurde.
 
 ## 8. Temporäre Durchgangsfreigabe
 
@@ -1534,6 +1666,9 @@ oder eines falschen Codes.
 | --- | --- | --- |
 | `OHA_GetControlState($InstanzID)` | `string` | Liefert den versionierten Bedienzustand als JSON. `Partitions[$BereichID]` enthält Modus, Zustand, Bereitschaft, Verzögerungen, Alarm, Überbrückungen und Durchgangsfreigabe jedes aktiven Bereichs. |
 | `OHA_GetPartitions($InstanzID)` | `string` | Liefert die konfigurierten Bereichsmetadaten als JSON. |
+| `OHA_GetExternalAlarmEventApi($InstanzID)` | `string` | Liefert Version, Aktivierungszustand, WebHook-Pfad und freigegebene Quellen der externen Alarmereignis-Schnittstelle als JSON. Der vertrauliche Zugangsschlüssel wird nicht ausgegeben. |
+| `OHA_TriggerExternalAlarmEvent($InstanzID, $EreignisJSON)` | `string` | Verarbeitet ein bestätigtes externes Alarmereignis nach denselben Quellen-, Bereichs-, Modus-, Zeit- und Wiederholungsregeln wie der HTTP-WebHook. Nur für vertrauenswürdige lokale Module und Skripte. |
+| `OHA_RotateExternalAlarmEventToken($InstanzID)` | `string` | Erzeugt bei vollständig unscharfer Anlage einen neuen vertraulichen WebHook-Schlüssel. Vorhandene HTTP-Anbindungen müssen anschließend aktualisiert werden. |
 | `OHA_GetDiagnostics($InstanzID)` | `string` | Liefert einen lesenden Diagnose-Snapshot aller Sensoren und Störungseingänge als JSON. |
 | `OHA_ExportDiagnostics($InstanzID, $Format = 'json')` | `string` | Exportiert die Diagnose als `json` oder `csv`; andere Formate werden abgewiesen. |
 | `OHA_GetEventHistory($InstanzID)` | `string` | Liefert das persistente Sicherheits-Ereignisprotokoll als JSON, neuester Eintrag zuerst. |

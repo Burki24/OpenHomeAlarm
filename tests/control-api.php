@@ -1239,4 +1239,304 @@ assertControlApi(
     'The visualization action bridge must accept the complete partition bypass payload.'
 );
 
+/** @return array<string,mixed> */
+function externalAlarmEvent(string $eventID, string $sourceID, ?int $occurredAt = null): array
+{
+    return [
+        'ApiVersion' => 1,
+        'EventID'    => $eventID,
+        'SourceID'   => $sourceID,
+        'EventType'  => 'alarm',
+        'OccurredAt' => $occurredAt ?? time()
+    ];
+}
+
+$externalEventInstance = new OpenHomeAlarm();
+$externalEventInstance->Create();
+$externalEventInstance->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House"},{"Enabled":true,"ID":"outside","Name":"Outside"}]'
+);
+$externalEventInstance->TestSetPropertyInteger('ExternalAlarmEventApiEnabled', 1);
+$externalEventInstance->TestSetPropertyString('ExternalAlarmEventSources', json_encode([
+    [
+        'Enabled'     => true,
+        'SourceID'    => 'frigate.front-door.person',
+        'Name'        => 'Person at front door',
+        'PartitionID' => 'outside',
+        'ArmHome'     => false,
+        'ArmAway'     => true,
+        'ArmNight'    => true
+    ]
+], JSON_THROW_ON_ERROR));
+$externalEventInstance->ApplyChanges();
+$externalApi = json_decode($externalEventInstance->GetExternalAlarmEventApi(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($externalApi['ApiVersion'] ?? null) === 1
+        && ($externalApi['Enabled'] ?? null) === true
+        && ($externalApi['Sources'][0]['SourceID'] ?? null) === 'frigate.front-door.person'
+        && !isset($externalApi['Token']),
+    'External event discovery must expose its independent API version and approved sources without the token.'
+);
+$externalForm = json_decode($externalEventInstance->GetConfigurationForm(), true, 512, JSON_THROW_ON_ERROR);
+$findExternalFormElement = static function (array $elements, string $name) use (&$findExternalFormElement): ?array
+{
+    foreach ($elements as $element) {
+        if (!is_array($element)) {
+            continue;
+        }
+        if (($element['name'] ?? null) === $name) {
+            return $element;
+        }
+        if (isset($element['items']) && is_array($element['items'])) {
+            $found = $findExternalFormElement($element['items'], $name);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+    }
+
+    return null;
+};
+$externalSourceList = $findExternalFormElement($externalForm['elements'] ?? [], 'ExternalAlarmEventSources');
+$externalHookField = $findExternalFormElement($externalForm['actions'] ?? [], 'ExternalAlarmEventHook');
+$externalTokenField = $findExternalFormElement($externalForm['actions'] ?? [], 'ExternalAlarmEventToken');
+assertControlApi(
+    is_array($externalSourceList)
+        && (($externalSourceList['form'][3]['options'][1]['value'] ?? null) === 'outside')
+        && ($externalHookField['value'] ?? null) === '/hook/openhomealarm-events/0/v1/events'
+        && preg_match('/^[a-f0-9]{64}$/', (string) ($externalTokenField['value'] ?? '')) === 1,
+    'The instance form must provide area choices plus its concrete versioned hook and confidential token.'
+);
+$rotatedExternalToken = $externalEventInstance->RotateExternalAlarmEventToken();
+assertControlApi(
+    preg_match('/^[a-f0-9]{64}$/', $rotatedExternalToken) === 1,
+    'An explicit token rotation must create a cryptographically sized access token.'
+);
+assertControlApi(
+    $externalEventInstance->ArmPartition('outside', 'away', 0),
+    'The external event acceptance test must arm its target area.'
+);
+try {
+    $externalEventInstance->RotateExternalAlarmEventToken();
+    throw new RuntimeException('Token rotation while an alarm area is active must be rejected.');
+} catch (RuntimeException $exception) {
+    assertControlApi(
+        str_contains($exception->getMessage(), 'only be changed while all alarm partitions are disarmed'),
+        'Token rotation while armed needs an actionable rejection reason.'
+    );
+}
+$acceptedEventJSON = json_encode(
+    externalAlarmEvent('frigate-accepted-1', 'frigate.front-door.person'),
+    JSON_THROW_ON_ERROR
+);
+$acceptedResult = json_decode(
+    $externalEventInstance->TriggerExternalAlarmEvent($acceptedEventJSON),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($acceptedResult['Status'] ?? null) === 'accepted'
+        && ($acceptedResult['PartitionID'] ?? null) === 'outside'
+        && ($acceptedResult['State'] ?? null) === 'alarm',
+    'A fresh event from an approved source must trigger its armed target area immediately.'
+);
+$externalState = json_decode($externalEventInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($externalState['Partitions']['outside']['State']['Name'] ?? null) === 'alarm'
+        && ($externalState['Partitions']['main']['State']['Name'] ?? null) === 'disarmed',
+    'An external event must alarm only its configured area.'
+);
+$externalHistory = json_decode($externalEventInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($externalHistory[0]['Event'] ?? null) === 'alarm'
+        && ($externalHistory[0]['PartitionID'] ?? null) === 'outside'
+        && ($externalHistory[0]['Source'] ?? null) === 'External alarm: Person at front door',
+    'Accepted external events must retain their configured source and area in the event history.'
+);
+$duplicateResult = json_decode(
+    $externalEventInstance->TriggerExternalAlarmEvent($acceptedEventJSON),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($duplicateResult['Status'] ?? null) === 'duplicate'
+        && count(json_decode($externalEventInstance->GetEventHistory(), true, 512, JSON_THROW_ON_ERROR)) === count($externalHistory),
+    'A retried EventID must not retrigger alarm actions or add another event-history entry.'
+);
+$alreadyAlarmResult = json_decode(
+    $externalEventInstance->TriggerExternalAlarmEvent(json_encode(
+        externalAlarmEvent('frigate-already-alarm-1', 'frigate.front-door.person'),
+        JSON_THROW_ON_ERROR
+    )),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($alreadyAlarmResult['Status'] ?? null) === 'already_in_alarm',
+    'A new external event must not retrigger an area which is already in alarm.'
+);
+
+$ignoredExternalEvent = new OpenHomeAlarm();
+$ignoredExternalEvent->Create();
+$ignoredExternalEvent->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House"},{"Enabled":true,"ID":"outside","Name":"Outside"}]'
+);
+$ignoredExternalEvent->TestSetPropertyInteger('ExternalAlarmEventApiEnabled', 1);
+$ignoredExternalEvent->TestSetPropertyString('ExternalAlarmEventSources', json_encode([
+    [
+        'Enabled'     => true,
+        'SourceID'    => 'blueiris.driveway.person',
+        'Name'        => 'Driveway person',
+        'PartitionID' => 'outside',
+        'ArmHome'     => false,
+        'ArmAway'     => true,
+        'ArmNight'    => false
+    ]
+], JSON_THROW_ON_ERROR));
+$ignoredExternalEvent->ApplyChanges();
+$disarmedEventJSON = json_encode(
+    externalAlarmEvent('blueiris-consumed-disarmed-1', 'blueiris.driveway.person'),
+    JSON_THROW_ON_ERROR
+);
+$disarmedResult = json_decode(
+    $ignoredExternalEvent->TriggerExternalAlarmEvent($disarmedEventJSON),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($disarmedResult['Status'] ?? null) === 'partition_not_armed',
+    'An external event must not arm or alarm a disarmed area.'
+);
+assertControlApi($ignoredExternalEvent->ArmPartition('outside', 'away', 0), 'The ignored-event test must arm afterwards.');
+$consumedResult = json_decode(
+    $ignoredExternalEvent->TriggerExternalAlarmEvent($disarmedEventJSON),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($consumedResult['Status'] ?? null) === 'duplicate'
+        && (json_decode($ignoredExternalEvent->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['outside']['State']['Name'] ?? null) === 'armed',
+    'An event consumed while disarmed must never trigger later after the area becomes armed.'
+);
+assertControlApi($ignoredExternalEvent->DisarmPartition('outside'), 'The mode restriction test must reset its area.');
+assertControlApi($ignoredExternalEvent->ArmPartition('outside', 'home', 0), 'The mode restriction test must arm Home.');
+$modeDeniedResult = json_decode(
+    $ignoredExternalEvent->TriggerExternalAlarmEvent(json_encode(
+        externalAlarmEvent('blueiris-home-denied-1', 'blueiris.driveway.person'),
+        JSON_THROW_ON_ERROR
+    )),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($modeDeniedResult['Status'] ?? null) === 'mode_not_allowed'
+        && (json_decode($ignoredExternalEvent->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['outside']['State']['Name'] ?? null) === 'armed',
+    'An external source must not alarm an arming mode which was not approved for it.'
+);
+try {
+    $ignoredExternalEvent->TriggerExternalAlarmEvent(json_encode(
+        externalAlarmEvent('unknown-source-1', 'unknown.camera'),
+        JSON_THROW_ON_ERROR
+    ));
+    throw new RuntimeException('An unknown external source must be rejected.');
+} catch (UnexpectedValueException $exception) {
+    assertControlApi(
+        str_contains($exception->getMessage(), 'is not configured'),
+        'Unknown external sources need an actionable rejection reason.'
+    );
+}
+
+$disabledExternalEvent = new OpenHomeAlarm();
+$disabledExternalEvent->Create();
+$disabledResult = json_decode(
+    $disabledExternalEvent->TriggerExternalAlarmEvent('{invalid'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($disabledResult['Status'] ?? null) === 'api_disabled',
+    'A disabled external event API must not parse or act on incoming data.'
+);
+
+$invalidExternalConfiguration = new OpenHomeAlarm();
+$invalidExternalConfiguration->Create();
+$invalidExternalConfiguration->TestSetPropertyString('ExternalAlarmEventSources', '[{"SourceID":"duplicate","PartitionID":"main"},{"SourceID":"duplicate","PartitionID":"main"}]');
+$invalidExternalConfiguration->ApplyChanges();
+assertControlApi(
+    $invalidExternalConfiguration->TestStatus() === 206,
+    'Invalid or duplicate external source permissions must have a dedicated instance status.'
+);
+
+$restartDuplicate = new OpenHomeAlarm();
+$restartDuplicate->Create();
+$restartDuplicate->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"House"},{"Enabled":true,"ID":"outside","Name":"Outside"}]'
+);
+$restartDuplicate->TestSetPropertyInteger('ExternalAlarmEventApiEnabled', 1);
+$restartDuplicate->TestSetPropertyString('ExternalAlarmEventSources', json_encode([
+    [
+        'Enabled'     => true,
+        'SourceID'    => 'frigate.restart',
+        'Name'        => 'Restart camera',
+        'PartitionID' => 'outside',
+        'ArmAway'     => true
+    ]
+], JSON_THROW_ON_ERROR));
+$restartEvent = externalAlarmEvent('restart-persisted-event-1', 'frigate.restart');
+$restartDuplicate->TestSetAttributeString('ExternalAlarmEventReceipts', json_encode([
+    hash('sha256', "frigate.restart\0restart-persisted-event-1") => time()
+], JSON_THROW_ON_ERROR));
+$restartDuplicate->ApplyChanges();
+assertControlApi($restartDuplicate->ArmPartition('outside', 'away', 0), 'The restart replay test must arm its area.');
+$restartResult = json_decode(
+    $restartDuplicate->TriggerExternalAlarmEvent(json_encode($restartEvent, JSON_THROW_ON_ERROR)),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($restartResult['Status'] ?? null) === 'duplicate'
+        && (json_decode($restartDuplicate->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['outside']['State']['Name'] ?? null) === 'armed',
+    'A replay receipt must survive restart and suppress the repeated external event.'
+);
+
+$mainExternalEvent = new OpenHomeAlarm();
+$mainExternalEvent->Create();
+$mainExternalEvent->TestSetPropertyInteger('ExternalAlarmEventApiEnabled', 1);
+$mainExternalEvent->TestSetPropertyString('ExternalAlarmEventSources', json_encode([
+    [
+        'Enabled'     => true,
+        'SourceID'    => 'blueiris.house',
+        'Name'        => 'House camera',
+        'PartitionID' => 'main',
+        'ArmAway'     => true
+    ]
+], JSON_THROW_ON_ERROR));
+$mainExternalEvent->ApplyChanges();
+assertControlApi($mainExternalEvent->ArmPartition('main', 'away', 0), 'The main external event test must arm the complete system.');
+$mainExternalResult = json_decode(
+    $mainExternalEvent->TriggerExternalAlarmEvent(json_encode(
+        externalAlarmEvent('blueiris-main-event-1', 'blueiris.house'),
+        JSON_THROW_ON_ERROR
+    )),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertControlApi(
+    ($mainExternalResult['Status'] ?? null) === 'accepted'
+        && (json_decode($mainExternalEvent->GetControlState(), true, 512, JSON_THROW_ON_ERROR)['Partitions']['main']['State']['Name'] ?? null) === 'alarm',
+    'An approved external source mapped to main must use the established main-area alarm path.'
+);
+
 fwrite(STDOUT, "OpenHomeAlarm control API checks passed.\n");

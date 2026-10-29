@@ -11,6 +11,16 @@
 
 ## Neu
 
+- Eine herstellerneutrale externe Alarmereignis-Schnittstelle nimmt bestätigte
+  Ereignisse eigenständiger Überwachungssoftware wie Frigate oder Blue Iris
+  entgegen. Quellen werden eindeutig einem Alarmbereich und erlaubten
+  Scharfmodi zugeordnet; die Schnittstelle kann weder scharf-/unscharfschalten
+  noch die Konfiguration ändern. Lokale Module nutzen
+  `OHA_TriggerExternalAlarmEvent()`, externe Systeme einen eigenen
+  token-geschützten JSON-WebHook. Ein getrennt versionierter Vertrag,
+  Zeitfensterprüfung und persistente Ereignis-IDs verhindern inkompatible,
+  verspätete oder doppelte Auslösungen über `ApplyChanges()` und Neustarts.
+
 - Unter **Ansicht → Sichtbare Bedienelemente** lassen sich Systemprotokoll,
   Systemdiagnose, Auswahl der Alarmierungsart und automatische Überbrückung
   gemeinsam für Kachel und IPSView ausblenden. Ausgeblendete Schaltoptionen
