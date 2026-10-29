@@ -1248,13 +1248,17 @@ Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, der Start ei
 
 `OHA_GetEventHistory($InstanzID)` liefert das Protokoll als JSON. `OHA_ExportEventHistory()` exportiert es als JSON oder CSV und kann den Zeitraum sowie den Ereignistyp filtern. Im Instanzformular steht unter **Exporte und Konfigurationssicherung** der Download des vollständig gespeicherten Bestands als JSON oder CSV bereit. Kachel und IPSView zeigen das Protokoll nur an und enthalten bewusst keine Exportfunktionen. Die Datei wird von der Verwaltungskonsole als Download gespeichert; OpenHomeAlarm legt keine eigene Protokolldatei auf dem Symcon-Server an. Mit `OHA_ClearEventHistory($InstanzID)` kann das Protokoll gezielt geleert werden. Das Ereignisprotokoll ist ein Bedien- und Diagnoseprotokoll und kein manipulationssicheres Audit-Log.
 
-Die kompakten Statuskarten stehen unmittelbar über dem Systemprotokoll. Die
-neuesten 20 Ereignisse aller Alarmbereiche werden unabhängig vom aktuell für die
-Bedienung ausgewählten Bereich zuerst angezeigt. Bereichsbezogene Einträge
-nennen den konfigurierten Bereichsnamen einschließlich des Hauptbereichs;
-systemweit ausgeführte Alarmaktionen und Benachrichtigungen sind mit
-**System** gekennzeichnet. Der vollständige gespeicherte Bestand kann im
-Instanzformular heruntergeladen werden.
+Die kompakten Statuskarten stehen unmittelbar über dem Systemprotokoll. Bei
+`main` zeigt es die neuesten 20 Ereignisse der gesamten Anlage. Ist ein
+zusätzlicher Alarmbereich ausgewählt, werden nur dessen neueste Ereignisse
+angezeigt. Bereichsbezogene Einträge nennen den konfigurierten Bereichsnamen;
+systemweit ausgeführte Alarmaktionen und Benachrichtigungen sind in der
+Gesamtansicht mit **System** gekennzeichnet. Eine vorhandene Zuordnung, etwa der
+Name eines benutzerbezogenen Unscharfschaltcodes oder die an
+`OHA_DisarmWithSource()` übergebene Bezeichnung, erscheint ausdrücklich als
+**Quelle**. Ein Aufruf im bereits vollständig unscharfen Zustand erzeugt kein
+zusätzliches Unscharfschalt-Ereignis. Der vollständige gespeicherte Bestand kann
+im Instanzformular heruntergeladen werden.
 
 ![Statuskarten und Sicherheits-Ereignisprotokoll in der Kachel](../docs/images/openhomealarm-tile-history.png)
 
@@ -1289,6 +1293,15 @@ und keinen eigenen Backupordner.
 
 OpenHomeAlarm besitzt eine eigene responsive Objektdarstellung über das native **Symcon HTML-SDK**. Das Dashboard ist zustandsorientiert aufgebaut: **Unscharf**, **Scharf**, **Eingangs- oder Ausgangsverzögerung** und **Alarm** werden als zentraler Hauptzustand dargestellt. Countdown, Alarmgedächtnis, aktive Systemstörungen, temporär überbrückte Sensoren und eine laufende Durchgangsfreigabe erscheinen nur dann als zusätzliche Hinweise, wenn sie tatsächlich relevant sind. Dadurch bleibt die Normalansicht kompakt und die jeweils wichtigste Information steht im Vordergrund. Farben, Oberflächen, Abstände und Fokusdarstellung stammen aus dem gemeinsamen `VisualizationThemeConfigurationHelper`; standardmäßig folgt die Kachel den nativen Symcon-Farben einschließlich Light-/Dark-Umschaltung. Im Konfigurationsabschnitt **Symcon-Kachel** können Text-, Überschriften-, Hintergrund-, Akzent- und Statusfarben optional überschrieben werden. Nur tatsächlich vom Standard abweichende Farben werden fest vorgegeben; alle unveränderten Rollen passen sich weiterhin dem nativen Symcon-Schema an.
 
+Unter **Ansicht → Sichtbare Bedienelemente** können Systemprotokoll,
+Systemdiagnose, Auswahl der Alarmierungsart und automatische Überbrückung
+instanzweit gemeinsam für Kachel und IPSView ein- oder ausgeblendet werden.
+Wird die Alarmierungsart ausgeblendet, gilt beim Scharfschalten die konfigurierte
+Vorgabe des jeweiligen Bereichs. Wird die automatische Überbrückung
+ausgeblendet, bleibt die Bedienung strikt; ein ausgelöster Sensor wird dadurch
+nicht unsichtbar überbrückt. Die Einstellung ist bewusst nicht benutzerbezogen,
+weil beide Ausgaben dieselbe Instanzkonfiguration verwenden.
+
 Die Konfigurationsabschnitte **Kachel-Ansicht** und **IPSView** enthalten jeweils
 eine einklappbare, nummerierte OpenHomeAlarm-Beispielgrafik. Die Legende darunter
 verwendet exakt dieselben Feldnamen wie der jeweilige Farbdesigner und erklärt,
@@ -1317,6 +1330,14 @@ Bedienflächen:
 - Ein Klick auf den **Auswahlkreis rechts im Bereichsbutton** nimmt den Bereich
   in die nächste Scharfschaltung auf oder entfernt ihn daraus. Ein sichtbarer
   **Haken** kennzeichnet jeden gemeinsam zu schaltenden Bereich.
+
+Der zuletzt angezeigte Alarmbereich wird ausschließlich lokal auf dem jeweiligen
+Client und getrennt je OpenHomeAlarm-Instanz gespeichert. Beim nächsten Öffnen
+wird dieser Bereich wieder angezeigt, sofern er weiterhin vorhanden und aktiv
+ist; andernfalls fällt die Ansicht auf `main` zurück. Die Auswahl auf einem
+Smartphone verändert damit nicht die Anzeige eines anderen Geräts.
+Unscharfschaltcodes und vollständige Bedienzustände werden nicht im
+Browserspeicher abgelegt.
 
 Auf schmalen Darstellungen brechen die Bereichsbuttons in Kachel und IPSView
 automatisch auf mehrere Zeilen um. Der umgebende Alarmbereichsrahmen wächst

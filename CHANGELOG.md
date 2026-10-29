@@ -4,6 +4,20 @@
 
 ## Neu
 
+- Unter **Ansicht → Sichtbare Bedienelemente** lassen sich Systemprotokoll,
+  Systemdiagnose, Auswahl der Alarmierungsart und automatische Überbrückung
+  gemeinsam für Kachel und IPSView ausblenden. Ausgeblendete Schaltoptionen
+  verwenden weiterhin ausschließlich die konfigurierte Bereichsvorgabe und
+  aktivieren keine unsichtbare Überbrückung.
+
+- Kachel und IPSView merken den zuletzt angezeigten Alarmbereich lokal und
+  instanzbezogen auf dem jeweiligen Client. Unscharfschaltcodes und der
+  Bedienzustand werden weiterhin nicht im Browser gespeichert.
+
+- Das Systemprotokoll kennzeichnet vorhandene Quellen jetzt ausdrücklich mit
+  **Quelle**. Bei `main` bleibt die vollständige Anlagenhistorie sichtbar;
+  bei einem zusätzlichen Alarmbereich zeigt die Ansicht nur dessen Ereignisse.
+
 - Kachel und IPSView zeigen laufende Ein- und Ausgangsverzögerungen zusätzlicher
   Alarmbereiche direkt im jeweiligen Bereichsbutton: Eine kompakte Restzeit
   wird von einem gelben Lauflicht umrahmt. Mehrere Bereichs-Countdowns bleiben

@@ -99,8 +99,20 @@ assertVisualization(
 );
 assertVisualization(
     str_contains($javascript, 'const ohaVisualization = window.SYMC_VISUALIZATION')
+        && str_contains($javascript, 'const ohaOptions = ohaVisualization.options')
         && str_contains($javascript, 'let ohaState = ohaVisualization.state ?? null;'),
     'The application must initialize from the shared visualization bootstrap.'
+);
+assertVisualization(
+    str_contains($module, "private const PROPERTY_SHOW_EVENT_HISTORY = 'ShowEventHistory';")
+        && str_contains($module, "private const PROPERTY_SHOW_DIAGNOSTICS = 'ShowDiagnostics';")
+        && str_contains($module, "private const PROPERTY_SHOW_ALARM_RESPONSE_SELECTION = 'ShowAlarmResponseSelection';")
+        && str_contains($module, "private const PROPERTY_SHOW_AUTOMATIC_BYPASS_SELECTION = 'ShowAutomaticBypassSelection';")
+        && str_contains($module, "'showEventHistory'")
+        && str_contains($module, "'showDiagnostics'")
+        && str_contains($module, "'showAlarmResponseSelection'")
+        && str_contains($module, "'showAutomaticBypassSelection'"),
+    'Dashboard visibility settings must be registered and delivered to both visualization variants.'
 );
 assertVisualization(str_contains($javascript, 'function handleMessage(data)'), 'HTML-SDK handleMessage must be implemented.');
 assertVisualization(
@@ -361,15 +373,33 @@ assertVisualization(
     'Every native visualization action must publish its final state so newly appended history entries appear immediately.'
 );
 assertVisualization(
-    str_contains($javascript, 'const recentEvents = Array.isArray(state.RecentEvents)')
+    str_contains($javascript, 'const recentEvents = partition.ID === fallbackID')
+        && str_contains($javascript, '? (Array.isArray(state.RecentEvents) ? state.RecentEvents : [])')
+        && str_contains($javascript, ': (Array.isArray(partition.RecentEvents) ? partition.RecentEvents : [])')
         && str_contains($javascript, 'RecentEvents: recentEvents')
         && str_contains($javascript, 'ohaSystemEventTypes.has(event.Event)')
         && str_contains($javascript, "ohaTranslate('System')")
         && str_contains($javascript, 'ohaPartitionName(event.PartitionID, state)')
-        && str_contains($javascript, 'stepName !== \'\' && stepName === actionName ? actionName : source')
+        && str_contains($javascript, "ohaTranslate('Event source')")
         && str_contains($javascript, 'ohaEventSource(event)')
         && str_contains($javascript, "join(': ')"),
-    'The system log must use global events, label their scope and collapse legacy duplicate action names.'
+    'The system log must use global events for main, area-specific events elsewhere and visibly label event sources.'
+);
+assertVisualization(
+    str_contains($javascript, "panel.hidden = !ohaOptionEnabled('showEventHistory') || events.length === 0;")
+        && str_contains($javascript, "panel.hidden = !ohaOptionEnabled('showDiagnostics') || items.length === 0;")
+        && str_contains($javascript, "ohaOptionEnabled('showAlarmResponseSelection')")
+        && str_contains($javascript, "ohaOptionEnabled('showAutomaticBypassSelection')")
+        && str_contains($javascript, "delivery.dataset.selection = 'default';")
+        && str_contains($javascript, "bypass.dataset.enabled = 'false';"),
+    'Hidden dashboard controls must disappear without retaining an invisible arming override.'
+);
+assertVisualization(
+    str_contains($javascript, 'OpenHomeAlarm.SelectedPartition.${Number(ohaOptions.instanceId)}')
+        && str_contains($javascript, 'function ohaReadStoredPartitionID()')
+        && str_contains($javascript, 'function ohaStoreSelectedPartitionID(partitionID)')
+        && str_contains($javascript, 'ohaStoreSelectedPartitionID(ohaSelectedPartitionID);'),
+    'The last displayed partition must be retained per module instance on the local client.'
 );
 assertVisualization(
     str_contains($module, 'private const RECENT_EVENT_DISPLAY_LIMIT = 20;')
@@ -534,6 +564,7 @@ foreach ([
     'Bypass once',
     'Sensor management',
     'System log',
+    'Event source',
     'Recent activity',
     'System diagnostics',
     'Inputs and communication',

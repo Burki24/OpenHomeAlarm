@@ -39,6 +39,10 @@ aktuellen Symcon-Namen, keine automatisch ergänzten IDs.
 5. Mit einem Testlauf prüfen, ob Sensorblocker, Unscharfschaltung und Aktionen
    wie erwartet funktionieren.
 
+Unter **Ansicht → Sichtbare Bedienelemente** kann die gemeinsame Kachel- und
+IPSView-Ausgabe bei Bedarf vereinfacht werden. Der zuletzt angezeigte
+Alarmbereich wird lokal auf dem jeweiligen Bediengerät gemerkt.
+
 ## Zustandsmodell
 
 Jeder aktive Alarmbereich durchläuft unabhängig die Zustände **Unscharf**,

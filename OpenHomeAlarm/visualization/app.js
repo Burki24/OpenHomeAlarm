@@ -6,14 +6,21 @@ const ohaVisualization = window.SYMC_VISUALIZATION && typeof window.SYMC_VISUALI
 const ohaTranslations = ohaVisualization.translations && typeof ohaVisualization.translations === 'object'
     ? ohaVisualization.translations
     : {};
+const ohaOptions = ohaVisualization.options && typeof ohaVisualization.options === 'object'
+    ? ohaVisualization.options
+    : {};
 const ohaIPSViewConfig = ohaVisualization.mode === 'ipsview'
     && ohaVisualization.runtime
     && typeof ohaVisualization.runtime === 'object'
     ? ohaVisualization.runtime
     : null;
 
+const ohaSelectedPartitionStorageKey = Number(ohaOptions.instanceId) > 0
+    ? `OpenHomeAlarm.SelectedPartition.${Number(ohaOptions.instanceId)}`
+    : '';
+
 let ohaState = ohaVisualization.state ?? null;
-let ohaSelectedPartitionID = '';
+let ohaSelectedPartitionID = ohaReadStoredPartitionID();
 let ohaArmPartitionIDs = [];
 let ohaArmTargetSelectionExplicit = false;
 let ohaCodeBuffer = '';
@@ -39,6 +46,35 @@ function ohaTranslate(text) {
 
     const translated = ohaTranslations[text];
     return typeof translated === 'string' ? translated : text;
+}
+
+function ohaOptionEnabled(name) {
+    return ohaOptions[name] !== false;
+}
+
+function ohaReadStoredPartitionID() {
+    if (ohaSelectedPartitionStorageKey === '') {
+        return '';
+    }
+
+    try {
+        const partitionID = window.localStorage.getItem(ohaSelectedPartitionStorageKey) ?? '';
+        return /^[a-z][a-z0-9_-]{0,31}$/.test(partitionID) ? partitionID : '';
+    } catch (_error) {
+        return '';
+    }
+}
+
+function ohaStoreSelectedPartitionID(partitionID) {
+    if (ohaSelectedPartitionStorageKey === '' || !/^[a-z][a-z0-9_-]{0,31}$/.test(partitionID)) {
+        return;
+    }
+
+    try {
+        window.localStorage.setItem(ohaSelectedPartitionStorageKey, partitionID);
+    } catch (_error) {
+        // Client-side persistence is optional in embedded WebViews.
+    }
 }
 
 function ohaStateCaption(name) {
@@ -117,20 +153,24 @@ function ohaEventCaption(eventName) {
 }
 
 function ohaEventSource(event) {
-    const source = typeof event?.Source === 'string' ? event.Source.trim() : '';
-    if (event?.Event !== 'alarm_action_executed' || source === '') {
-        return source;
+    let source = typeof event?.Source === 'string' ? event.Source.trim() : '';
+    if (source === '') {
+        return '';
     }
 
-    const separator = source.indexOf(':');
-    if (separator < 0 || source.indexOf(':', separator + 1) >= 0) {
-        return source;
+    if (event?.Event === 'alarm_action_executed') {
+        const separator = source.indexOf(':');
+        if (separator >= 0 && source.indexOf(':', separator + 1) < 0) {
+            const stepName = source.slice(0, separator).trim();
+            const actionName = source.slice(separator + 1).trim();
+
+            if (stepName !== '' && stepName === actionName) {
+                source = actionName;
+            }
+        }
     }
 
-    const stepName = source.slice(0, separator).trim();
-    const actionName = source.slice(separator + 1).trim();
-
-    return stepName !== '' && stepName === actionName ? actionName : source;
+    return `${ohaTranslate('Event source')}: ${source}`;
 }
 
 function ohaFormatEventTime(timestamp) {
@@ -214,10 +254,11 @@ function ohaSelectedState(state = ohaState) {
     const fallbackID = typeof state.DefaultPartition === 'string' ? state.DefaultPartition : partitions[0].ID;
     if (!partitions.some((partition) => partition.ID === ohaSelectedPartitionID)) {
         ohaSelectedPartitionID = fallbackID;
+        ohaStoreSelectedPartitionID(ohaSelectedPartitionID);
     }
     const partition = state.Partitions[ohaSelectedPartitionID] ?? partitions[0];
-    const recentEvents = Array.isArray(state.RecentEvents)
-        ? state.RecentEvents
+    const recentEvents = partition.ID === fallbackID
+        ? (Array.isArray(state.RecentEvents) ? state.RecentEvents : [])
         : (Array.isArray(partition.RecentEvents) ? partition.RecentEvents : []);
     const diagnosticItems = Array.isArray(state.Diagnostics?.Items)
         ? state.Diagnostics.Items.filter((item) => item.PartitionID === partition.ID)
@@ -391,6 +432,7 @@ function ohaRequestPartitionAction(action, value = null) {
             payload.PartitionID = targetIDs[0];
             if (!targetIDs.includes(partitionID)) {
                 ohaSelectedPartitionID = targetIDs[0];
+                ohaStoreSelectedPartitionID(ohaSelectedPartitionID);
             }
         }
         if (targetIDs.length > 1) {
@@ -704,7 +746,11 @@ function ohaRenderArming(state) {
     }
     delivery.dataset.partitionId = state.ID;
     delivery.dataset.wasDisarmed = isDisarmed ? 'true' : 'false';
-    delivery.hidden = !isDisarmed;
+    const showAlarmResponseSelection = ohaOptionEnabled('showAlarmResponseSelection');
+    if (!showAlarmResponseSelection) {
+        delivery.dataset.selection = 'default';
+    }
+    delivery.hidden = !isDisarmed || !showAlarmResponseSelection;
     document.getElementById('armDeliveryLabel').textContent = ohaTranslate('Alarm response');
     const defaultResponses = Array.from(new Set(targetStates.map((target) => Boolean(target.SilentByDefault))));
     document.getElementById('armDeliveryDefault').textContent = defaultResponses.length === 1
@@ -728,7 +774,11 @@ function ohaRenderArming(state) {
         bypass.dataset.enabled = 'false';
     }
     bypass.dataset.partitionId = state.ID;
-    bypass.hidden = !isDisarmed || !hasBypassableBlocker;
+    const showAutomaticBypassSelection = ohaOptionEnabled('showAutomaticBypassSelection');
+    if (!showAutomaticBypassSelection) {
+        bypass.dataset.enabled = 'false';
+    }
+    bypass.hidden = !isDisarmed || !hasBypassableBlocker || !showAutomaticBypassSelection;
     document.getElementById('armBypassLabel').textContent = ohaTranslate('Arm with permitted active sensors');
     document.getElementById('armBypassHint').textContent = ohaTranslate('Only sensors explicitly permitted for automatic bypass are ignored once.');
     const bypassSwitch = bypass.querySelector('[data-bypass-switch]');
@@ -1021,7 +1071,7 @@ function ohaRenderEventHistory(state) {
     const list = document.getElementById('eventHistoryList');
     const events = Array.isArray(state.RecentEvents) ? state.RecentEvents : [];
 
-    panel.hidden = events.length === 0;
+    panel.hidden = !ohaOptionEnabled('showEventHistory') || events.length === 0;
     list.replaceChildren();
     if (panel.hidden) {
         return;
@@ -1063,7 +1113,7 @@ function ohaRenderDiagnostics(state) {
         : null;
     const items = Array.isArray(diagnostics?.Items) ? diagnostics.Items : [];
 
-    panel.hidden = items.length === 0;
+    panel.hidden = !ohaOptionEnabled('showDiagnostics') || items.length === 0;
     list.replaceChildren();
     if (panel.hidden) {
         return;
@@ -1797,6 +1847,7 @@ function ohaHandleInteractiveClick(event) {
 
     if (control.matches('[data-partition-id]')) {
         ohaSelectedPartitionID = control.dataset.partitionId ?? '';
+        ohaStoreSelectedPartitionID(ohaSelectedPartitionID);
         if (!ohaArmTargetSelectionExplicit) {
             ohaArmPartitionIDs = ohaSelectedPartitionID ? [ohaSelectedPartitionID] : [];
         }

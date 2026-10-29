@@ -109,8 +109,12 @@ assertCodepad(
     'Rejected codes must be reported directly in the codepad.'
 );
 assertCodepad(
-    !str_contains($javascript, 'localStorage') && !str_contains($javascript, 'sessionStorage'),
-    'The disarm code must never be persisted in browser storage.'
+    !str_contains($javascript, 'sessionStorage')
+        && substr_count($javascript, 'window.localStorage.setItem(') === 1
+        && str_contains($javascript, 'window.localStorage.setItem(ohaSelectedPartitionStorageKey, partitionID);')
+        && !str_contains($javascript, 'localStorage.setItem(ohaCode')
+        && !str_contains($javascript, 'localStorage.setItem(ohaState'),
+    'Browser storage may retain only the selected partition, never a disarm code or control state.'
 );
 assertCodepad(
     !str_contains($module, "RegisterVariableString('DisarmCode") && !str_contains($module, 'IDENT_DISARM_CODE_INPUT'),

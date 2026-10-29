@@ -213,6 +213,10 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const PROPERTY_SHOW_HOME_MODE = 'ShowHomeMode';
     private const PROPERTY_SHOW_AWAY_MODE = 'ShowAwayMode';
     private const PROPERTY_SHOW_NIGHT_MODE = 'ShowNightMode';
+    private const PROPERTY_SHOW_EVENT_HISTORY = 'ShowEventHistory';
+    private const PROPERTY_SHOW_DIAGNOSTICS = 'ShowDiagnostics';
+    private const PROPERTY_SHOW_ALARM_RESPONSE_SELECTION = 'ShowAlarmResponseSelection';
+    private const PROPERTY_SHOW_AUTOMATIC_BYPASS_SELECTION = 'ShowAutomaticBypassSelection';
 
     private const OPTIONAL_ACTION_PROPERTIES = [
         self::PROPERTY_COUNTDOWN_START_ACTION,
@@ -400,6 +404,10 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->RegisterBooleanProperty(self::PROPERTY_SHOW_HOME_MODE, true);
             $this->RegisterBooleanProperty(self::PROPERTY_SHOW_AWAY_MODE, true);
             $this->RegisterBooleanProperty(self::PROPERTY_SHOW_NIGHT_MODE, true);
+            $this->RegisterBooleanProperty(self::PROPERTY_SHOW_EVENT_HISTORY, true);
+            $this->RegisterBooleanProperty(self::PROPERTY_SHOW_DIAGNOSTICS, true);
+            $this->RegisterBooleanProperty(self::PROPERTY_SHOW_ALARM_RESPONSE_SELECTION, true);
+            $this->RegisterBooleanProperty(self::PROPERTY_SHOW_AUTOMATIC_BYPASS_SELECTION, true);
             $this->RegisterIPSViewHTMLPageProperties();
             $this->RegisterIPSViewStyleProperties();
             $this->RegisterVisualizationThemeProperties();
@@ -7586,7 +7594,13 @@ PHP,
             'state'             => $this->ControlStatePayload(),
             'runtime'           => $runtime,
             'translations'      => $ipsView ? $this->IPSViewTranslationsFromLocale() : [],
-            'options'           => []
+            'options'           => [
+                'instanceId'                   => $this->InstanceID,
+                'showEventHistory'             => $this->ReadBooleanProperty(self::PROPERTY_SHOW_EVENT_HISTORY),
+                'showDiagnostics'              => $this->ReadBooleanProperty(self::PROPERTY_SHOW_DIAGNOSTICS),
+                'showAlarmResponseSelection'   => $this->ReadBooleanProperty(self::PROPERTY_SHOW_ALARM_RESPONSE_SELECTION),
+                'showAutomaticBypassSelection' => $this->ReadBooleanProperty(self::PROPERTY_SHOW_AUTOMATIC_BYPASS_SELECTION)
+            ]
         ]);
     }
 

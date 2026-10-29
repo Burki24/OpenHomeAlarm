@@ -186,6 +186,41 @@
                 },
                 {
                     "type": "ExpansionPanel",
+                    "caption": "Visible dashboard controls",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Choose which optional controls are shown in the tile and IPSView. Hidden controls do not change alarm rules or configured area defaults."
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "ShowEventHistory",
+                            "caption": "Show system log"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "ShowDiagnostics",
+                            "caption": "Show system diagnostics"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "ShowAlarmResponseSelection",
+                            "caption": "Show alarm response selection"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "ShowAutomaticBypassSelection",
+                            "caption": "Show automatic bypass selection"
+                        },
+                        {
+                            "type": "Label",
+                            "caption": "When alarm response selection is hidden, each area's configured default is used. When automatic bypass selection is hidden, triggered sensors are not bypassed from the dashboard."
+                        }
+                    ]
+                },
+                {
+                    "type": "ExpansionPanel",
                     "caption": "Tile view",
                     "expanded": false,
                     "items": [
