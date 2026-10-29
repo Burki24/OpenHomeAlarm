@@ -24,7 +24,6 @@
 
     function start(environment) {
         const document = environment.document;
-        const frame = document.getElementById('oha-ipsview-dashboard');
         const message = document.getElementById('oha-ipsview-error');
         let configuration = {};
         try {
@@ -36,9 +35,7 @@
             message.hidden = false;
             return;
         }
-        frame.title = configuration.title || 'OpenHomeAlarm';
-        frame.src = url;
-        frame.hidden = false;
+        environment.location.replace(url);
     }
 
     if (typeof module !== 'undefined' && module.exports) module.exports = {dashboardURL, start};

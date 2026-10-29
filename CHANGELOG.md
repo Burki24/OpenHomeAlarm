@@ -22,7 +22,10 @@
   und Verwaltungskonsole zuverlässig lädt; Auflösungsfehler werden sichtbar
   gemeldet statt als leere Fläche dargestellt. Die Dashboard-Dateien werden
   auch im synthetischen Symcon-WebHook-Kontext aus ihrem festen Modulpfad
-  geladen, sodass der authentifizierte GET-Aufruf nicht leer bleibt.
+  geladen, sodass der authentifizierte GET-Aufruf nicht leer bleibt. Die native
+  IPSView-App öffnet das HTTP-Dashboard als oberstes Dokument statt in einem
+  inneren Fremd-Frame. Dadurch bleibt der zuletzt angezeigte Alarmbereich auch
+  dort nach einem Seitenwechsel erhalten.
 
 - Das Systemprotokoll kennzeichnet vorhandene Quellen jetzt ausdrücklich mit
   **Quelle**. Bei `main` bleibt die vollständige Anlagenhistorie sichtbar;

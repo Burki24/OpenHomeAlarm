@@ -1711,3 +1711,9 @@ eigene Skripte und Automationen als Benutzervertrag vorgesehen.
 ### Mausradbedienung in IPSView
 
 Kachel und IPSView-Ausgabe nutzen die gemeinsame Eingabebehandlung aus `Symcon_ModuleHelper`. Sie normalisiert Mausrad-Deltas und ermittelt bei von IPSView umadressierten Ereignissen den Bereich unter der letzten tatsächlichen Mausposition. Listen und Dialoginhalte scrollen innerhalb ihres Bereichs; vorhandener Karten-/Diagrammzoom bleibt komponentenspezifisch. Verschachtelte teilnehmende HTML-Frames geben ausschließlich UI-Eingaben über den zentralen Vertrag weiter. Ctrl-/Meta-Mausrad bleibt beim Host. Eine vollständige Funktionsprüfung unterscheidet den IPSView-Webclient von der nativen IPSView-App.
+
+Die IPSView-WebContent-Variable wechselt beim Öffnen vollständig auf das
+token-geschützte HTTP-Dashboard der OpenHomeAlarm-Instanz. Es wird nicht in
+einem zusätzlichen inneren Frame dargestellt. Dadurch besitzt die Ansicht
+auch in der nativen IPSView-App eine beständige HTTP-Herkunft und kann den
+zuletzt angezeigten Alarmbereich nach einem Seitenwechsel wiederherstellen.

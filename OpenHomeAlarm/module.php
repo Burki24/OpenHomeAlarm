@@ -7612,8 +7612,7 @@ PHP,
             'title' => 'OpenHomeAlarm',
             'error' => $this->Translate('The OpenHomeAlarm view could not be loaded. Please regenerate the IPSView HTML in the instance configuration.')
         ]);
-        $loader = $this->VisualizationInteractionScript() . "\n"
-            . $this->VisualizationHTTPOriginScript() . "\n"
+        $loader = $this->VisualizationHTTPOriginScript() . "\n"
             . (string) file_get_contents(__DIR__ . '/visualization/ipsview-loader.js');
 
         return <<<HTML
@@ -7624,7 +7623,7 @@ PHP,
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <title>OpenHomeAlarm</title>
     <style>
-        html, body, iframe {
+        html, body {
             width: 100%;
             height: 100%;
             margin: 0;
@@ -7632,9 +7631,6 @@ PHP,
             border: 0;
             overflow: hidden;
             background: transparent;
-        }
-        iframe {
-            display: block;
         }
         p {
             box-sizing: border-box;
@@ -7649,7 +7645,6 @@ PHP,
     </style>
 </head>
 <body>
-    <iframe id="oha-ipsview-dashboard" title="OpenHomeAlarm" referrerpolicy="no-referrer" hidden></iframe>
     <p id="oha-ipsview-error" role="status" hidden></p>
     <script id="oha-ipsview-config" type="application/json">{$configuration}</script>
     <script>{$loader}</script>
