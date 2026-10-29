@@ -1337,7 +1337,11 @@ wird dieser Bereich wieder angezeigt, sofern er weiterhin vorhanden und aktiv
 ist; andernfalls fällt die Ansicht auf `main` zurück. Die Auswahl auf einem
 Smartphone verändert damit nicht die Anzeige eines anderen Geräts.
 Unscharfschaltcodes und vollständige Bedienzustände werden nicht im
-Browserspeicher abgelegt.
+Browserspeicher abgelegt. Damit diese lokale Auswahl auch in der nativen
+IPSView-App einen Seitenwechsel oder App-Neustart übersteht, enthält die
+WebContent-Variable nur einen transparenten Rahmen. Das eigentliche Dashboard
+wird darin von der stabilen, instanzbezogenen und token-geschützten
+OpenHomeAlarm-WebHook-Adresse geladen.
 
 Auf schmalen Darstellungen brechen die Bereichsbuttons in Kachel und IPSView
 automatisch auf mehrere Zeilen um. Der umgebende Alarmbereichsrahmen wächst
@@ -1469,6 +1473,12 @@ Modul.
 Sind Sensorverwaltung, Systemprotokoll und Systemdiagnose gleichzeitig sichtbar, werden sie bis zum Mobil-Breakpoint als drei gleich breite Bereiche dargestellt und wechseln anschließend direkt in eine einspaltige Anordnung. In der schmalen IPSView-Ansicht scrollt das vollständige Dashboard; die Detaillisten bilden dort keine verschachtelten Scrollbereiche, sodass ihre Kopfbereiche auf Touch-Geräten jederzeit wieder erreichbar bleiben. Auf schmalen Kachel- und IPSView-Darstellungen stehen die JSON-/CSV-Aktionen des Systemprotokolls und der Systemdiagnose in einer eigenen umbrechenden Zeile, damit keine Exportfunktion seitlich abgeschnitten wird.
 
 Zusätzlich kann im Konfigurationsabschnitt **IPSView** eine eigenständige WebContent-Variable **IPSView-Alarmanlage** aktiviert werden. Die optionale Ausgabe wird zentral durch den `IPSViewHTMLPageHelper` verwaltet. Sie verwendet dieselbe HTML-, CSS- und JavaScript-Oberfläche wie die native Kachel und ist vollständig bedienbar: Scharfmodi, Deaktivierung mit Code, Sensorüberbrückungen, Alarmgedächtnis und Rücksetzung des Alarmausgangs stehen auch in IPSView zur Verfügung. In IPSView muss die Variable in einer **HTML-Box** mit dem Renderer **Browser des Clients** dargestellt werden, da nur dieser Renderer JavaScript unterstützt.
+
+Die HTML-Box bettet das Dashboard von einer authentifizierten WebHook-Adresse
+derselben OpenHomeAlarm-Instanz ein. Dadurch besitzt die Anwendung in IPSView
+eine stabile HTTP-Herkunft und kann ausschließlich die zuletzt angezeigte Area
+clientlokal speichern. Direkte GET-Aufrufe ohne den instanzbezogenen Token und
+alle nicht freigegebenen WebHook-Methoden werden abgewiesen.
 
 Das klassische WebFront ist keine unterstützte Bedienoberfläche des Moduls.
 Unterstützt und gemeinsam gepflegt werden ausschließlich die native

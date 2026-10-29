@@ -47,8 +47,11 @@ assertIPSView(
 );
 assertIPSView(
     str_contains($module, 'public function GetIPSViewHTML(): string')
-        && preg_match('/return (?:\$debugResult = )?\$this->RenderVisualizationHTML\(true\);/', $module) === 1,
-    'The module must expose the standalone IPSView page.'
+        && preg_match('/return (?:\$debugResult = )?\$this->RenderIPSViewEmbedHTML\(\);/', $module) === 1
+        && str_contains($module, 'private function RenderIPSViewEmbedHTML(): string')
+        && str_contains($module, '<iframe')
+        && str_contains($module, '?view=dashboard&amp;token='),
+    'The IPSView variable must embed the dashboard from its stable authenticated hook origin.'
 );
 assertIPSView(
     str_contains($module, '$this->RegisterHook($this->IPSViewHookAddress());')
@@ -57,9 +60,12 @@ assertIPSView(
 );
 assertIPSView(
     str_contains($module, 'protected function ProcessHookData(): void')
-        && str_contains($module, "strtoupper((string) (\$_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST'")
+        && str_contains($module, "if (\$requestMethod === 'GET')")
+        && str_contains($module, "(\$_GET['view'] ?? null) !== 'dashboard'")
+        && str_contains($module, '$this->RenderVisualizationHTML(true)')
+        && str_contains($module, "if (\$requestMethod !== 'POST')")
         && str_contains($module, 'hash_equals($this->IPSViewToken(), $token)'),
-    'The IPSView bridge must require POST and its per-instance token.'
+    'The IPSView bridge must serve only the authenticated dashboard GET and authenticated action POST requests.'
 );
 assertIPSView(
     str_contains($module, "case 'Arm':")

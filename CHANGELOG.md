@@ -14,6 +14,10 @@
   instanzbezogen auf dem jeweiligen Client. Unscharfschaltcodes und der
   Bedienzustand werden weiterhin nicht im Browser gespeichert.
 
+- Die IPSView-HTML-Box lädt das eigentliche Dashboard jetzt über eine stabile,
+  token-geschützte WebHook-Adresse. Dadurch bleibt die lokale Bereichsauswahl
+  auch nach einem IPSView-Seitenwechsel oder einem Neustart der App erhalten.
+
 - Das Systemprotokoll kennzeichnet vorhandene Quellen jetzt ausdrücklich mit
   **Quelle**. Bei `main` bleibt die vollständige Anlagenhistorie sichtbar;
   bei einem zusätzlichen Alarmbereich zeigt die Ansicht nur dessen Ereignisse.

@@ -1065,7 +1065,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            return $debugResult = $this->RenderVisualizationHTML(true);
+            return $debugResult = $this->RenderIPSViewEmbedHTML();
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -4932,7 +4932,27 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return;
             }
 
-            if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
+            $requestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
+            if ($requestMethod === 'GET') {
+                if (($_GET['view'] ?? null) !== 'dashboard') {
+                    $this->OutputIPSViewResponse(['Error' => 'Method not allowed.'], 405);
+
+                    return;
+                }
+
+                $token = is_string($_GET['token'] ?? null) ? $_GET['token'] : '';
+                if ($token === '' || !hash_equals($this->IPSViewToken(), $token)) {
+                    $this->OutputIPSViewResponse(['Error' => 'Unauthorized.'], 403);
+
+                    return;
+                }
+
+                $this->OutputIPSViewHTMLResponse($this->RenderVisualizationHTML(true));
+
+                return;
+            }
+
+            if ($requestMethod !== 'POST') {
                 $this->OutputIPSViewResponse(['Error' => 'Method not allowed.'], 405);
 
                 return;
@@ -7570,6 +7590,50 @@ PHP,
         );
     }
 
+    /**
+     * Returns the lightweight HTML-Box wrapper for the stable IPSView dashboard origin.
+     *
+     * IPSView recreates the browser used for inline HTML whenever the page is left or
+     * the client restarts. Loading the application itself from the authenticated hook
+     * gives its local storage a stable HTTP origin while the wrapper remains compatible
+     * with the existing WebContent variable.
+     */
+    private function RenderIPSViewEmbedHTML(): string
+    {
+        $source = '/hook/' . htmlspecialchars($this->IPSViewHookAddress(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+            . '?view=dashboard&amp;token=' . rawurlencode($this->IPSViewToken());
+        $interaction = $this->VisualizationInteractionScript();
+
+        return <<<HTML
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>OpenHomeAlarm</title>
+    <style>
+        html, body, iframe {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            overflow: hidden;
+            background: transparent;
+        }
+        iframe {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <iframe src="{$source}" title="OpenHomeAlarm" referrerpolicy="no-referrer"></iframe>
+    <script>{$interaction}</script>
+</body>
+</html>
+HTML;
+    }
+
     private function RenderVisualizationHTML(bool $ipsView): string
     {
         $runtime = $ipsView
@@ -7845,6 +7909,23 @@ PHP,
         } finally {
             $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
+    }
+
+    private function OutputIPSViewHTMLResponse(string $html): void
+    {
+        $this->AlarmDebug(
+            __FUNCTION__,
+            __LINE__,
+            'SENDEN',
+            'IPSView-Dashboard wird über den authentifizierten WebHook ausgeliefert.',
+            ['AntwortBytes' => strlen($html)]
+        );
+        http_response_code(200);
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('X-Content-Type-Options: nosniff');
+
+        echo $html;
     }
 
     /**
