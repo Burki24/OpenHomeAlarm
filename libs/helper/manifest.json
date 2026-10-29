@@ -9,10 +9,10 @@
             "source_sha": "85edd95c7344f3740058f19fa7672cbe2e2219c0"
         },
         "IPSViewHTMLPageHelper": {
-            "version": "1.5.3",
-            "sha256": "e03d0bf8118c550026a84b271ce17a6c48f489cf5c33b50da0e9c41daa653a2a",
+            "version": "1.5.5",
+            "sha256": "83b049678e9901514101e74c9e2d9a247adac0b05d1ed5e0c3f368e6be5e9d05",
             "path": "libs/helper/IPSViewHTMLPageHelper.php",
-            "source_sha": "91ed2bf3426e4e7700bf79f1cda495cb9b70cb92",
+            "source_sha": "b9af1ef9a6864f61e03b3102d060e78f54fadceb",
             "assets": [
                 {
                     "path": "libs/helper/translations/IPSViewHTMLPageHelper.json",

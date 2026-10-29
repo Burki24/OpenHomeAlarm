@@ -6,7 +6,6 @@ namespace Burki24\SymconModuleHelper;
 
 use InvalidArgumentException;
 use JsonException;
-use ReflectionClass;
 use RuntimeException;
 use Throwable;
 
@@ -20,7 +19,7 @@ require_once __DIR__ . '/VisualizationAssetHelper.php';
  * visual implementation in style.css/app.js. The helper owns asset loading,
  * bootstrap encoding, page metadata, fixed placeholders and validation.
  *
- * @version 1.5.3
+ * @version 1.5.5
  */
 trait IPSViewHTMLPageHelper
 {
@@ -521,11 +520,22 @@ trait IPSViewHTMLPageHelper
     protected function IPSViewTranslationsFromLocale(array $additionalKeys = []): array
     {
         $keys = $this->NormalizeIPSViewHTMLTranslationKeys($additionalKeys);
+        $activeTranslations = [];
+        $language = $this->NormalizeHelperTranslationLanguage($this->ResolveHelperTranslationLanguage());
         $localePath = $this->ResolveIPSViewHTMLModuleDirectory() . DIRECTORY_SEPARATOR . 'locale.json';
         if (is_file($localePath)) {
             try {
                 $locale = json_decode((string) file_get_contents($localePath), true, 512, JSON_THROW_ON_ERROR);
                 if (is_array($locale) && isset($locale['translations']) && is_array($locale['translations'])) {
+                    $selectedTranslations = $locale['translations'][$language] ?? null;
+                    if (is_array($selectedTranslations)) {
+                        foreach ($selectedTranslations as $source => $translation) {
+                            if (is_string($source) && $source !== '' && is_string($translation)) {
+                                $activeTranslations[$source] = $translation;
+                            }
+                        }
+                    }
+
                     foreach ($locale['translations'] as $translations) {
                         if (!is_array($translations)) {
                             continue;
@@ -543,7 +553,10 @@ trait IPSViewHTMLPageHelper
             }
         }
 
-        return $this->TranslateIPSViewHTMLKeys(array_values(array_unique($keys)));
+        return $this->TranslateIPSViewHTMLLocaleKeys(
+            array_values(array_unique($keys)),
+            $activeTranslations
+        );
     }
 
     /**
@@ -792,6 +805,24 @@ trait IPSViewHTMLPageHelper
     }
 
     /**
+     * @param list<string>        $keys
+     * @param array<string,string> $activeTranslations
+     *
+     * @return array<string,string>
+     */
+    private function TranslateIPSViewHTMLLocaleKeys(array $keys, array $activeTranslations): array
+    {
+        sort($keys, SORT_STRING);
+
+        $translations = [];
+        foreach ($keys as $key) {
+            $translations[$key] = $activeTranslations[$key] ?? $key;
+        }
+
+        return $translations;
+    }
+
+    /**
      * @return array<string,string> Existing retained variables mapped from ident to caption.
      */
     private function IPSViewHTMLRetainedVariables(): array
@@ -985,12 +1016,6 @@ trait IPSViewHTMLPageHelper
 
     private function ResolveIPSViewHTMLModuleDirectory(): string
     {
-        $reflection = new ReflectionClass($this);
-        $moduleFile = $reflection->getFileName();
-        if (!is_string($moduleFile) || $moduleFile === '') {
-            throw new RuntimeException('The module file path could not be determined.');
-        }
-
-        return dirname($moduleFile);
+        return dirname($this->VisualizationAssetDirectory());
     }
 }
