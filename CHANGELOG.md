@@ -20,7 +20,9 @@
   Die Hook-Adresse wird aus der tatsächlichen Symcon-HTTP-Herkunft ermittelt,
   damit die Ansicht auch aus isolierten WebContent-Dokumenten der nativen App
   und Verwaltungskonsole zuverlässig lädt; Auflösungsfehler werden sichtbar
-  gemeldet statt als leere Fläche dargestellt.
+  gemeldet statt als leere Fläche dargestellt. Die Dashboard-Dateien werden
+  auch im synthetischen Symcon-WebHook-Kontext aus ihrem festen Modulpfad
+  geladen, sodass der authentifizierte GET-Aufruf nicht leer bleibt.
 
 - Das Systemprotokoll kennzeichnet vorhandene Quellen jetzt ausdrücklich mit
   **Quelle**. Bei `main` bleibt die vollständige Anlagenhistorie sichtbar;

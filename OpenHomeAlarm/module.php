@@ -5068,6 +5068,12 @@ class OpenHomeAlarm extends IPSModuleStrict
         }
     }
 
+    /** Symcon WebHooks evaluate module classes with a synthetic reflection filename. */
+    protected function VisualizationAssetDirectory(): string
+    {
+        return __DIR__ . '/visualization';
+    }
+
     /** Returns the module-specific color mapping for the native Symcon tile. */
     private function OpenHomeAlarmTileColorGuide(): array
     {

@@ -1482,7 +1482,9 @@ alle nicht freigegebenen WebHook-Methoden werden abgewiesen. Da IPSView und die
 Symcon-Vorschau WebContent als isoliertes Dokument ausführen können, ermittelt
 der Loader die tatsächliche Symcon-HTTP-Herkunft vor dem Laden. Kann diese
 Herkunft nicht bestimmt werden, erscheint eine konkrete Fehlermeldung statt
-einer leeren Fläche.
+einer leeren Fläche. Das über den WebHook ausgelieferte Dashboard lädt seine
+HTML-, CSS- und JavaScript-Dateien über den festen Modulpfad, weil Symcon
+WebHook-Aufrufe mit einem synthetischen PHP-Dateipfad ausführt.
 
 Das klassische WebFront ist keine unterstützte Bedienoberfläche des Moduls.
 Unterstützt und gemeinsam gepflegt werden ausschließlich die native

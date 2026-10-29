@@ -52,11 +52,13 @@ assertIPSView(
         && str_contains($module, 'private function RenderIPSViewEmbedHTML(): string')
         && str_contains($module, '$this->VisualizationHTTPOriginScript()')
         && str_contains($module, "file_get_contents(__DIR__ . '/visualization/ipsview-loader.js')")
+        && str_contains($module, 'protected function VisualizationAssetDirectory(): string')
+        && str_contains($module, "return __DIR__ . '/visualization';")
         && str_contains($module, 'id="oha-ipsview-error"')
         && str_contains($ipsViewLoader, 'originResolver.resolve(environment)')
         && str_contains($ipsViewLoader, "url.searchParams.set('token', configuration.token)")
         && str_contains($ipsViewLoader, 'message.hidden = false;'),
-    'The IPSView variable must resolve the stable authenticated dashboard against the Symcon HTTP origin and show loader failures.'
+    'The IPSView variable must resolve the stable authenticated dashboard against the Symcon HTTP origin, use a WebHook-safe asset directory and show loader failures.'
 );
 assertIPSView(
     str_contains($module, '$this->RegisterHook($this->IPSViewHookAddress());')
