@@ -15,6 +15,7 @@ $form = (string) file_get_contents($root . '/OpenHomeAlarm/form.json');
 $html = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/index.html');
 $css = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/style.css');
 $javascript = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/app.js');
+$ipsViewLoader = (string) file_get_contents($root . '/OpenHomeAlarm/visualization/ipsview-loader.js');
 $readme = (string) file_get_contents($root . '/OpenHomeAlarm/README.md');
 $locale = (string) file_get_contents($root . '/OpenHomeAlarm/locale.json');
 $styleHelper = (string) file_get_contents($root . '/libs/helper/IPSViewStyleHelper.php');
@@ -49,9 +50,13 @@ assertIPSView(
     str_contains($module, 'public function GetIPSViewHTML(): string')
         && preg_match('/return (?:\$debugResult = )?\$this->RenderIPSViewEmbedHTML\(\);/', $module) === 1
         && str_contains($module, 'private function RenderIPSViewEmbedHTML(): string')
-        && str_contains($module, '<iframe')
-        && str_contains($module, '?view=dashboard&amp;token='),
-    'The IPSView variable must embed the dashboard from its stable authenticated hook origin.'
+        && str_contains($module, '$this->VisualizationHTTPOriginScript()')
+        && str_contains($module, "file_get_contents(__DIR__ . '/visualization/ipsview-loader.js')")
+        && str_contains($module, 'id="oha-ipsview-error"')
+        && str_contains($ipsViewLoader, 'originResolver.resolve(environment)')
+        && str_contains($ipsViewLoader, "url.searchParams.set('token', configuration.token)")
+        && str_contains($ipsViewLoader, 'message.hidden = false;'),
+    'The IPSView variable must resolve the stable authenticated dashboard against the Symcon HTTP origin and show loader failures.'
 );
 assertIPSView(
     str_contains($module, '$this->RegisterHook($this->IPSViewHookAddress());')

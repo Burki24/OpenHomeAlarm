@@ -7600,9 +7600,15 @@ PHP,
      */
     private function RenderIPSViewEmbedHTML(): string
     {
-        $source = '/hook/' . htmlspecialchars($this->IPSViewHookAddress(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
-            . '?view=dashboard&amp;token=' . rawurlencode($this->IPSViewToken());
-        $interaction = $this->VisualizationInteractionScript();
+        $configuration = $this->EncodeVisualizationHTMLJSON([
+            'path'  => '/hook/' . $this->IPSViewHookAddress(),
+            'token' => $this->IPSViewToken(),
+            'title' => 'OpenHomeAlarm',
+            'error' => $this->Translate('The OpenHomeAlarm view could not be loaded. Please regenerate the IPSView HTML in the instance configuration.')
+        ]);
+        $loader = $this->VisualizationInteractionScript() . "\n"
+            . $this->VisualizationHTTPOriginScript() . "\n"
+            . (string) file_get_contents(__DIR__ . '/visualization/ipsview-loader.js');
 
         return <<<HTML
 <!doctype html>
@@ -7624,11 +7630,23 @@ PHP,
         iframe {
             display: block;
         }
+        p {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 1rem;
+            color: #8b1e1e;
+            font: 600 14px/1.45 sans-serif;
+        }
+        [hidden] {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
-    <iframe src="{$source}" title="OpenHomeAlarm" referrerpolicy="no-referrer"></iframe>
-    <script>{$interaction}</script>
+    <iframe id="oha-ipsview-dashboard" title="OpenHomeAlarm" referrerpolicy="no-referrer" hidden></iframe>
+    <p id="oha-ipsview-error" role="status" hidden></p>
+    <script id="oha-ipsview-config" type="application/json">{$configuration}</script>
+    <script>{$loader}</script>
 </body>
 </html>
 HTML;

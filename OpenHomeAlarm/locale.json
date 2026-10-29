@@ -533,6 +533,7 @@
             "IPSView": "IPSView",
             "Creates a WebContent variable with a fully operable alarm dashboard for an IPSView HTML-Box.": "Erstellt eine WebContent-Variable mit einer vollständig bedienbaren Alarmanlagen-Oberfläche für eine IPSView-HTML-Box.",
             "In IPSView, use an HTML-Box with the client browser renderer so JavaScript and the controls are available.": "In IPSView eine HTML-Box mit dem Renderer „Browser des Clients“ verwenden, damit JavaScript und die Bedienfunktionen verfügbar sind.",
+            "The OpenHomeAlarm view could not be loaded. Please regenerate the IPSView HTML in the instance configuration.": "Die OpenHomeAlarm-Ansicht konnte nicht geladen werden. Bitte erzeugen Sie das IPSView-HTML in der Instanzkonfiguration neu.",
             "IPSView alarm system": "IPSView-Alarmanlage"
         }
     }

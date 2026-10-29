@@ -17,6 +17,10 @@
 - Die IPSView-HTML-Box lädt das eigentliche Dashboard jetzt über eine stabile,
   token-geschützte WebHook-Adresse. Dadurch bleibt die lokale Bereichsauswahl
   auch nach einem IPSView-Seitenwechsel oder einem Neustart der App erhalten.
+  Die Hook-Adresse wird aus der tatsächlichen Symcon-HTTP-Herkunft ermittelt,
+  damit die Ansicht auch aus isolierten WebContent-Dokumenten der nativen App
+  und Verwaltungskonsole zuverlässig lädt; Auflösungsfehler werden sichtbar
+  gemeldet statt als leere Fläche dargestellt.
 
 - Das Systemprotokoll kennzeichnet vorhandene Quellen jetzt ausdrücklich mit
   **Quelle**. Bei `main` bleibt die vollständige Anlagenhistorie sichtbar;

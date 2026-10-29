@@ -1478,7 +1478,11 @@ Die HTML-Box bettet das Dashboard von einer authentifizierten WebHook-Adresse
 derselben OpenHomeAlarm-Instanz ein. Dadurch besitzt die Anwendung in IPSView
 eine stabile HTTP-Herkunft und kann ausschließlich die zuletzt angezeigte Area
 clientlokal speichern. Direkte GET-Aufrufe ohne den instanzbezogenen Token und
-alle nicht freigegebenen WebHook-Methoden werden abgewiesen.
+alle nicht freigegebenen WebHook-Methoden werden abgewiesen. Da IPSView und die
+Symcon-Vorschau WebContent als isoliertes Dokument ausführen können, ermittelt
+der Loader die tatsächliche Symcon-HTTP-Herkunft vor dem Laden. Kann diese
+Herkunft nicht bestimmt werden, erscheint eine konkrete Fehlermeldung statt
+einer leeren Fläche.
 
 Das klassische WebFront ist keine unterstützte Bedienoberfläche des Moduls.
 Unterstützt und gemeinsam gepflegt werden ausschließlich die native

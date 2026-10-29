@@ -63,9 +63,10 @@ $commands = [
     ['Check module-specific color guides', 'php tests/color-guides.php'],
     ['Check visualization disarm codepad', 'php tests/codepad.php'],
     ['Check IPSView WebContent integration', 'php tests/ipsview.php'],
+    ['Check IPSView HTTP dashboard loader', 'node tests/ipsview-loader.js'],
     ['Check IPSView style migration', 'php tests/ipsview-migration.php'],
     ['Check Symcon runtime compatibility', 'php tests/symcon-runtime.php'],
-    ['Check visualization JavaScript syntax', 'node --check OpenHomeAlarm/visualization/app.js'],
+    ['Check visualization JavaScript syntax', 'node --check OpenHomeAlarm/visualization/app.js && node --check OpenHomeAlarm/visualization/ipsview-loader.js'],
     ['Test library metadata updater', 'python3 tests/test_update_library_metadata.py'],
     ['Test reproducible release artifact', 'python3 tests/test_build_release_artifact.py'],
 ];
