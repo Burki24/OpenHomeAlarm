@@ -2,6 +2,13 @@
 
 # Unveröffentlicht
 
+## Korrigiert
+
+- Die Wiederherstellung einer laufenden Ein- oder Ausgangsverzögerung durch
+  `ApplyChanges()` aktualisiert Restzeit und Timer, führt dabei aber keine
+  zusätzliche sekündliche Countdown-Aktion aus. Die nächste Aktion erfolgt
+  regulär mit dem folgenden Timer-Takt.
+
 ## Neu
 
 - Unter **Ansicht → Sichtbare Bedienelemente** lassen sich Systemprotokoll,

@@ -225,6 +225,11 @@ class IPSModuleStrict
         $this->attributes[$name] = $value;
     }
 
+    public function TestSetAttributeInteger(string $name, int $value): void
+    {
+        $this->attributes[$name] = $value;
+    }
+
     protected function SetVisualizationType(int $type): bool
     {
         return true;
@@ -831,8 +836,9 @@ $cancelledCountdown->TestSetPropertyString('Sensors', json_encode([
 ], JSON_THROW_ON_ERROR));
 assertAlarmAction($cancelledCountdown->ArmAway(), 'A cancellable exit countdown must start.');
 assertAlarmAction(count($testActions) === 1, 'A begun exit countdown must execute its first positive step.');
+$cancelledCountdown->TestSetAttributeInteger('ExitDelayDeadline', time() + 4);
 $cancelledCountdown->ApplyChanges();
-assertAlarmAction(count($testActions) === 1, 'ApplyChanges must not repeat the current countdown step or finish a running countdown.');
+assertAlarmAction(count($testActions) === 1, 'ApplyChanges must restore countdown status without executing another countdown action.');
 $cancelledCountdown->Disarm();
 assertAlarmAction(
     count($testActions) === 2

@@ -3369,25 +3369,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            $state = $this->ReadAlarmState();
-            $deadline = match ($state) {
-                self::STATE_EXIT_DELAY  => $this->ReadAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE),
-                self::STATE_ENTRY_DELAY => $this->ReadAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE),
-                default                 => 0
-            };
-
-            if ($deadline <= 0) {
-                $this->ClearDelayStatus();
-                $this->PublishVisualizationState();
-
-                return;
-            }
-
-            $restoration = AlarmTimerSchedule::restore($deadline, time());
-            $this->SetDelayRemaining($restoration['RemainingSeconds']);
-            $this->RunCountdownActionStep($deadline, $restoration['RemainingSeconds']);
-            $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $restoration['Expired'] ? 0 : 1000);
-            $this->PublishVisualizationState();
+            $this->RefreshDelayStatus(true);
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -3399,6 +3381,31 @@ class OpenHomeAlarm extends IPSModuleStrict
         } finally {
             $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, true);
         }
+    }
+
+    private function RefreshDelayStatus(bool $runCountdownAction): void
+    {
+        $state = $this->ReadAlarmState();
+        $deadline = match ($state) {
+            self::STATE_EXIT_DELAY  => $this->ReadAttributeInteger(self::ATTRIBUTE_EXIT_DELAY_DEADLINE),
+            self::STATE_ENTRY_DELAY => $this->ReadAttributeInteger(self::ATTRIBUTE_ENTRY_DELAY_DEADLINE),
+            default                 => 0
+        };
+
+        if ($deadline <= 0) {
+            $this->ClearDelayStatus();
+            $this->PublishVisualizationState();
+
+            return;
+        }
+
+        $restoration = AlarmTimerSchedule::restore($deadline, time());
+        $this->SetDelayRemaining($restoration['RemainingSeconds']);
+        if ($runCountdownAction) {
+            $this->RunCountdownActionStep($deadline, $restoration['RemainingSeconds']);
+        }
+        $this->SetTimerInterval(self::TIMER_DELAY_STATUS, $restoration['Expired'] ? 0 : 1000);
+        $this->PublishVisualizationState();
     }
 
     /** Prepares the partition choices for the bulk sensor importer. */
@@ -12343,7 +12350,7 @@ HTML;
                 }
             );
             if ($this->ReadAlarmState() === self::STATE_EXIT_DELAY) {
-                $this->UpdateDelayStatus();
+                $this->RefreshDelayStatus(false);
             }
 
             return;
@@ -12367,7 +12374,7 @@ HTML;
                 }
             );
             if ($this->ReadAlarmState() === self::STATE_ENTRY_DELAY) {
-                $this->UpdateDelayStatus();
+                $this->RefreshDelayStatus(false);
             }
 
             return;
