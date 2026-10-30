@@ -20,6 +20,14 @@
 
 ## Neu
 
+- Die vorhandenen Scharfschaltfunktionen `OHA_Arm()`, `OHA_ArmHome()`,
+  `OHA_ArmAway()`, `OHA_ArmNight()`, `OHA_ArmPartition()` und
+  `OHA_ArmPartitions()` akzeptieren als letzten optionalen Parameter eine
+  Quellenbezeichnung für das Ereignisprotokoll. Die Zuordnung bleibt während
+  einer Ausgangsverzögerung bereichsbezogen und neustartsicher erhalten und
+  wird nach Scharfschaltung oder Abbruch entfernt. Bestehende Aufrufe bleiben
+  unverändert kompatibel.
+
 - Jeder Kachel- oder IPSView-Client kann lokal und instanzbezogen mit einem
   lesbaren Bediengerätenamen versehen werden. Die Kachel stellt die Einstellung
   über ein Zahnrad neben der Aktualisierung bereit, IPSView über die

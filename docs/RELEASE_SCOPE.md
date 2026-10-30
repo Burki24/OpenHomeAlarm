@@ -84,7 +84,11 @@ Der Release umfasst verbindlich:
     oder IPSView-Bediengerät. Der Name wird bei einer Bedienaktion sowie beim
     Abschluss oder Abbruch ihrer Ausgangsverzögerung als optionale
     Zuordnungsinformation in das Ereignisprotokoll übernommen, ist aber weder
-    Gerätekennung noch Authentifizierungs- oder Berechtigungsmerkmal.
+    Gerätekennung noch Authentifizierungs- oder Berechtigungsmerkmal,
+39. eine optionale Quellenbezeichnung als letzter Parameter aller vorhandenen
+    öffentlichen Scharfschaltfunktionen. Sie wird für Start und Abschluss des
+    Scharfschaltvorgangs protokolliert, während einer Ausgangsverzögerung
+    bereichsbezogen und neustartsicher vorgehalten und danach entfernt.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -126,6 +130,10 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
   bei gemeinsam geschalteten Bereichen nicht pro Bereich
   vervielfacht werden.
 - Alarmgedächtnis, Ereignishistorie, Sperrzeit und laufende Fristen verhalten sich über `ApplyChanges()` und Neustarts wie dokumentiert.
+- Eine optionale Scharfschaltquelle verändert keine Berechtigung und keinen
+  Schaltweg. Ungültige Quellen werden vor jeder Zustandsänderung abgewiesen;
+  gültige Quellen bleiben nur für den zugehörigen verzögerten Schaltvorgang
+  erhalten. Blockierende Sensoren bleiben als Ablehnungsgrund sichtbar.
 - Fehlende Sensor- oder Störungsvariablen werden sichtbar und sicherheitsgerichtet behandelt.
 - Externe Alarmereignisse können ausschließlich einen bereits scharfen,
   freigegebenen Bereich unmittelbar in Alarm versetzen. Ereignisse aus

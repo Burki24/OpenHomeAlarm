@@ -41,6 +41,14 @@ dort aktiv.
 
 Der optionale Unscharfschaltcode wird als lokale Instanzeigenschaft gespeichert und im Konfigurationsformular verdeckt dargestellt. Er wird weder in Statusvariablen noch im Bedienzustand, Debug-Log oder Ereignisprotokoll ausgegeben. Der Zugriff auf die Symcon-Konfiguration, Sicherungen und JSON-RPC-Schnittstellen muss trotzdem angemessen geschützt werden. `OHA_Disarm()`, `OHA_DisarmWithSource()`, `OHA_DisarmPartition()` und `OHA_DisarmPartitions()` sind bewusst vertrauenswürdige Automationsschnittstellen ohne Code-Prüfung; benutzerseitige Oberflächen müssen `OHA_DisarmWithCode()` beziehungsweise die codegeschützte Kachelaktion verwenden. Bei `OHA_DisarmWithSource()` dient die Quelle ausschließlich der Protokollzuordnung und stellt keine Authentifizierung dar. Die aufrufende Automation muss die Berechtigung vorher selbst sicher prüfen. Auch `OHA_GrantPassage()`, `OHA_GrantPassagePartition()` und `OHA_GrantPassagePartitions()` sind ausschließlich für vertrauenswürdige Automationen vorgesehen: Die aufrufende Logik muss ein berechtigtes Öffnen sicher erkennen, bevor sie einen dafür ausdrücklich konfigurierten Sensor zeitlich begrenzt freigibt.
 
+Die öffentlichen Scharfschaltfunktionen akzeptieren optional ebenfalls eine
+selbst angegebene Quellenbezeichnung. Sie wird auf höchstens 80 Zeichen und
+Steuerzeichen geprüft, ausschließlich zur Protokollzuordnung verwendet und
+gewährt keine Berechtigung. Während einer Ausgangsverzögerung hält das Modul
+die Quelle bereichsbezogen bis zum Abschluss oder Abbruch vor und entfernt sie
+anschließend. Eine ungültige Quelle lehnt den Scharfschaltauftrag ab, bevor ein
+Alarmbereich seinen Zustand ändert.
+
 Die optionale IPSView-Oberfläche verwendet einen instanzbezogenen WebHook mit einem zufälligen, persistenten Zugriffstoken. Der WebHook akzeptiert ausschließlich eine feste Liste von Visualisierungsaktionen per POST und ist bei deaktivierter IPSView-Ausgabe nicht nutzbar. Das Token ist Bestandteil der WebContent-Seite und deshalb wie die IPSView-/Symcon-Verbindung selbst zu schützen. Der Unscharfschaltcode wird nur im POST-Body übertragen und nicht in URLs oder Statusvariablen geschrieben. Bei Zugriff außerhalb eines vertrauenswürdigen lokalen Netzes ist eine verschlüsselte HTTPS-/Symcon-Connect-Verbindung erforderlich.
 
 Ein Kachel- oder IPSView-Client kann sich für die Ereigniszuordnung einen frei

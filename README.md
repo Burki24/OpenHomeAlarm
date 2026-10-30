@@ -93,6 +93,10 @@ bereits ausgelöste Sensoren, die unter **Sensoren und Auslöser** einzeln dafü
 freigegeben wurden, zum Beispiel
 `OHA_ArmPartition(12345, 'garage', 'away', null, null, true)`. Sobald ein so
 überbrückter Sensor wieder normal ist, wird er erneut überwacht.
+Als siebter und letzter Parameter kann eine kurze Quelle für das
+Ereignisprotokoll folgen, beispielsweise
+`OHA_ArmPartition(12345, 'garage', 'away', null, null, false, 'Skript Garage')`.
+Die vorhandenen Aufrufe ohne Quelle bleiben unverändert gültig.
 
 `OHA_ArmPartitions()` prüft zuerst die gesamte angegebene Liste. Ist ein
 gewählter Bereich blockiert oder ungültig, wird keiner der Bereiche
@@ -126,6 +130,12 @@ kann es die Gesamtanlage mit protokollierter Quelle unscharf schalten, zum
 Beispiel `OHA_DisarmWithSource(12345, 'Zutrittskontrolle Haustür')`. Die Quellenbezeichnung
 dient ausschließlich dem Ereignisprotokoll und ersetzt keine
 Berechtigungsprüfung.
+
+Auch die vorhandenen Scharfschaltfunktionen akzeptieren als letzten optionalen
+Parameter eine solche Quellenbezeichnung. Beispiel:
+`OHA_ArmAway(12345, null, null, false, 'Wochenplan Abwesend')`. Bei einer
+Ausgangsverzögerung bleibt sie bis zur abschließenden Scharfschaltung oder zum
+Abbruch erhalten und wird anschließend entfernt.
 
 Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
 `OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,

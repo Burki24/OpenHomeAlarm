@@ -305,6 +305,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT = 'PushoverEmergencyReceipt';
     private const ATTRIBUTE_PARTITION_RUNTIME = 'PartitionRuntime';
     private const ATTRIBUTE_PENDING_ARMING_CLIENT_NAMES = 'PendingArmingClientNames';
+    private const ATTRIBUTE_PENDING_ARMING_SOURCES = 'PendingArmingSources';
     private const ATTRIBUTE_PARTITION_STATUS_VARIABLES = 'PartitionStatusVariables';
     private const ATTRIBUTE_PARTITION_ALARMS = 'PartitionAlarms';
     private const ATTRIBUTE_PASSAGE_RUNTIME = 'PassageRuntime';
@@ -446,6 +447,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->RegisterAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_CLIENT_NAMES);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_SOURCES);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_STATUS_VARIABLES);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PASSAGE_RUNTIME);
@@ -1688,12 +1690,17 @@ class OpenHomeAlarm extends IPSModuleStrict
      * Arms one enabled alarm partition. The configured main/default partition
      * represents the complete system and therefore arms every enabled area.
      */
-    public function ArmPartition(string $partitionID, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    public function ArmPartition(string $partitionID, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
     {
         $debugResult = null;
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID, 'Modus' => $mode, 'VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
+            $source = $this->NormalizeAutomationSource($source);
+            if ($source === null) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Scharfschaltung abgelehnt: Die optionale Quellenbezeichnung ist länger als 80 Zeichen oder enthält Steuerzeichen.');
+                return $debugResult = false;
+            }
             if ($delaySeconds !== null && $delaySeconds < 0) {
                 $this->PublishVisualizationState();
 
@@ -1705,10 +1712,10 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return $debugResult = false;
             }
             if ($partitionID === $this->DefaultPartitionID()) {
-                return $debugResult = $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors);
+                return $debugResult = $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors, $source);
             }
 
-            return $debugResult = $this->ArmSinglePartition($partitionID, $mode, $delaySeconds, $silent, $bypassActiveSensors);
+            return $debugResult = $this->ArmSinglePartition($partitionID, $mode, $delaySeconds, $silent, $bypassActiveSensors, $source);
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -1729,12 +1736,17 @@ class OpenHomeAlarm extends IPSModuleStrict
      *
      * @param list<string> $partitionIDs
      */
-    public function ArmPartitions(array $partitionIDs, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    public function ArmPartitions(array $partitionIDs, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
     {
         $debugResult = null;
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereiche' => $partitionIDs, 'Modus' => $mode, 'VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
+            $source = $this->NormalizeAutomationSource($source);
+            if ($source === null) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Scharfschaltung abgelehnt: Die optionale Quellenbezeichnung ist länger als 80 Zeichen oder enthält Steuerzeichen.');
+                return $debugResult = false;
+            }
             if ($delaySeconds !== null && $delaySeconds < 0) {
                 return $debugResult = false;
             }
@@ -1748,7 +1760,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return $debugResult = false;
             }
             if (in_array($this->DefaultPartitionID(), $partitionIDs, true)) {
-                return $debugResult = $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors);
+                return $debugResult = $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors, $source);
             }
 
             $states = $this->ReadPartitionRuntime();
@@ -1780,6 +1792,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
             $this->WritePartitionRuntime($states);
             $this->SetPendingArmingClientNames($partitionIDs, $exitDelaySeconds > 0);
+            $this->SetPendingArmingSources($partitionIDs, $exitDelaySeconds > 0, $source);
             $this->SchedulePartitionRuntimeTimer($states, true);
             $this->RecordAutomaticSensorBypasses($proposedBypasses, $allSensors, $modeValue);
             foreach ($partitionIDs as $partitionID) {
@@ -1787,7 +1800,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                     $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
                         ? self::EVENT_EXIT_DELAY_STARTED
                         : self::EVENT_ARMED,
-                    '',
+                    $source,
                     $modeValue,
                     $states[$partitionID]['State'],
                     $partitionID
@@ -1894,6 +1907,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         try {
             $states = $this->ReadPartitionRuntime();
             $pendingArmingClientNames = $this->ReadPendingArmingClientNames();
+            $pendingArmingSources = $this->ReadPendingArmingSources();
             $now = time();
             $newAlarms = [];
             $armedPartitions = [];
@@ -1933,7 +1947,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             foreach ($cancelledArming as $partitionID => $cancellation) {
                 $this->ExecuteWithVisualizationClientName(
                     $pendingArmingClientNames[$partitionID] ?? '',
-                    function () use ($partitionID, $cancellation): void
+                    function () use ($partitionID, $cancellation, $pendingArmingSources): void
                     {
                         $this->AppendEvent(
                             self::EVENT_ARM_CANCELLED,
@@ -1942,16 +1956,28 @@ class OpenHomeAlarm extends IPSModuleStrict
                             self::STATE_EXIT_DELAY,
                             $partitionID
                         );
-                        $this->AppendEvent(self::EVENT_DISARMED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
+                        $this->AppendEvent(
+                            self::EVENT_DISARMED,
+                            $pendingArmingSources[$partitionID] ?? '',
+                            self::MODE_NONE,
+                            self::STATE_DISARMED,
+                            $partitionID
+                        );
                     }
                 );
             }
             foreach ($armedPartitions as $partitionID => $mode) {
                 $this->ExecuteWithVisualizationClientName(
                     $pendingArmingClientNames[$partitionID] ?? '',
-                    function () use ($partitionID, $mode): void
+                    function () use ($partitionID, $mode, $pendingArmingSources): void
                     {
-                        $this->AppendEvent(self::EVENT_ARMED, '', $mode, self::STATE_ARMED, $partitionID);
+                        $this->AppendEvent(
+                            self::EVENT_ARMED,
+                            $pendingArmingSources[$partitionID] ?? '',
+                            $mode,
+                            self::STATE_ARMED,
+                            $partitionID
+                        );
                     }
                 );
             }
@@ -1979,21 +2005,25 @@ class OpenHomeAlarm extends IPSModuleStrict
      * Supported mode names are home, away and night. Invalid names are rejected
      * without changing the current alarm state.
      */
-    public function Arm(string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    public function Arm(string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
     {
         $debugResult = null;
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Modus' => $mode, 'VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
+            $source = $this->NormalizeAutomationSource($source);
             $modeValue = AlarmStateMachine::armingModeFromName($mode);
 
-            if ($modeValue === null || ($delaySeconds !== null && $delaySeconds < 0)) {
+            if ($source === null || $modeValue === null || ($delaySeconds !== null && $delaySeconds < 0)) {
+                if ($source === null) {
+                    $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Scharfschaltung abgelehnt: Die optionale Quellenbezeichnung ist länger als 80 Zeichen oder enthält Steuerzeichen.');
+                }
                 $this->PublishVisualizationState();
 
                 return $debugResult = false;
             }
 
-            $result = $this->ArmAllPartitions($modeValue, $delaySeconds, $silent, $bypassActiveSensors);
+            $result = $this->ArmAllPartitions($modeValue, $delaySeconds, $silent, $bypassActiveSensors, $source);
             $this->PublishVisualizationState();
 
             return $debugResult = $result;
@@ -2193,13 +2223,13 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Arms the system in Home mode when every sensor assigned to Home is ready.
      */
-    public function ArmHome(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    public function ArmHome(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
     {
         $debugResult = null;
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
-            return $debugResult = $this->Arm('home', $delaySeconds, $silent, $bypassActiveSensors);
+            return $debugResult = $this->Arm('home', $delaySeconds, $silent, $bypassActiveSensors, $source);
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -2216,13 +2246,13 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Arms the system in Away mode when every sensor assigned to Away is ready.
      */
-    public function ArmAway(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    public function ArmAway(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
     {
         $debugResult = null;
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
-            return $debugResult = $this->Arm('away', $delaySeconds, $silent, $bypassActiveSensors);
+            return $debugResult = $this->Arm('away', $delaySeconds, $silent, $bypassActiveSensors, $source);
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -2239,13 +2269,13 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Arms the system in Night mode when every sensor assigned to Night is ready.
      */
-    public function ArmNight(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    public function ArmNight(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
     {
         $debugResult = null;
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
-            return $debugResult = $this->Arm('night', $delaySeconds, $silent, $bypassActiveSensors);
+            return $debugResult = $this->Arm('night', $delaySeconds, $silent, $bypassActiveSensors, $source);
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -2294,12 +2324,9 @@ class OpenHomeAlarm extends IPSModuleStrict
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            if (preg_match('/[\x00-\x1F\x7F]/', $source) === 1) {
-                return $debugResult = false;
-            }
-            $source = trim($source);
-            $length = function_exists('mb_strlen') ? mb_strlen($source) : strlen($source);
-            if ($source === '' || $length > 80) {
+            $source = $this->NormalizeAutomationSource($source, true);
+            if ($source === null) {
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Unscharfschaltung abgelehnt: Die Quellenbezeichnung ist leer, länger als 80 Zeichen oder enthält Steuerzeichen.');
                 return $debugResult = false;
             }
 
@@ -3433,6 +3460,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $mode = $this->ReadAlarmMode();
             if ($state !== self::STATE_EXIT_DELAY) {
                 $this->SetPendingArmingClientNames([$this->DefaultPartitionID()], false);
+                $this->SetPendingArmingSources([$this->DefaultPartitionID()], false);
                 $this->ClearDelayStatus();
                 $this->PublishVisualizationState();
 
@@ -3440,12 +3468,13 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
 
             $clientName = $this->TakePendingArmingClientName($this->DefaultPartitionID());
+            $source = $this->TakePendingArmingSource($this->DefaultPartitionID());
             $this->ExecuteWithVisualizationClientName(
                 $clientName,
-                function () use ($state, $mode): void
+                function () use ($state, $mode, $source): void
                 {
                     if (!AlarmStateMachine::canCompleteExitDelay($state, $mode)) {
-                        $this->Disarm();
+                        $this->DisarmInternal($source);
 
                         return;
                     }
@@ -3463,14 +3492,14 @@ class OpenHomeAlarm extends IPSModuleStrict
                             $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs, true, true, true),
                             $mode
                         );
-                        $this->Disarm();
+                        $this->DisarmInternal($source);
 
                         return;
                     }
 
                     $this->ClearDelayStatus();
                     $this->SetAlarmState(self::STATE_ARMED);
-                    $this->AppendEvent(self::EVENT_ARMED);
+                    $this->AppendEvent(self::EVENT_ARMED, $source);
                     $this->PublishVisualizationState();
                 }
             );
@@ -5235,6 +5264,20 @@ class OpenHomeAlarm extends IPSModuleStrict
         return __DIR__ . '/visualization';
     }
 
+    private function NormalizeAutomationSource(string $source, bool $required = false): ?string
+    {
+        if (preg_match('/[\x00-\x1F\x7F]/', $source) === 1) {
+            return null;
+        }
+        $source = trim($source);
+        $length = function_exists('mb_strlen') ? mb_strlen($source) : strlen($source);
+        if (($required && $source === '') || $length > 80) {
+            return null;
+        }
+
+        return $source;
+    }
+
     private function IsExternalAlarmEventHookRequest(): bool
     {
         $requestURI = is_string($_SERVER['REQUEST_URI'] ?? null) ? $_SERVER['REQUEST_URI'] : '';
@@ -6685,6 +6728,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $wasConfigurationLocked = $this->IsSecurityConfigurationLocked();
         $this->PublishPartitionStatusVariableValues($states);
         $this->SynchronizePendingArmingClientNames($states);
+        $this->SynchronizePendingArmingSources($states);
         unset($states[$this->DefaultPartitionID()]);
         $this->WritePersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME, $states);
         $this->ReloadConfigurationFormIfLockChanged($wasConfigurationLocked);
@@ -6750,6 +6794,69 @@ class OpenHomeAlarm extends IPSModuleStrict
         );
         if ($updated !== $stored) {
             $this->WritePersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_CLIENT_NAMES, $updated);
+        }
+    }
+
+    /** @return array<string,string> */
+    private function ReadPendingArmingSources(): array
+    {
+        $stored = $this->ReadPersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_SOURCES);
+        $result = [];
+        foreach ($stored as $partitionID => $source) {
+            if (!is_string($partitionID) || !is_string($source)) {
+                continue;
+            }
+            $source = $this->NormalizeAutomationSource($source);
+            if ($source !== null && $source !== '') {
+                $result[$partitionID] = $source;
+            }
+        }
+
+        return $result;
+    }
+
+    /** @param list<string> $partitionIDs */
+    private function SetPendingArmingSources(array $partitionIDs, bool $delayed, string $source = ''): void
+    {
+        $stored = $this->ReadPendingArmingSources();
+        $updated = $stored;
+        $source = $delayed ? ($this->NormalizeAutomationSource($source) ?? '') : '';
+        foreach (array_unique($partitionIDs) as $partitionID) {
+            if ($source === '') {
+                unset($updated[$partitionID]);
+            } else {
+                $updated[$partitionID] = $source;
+            }
+        }
+        if ($updated !== $stored) {
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_SOURCES, $updated);
+        }
+    }
+
+    private function TakePendingArmingSource(string $partitionID): string
+    {
+        $stored = $this->ReadPendingArmingSources();
+        $source = $stored[$partitionID] ?? '';
+        if (array_key_exists($partitionID, $stored)) {
+            unset($stored[$partitionID]);
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_SOURCES, $stored);
+        }
+
+        return $source;
+    }
+
+    /** @param array<string,array{State:int}> $states */
+    private function SynchronizePendingArmingSources(array $states): void
+    {
+        $stored = $this->ReadPendingArmingSources();
+        $updated = array_filter(
+            $stored,
+            static fn (string $source, string $partitionID): bool => isset($states[$partitionID])
+                && $states[$partitionID]['State'] === self::STATE_EXIT_DELAY,
+            ARRAY_FILTER_USE_BOTH
+        );
+        if ($updated !== $stored) {
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_SOURCES, $updated);
         }
     }
 
@@ -10979,7 +11086,7 @@ HTML;
      *
      * @param int $mode One of MODE_HOME, MODE_AWAY or MODE_NIGHT.
      */
-    private function ArmMode(int $mode, ?int $delaySeconds = null): bool
+    private function ArmMode(int $mode, ?int $delaySeconds = null, string $source = ''): bool
     {
         if (!AlarmStateMachine::isArmingMode($mode)) {
             throw new InvalidArgumentException('Unsupported arming target mode.');
@@ -11016,26 +11123,28 @@ HTML;
 
         if ($exitDelaySeconds === 0) {
             $this->SetPendingArmingClientNames([$defaultPartitionID], false);
+            $this->SetPendingArmingSources([$defaultPartitionID], false);
             $this->SetAlarmState(self::STATE_ARMED);
-            $this->AppendEvent(self::EVENT_ARMED);
+            $this->AppendEvent(self::EVENT_ARMED, $source);
 
             return true;
         }
 
         $this->SetAlarmState(self::STATE_EXIT_DELAY);
         $this->SetPendingArmingClientNames([$defaultPartitionID], true);
+        $this->SetPendingArmingSources([$defaultPartitionID], true, $source);
         $this->StartDelayTimer(
             self::TIMER_EXIT_DELAY,
             self::ATTRIBUTE_EXIT_DELAY_DEADLINE,
             $exitDelaySeconds
         );
-        $this->AppendEvent(self::EVENT_EXIT_DELAY_STARTED);
+        $this->AppendEvent(self::EVENT_EXIT_DELAY_STARTED, $source);
 
         return true;
     }
 
     /** Arms one non-default area after validating only that area's readiness. */
-    private function ArmSinglePartition(string $partitionID, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    private function ArmSinglePartition(string $partitionID, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
     {
         $modeValue = AlarmStateMachine::armingModeFromName($mode);
         if ($modeValue === null) {
@@ -11081,13 +11190,18 @@ HTML;
             [$partitionID],
             $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
         );
+        $this->SetPendingArmingSources(
+            [$partitionID],
+            $states[$partitionID]['State'] === self::STATE_EXIT_DELAY,
+            $source
+        );
         $this->SchedulePartitionRuntimeTimer($states, true);
         $this->RecordAutomaticSensorBypasses($proposedBypasses, $sensors, $modeValue);
         $this->AppendEvent(
             $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
                 ? self::EVENT_EXIT_DELAY_STARTED
                 : self::EVENT_ARMED,
-            '',
+            $source,
             $modeValue,
             $states[$partitionID]['State'],
             $partitionID
@@ -11103,7 +11217,7 @@ HTML;
      * Every non-default area is validated before the main area changes state,
      * so a blocker in any area leaves all areas unchanged.
      */
-    private function ArmAllPartitions(int $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    private function ArmAllPartitions(int $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
     {
         $states = $this->ReadPartitionRuntime();
         $sensors = $this->ReadConfiguredSensors();
@@ -11116,7 +11230,7 @@ HTML;
 
         $previousBypasses = $this->ReadAutomaticBypassedSensorAssignments();
         $this->AddAutomaticSensorBypasses($proposedBypasses);
-        if (!$this->ArmMode($mode, $delaySeconds)) {
+        if (!$this->ArmMode($mode, $delaySeconds, $source)) {
             $this->WriteAutomaticBypassedSensorAssignments($previousBypasses);
             if ($proposedBypasses !== []) {
                 $this->UpdateReadinessFromSensors($this->SensorsForPartition($sensors, $this->DefaultPartitionID()));
@@ -11145,6 +11259,11 @@ HTML;
             $this->EnabledNonDefaultPartitionIDs(),
             $exitDelaySeconds > 0
         );
+        $this->SetPendingArmingSources(
+            $this->EnabledNonDefaultPartitionIDs(),
+            $exitDelaySeconds > 0,
+            $source
+        );
         $this->SchedulePartitionRuntimeTimer($states);
         $this->RecordAutomaticSensorBypasses($proposedBypasses, $sensors, $mode);
         foreach ($this->EnabledNonDefaultPartitionIDs() as $partitionID) {
@@ -11152,7 +11271,7 @@ HTML;
                 $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
                     ? self::EVENT_EXIT_DELAY_STARTED
                     : self::EVENT_ARMED,
-                '',
+                $source,
                 $mode,
                 $states[$partitionID]['State'],
                 $partitionID
@@ -13020,6 +13139,7 @@ HTML;
         $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
         $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
         $this->SetPendingArmingClientNames([$this->DefaultPartitionID()], false);
+        $this->SetPendingArmingSources([$this->DefaultPartitionID()], false);
         $this->ClearPendingAlarmSource();
         $this->ClearDelayStatus();
     }
