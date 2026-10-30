@@ -1082,7 +1082,9 @@ Alarmbereich, Störungstyp, Auswertungsregel, gemeinsamer Auslöse-/Normalwert s
 blockieren** und **Alarm sofort und 24/7 auslösen** gemeinsam festgelegt. Die
 Schaltfläche **Auswahl hinzufügen** steht in der Fußleiste direkt neben
 **Abbrechen** und schließt das Suchfenster nach erfolgreicher Übernahme. Die
-erzeugten Zeilen bleiben bis **Änderungen übernehmen** bearbeitbare Entwürfe.
+erzeugten Zeilen erhalten wie beim Sensorimport die Bezeichnung
+**Variablenname (Parentname)** und bleiben bis **Änderungen übernehmen**
+bearbeitbare Entwürfe.
 In der Übersicht wird dabei der frei vergebene Name des Alarmbereichs angezeigt;
 die technische Bereichs-ID bleibt weiterhin unverändert gespeichert und wird
 für Skripte und interne Zuordnungen verwendet.

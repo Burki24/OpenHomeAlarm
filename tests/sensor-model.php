@@ -974,7 +974,7 @@ $addedFaultRows = json_decode(
 assertSensorModel(
     $faultAddResult === ''
         && ($addedFaultRows[1]['VariableID'] ?? null) === 67890
-        && ($addedFaultRows[1]['Name'] ?? null) === 'Door garage'
+        && ($addedFaultRows[1]['Name'] ?? null) === 'Door garage (Security)'
         && ($addedFaultRows[1]['PartitionID'] ?? null) === 'garage'
         && ($addedFaultRows[1]['PartitionName'] ?? null) === 'Garage'
         && ($addedFaultRows[1]['FaultType'] ?? null) === 2
@@ -983,7 +983,7 @@ assertSensorModel(
         && ($addedFaultRows[1]['TriggerValue'] ?? null) === 'true'
         && ($addedFaultRows[1]['TriggerValueSelection'] ?? null) === 'true'
         && ($addedFaultRows[1]['TriggerValueManual'] ?? null) === 'true',
-    'Bulk-added fault inputs must remain immediately editable, keep their ID and name and apply the shared monitoring settings.'
+    'Bulk-added fault inputs must remain immediately editable, keep their ID, include the parent in their name and apply the shared monitoring settings.'
 );
 
 $forgedFaultRows = $faultCandidateRows;

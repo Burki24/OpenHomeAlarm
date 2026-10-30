@@ -3771,7 +3771,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                         ...$normalizedSettings,
                         'PartitionID'    => $selectedPartitionIDs[0],
                         'PartitionNames' => implode(', ', $partitionNames),
-                        'Name'           => $this->CreateImportedSensorName(
+                        'Name'           => $this->CreateImportedVariableName(
                             $variableID,
                             $candidateByID[$variableID]['Name']
                         ),
@@ -3975,7 +3975,10 @@ class OpenHomeAlarm extends IPSModuleStrict
                 foreach ($selectedVariableIDs as $variableID) {
                     $faultInputs[] = [
                         ...$normalizedSettings,
-                        'Name'                  => $candidateByID[$variableID]['Name'],
+                        'Name'                  => $this->CreateImportedVariableName(
+                            $variableID,
+                            $candidateByID[$variableID]['Name']
+                        ),
                         'PartitionName'         => $partitionName,
                         'VariableID'            => $variableID,
                         'TriggerValueSelection' => $normalizedSettings['TriggerValue'],
@@ -8915,7 +8918,7 @@ HTML;
         return $this->FindVariableCandidates($name, $type, $rootObjectID, $includeHidden, $sensors);
     }
 
-    private function CreateImportedSensorName(int $variableID, string $variableName): string
+    private function CreateImportedVariableName(int $variableID, string $variableName): string
     {
         $variableName = trim($variableName);
         $variable = IPS_GetObject($variableID);
