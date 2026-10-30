@@ -80,11 +80,11 @@ Der Release umfasst verbindlich:
     Alarmereignisse mit ausdrücklicher Quellen-, Bereichs- und Modusfreigabe,
     getrennt versioniertem JSON-Vertrag, token-geschütztem WebHook und
     persistentem Wiederholungsschutz,
-38. einen frei wählbaren, ausschließlich clientlokal gespeicherten Namen für
-    jedes Kachel- oder IPSView-Bediengerät. Der Name wird bei einer
-    Bedienaktion als optionale Zuordnungsinformation in das Ereignisprotokoll
-    übernommen, ist aber weder Gerätekennung noch Authentifizierungs- oder
-    Berechtigungsmerkmal.
+38. einen frei wählbaren, clientlokal konfigurierten Namen für jedes Kachel-
+    oder IPSView-Bediengerät. Der Name wird bei einer Bedienaktion sowie beim
+    Abschluss oder Abbruch ihrer Ausgangsverzögerung als optionale
+    Zuordnungsinformation in das Ereignisprotokoll übernommen, ist aber weder
+    Gerätekennung noch Authentifizierungs- oder Berechtigungsmerkmal.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -147,7 +147,9 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 - Ein in Kachel oder IPSView vergebener Bediengerätename bleibt auf den
   jeweiligen Client und die jeweilige OpenHomeAlarm-Instanz begrenzt. Ein
   fehlender, ungültiger oder nicht speicherbarer Name darf keine Alarmaktion
-  blockieren.
+  blockieren. Eine für den Abschluss der Ausgangsverzögerung temporär
+  persistierte Zuordnung bleibt bereichsbezogen, übersteht einen Neustart und
+  wird nach Abschluss, Abbruch oder einem anderen Zustandswechsel entfernt.
 - Der externe Alarmereignis-WebHook akzeptiert ausschließlich aktivierte
   Instanzen, POST mit JSON, einen gültigen instanzbezogenen Schlüssel und den
   dokumentierten Ereignisvertrag.

@@ -1376,7 +1376,7 @@ Quittierung beendet keinen aktiven Alarm und schaltet keinen Bereich unscharf.
 
 OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle. Kachel und IPSView zeigen davon die neuesten 20 Meldungen; die übrigen gespeicherten Einträge bleiben über API und Export verfügbar.
 
-Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbaren Ereignistyp, den zum Ereignis gehörenden `Mode` und `State`, die technische `PartitionID` sowie optional `Source` und `ClientName`. Ältere gespeicherte Einträge ohne Bereichs- oder Bediengeräteangabe bleiben lesbar und erhalten dafür leere Werte. Als Quelle werden bei Alarmen, Eingangsverzögerungen und Sensorüberbrückungen die betroffenen Sensornamen gespeichert; bei abgelehnten oder nach der Ausgangsverzögerung abgebrochenen Scharfschaltungen enthält `Source` die blockierenden Sensoren. `ClientName` enthält ausschließlich bei einem unmittelbar durch die Kachel oder IPSView erzeugten Ereignis den auf diesem Bediengerät lokal vergebenen Namen. Spätere Timer-, Sensor- und Alarmereignisse übernehmen ihn nicht.
+Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbaren Ereignistyp, den zum Ereignis gehörenden `Mode` und `State`, die technische `PartitionID` sowie optional `Source` und `ClientName`. Ältere gespeicherte Einträge ohne Bereichs- oder Bediengeräteangabe bleiben lesbar und erhalten dafür leere Werte. Als Quelle werden bei Alarmen, Eingangsverzögerungen und Sensorüberbrückungen die betroffenen Sensornamen gespeichert; bei abgelehnten oder nach der Ausgangsverzögerung abgebrochenen Scharfschaltungen enthält `Source` die blockierenden Sensoren. `ClientName` enthält bei einem unmittelbar durch die Kachel oder IPSView erzeugten Ereignis den auf diesem Bediengerät lokal vergebenen Namen. Beginnt die Aktion eine Ausgangsverzögerung, gilt dieselbe Zuordnung auch für deren abschließende Scharfschaltung oder den kontrollierten Abbruch. Andere spätere Timer-, Sensor- und Alarmereignisse übernehmen sie nicht.
 
 Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, der Start einer Eingangs- oder Ausgangsverzögerung, Alarm, Rücksetzungen des Alarmausgangs, Unscharfschalten, temporäre Sensorüberbrückungen, Freigabe, Beginn, Abschluss und Ablauf eines Durchgangs, das Löschen des Alarmgedächtnisses, neu aufgetretene bzw. behobene Systemstörungen, erfolgreich ausgeführte Alarm-Eskalationsaktionen, versandte Symcon- beziehungsweise Pushover-Alarmbenachrichtigungen sowie abgewiesene Code-Eingaben und ausgelöste temporäre Code-Sperren. Bei einer Alarmaktion enthält `Source` den Namen der Eskalationsstufe und der Aktion; sind beide Namen identisch, wird der Name nur einmal gespeichert. Alarmaktionen und Alarmbenachrichtigungen werden einmal systemweit ausgeführt und deshalb mit einer leeren `PartitionID` protokolliert, statt sie fälschlich `main` zuzuordnen. Ein technischer Ausführungsfehler wird weiterhin im Debug-Protokoll gemeldet und nicht fälschlich als erfolgreich ausgeführt protokolliert. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
 
@@ -1486,11 +1486,14 @@ Bereichsauswahl nur lokal, getrennt je OpenHomeAlarm-Instanz und ohne zentrale
 Geräteliste gespeichert. Normale Seitenwechsel und App-Neustarts behalten ihn;
 nach dem Löschen der lokalen Browser-, App- oder WebView-Daten muss er erneut
 eingegeben werden. Ein leeres Feld entfernt den Namen. Bei einer Bedienaktion
-sendet die jeweilige Visualisierung den Namen mit, damit ein dadurch unmittelbar
-erzeugter Eintrag im Systemprotokoll das **Bediengerät** nennen kann. Der Name
-ist eine frei gewählte Zuordnungshilfe, keine verlässliche Geräte-ID und
-ausdrücklich keine Berechtigung. Codeschutz, HTML-SDK-Aktionsweg und
-WebHook-Token gelten unverändert.
+sendet die jeweilige Visualisierung den Namen mit, damit die dadurch erzeugten
+Einträge im Systemprotokoll das **Bediengerät** nennen können. Bei einer
+Ausgangsverzögerung speichert OpenHomeAlarm die Zuordnung bereichsbezogen nur
+bis zur abschließenden Scharfschaltung oder zum Abbruch; dadurch bleibt sie auch
+über `ApplyChanges()` oder einen Symcon-Neustart erhalten und wird anschließend
+sofort entfernt. Der Name ist eine frei gewählte Zuordnungshilfe, keine
+verlässliche Geräte-ID und ausdrücklich keine Berechtigung. Codeschutz,
+HTML-SDK-Aktionsweg und WebHook-Token gelten unverändert.
 
 Auf schmalen Darstellungen brechen die Bereichsbuttons in Kachel und IPSView
 automatisch auf mehrere Zeilen um. Der umgebende Alarmbereichsrahmen wächst

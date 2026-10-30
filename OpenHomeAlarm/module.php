@@ -304,6 +304,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const ATTRIBUTE_MAIN_SILENT_ARMING = 'MainSilentArming';
     private const ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT = 'PushoverEmergencyReceipt';
     private const ATTRIBUTE_PARTITION_RUNTIME = 'PartitionRuntime';
+    private const ATTRIBUTE_PENDING_ARMING_CLIENT_NAMES = 'PendingArmingClientNames';
     private const ATTRIBUTE_PARTITION_STATUS_VARIABLES = 'PartitionStatusVariables';
     private const ATTRIBUTE_PARTITION_ALARMS = 'PartitionAlarms';
     private const ATTRIBUTE_PASSAGE_RUNTIME = 'PassageRuntime';
@@ -444,6 +445,7 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->RegisterAttributeInteger(self::ATTRIBUTE_MAIN_SILENT_ARMING, 0);
             $this->RegisterAttributeString(self::ATTRIBUTE_PUSHOVER_EMERGENCY_RECEIPT, '');
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME);
+            $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_CLIENT_NAMES);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_STATUS_VARIABLES);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PARTITION_ALARMS);
             $this->RegisterPersistentJsonCache(self::ATTRIBUTE_PASSAGE_RUNTIME);
@@ -1777,6 +1779,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 );
             }
             $this->WritePartitionRuntime($states);
+            $this->SetPendingArmingClientNames($partitionIDs, $exitDelaySeconds > 0);
             $this->SchedulePartitionRuntimeTimer($states, true);
             $this->RecordAutomaticSensorBypasses($proposedBypasses, $allSensors, $modeValue);
             foreach ($partitionIDs as $partitionID) {
@@ -1890,6 +1893,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
             $states = $this->ReadPartitionRuntime();
+            $pendingArmingClientNames = $this->ReadPendingArmingClientNames();
             $now = time();
             $newAlarms = [];
             $armedPartitions = [];
@@ -1927,17 +1931,29 @@ class OpenHomeAlarm extends IPSModuleStrict
             $this->WritePartitionRuntime($states);
             $this->SchedulePartitionRuntimeTimer($states);
             foreach ($cancelledArming as $partitionID => $cancellation) {
-                $this->AppendEvent(
-                    self::EVENT_ARM_CANCELLED,
-                    $cancellation['Source'],
-                    $cancellation['Mode'],
-                    self::STATE_EXIT_DELAY,
-                    $partitionID
+                $this->ExecuteWithVisualizationClientName(
+                    $pendingArmingClientNames[$partitionID] ?? '',
+                    function () use ($partitionID, $cancellation): void
+                    {
+                        $this->AppendEvent(
+                            self::EVENT_ARM_CANCELLED,
+                            $cancellation['Source'],
+                            $cancellation['Mode'],
+                            self::STATE_EXIT_DELAY,
+                            $partitionID
+                        );
+                        $this->AppendEvent(self::EVENT_DISARMED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
+                    }
                 );
-                $this->AppendEvent(self::EVENT_DISARMED, '', self::MODE_NONE, self::STATE_DISARMED, $partitionID);
             }
             foreach ($armedPartitions as $partitionID => $mode) {
-                $this->AppendEvent(self::EVENT_ARMED, '', $mode, self::STATE_ARMED, $partitionID);
+                $this->ExecuteWithVisualizationClientName(
+                    $pendingArmingClientNames[$partitionID] ?? '',
+                    function () use ($partitionID, $mode): void
+                    {
+                        $this->AppendEvent(self::EVENT_ARMED, '', $mode, self::STATE_ARMED, $partitionID);
+                    }
+                );
             }
             foreach ($newAlarms as $partitionID => $source) {
                 $this->RecordPartitionAlarm($partitionID, $source);
@@ -3416,40 +3432,48 @@ class OpenHomeAlarm extends IPSModuleStrict
             $state = $this->ReadAlarmState();
             $mode = $this->ReadAlarmMode();
             if ($state !== self::STATE_EXIT_DELAY) {
+                $this->SetPendingArmingClientNames([$this->DefaultPartitionID()], false);
                 $this->ClearDelayStatus();
                 $this->PublishVisualizationState();
 
                 return;
             }
 
-            if (!AlarmStateMachine::canCompleteExitDelay($state, $mode)) {
-                $this->Disarm();
+            $clientName = $this->TakePendingArmingClientName($this->DefaultPartitionID());
+            $this->ExecuteWithVisualizationClientName(
+                $clientName,
+                function () use ($state, $mode): void
+                {
+                    if (!AlarmStateMachine::canCompleteExitDelay($state, $mode)) {
+                        $this->Disarm();
 
-                return;
-            }
+                        return;
+                    }
 
-            $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $this->DefaultPartitionID());
-            $this->UpdateReadinessFromSensors($sensors);
-            $faultInputs = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $this->DefaultPartitionID());
-            $strictReadiness = $this->ApplyFaultBlockingToReadiness(
-                $this->EvaluateReadinessStatus($sensors, true, true, true)['readiness'],
-                $faultInputs
+                    $sensors = $this->SensorsForPartition($this->ReadConfiguredSensors(), $this->DefaultPartitionID());
+                    $this->UpdateReadinessFromSensors($sensors);
+                    $faultInputs = $this->FaultInputsForPartition($this->ReadConfiguredFaultInputs(), $this->DefaultPartitionID());
+                    $strictReadiness = $this->ApplyFaultBlockingToReadiness(
+                        $this->EvaluateReadinessStatus($sensors, true, true, true)['readiness'],
+                        $faultInputs
+                    );
+                    if (!$this->IsModeReady($mode, $strictReadiness)) {
+                        $this->AppendEvent(
+                            self::EVENT_ARM_CANCELLED,
+                            $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs, true, true, true),
+                            $mode
+                        );
+                        $this->Disarm();
+
+                        return;
+                    }
+
+                    $this->ClearDelayStatus();
+                    $this->SetAlarmState(self::STATE_ARMED);
+                    $this->AppendEvent(self::EVENT_ARMED);
+                    $this->PublishVisualizationState();
+                }
             );
-            if (!$this->IsModeReady($mode, $strictReadiness)) {
-                $this->AppendEvent(
-                    self::EVENT_ARM_CANCELLED,
-                    $this->ResolveArmingBlockersForMode($mode, $sensors, $faultInputs, true, true, true),
-                    $mode
-                );
-                $this->Disarm();
-
-                return;
-            }
-
-            $this->ClearDelayStatus();
-            $this->SetAlarmState(self::STATE_ARMED);
-            $this->AppendEvent(self::EVENT_ARMED);
-            $this->PublishVisualizationState();
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -6660,9 +6684,73 @@ class OpenHomeAlarm extends IPSModuleStrict
     {
         $wasConfigurationLocked = $this->IsSecurityConfigurationLocked();
         $this->PublishPartitionStatusVariableValues($states);
+        $this->SynchronizePendingArmingClientNames($states);
         unset($states[$this->DefaultPartitionID()]);
         $this->WritePersistentJsonCache(self::ATTRIBUTE_PARTITION_RUNTIME, $states);
         $this->ReloadConfigurationFormIfLockChanged($wasConfigurationLocked);
+    }
+
+    /** @return array<string,string> */
+    private function ReadPendingArmingClientNames(): array
+    {
+        $stored = $this->ReadPersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_CLIENT_NAMES);
+        $result = [];
+        foreach ($stored as $partitionID => $clientName) {
+            if (!is_string($partitionID)) {
+                continue;
+            }
+            $clientName = $this->NormalizeVisualizationClientName($clientName);
+            if ($clientName !== '') {
+                $result[$partitionID] = $clientName;
+            }
+        }
+
+        return $result;
+    }
+
+    /** @param list<string> $partitionIDs */
+    private function SetPendingArmingClientNames(array $partitionIDs, bool $delayed): void
+    {
+        $stored = $this->ReadPendingArmingClientNames();
+        $updated = $stored;
+        $clientName = $delayed ? $this->visualizationClientName : '';
+        foreach (array_unique($partitionIDs) as $partitionID) {
+            if ($clientName === '') {
+                unset($updated[$partitionID]);
+            } else {
+                $updated[$partitionID] = $clientName;
+            }
+        }
+        if ($updated !== $stored) {
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_CLIENT_NAMES, $updated);
+        }
+    }
+
+    private function TakePendingArmingClientName(string $partitionID): string
+    {
+        $stored = $this->ReadPendingArmingClientNames();
+        $clientName = $stored[$partitionID] ?? '';
+        if (array_key_exists($partitionID, $stored)) {
+            unset($stored[$partitionID]);
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_CLIENT_NAMES, $stored);
+        }
+
+        return $clientName;
+    }
+
+    /** @param array<string,array{State:int}> $states */
+    private function SynchronizePendingArmingClientNames(array $states): void
+    {
+        $stored = $this->ReadPendingArmingClientNames();
+        $updated = array_filter(
+            $stored,
+            static fn (string $clientName, string $partitionID): bool => isset($states[$partitionID])
+                && $states[$partitionID]['State'] === self::STATE_EXIT_DELAY,
+            ARRAY_FILTER_USE_BOTH
+        );
+        if ($updated !== $stored) {
+            $this->WritePersistentJsonCache(self::ATTRIBUTE_PENDING_ARMING_CLIENT_NAMES, $updated);
+        }
     }
 
     /** @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int}> $states */
@@ -8464,10 +8552,18 @@ HTML;
         mixed $value,
         mixed $clientName
     ): ?array {
+        return $this->ExecuteWithVisualizationClientName(
+            $clientName,
+            fn (): ?array => $this->ExecuteVisualizationAction($ident, $value)
+        );
+    }
+
+    private function ExecuteWithVisualizationClientName(mixed $clientName, Closure $callback): mixed
+    {
         $previousClientName = $this->visualizationClientName;
         $this->visualizationClientName = $this->NormalizeVisualizationClientName($clientName);
         try {
-            return $this->ExecuteVisualizationAction($ident, $value);
+            return $callback();
         } finally {
             $this->visualizationClientName = $previousClientName;
         }
@@ -10919,6 +11015,7 @@ HTML;
         $this->SetAlarmMode($mode);
 
         if ($exitDelaySeconds === 0) {
+            $this->SetPendingArmingClientNames([$defaultPartitionID], false);
             $this->SetAlarmState(self::STATE_ARMED);
             $this->AppendEvent(self::EVENT_ARMED);
 
@@ -10926,6 +11023,7 @@ HTML;
         }
 
         $this->SetAlarmState(self::STATE_EXIT_DELAY);
+        $this->SetPendingArmingClientNames([$defaultPartitionID], true);
         $this->StartDelayTimer(
             self::TIMER_EXIT_DELAY,
             self::ATTRIBUTE_EXIT_DELAY_DEADLINE,
@@ -10979,6 +11077,10 @@ HTML;
             $silent ?? $this->SilentByDefaultForPartition($partitionID)
         );
         $this->WritePartitionRuntime($states);
+        $this->SetPendingArmingClientNames(
+            [$partitionID],
+            $states[$partitionID]['State'] === self::STATE_EXIT_DELAY
+        );
         $this->SchedulePartitionRuntimeTimer($states, true);
         $this->RecordAutomaticSensorBypasses($proposedBypasses, $sensors, $modeValue);
         $this->AppendEvent(
@@ -11039,6 +11141,10 @@ HTML;
             );
         }
         $this->WritePartitionRuntime($states);
+        $this->SetPendingArmingClientNames(
+            $this->EnabledNonDefaultPartitionIDs(),
+            $exitDelaySeconds > 0
+        );
         $this->SchedulePartitionRuntimeTimer($states);
         $this->RecordAutomaticSensorBypasses($proposedBypasses, $sensors, $mode);
         foreach ($this->EnabledNonDefaultPartitionIDs() as $partitionID) {
@@ -12913,6 +13019,7 @@ HTML;
     {
         $this->StopDelayTimer(self::TIMER_EXIT_DELAY, self::ATTRIBUTE_EXIT_DELAY_DEADLINE);
         $this->StopDelayTimer(self::TIMER_ENTRY_DELAY, self::ATTRIBUTE_ENTRY_DELAY_DEADLINE);
+        $this->SetPendingArmingClientNames([$this->DefaultPartitionID()], false);
         $this->ClearPendingAlarmSource();
         $this->ClearDelayStatus();
     }

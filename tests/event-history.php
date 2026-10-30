@@ -116,6 +116,23 @@ class IPSModuleStrict
         $this->attributes[$name] = $value;
     }
 
+    public function TestSetAttributeString(string $name, string $value): void
+    {
+        $this->attributes[$name] = $value;
+    }
+
+    public function TestAttributeString(string $name): string
+    {
+        $value = $this->attributes[$name] ?? '';
+
+        return is_string($value) ? $value : '';
+    }
+
+    public function TestSetCurrentValue(string $ident, mixed $value): void
+    {
+        $this->currentValues[$ident] = $value;
+    }
+
     /** @return array<string,mixed> */
     public function TestWrittenValues(): array
     {
@@ -499,7 +516,7 @@ $entryHistory = readEventHistory($entryDelay);
 assertEventHistory(($entryHistory[0]['Event'] ?? null) === 'entry_delay_started', 'Starting entry delay must be logged.');
 assertEventHistory(($entryHistory[0]['Source'] ?? null) === 'Terrassentür', 'Entry-delay events must retain the initiating sensor.');
 
-// IPSView may add a self-declared local operating-device name to events caused by that request only.
+// A visualization may add a self-declared local operating-device name to events caused by that request.
 $testValues[5001] = false;
 $clientAttribution = new OpenHomeAlarm();
 $clientAttribution->Create();
@@ -524,14 +541,14 @@ $clientHistory = readEventHistory($clientAttribution);
 assertEventHistory(
     ($clientHistory[0]['Event'] ?? null) === 'armed'
     && ($clientHistory[0]['ClientName'] ?? null) === 'Tablet Flur',
-    'An IPSView action must store its normalized local operating-device name separately in the event history.'
+    'A visualization action must store its normalized local operating-device name separately in the event history.'
 );
-assertEventHistory($clientAttribution->Disarm() === true, 'The attributed IPSView arming test must remain disarmable through another transport.');
+assertEventHistory($clientAttribution->Disarm() === true, 'The attributed visualization arming test must remain disarmable through another transport.');
 $clientHistory = readEventHistory($clientAttribution);
 assertEventHistory(
     ($clientHistory[0]['Event'] ?? null) === 'disarmed'
     && ($clientHistory[0]['ClientName'] ?? null) === '',
-    'The IPSView operating-device context must be cleared immediately after its request.'
+    'The visualization operating-device context must be cleared immediately after its request.'
 );
 $clientAttribution->RequestAction(
     'ArmPartition',
@@ -568,6 +585,197 @@ assertEventHistory(
     ($clientHistory[0]['Event'] ?? null) === 'armed'
     && ($clientHistory[0]['ClientName'] ?? null) === '',
     'Invalid optional client metadata must be ignored without blocking a security action.'
+);
+
+// A visualization-initiated exit delay must retain its device attribution until
+// the final arming result, including across ApplyChanges or a restart.
+$delayedClient = new OpenHomeAlarm();
+$delayedClient->Create();
+$delayedClient->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$delayedClient->TestSetPropertyString(
+    'Sensors',
+    json_encode([eventHistorySensor(5001, 'Haustür')], JSON_THROW_ON_ERROR)
+);
+$delayedClient->RequestAction(
+    'ArmPartition',
+    json_encode(
+        [
+            'Transport'  => 'openhomealarm-visualization',
+            'Version'    => 1,
+            'Value'      => ['PartitionID' => 'main', 'Value' => 'away'],
+            'ClientName' => 'PC Büro'
+        ],
+        JSON_THROW_ON_ERROR
+    )
+);
+$delayedHistory = readEventHistory($delayedClient);
+assertEventHistory(
+    ($delayedHistory[0]['Event'] ?? null) === 'exit_delay_started'
+    && ($delayedHistory[0]['ClientName'] ?? null) === 'PC Büro',
+    'Starting a visualization exit delay must retain its operating device.'
+);
+$pendingClientNames = json_decode(
+    $delayedClient->TestAttributeString('PendingArmingClientNames'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR
+);
+assertEventHistory(
+    ($pendingClientNames['main'] ?? null) === 'PC Büro',
+    'A delayed visualization arming must persist its operating device for restart-safe completion.'
+);
+
+$restartedDelayedClient = new OpenHomeAlarm();
+$restartedDelayedClient->Create();
+$restartedDelayedClient->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$restartedDelayedClient->TestSetPropertyString(
+    'Sensors',
+    json_encode([eventHistorySensor(5001, 'Haustür')], JSON_THROW_ON_ERROR)
+);
+$restartedDelayedClient->TestSetCurrentValue('Mode', 2);
+$restartedDelayedClient->TestSetCurrentValue('State', 1);
+$restartedDelayedClient->TestSetAttributeInteger('ExitDelayDeadline', time() + 10);
+$restartedDelayedClient->TestSetAttributeString(
+    'PendingArmingClientNames',
+    $delayedClient->TestAttributeString('PendingArmingClientNames')
+);
+$restartedDelayedClient->ApplyChanges();
+$restartedDelayedClient->CompleteExitDelay();
+$restartedHistory = readEventHistory($restartedDelayedClient);
+assertEventHistory(
+    ($restartedHistory[0]['Event'] ?? null) === 'armed'
+    && ($restartedHistory[0]['ClientName'] ?? null) === 'PC Büro',
+    'Completing a restored exit delay must attribute the armed event to its initiating operating device.'
+);
+assertEventHistory(
+    json_decode(
+        $restartedDelayedClient->TestAttributeString('PendingArmingClientNames'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR
+    ) === [],
+    'Completing an exit delay must clear its pending operating-device attribution.'
+);
+assertEventHistory(
+    $restartedDelayedClient->Disarm() === true,
+    'The restored delayed arming test must remain disarmable.'
+);
+$restartedHistory = readEventHistory($restartedDelayedClient);
+assertEventHistory(
+    ($restartedHistory[0]['Event'] ?? null) === 'disarmed'
+    && ($restartedHistory[0]['ClientName'] ?? null) === '',
+    'A completed delayed attribution must not leak into a later unrelated action.'
+);
+
+$partitionClient = new OpenHomeAlarm();
+$partitionClient->Create();
+$partitionClient->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$partitionClient->TestSetPropertyString(
+    'Partitions',
+    '[{"Enabled":true,"ID":"main","Name":"Gesamtanlage","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
+);
+$partitionClient->RequestAction(
+    'ArmPartition',
+    json_encode(
+        [
+            'Transport'  => 'openhomealarm-visualization',
+            'Version'    => 1,
+            'Value'      => ['PartitionID' => 'garage', 'Value' => 'away'],
+            'ClientName' => 'Tablet Garage'
+        ],
+        JSON_THROW_ON_ERROR
+    )
+);
+$partitionClient->TestSetAttributeString(
+    'PartitionRuntime',
+    json_encode(
+        [
+            'garage' => [
+                'Mode'            => 2,
+                'State'           => 1,
+                'Deadline'        => time() - 1,
+                'DelaySource'     => '',
+                'PendingSourceID' => 0,
+                'Silent'          => false
+            ]
+        ],
+        JSON_THROW_ON_ERROR
+    )
+);
+$partitionClient->UpdatePartitionRuntime();
+$partitionHistory = readEventHistory($partitionClient);
+assertEventHistory(
+    ($partitionHistory[0]['Event'] ?? null) === 'armed'
+    && ($partitionHistory[0]['PartitionID'] ?? null) === 'garage'
+    && ($partitionHistory[0]['ClientName'] ?? null) === 'Tablet Garage',
+    'A completed partition exit delay must retain the initiating operating device.'
+);
+assertEventHistory(
+    json_decode(
+        $partitionClient->TestAttributeString('PendingArmingClientNames'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR
+    ) === [],
+    'Completing a partition exit delay must clear its pending operating-device attribution.'
+);
+
+$testValues[5001] = false;
+$cancelledClient = new OpenHomeAlarm();
+$cancelledClient->Create();
+$cancelledClient->TestSetPropertyInteger('ExitDelaySeconds', 10);
+$cancelledClient->TestSetPropertyString(
+    'Sensors',
+    json_encode([eventHistorySensor(5001, 'Haustür')], JSON_THROW_ON_ERROR)
+);
+$cancelledClient->RequestAction(
+    'ArmPartition',
+    json_encode(
+        [
+            'Transport'  => 'openhomealarm-visualization',
+            'Version'    => 1,
+            'Value'      => ['PartitionID' => 'main', 'Value' => 'away'],
+            'ClientName' => 'Wanddisplay Flur'
+        ],
+        JSON_THROW_ON_ERROR
+    )
+);
+$testValues[5001] = true;
+$cancelledClient->CompleteExitDelay();
+$cancelledHistory = readEventHistory($cancelledClient);
+assertEventHistory(
+    ($cancelledHistory[0]['Event'] ?? null) === 'disarmed'
+    && ($cancelledHistory[0]['ClientName'] ?? null) === 'Wanddisplay Flur'
+    && ($cancelledHistory[1]['Event'] ?? null) === 'arm_cancelled'
+    && ($cancelledHistory[1]['ClientName'] ?? null) === 'Wanddisplay Flur',
+    'A failed final readiness check must attribute both cancellation events to the initiating operating device.'
+);
+assertEventHistory(
+    json_decode(
+        $cancelledClient->TestAttributeString('PendingArmingClientNames'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR
+    ) === [],
+    'Cancelling a delayed arming must clear its pending operating-device attribution.'
+);
+$testValues[5001] = false;
+
+$staleClientAttribution = new OpenHomeAlarm();
+$staleClientAttribution->Create();
+$staleClientAttribution->TestSetAttributeString(
+    'PendingArmingClientNames',
+    json_encode(['main' => 'Veraltetes Gerät'], JSON_THROW_ON_ERROR)
+);
+$staleClientAttribution->ApplyChanges();
+assertEventHistory(
+    json_decode(
+        $staleClientAttribution->TestAttributeString('PendingArmingClientNames'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR
+    ) === [],
+    'ApplyChanges must discard stale operating-device attribution when no matching exit delay is active.'
 );
 
 for ($attempt = 0; $attempt < 110; ++$attempt) {
