@@ -367,7 +367,8 @@ assertVisualization(
     'Sensor operations and recent security events must be rendered from the backend control state.'
 );
 assertVisualization(
-    str_contains($module, '$interaction = $this->ExecuteVisualizationAction($Ident, $Value);')
+    str_contains($module, '$action = $this->DecodeVisualizationActionEnvelope($Value);')
+        && str_contains($module, '$interaction = $this->ExecuteVisualizationActionForClient(')
         && str_contains($module, '$this->PublishVisualizationState($interaction);')
         && !str_contains($module, 'if ($Ident === \'RefreshVisualization\' || $interaction !== null)'),
     'Every native visualization action must publish its final state so newly appended history entries appear immediately.'
@@ -405,10 +406,19 @@ assertVisualization(
     str_contains($javascript, 'OpenHomeAlarm.ClientName.${Number(ohaOptions.instanceId)}')
         && str_contains($javascript, 'function ohaReadStoredClientName()')
         && str_contains($javascript, 'function ohaStoreClientName(clientName)')
+        && str_contains($html, 'id="clientNameTileButton"')
+        && str_contains($javascript, 'function ohaNativeActionEnvelope(value)')
+        && str_contains($javascript, "Transport: 'openhomealarm-visualization'")
+        && str_contains($javascript, 'requestAction(ident, ohaNativeActionEnvelope(value));')
+        && str_contains($module, 'DecodeVisualizationActionEnvelope($Value)')
         && str_contains($javascript, 'function ohaEventClientName(event)')
         && str_contains($javascript, "ohaTranslate('Operating device')")
         && str_contains($javascript, 'ohaEventClientName(event)'),
-    'IPSView operating-device names must remain local per instance and appear separately from event sources.'
+    'Tile and IPSView operating-device names must remain local per instance, cross the appropriate transport and appear separately from event sources.'
+);
+assertVisualization(
+    strpos($html, 'id="clientNameTileButton"') < strpos($html, 'id="refreshButton"'),
+    'The tile operating-device settings button must appear directly before the refresh button.'
 );
 assertVisualization(
     str_contains($module, 'private const RECENT_EVENT_DISPLAY_LIMIT = 20;')

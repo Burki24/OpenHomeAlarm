@@ -79,6 +79,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     use \Burki24\SymconModuleHelper\VisualizationThemeConfigurationHelper;
 
     private const CONTROL_API_VERSION = 3;
+    private const VISUALIZATION_ACTION_TRANSPORT = 'openhomealarm-visualization';
+    private const VISUALIZATION_ACTION_TRANSPORT_VERSION = 1;
     private const STATUS_ACTIVE = 102;
     private const STATUS_INVALID_PARTITIONS = 201;
     private const STATUS_INVALID_CONFIGURATION = 202;
@@ -1129,7 +1131,12 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
 
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Bedienaktion der Visualisierung wird verarbeitet.', ['Aktion' => $Ident]);
-            $interaction = $this->ExecuteVisualizationAction($Ident, $Value);
+            $action = $this->DecodeVisualizationActionEnvelope($Value);
+            $interaction = $this->ExecuteVisualizationActionForClient(
+                $Ident,
+                $action['Value'],
+                $action['ClientName']
+            );
             $this->PublishVisualizationState($interaction);
         } catch (Throwable $debugException) {
             $debugFailed = true;
@@ -8464,6 +8471,37 @@ HTML;
         } finally {
             $this->visualizationClientName = $previousClientName;
         }
+    }
+
+    /**
+     * @return array{Value:mixed,ClientName:mixed}
+     */
+    private function DecodeVisualizationActionEnvelope(mixed $value): array
+    {
+        $unchanged = ['Value' => $value, 'ClientName' => null];
+        if (!is_string($value) || $value === '') {
+            return $unchanged;
+        }
+
+        try {
+            $decoded = json_decode($value, true, 16, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return $unchanged;
+        }
+
+        if (
+            !is_array($decoded)
+            || ($decoded['Transport'] ?? null) !== self::VISUALIZATION_ACTION_TRANSPORT
+            || ($decoded['Version'] ?? null) !== self::VISUALIZATION_ACTION_TRANSPORT_VERSION
+            || !array_key_exists('Value', $decoded)
+        ) {
+            return $unchanged;
+        }
+
+        return [
+            'Value'      => $decoded['Value'],
+            'ClientName' => $decoded['ClientName'] ?? null
+        ];
     }
 
     private function NormalizeVisualizationClientName(mixed $clientName): string

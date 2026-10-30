@@ -508,13 +508,17 @@ $clientAttribution->TestSetPropertyString(
     'Sensors',
     json_encode([eventHistorySensor(5001, 'Haustür')], JSON_THROW_ON_ERROR)
 );
-$clientRequest = new ReflectionMethod(OpenHomeAlarm::class, 'ExecuteVisualizationActionForClient');
-$clientRequest->setAccessible(true);
-$clientRequest->invoke(
-    $clientAttribution,
+$clientAttribution->RequestAction(
     'ArmPartition',
-    ['PartitionID' => 'main', 'Value' => 'away'],
-    "  Tablet\nFlur  "
+    json_encode(
+        [
+            'Transport'  => 'openhomealarm-visualization',
+            'Version'    => 1,
+            'Value'      => ['PartitionID' => 'main', 'Value' => 'away'],
+            'ClientName' => "  Tablet\nFlur  "
+        ],
+        JSON_THROW_ON_ERROR
+    )
 );
 $clientHistory = readEventHistory($clientAttribution);
 assertEventHistory(
@@ -529,11 +533,17 @@ assertEventHistory(
     && ($clientHistory[0]['ClientName'] ?? null) === '',
     'The IPSView operating-device context must be cleared immediately after its request.'
 );
-$clientRequest->invoke(
-    $clientAttribution,
+$clientAttribution->RequestAction(
     'ArmPartition',
-    ['PartitionID' => 'main', 'Value' => 'away'],
-    str_repeat('x', 100)
+    json_encode(
+        [
+            'Transport'  => 'openhomealarm-visualization',
+            'Version'    => 1,
+            'Value'      => ['PartitionID' => 'main', 'Value' => 'away'],
+            'ClientName' => str_repeat('x', 100)
+        ],
+        JSON_THROW_ON_ERROR
+    )
 );
 $clientHistory = readEventHistory($clientAttribution);
 assertEventHistory(
@@ -541,11 +551,17 @@ assertEventHistory(
     'The self-declared operating-device name must be bounded before it enters persistent history.'
 );
 assertEventHistory($clientAttribution->Disarm() === true, 'The bounded-name attribution test must remain disarmable.');
-$clientRequest->invoke(
-    $clientAttribution,
+$clientAttribution->RequestAction(
     'ArmPartition',
-    ['PartitionID' => 'main', 'Value' => 'away'],
-    ['invalid transport metadata']
+    json_encode(
+        [
+            'Transport'  => 'openhomealarm-visualization',
+            'Version'    => 1,
+            'Value'      => ['PartitionID' => 'main', 'Value' => 'away'],
+            'ClientName' => ['invalid transport metadata']
+        ],
+        JSON_THROW_ON_ERROR
+    )
 );
 $clientHistory = readEventHistory($clientAttribution);
 assertEventHistory(

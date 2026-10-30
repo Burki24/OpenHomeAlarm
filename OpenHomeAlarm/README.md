@@ -1376,7 +1376,7 @@ Quittierung beendet keinen aktiven Alarm und schaltet keinen Bereich unscharf.
 
 OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle. Kachel und IPSView zeigen davon die neuesten 20 Meldungen; die übrigen gespeicherten Einträge bleiben über API und Export verfügbar.
 
-Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbaren Ereignistyp, den zum Ereignis gehörenden `Mode` und `State`, die technische `PartitionID` sowie optional `Source` und `ClientName`. Ältere gespeicherte Einträge ohne Bereichs- oder Bediengeräteangabe bleiben lesbar und erhalten dafür leere Werte. Als Quelle werden bei Alarmen, Eingangsverzögerungen und Sensorüberbrückungen die betroffenen Sensornamen gespeichert; bei abgelehnten oder nach der Ausgangsverzögerung abgebrochenen Scharfschaltungen enthält `Source` die blockierenden Sensoren. `ClientName` enthält ausschließlich bei einem unmittelbar durch IPSView erzeugten Ereignis den auf diesem Bediengerät lokal vergebenen Namen. Spätere Timer-, Sensor- und Alarmereignisse übernehmen ihn nicht.
+Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbaren Ereignistyp, den zum Ereignis gehörenden `Mode` und `State`, die technische `PartitionID` sowie optional `Source` und `ClientName`. Ältere gespeicherte Einträge ohne Bereichs- oder Bediengeräteangabe bleiben lesbar und erhalten dafür leere Werte. Als Quelle werden bei Alarmen, Eingangsverzögerungen und Sensorüberbrückungen die betroffenen Sensornamen gespeichert; bei abgelehnten oder nach der Ausgangsverzögerung abgebrochenen Scharfschaltungen enthält `Source` die blockierenden Sensoren. `ClientName` enthält ausschließlich bei einem unmittelbar durch die Kachel oder IPSView erzeugten Ereignis den auf diesem Bediengerät lokal vergebenen Namen. Spätere Timer-, Sensor- und Alarmereignisse übernehmen ihn nicht.
 
 Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, der Start einer Eingangs- oder Ausgangsverzögerung, Alarm, Rücksetzungen des Alarmausgangs, Unscharfschalten, temporäre Sensorüberbrückungen, Freigabe, Beginn, Abschluss und Ablauf eines Durchgangs, das Löschen des Alarmgedächtnisses, neu aufgetretene bzw. behobene Systemstörungen, erfolgreich ausgeführte Alarm-Eskalationsaktionen, versandte Symcon- beziehungsweise Pushover-Alarmbenachrichtigungen sowie abgewiesene Code-Eingaben und ausgelöste temporäre Code-Sperren. Bei einer Alarmaktion enthält `Source` den Namen der Eskalationsstufe und der Aktion; sind beide Namen identisch, wird der Name nur einmal gespeichert. Alarmaktionen und Alarmbenachrichtigungen werden einmal systemweit ausgeführt und deshalb mit einer leeren `PartitionID` protokolliert, statt sie fälschlich `main` zuzuordnen. Ein technischer Ausführungsfehler wird weiterhin im Debug-Protokoll gemeldet und nicht fälschlich als erfolgreich ausgeführt protokolliert. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
 
@@ -1390,8 +1390,8 @@ systemweit ausgeführte Alarmaktionen und Benachrichtigungen sind in der
 Gesamtansicht mit **System** gekennzeichnet. Eine vorhandene Zuordnung, etwa der
 Name eines benutzerbezogenen Unscharfschaltcodes oder die an
 `OHA_DisarmWithSource()` übergebene Bezeichnung, erscheint ausdrücklich als
-**Quelle**. Ein bei der auslösenden IPSView-Bedienung mitgesendeter lokaler
-Gerätename erscheint davon getrennt als **Bediengerät**. Ein Aufruf im bereits vollständig unscharfen Zustand erzeugt kein
+**Quelle**. Ein bei der auslösenden Kachel- oder IPSView-Bedienung mitgesendeter
+lokaler Gerätename erscheint davon getrennt als **Bediengerät**. Ein Aufruf im bereits vollständig unscharfen Zustand erzeugt kein
 zusätzliches Unscharfschalt-Ereignis. Der vollständige gespeicherte Bestand kann
 im Instanzformular heruntergeladen werden.
 
@@ -1478,17 +1478,19 @@ WebContent-Variable nur einen transparenten Rahmen. Das eigentliche Dashboard
 wird darin von der stabilen, instanzbezogenen und token-geschützten
 OpenHomeAlarm-WebHook-Adresse geladen.
 
-In IPSView erscheint im Sicherheitsstatus zusätzlich die Schaltfläche
-**Bediengerät**. Darüber kann der jeweilige Client beispielsweise als
-`Tablet Flur` benannt werden. Der Name wird wie die Bereichsauswahl nur lokal,
-getrennt je OpenHomeAlarm-Instanz und ohne zentrale Geräteliste gespeichert.
-Normale Seitenwechsel und App-Neustarts behalten ihn; nach dem Löschen der
-lokalen App-/WebView-Daten muss er erneut eingegeben werden. Ein leeres Feld
-entfernt den Namen. Bei einer Bedienaktion sendet IPSView den Namen mit, damit
-ein dadurch unmittelbar erzeugter Eintrag im Systemprotokoll das
-**Bediengerät** nennen kann. Der Name ist eine frei gewählte Zuordnungshilfe,
-keine verlässliche Geräte-ID und ausdrücklich keine Berechtigung. Codeschutz
-und WebHook-Token gelten unverändert.
+In der Kachel öffnet das **Zahnrad oben rechts neben Aktualisieren** die
+Einstellung des Bediengeräts. In IPSView erscheint dafür im Sicherheitsstatus
+die beschriftete Schaltfläche **Bediengerät**. Darüber kann der jeweilige Client
+beispielsweise als `Tablet Flur` benannt werden. Der Name wird wie die
+Bereichsauswahl nur lokal, getrennt je OpenHomeAlarm-Instanz und ohne zentrale
+Geräteliste gespeichert. Normale Seitenwechsel und App-Neustarts behalten ihn;
+nach dem Löschen der lokalen Browser-, App- oder WebView-Daten muss er erneut
+eingegeben werden. Ein leeres Feld entfernt den Namen. Bei einer Bedienaktion
+sendet die jeweilige Visualisierung den Namen mit, damit ein dadurch unmittelbar
+erzeugter Eintrag im Systemprotokoll das **Bediengerät** nennen kann. Der Name
+ist eine frei gewählte Zuordnungshilfe, keine verlässliche Geräte-ID und
+ausdrücklich keine Berechtigung. Codeschutz, HTML-SDK-Aktionsweg und
+WebHook-Token gelten unverändert.
 
 Auf schmalen Darstellungen brechen die Bereichsbuttons in Kachel und IPSView
 automatisch auf mehrere Zeilen um. Der umgebende Alarmbereichsrahmen wächst
@@ -1593,7 +1595,7 @@ Bewegungssensor, der mehreren Bereichen zugeordnet ist, wird daher nur einmal
 genannt. Intern prüft OpenHomeAlarm ihn weiterhin für jeden betroffenen
 Bereich; die Zusammenfassung verändert keine Sicherheitsentscheidung.
 
-Direkt unter dem zentralen Sicherheitsstatus stehen **Zuhause**, **Abwesend** und **Nacht** als vollständige Modus-Schaltflächen. Im unscharfen Zustand lassen sich bereite Modi über die gesamte Schaltfläche aktivieren; während eines laufenden Scharfzustands bleiben sie als deutlich hervorgehobene Statusanzeige sichtbar und folgen der vom Backend veröffentlichten Bedienfreigabe. Offene oder nicht verfügbare Sensoren können – sofern zulässig – direkt einmalig überbrückt werden. Bestehende Überbrückungen lassen sich einzeln oder gemeinsam aufheben. Ein gespeichertes Alarmgedächtnis kann quittiert und ein aktiver Alarmausgang ohne Unscharfschaltung gestoppt werden. Die letzten sechs Einträge des persistenten Sicherheitsprotokolls werden als kompakte Ereignisliste angezeigt. Ereignisse zusätzlicher Alarmbereiche beginnen mit deren benutzerdefiniertem Namen, beispielsweise **Obergeschoss: Anlage scharfgeschaltet**. Nach jeder Kachelaktion wird der fertige Bedienzustand erneut veröffentlicht, damit auch ein protokollierter, aber zustandsneutral abgewiesener Schaltversuch unmittelbar sichtbar wird.
+Direkt unter dem zentralen Sicherheitsstatus stehen **Zuhause**, **Abwesend** und **Nacht** als vollständige Modus-Schaltflächen. Im unscharfen Zustand lassen sich bereite Modi über die gesamte Schaltfläche aktivieren; während eines laufenden Scharfzustands bleiben sie als deutlich hervorgehobene Statusanzeige sichtbar und folgen der vom Backend veröffentlichten Bedienfreigabe. Offene oder nicht verfügbare Sensoren können – sofern zulässig – direkt einmalig überbrückt werden. Bestehende Überbrückungen lassen sich einzeln oder gemeinsam aufheben. Ein gespeichertes Alarmgedächtnis kann quittiert und ein aktiver Alarmausgang ohne Unscharfschaltung gestoppt werden. Die letzten 20 Einträge des persistenten Sicherheitsprotokolls werden als kompakte Ereignisliste angezeigt. Ereignisse zusätzlicher Alarmbereiche beginnen mit deren benutzerdefiniertem Namen, beispielsweise **Obergeschoss: Anlage scharfgeschaltet**. Nach jeder Kachelaktion wird der fertige Bedienzustand erneut veröffentlicht, damit auch ein protokollierter, aber zustandsneutral abgewiesener Schaltversuch unmittelbar sichtbar wird. Der optional lokal vergebene Bediengerätename wird in einem versionierten internen Transportumschlag gemeinsam mit dem bisherigen Aktionswert über die HTML-SDK-`requestAction()`-Brücke übertragen. Das Modul entfernt ausschließlich diesen eigenen Umschlag vor der unveränderten fachlichen Aktionsauswertung; ältere oder direkt gesendete Rohwerte bleiben kompatibel.
 
 Unter **Ansicht → Darstellung der Scharfmodi** können die sichtbaren Namen von
 **Zuhause**, **Abwesend** und **Nacht** gemeinsam für Kachel und IPSView geändert

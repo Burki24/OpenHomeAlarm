@@ -175,7 +175,7 @@
             "Operating device": "Bediengerät",
             "Not named": "Nicht benannt",
             "Name this operating device": "Dieses Bediengerät benennen",
-            "This name is stored only on this device and is sent with IPSView actions. It does not grant permissions.": "Dieser Name wird nur auf diesem Gerät gespeichert und bei IPSView-Aktionen mitgesendet. Er erteilt keine Berechtigungen.",
+            "This name is stored only on this device and is sent with actions from this visualization. It does not grant permissions.": "Dieser Name wird nur auf diesem Gerät gespeichert und bei Aktionen aus dieser Visualisierung mitgesendet. Er erteilt keine Berechtigungen.",
             "Device name": "Gerätename",
             "e.g. Tablet hallway": "z. B. Tablet Flur",
             "Leave empty to remove the stored name.": "Leer lassen, um den gespeicherten Namen zu entfernen.",

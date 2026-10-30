@@ -1380,7 +1380,7 @@ function ohaRenderStaticText() {
     document.getElementById('inlineCodepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
     document.getElementById('clientNameButtonLabel').textContent = ohaTranslate('Operating device');
     document.getElementById('clientSettingsTitle').textContent = ohaTranslate('Name this operating device');
-    document.getElementById('clientSettingsDescription').textContent = ohaTranslate('This name is stored only on this device and is sent with IPSView actions. It does not grant permissions.');
+    document.getElementById('clientSettingsDescription').textContent = ohaTranslate('This name is stored only on this device and is sent with actions from this visualization. It does not grant permissions.');
     document.getElementById('clientSettingsClose').setAttribute('aria-label', ohaTranslate('Cancel'));
     document.getElementById('clientNameInputLabel').textContent = ohaTranslate('Device name');
     document.getElementById('clientNameInput').setAttribute('placeholder', ohaTranslate('e.g. Tablet hallway'));
@@ -1448,6 +1448,15 @@ async function ohaIPSViewRequest(action, value) {
     }
 }
 
+function ohaNativeActionEnvelope(value) {
+    return JSON.stringify({
+        Transport: 'openhomealarm-visualization',
+        Version: 1,
+        Value: value,
+        ClientName: ohaClientName
+    });
+}
+
 function ohaHandleTransportError(ident, error) {
     console.error('OpenHomeAlarm IPSView request failed:', error);
     if (ident !== 'DisarmWithCode') {
@@ -1462,7 +1471,7 @@ function ohaHandleTransportError(ident, error) {
 
 function ohaRequestAction(ident, value) {
     if (typeof requestAction === 'function') {
-        requestAction(ident, value);
+        requestAction(ident, ohaNativeActionEnvelope(value));
         return;
     }
 
@@ -1652,22 +1661,19 @@ function ohaResetCodeEntry() {
 
 function ohaRenderClientSettings() {
     const button = document.getElementById('clientNameButton');
+    const tileButton = document.getElementById('clientNameTileButton');
     button.hidden = !ohaIPSViewConfig;
-    if (!ohaIPSViewConfig) {
-        return;
-    }
-
+    tileButton.hidden = Boolean(ohaIPSViewConfig);
     const value = ohaClientName === '' ? ohaTranslate('Not named') : ohaClientName;
+    const description = `${ohaTranslate('Operating device')}: ${value}`;
     document.getElementById('clientNameButtonValue').textContent = value;
-    button.setAttribute('aria-label', `${ohaTranslate('Operating device')}: ${value}`);
-    button.setAttribute('title', `${ohaTranslate('Operating device')}: ${value}`);
+    button.setAttribute('aria-label', description);
+    button.setAttribute('title', description);
+    tileButton.setAttribute('aria-label', description);
+    tileButton.setAttribute('title', description);
 }
 
 function ohaOpenClientSettings() {
-    if (!ohaIPSViewConfig) {
-        return;
-    }
-
     ohaCloseCodepad();
     const overlay = document.getElementById('clientSettingsOverlay');
     const input = document.getElementById('clientNameInput');
@@ -1871,7 +1877,7 @@ function ohaFindInteractiveControl(event) {
     return target.closest(
         '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm], '
         + '[data-partition-id], [data-arm-target-id], [data-delivery-switch], [data-bypass-switch], [data-action="arm"], [data-operation], '
-        + '#disarmButton, #refreshButton, #codepadClose, #clientNameButton, #clientSettingsClose, #clientSettingsCancel, #clientSettingsSave'
+        + '#disarmButton, #refreshButton, #codepadClose, #clientNameButton, #clientNameTileButton, #clientSettingsClose, #clientSettingsCancel, #clientSettingsSave'
     );
 }
 
@@ -2011,7 +2017,7 @@ function ohaHandleInteractiveClick(event) {
         return;
     }
 
-    if (control.id === 'clientNameButton') {
+    if (control.id === 'clientNameButton' || control.id === 'clientNameTileButton') {
         ohaOpenClientSettings();
         return;
     }
