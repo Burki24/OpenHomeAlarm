@@ -14,7 +14,7 @@ final class AlarmEventHistory
      * @param list<int>    $validModes
      * @param list<int>    $validStates
      *
-     * @return list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string}>
+     * @return list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string,ClientName:string}>
      */
     public static function normalize(
         array $history,
@@ -38,6 +38,7 @@ final class AlarmEventHistory
             $state = $entry['State'] ?? null;
             $source = $entry['Source'] ?? null;
             $partitionID = $entry['PartitionID'] ?? '';
+            $clientName = $entry['ClientName'] ?? '';
             if (
                 !is_int($time)
                 || !is_string($event)
@@ -47,6 +48,7 @@ final class AlarmEventHistory
                 || !in_array($state, $validStates, true)
                 || !is_string($source)
                 || !is_string($partitionID)
+                || !is_string($clientName)
             ) {
                 continue;
             }
@@ -57,7 +59,8 @@ final class AlarmEventHistory
                 'Mode'        => $mode,
                 'State'       => $state,
                 'Source'      => $source,
-                'PartitionID' => $partitionID
+                'PartitionID' => $partitionID,
+                'ClientName'  => $clientName
             ];
         }
 
@@ -65,10 +68,10 @@ final class AlarmEventHistory
     }
 
     /**
-     * @param list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string}> $history
-     * @param array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string}       $entry
+     * @param list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string,ClientName:string}> $history
+     * @param array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string,ClientName:string}       $entry
      *
-     * @return list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string}>
+     * @return list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string,ClientName:string}>
      */
     public static function prepend(array $history, array $entry, int $limit): array
     {

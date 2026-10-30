@@ -592,6 +592,54 @@ html:not(.oha-ipsview) .oha-shell {
     align-self: stretch;
 }
 
+.oha-client-name-button {
+    display: inline-flex;
+    max-width: 220px;
+    min-height: 32px;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 9px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: 10px;
+    background: var(--oha-surface-soft);
+    color: var(--oha-muted);
+    cursor: pointer;
+    text-align: left;
+}
+
+.oha-client-name-button:hover {
+    border-color: color-mix(in srgb, var(--oha-accent) 38%, var(--oha-border));
+    background: var(--oha-accent-soft);
+    color: var(--oha-text-active);
+}
+
+.oha-client-name-button:focus-visible,
+.oha-client-settings-close:focus-visible,
+.oha-client-settings-save:focus-visible {
+    outline: 2px solid var(--oha-accent);
+    outline-offset: 2px;
+}
+
+.oha-client-name-button > i {
+    flex: 0 0 auto;
+}
+
+.oha-client-name-copy {
+    display: grid;
+    min-width: 0;
+    gap: 1px;
+    font-size: 0.62rem;
+    line-height: 1.15;
+}
+
+.oha-client-name-copy strong {
+    overflow: hidden;
+    color: inherit;
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .oha-mode-pill {
     display: inline-flex;
     align-items: center;
@@ -1612,6 +1660,19 @@ html:not(.oha-ipsview) .oha-shell {
         flex-direction: column;
     }
 
+    html.oha-ipsview .oha-client-name-button {
+        max-width: 150px;
+    }
+
+    html.oha-ipsview .oha-client-name-copy > span {
+        display: none;
+    }
+
+    html.oha-ipsview .oha-shell[data-state="exit_delay"] .oha-client-name-button,
+    html.oha-ipsview .oha-shell[data-state="entry_delay"] .oha-client-name-button {
+        display: none;
+    }
+
     .oha-operation-head-actions .oha-history-actions {
         width: 100%;
         flex-wrap: wrap;
@@ -1806,6 +1867,142 @@ html:not(.oha-ipsview) .oha-shell {
     touch-action: pan-y;
     background: rgba(8, 13, 24, 0.42);
     backdrop-filter: blur(4px);
+}
+
+.oha-client-settings-overlay {
+    position: fixed;
+    z-index: 1010;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    background: rgba(8, 13, 24, 0.42);
+    backdrop-filter: blur(4px);
+}
+
+.oha-client-settings {
+    width: min(100%, 460px);
+    padding: 18px;
+    border: var(--oha-border-width) solid var(--oha-popup-border);
+    border-radius: var(--symc-radius-large);
+    background: var(--oha-popup-background);
+    color: var(--oha-text);
+    box-shadow: var(--oha-popup-shadow);
+}
+
+.oha-client-settings-head,
+.oha-client-settings-title-wrap,
+.oha-client-settings-actions {
+    display: flex;
+    align-items: center;
+}
+
+.oha-client-settings-head {
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.oha-client-settings-title-wrap {
+    min-width: 0;
+    gap: 11px;
+}
+
+.oha-client-settings-icon {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--oha-accent-soft);
+    color: var(--oha-accent);
+}
+
+.oha-client-settings-title-wrap h2 {
+    margin: 0;
+    color: var(--oha-heading);
+    font-size: 1rem;
+}
+
+.oha-client-settings-title-wrap p {
+    margin: 3px 0 0;
+    color: var(--oha-subheading);
+    font-size: 0.75rem;
+    line-height: 1.35;
+}
+
+.oha-client-settings-close {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    place-items: center;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: 10px;
+    background: var(--oha-surface-soft);
+    color: var(--oha-icon);
+    cursor: pointer;
+}
+
+.oha-client-settings-field {
+    display: grid;
+    gap: 6px;
+    margin-top: 18px;
+    color: var(--oha-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.oha-client-settings-field input {
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 11px;
+    border: var(--oha-border-width) solid var(--oha-border);
+    border-radius: 10px;
+    background: var(--oha-surface);
+    color: var(--oha-text);
+}
+
+.oha-client-settings-field input:focus {
+    border-color: var(--oha-accent);
+    outline: 2px solid color-mix(in srgb, var(--oha-accent) 18%, transparent);
+}
+
+.oha-client-settings-hint {
+    margin: 7px 0 0;
+    color: var(--oha-muted);
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+
+.oha-client-settings-error {
+    margin-top: 12px;
+    padding: 9px 10px;
+    border: var(--oha-border-width) solid color-mix(in srgb, var(--oha-danger) 28%, transparent);
+    border-radius: 10px;
+    background: var(--oha-danger-soft);
+    color: var(--oha-danger);
+    font-size: 0.76rem;
+    font-weight: 650;
+}
+
+.oha-client-settings-actions {
+    justify-content: flex-end;
+    gap: 9px;
+    margin-top: 18px;
+}
+
+.oha-client-settings-save {
+    min-height: 38px;
+    padding: 8px 14px;
+    border: var(--oha-border-width) solid var(--oha-accent);
+    border-radius: 10px;
+    background: var(--oha-accent);
+    color: var(--oha-text-active);
+    cursor: pointer;
+    font-weight: 700;
 }
 
 .oha-codepad {
@@ -2227,6 +2424,12 @@ html.oha-ipsview .oha-hero-message {
 
 html.oha-ipsview .oha-hero-meta {
     gap: 6px;
+}
+
+html.oha-ipsview .oha-client-name-button {
+    max-width: 190px;
+    min-height: 28px;
+    padding: 4px 8px;
 }
 
 html.oha-ipsview .oha-mode-pill {

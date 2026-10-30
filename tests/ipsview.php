@@ -134,9 +134,19 @@ assertIPSView(
 assertIPSView(
     str_contains($javascript, 'async function ohaIPSViewRequest(action, value)')
         && str_contains($javascript, "body.set('token', String(ohaIPSViewConfig.token));")
+        && str_contains($javascript, "body.set('clientName', ohaClientName);")
         && str_contains($javascript, "'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'")
         && str_contains($javascript, 'handleMessage(payload);'),
     'IPSView actions must use the authenticated WebHook and feed its state back into the common renderer.'
+);
+assertIPSView(
+    str_contains($html, 'id="clientNameButton"')
+        && str_contains($html, 'id="clientSettingsOverlay"')
+        && str_contains($javascript, 'OpenHomeAlarm.ClientName.${Number(ohaOptions.instanceId)}')
+        && str_contains($javascript, 'function ohaStoreClientName(clientName)')
+        && str_contains($module, 'ExecuteVisualizationActionForClient(')
+        && str_contains($module, "\$request['clientName'] ?? null"),
+    'Each IPSView client must be able to store a readable local name and send it as optional action metadata.'
 );
 assertIPSView(
     str_contains($javascript, "await ohaIPSViewRequest('GetState', null);")

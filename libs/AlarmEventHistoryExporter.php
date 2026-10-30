@@ -12,7 +12,7 @@ final class AlarmEventHistoryExporter
     private const FIELDS = ['Time', 'Event', 'Mode', 'State', 'Source', 'PartitionID'];
 
     /**
-     * @param list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string}> $history
+     * @param list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string,ClientName?:string}> $history
      */
     public static function export(
         array $history,
@@ -51,7 +51,7 @@ final class AlarmEventHistoryExporter
     }
 
     /**
-     * @param list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string}> $history
+     * @param list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string,ClientName?:string}> $history
      */
     private static function csv(array $history): string
     {

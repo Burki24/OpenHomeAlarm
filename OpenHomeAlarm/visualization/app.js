@@ -18,9 +18,13 @@ const ohaIPSViewConfig = ohaVisualization.mode === 'ipsview'
 const ohaSelectedPartitionStorageKey = Number(ohaOptions.instanceId) > 0
     ? `OpenHomeAlarm.SelectedPartition.${Number(ohaOptions.instanceId)}`
     : '';
+const ohaClientNameStorageKey = Number(ohaOptions.instanceId) > 0
+    ? `OpenHomeAlarm.ClientName.${Number(ohaOptions.instanceId)}`
+    : '';
 
 let ohaState = ohaVisualization.state ?? null;
 let ohaSelectedPartitionID = ohaReadStoredPartitionID();
+let ohaClientName = ohaReadStoredClientName();
 let ohaArmPartitionIDs = [];
 let ohaArmTargetSelectionExplicit = false;
 let ohaCodeBuffer = '';
@@ -74,6 +78,50 @@ function ohaStoreSelectedPartitionID(partitionID) {
         window.localStorage.setItem(ohaSelectedPartitionStorageKey, partitionID);
     } catch (_error) {
         // Client-side persistence is optional in embedded WebViews.
+    }
+}
+
+function ohaNormalizeClientName(clientName) {
+    if (typeof clientName !== 'string') {
+        return '';
+    }
+
+    return Array.from(
+        clientName
+            .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\s]+/g, ' ')
+            .trim()
+    ).slice(0, 64).join('');
+}
+
+function ohaReadStoredClientName() {
+    if (ohaClientNameStorageKey === '') {
+        return '';
+    }
+
+    try {
+        return ohaNormalizeClientName(window.localStorage.getItem(ohaClientNameStorageKey) ?? '');
+    } catch (_error) {
+        return '';
+    }
+}
+
+function ohaStoreClientName(clientName) {
+    if (ohaClientNameStorageKey === '') {
+        return false;
+    }
+
+    const normalized = ohaNormalizeClientName(clientName);
+    try {
+        if (normalized === '') {
+            window.localStorage.removeItem(ohaClientNameStorageKey);
+        } else {
+            window.localStorage.setItem(ohaClientNameStorageKey, normalized);
+        }
+        ohaClientName = normalized;
+
+        return true;
+    } catch (_error) {
+        return false;
     }
 }
 
@@ -171,6 +219,12 @@ function ohaEventSource(event) {
     }
 
     return `${ohaTranslate('Event source')}: ${source}`;
+}
+
+function ohaEventClientName(event) {
+    const clientName = typeof event?.ClientName === 'string' ? event.ClientName.trim() : '';
+
+    return clientName === '' ? '' : `${ohaTranslate('Operating device')}: ${clientName}`;
 }
 
 function ohaFormatEventTime(timestamp) {
@@ -1098,7 +1152,9 @@ function ohaRenderEventHistory(state) {
                 : '');
         title.textContent = [scopeName, ohaEventCaption(event.Event)].filter(Boolean).join(': ');
         const detail = document.createElement('span');
-        detail.textContent = [ohaEventSource(event), ohaFormatEventTime(event.Time)].filter(Boolean).join(' · ');
+        detail.textContent = [ohaEventSource(event), ohaEventClientName(event), ohaFormatEventTime(event.Time)]
+            .filter(Boolean)
+            .join(' · ');
         copy.append(title, detail);
         row.append(marker, copy);
         list.appendChild(row);
@@ -1322,6 +1378,16 @@ function ohaRenderStaticText() {
     document.getElementById('inlineCodepadClear').setAttribute('aria-label', ohaTranslate('Clear code entry'));
     document.getElementById('inlineCodepadConfirm').setAttribute('aria-label', ohaTranslate('Deactivate'));
     document.getElementById('inlineCodepadGrid').setAttribute('aria-label', ohaTranslate('Code pad'));
+    document.getElementById('clientNameButtonLabel').textContent = ohaTranslate('Operating device');
+    document.getElementById('clientSettingsTitle').textContent = ohaTranslate('Name this operating device');
+    document.getElementById('clientSettingsDescription').textContent = ohaTranslate('This name is stored only on this device and is sent with IPSView actions. It does not grant permissions.');
+    document.getElementById('clientSettingsClose').setAttribute('aria-label', ohaTranslate('Cancel'));
+    document.getElementById('clientNameInputLabel').textContent = ohaTranslate('Device name');
+    document.getElementById('clientNameInput').setAttribute('placeholder', ohaTranslate('e.g. Tablet hallway'));
+    document.getElementById('clientNameHint').textContent = ohaTranslate('Leave empty to remove the stored name.');
+    document.getElementById('clientSettingsCancel').textContent = ohaTranslate('Cancel');
+    document.getElementById('clientSettingsSave').textContent = ohaTranslate('Save');
+    ohaRenderClientSettings();
 }
 
 function ohaRender() {
@@ -1357,6 +1423,7 @@ async function ohaIPSViewRequest(action, value) {
     body.set('token', String(ohaIPSViewConfig.token));
     body.set('action', action);
     body.set('value', JSON.stringify(value));
+    body.set('clientName', ohaClientName);
 
     ohaIPSViewPendingRequests += 1;
     try {
@@ -1583,11 +1650,63 @@ function ohaResetCodeEntry() {
     ohaUpdateCodepad();
 }
 
+function ohaRenderClientSettings() {
+    const button = document.getElementById('clientNameButton');
+    button.hidden = !ohaIPSViewConfig;
+    if (!ohaIPSViewConfig) {
+        return;
+    }
+
+    const value = ohaClientName === '' ? ohaTranslate('Not named') : ohaClientName;
+    document.getElementById('clientNameButtonValue').textContent = value;
+    button.setAttribute('aria-label', `${ohaTranslate('Operating device')}: ${value}`);
+    button.setAttribute('title', `${ohaTranslate('Operating device')}: ${value}`);
+}
+
+function ohaOpenClientSettings() {
+    if (!ohaIPSViewConfig) {
+        return;
+    }
+
+    ohaCloseCodepad();
+    const overlay = document.getElementById('clientSettingsOverlay');
+    const input = document.getElementById('clientNameInput');
+    const error = document.getElementById('clientNameError');
+    input.value = ohaClientName;
+    error.hidden = true;
+    error.textContent = '';
+    overlay.hidden = false;
+    document.body.classList.add('oha-modal-open');
+    window.requestAnimationFrame(() => {
+        input.focus();
+        input.select();
+    });
+}
+
+function ohaCloseClientSettings() {
+    document.getElementById('clientSettingsOverlay').hidden = true;
+    document.body.classList.remove('oha-modal-open');
+}
+
+function ohaSaveClientSettings() {
+    const input = document.getElementById('clientNameInput');
+    const error = document.getElementById('clientNameError');
+    if (!ohaStoreClientName(input.value)) {
+        error.textContent = ohaTranslate('The name could not be stored on this device.');
+        error.hidden = false;
+        return;
+    }
+
+    ohaRenderClientSettings();
+    ohaCloseClientSettings();
+}
+
 function ohaOpenCodepad(action = 'DisarmPartitionWithCode') {
     if (!ohaCodeInputAllowed()) {
         return;
     }
 
+    ohaCloseClientSettings();
     const overlay = document.getElementById('codepadOverlay');
     ohaCodeAction = action;
     ohaResetCodeEntry();
@@ -1751,7 +1870,8 @@ function ohaFindInteractiveControl(event) {
 
     return target.closest(
         '[data-code-digit], [data-code-delete], [data-code-clear], [data-code-confirm], '
-        + '[data-partition-id], [data-arm-target-id], [data-delivery-switch], [data-bypass-switch], [data-action="arm"], [data-operation], #disarmButton, #refreshButton, #codepadClose'
+        + '[data-partition-id], [data-arm-target-id], [data-delivery-switch], [data-bypass-switch], [data-action="arm"], [data-operation], '
+        + '#disarmButton, #refreshButton, #codepadClose, #clientNameButton, #clientSettingsClose, #clientSettingsCancel, #clientSettingsSave'
     );
 }
 
@@ -1891,6 +2011,21 @@ function ohaHandleInteractiveClick(event) {
         return;
     }
 
+    if (control.id === 'clientNameButton') {
+        ohaOpenClientSettings();
+        return;
+    }
+
+    if (control.id === 'clientSettingsSave') {
+        ohaSaveClientSettings();
+        return;
+    }
+
+    if (control.id === 'clientSettingsClose' || control.id === 'clientSettingsCancel') {
+        ohaCloseClientSettings();
+        return;
+    }
+
     if (control.id === 'codepadClose') {
         ohaCloseCodepad();
         return;
@@ -1952,7 +2087,25 @@ document.getElementById('codepadOverlay').addEventListener('click', (event) => {
     }
 });
 
+document.getElementById('clientSettingsOverlay').addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) {
+        ohaCloseClientSettings();
+    }
+});
+
 document.addEventListener('keydown', (event) => {
+    const clientSettingsOverlay = document.getElementById('clientSettingsOverlay');
+    if (!clientSettingsOverlay.hidden) {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            ohaCloseClientSettings();
+        } else if (event.key === 'Enter' && event.target === document.getElementById('clientNameInput')) {
+            event.preventDefault();
+            ohaSaveClientSettings();
+        }
+        return;
+    }
+
     const overlay = document.getElementById('codepadOverlay');
     const inlineCodepad = document.getElementById('inlineCodepad');
     const overlayOpen = !overlay.hidden;

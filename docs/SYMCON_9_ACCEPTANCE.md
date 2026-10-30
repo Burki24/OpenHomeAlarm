@@ -32,10 +32,11 @@ festgehalten.
 | Bisheriger Funktionsumfang A-01 bis H-46 | Bestanden | Wiederholt durch Maintainer und Beta-Tester unter Symcon 9.0 und 9.1 geprüft; zusammengefasster Nachweis vom 23.10.2026 |
 | Bereichsstatusvariablen H-47 bis H-49 | Offen | Vor der nächsten Freigabe auf der maßgeblichen Symcon-Version praktisch prüfen |
 | Bereichs-Countdown H-50 | Offen | Kachel und IPSView auf Desktop, Mobilgerät und mit reduzierter Bewegung praktisch prüfen |
+| Lokaler IPSView-Bediengerätename H-54 | Offen | Speicherung, Ereigniszuordnung und Sicherheitsgrenze in Webclient und nativer App praktisch prüfen |
 | HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
 | IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
 | Update/Migration | Bestanden | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
-| Release Candidate | Nicht freigegeben | Die neuen Bereichsprüfungen H-47 bis H-50 sind noch praktisch durchzuführen; anschließend sind der endgültige Commit und dessen zentrale CI festzuhalten |
+| Release Candidate | Nicht freigegeben | Die neuen Praxisprüfungen H-47 bis H-54 sind noch durchzuführen; anschließend sind der endgültige Commit und dessen zentrale CI festzuhalten |
 
 `Bestanden` bezeichnet hier den zuletzt lokal geprüften Repository-Stand. Vor
 jedem Release Candidate müssen die automatisierten Prüfungen erneut ausgeführt
@@ -232,6 +233,7 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | H-51 | Systemprotokoll, Systemdiagnose, Auswahl der Alarmierungsart und automatische Überbrückung nacheinander im Instanzformular ausblenden und Kachel sowie IPSView jeweils neu öffnen; anschließend mit einem ausgelösten, für automatische Überbrückung freigegebenen Sensor scharfschalten | Die gewählten Elemente sind in beiden Ausgaben nicht sichtbar. Ohne sichtbare Alarmierungsart gilt ausschließlich die konfigurierte Bereichsvorgabe; ohne sichtbare Überbrückung bleibt der ausgelöste Sensor blockierend und keine zuvor gewählte Bedienoption wirkt unsichtbar weiter | Offen | |
 | H-52 | In der Symcon-WebContent-Vorschau und der nativen IPSView-App das Dashboard laden; prüfen, dass die WebContent-Ansicht vollständig auf die token-geschützte Hook-Seite wechselt; auf zwei getrennten Bediengeräten unterschiedliche Zusatzbereiche derselben Instanz auswählen, in IPSView auf eine andere Seite wechseln und zurückkehren, beide Ansichten schließen und erneut öffnen; anschließend einen der Bereiche deaktivieren oder löschen | Vorschau und App öffnen das Dashboard als oberstes Dokument über die aus dem Host ermittelte Symcon-HTTP-Herkunft und nicht in einem inneren Frame; ein nicht auflösbarer Host wird sichtbar gemeldet und erzeugt keine leere Fläche. Jedes Gerät öffnet auch nach Seitenwechsel und App-Neustart wieder seinen eigenen zuletzt gewählten Bereich, ohne die Auswahl des anderen Geräts zu verändern. Ein nicht mehr verfügbarer gespeicherter Bereich führt sicher zu `main`; Codes und übriger Bedienzustand werden nicht im Browser gespeichert | Offen | |
 | H-53 | Einen Zusatzbereich über einen benutzerbezogenen Code und über `OHA_DisarmWithSource()` unscharfschalten; danach abwechselnd `main` und den Zusatzbereich anzeigen | Die Ereignisquelle ist jeweils ausdrücklich als **Quelle** gekennzeichnet. `main` zeigt die neuesten Ereignisse der gesamten Anlage, der Zusatzbereich nur seine eigenen Einträge. Ein erneuter Unscharfschaltaufruf im bereits vollständig unscharfen Zustand erzeugt keinen zusätzlichen Eintrag | Offen | |
+| H-54 | In zwei getrennten IPSView-Clients derselben Instanz unterschiedliche Bediengerätenamen vergeben, die Ansichten und Apps neu starten und anschließend je eine erfolgreiche sowie eine abgewiesene Schaltaktion ausführen; danach einen Namen leeren und den lokalen App-/WebView-Speicher eines Clients löschen | Jeder Client behält seinen Namen unabhängig und instanzbezogen über normale Seiten- und App-Neustarts. Unmittelbar durch seine Aktion erzeugte Protokolleinträge zeigen den Namen getrennt von der Ereignisquelle; spätere Timer- und Sensorereignisse übernehmen ihn nicht. Ein leerer oder gelöschter lokaler Name führt zu Aktionen ohne Bediengeräteangabe und blockiert keine Schaltung. Der selbst angegebene Name gewährt keine Berechtigung und umgeht weder WebHook-Token noch Codeschutz | Offen | |
 
 ## Automatisierte Vorprüfung
 
@@ -262,7 +264,7 @@ Ein Commit darf als Release Candidate markiert werden, wenn:
 
 1. alle automatisierten Checks und beide CI-Checks für exakt diesen Commit bestanden sind,
 2. alle für den aktuellen Funktionsumfang einschlägigen Pflichtfälle A-01 bis
-   H-50 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden
+   H-54 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden
    oder durch die dokumentierte wiederholte Praxisabnahme unter Symcon 9.0 und
    9.1 bestätigt sind,
 3. Desktop- und Mobilbedienung der HTML-SDK-Kachel geprüft wurden,

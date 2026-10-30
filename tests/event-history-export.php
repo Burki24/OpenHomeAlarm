@@ -15,7 +15,7 @@ function assertEventHistoryExport(bool $condition, string $message): void
 
 $history = [
     ['Time' => 300, 'Event' => 'disarmed', 'Mode' => 0, 'State' => 0, 'Source' => 'Alice', 'PartitionID' => 'house'],
-    ['Time' => 200, 'Event' => 'alarm', 'Mode' => 2, 'State' => 4, 'Source' => 'Front "door", hall', 'PartitionID' => 'house'],
+    ['Time' => 200, 'Event' => 'alarm', 'Mode' => 2, 'State' => 4, 'Source' => 'Front "door", hall', 'PartitionID' => 'house', 'ClientName' => 'Tablet Flur'],
     ['Time' => 100, 'Event' => 'alarm', 'Mode' => 2, 'State' => 4, 'Source' => 'Garage', 'PartitionID' => 'garage'],
     ['Time' => 50, 'Event' => 'alarm', 'Mode' => 2, 'State' => 4, 'Source' => '=1+1', 'PartitionID' => 'garage']
 ];
@@ -37,6 +37,7 @@ $expectedCsv = "Time,Event,Mode,State,Source,PartitionID\r\n"
     . "100,alarm,2,4,Garage,garage\r\n"
     . "50,alarm,2,4,'=1+1,garage\r\n";
 assertEventHistoryExport($csv === $expectedCsv, 'CSV export must use a stable header, CRLF rows and RFC-compatible quoting.');
+assertEventHistoryExport(!str_contains($csv, 'Tablet Flur'), 'The additive client name must not change the stable CSV schema.');
 assertEventHistoryExport(
     !str_contains($csv, ',=1+1,') && str_contains($csv, ",'=1+1,"),
     'CSV fields must neutralize spreadsheet formulas without adding whitespace.'

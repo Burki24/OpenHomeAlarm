@@ -43,6 +43,14 @@ Der optionale Unscharfschaltcode wird als lokale Instanzeigenschaft gespeichert 
 
 Die optionale IPSView-Oberfläche verwendet einen instanzbezogenen WebHook mit einem zufälligen, persistenten Zugriffstoken. Der WebHook akzeptiert ausschließlich eine feste Liste von Visualisierungsaktionen per POST und ist bei deaktivierter IPSView-Ausgabe nicht nutzbar. Das Token ist Bestandteil der WebContent-Seite und deshalb wie die IPSView-/Symcon-Verbindung selbst zu schützen. Der Unscharfschaltcode wird nur im POST-Body übertragen und nicht in URLs oder Statusvariablen geschrieben. Bei Zugriff außerhalb eines vertrauenswürdigen lokalen Netzes ist eine verschlüsselte HTTPS-/Symcon-Connect-Verbindung erforderlich.
 
+Ein IPSView-Client kann sich für die Ereigniszuordnung einen frei gewählten
+Bediengerätenamen geben. Dieser Name wird ausschließlich lokal im jeweiligen
+Client gespeichert und bei Bedienaktionen als selbst angegebene, nicht
+vertrauenswürdige Zusatzinformation übertragen. Er ist weder eine stabile
+technische Gerätekennung noch ein Authentifizierungs- oder
+Berechtigungsmerkmal und darf Codeschutz oder WebHook-Token niemals ersetzen.
+Ein fehlender oder ungültiger Name blockiert keine Bedienaktion.
+
 Das Ereignisprotokoll dient Bedienung und Diagnose. Es ist kein manipulationssicheres Audit-Log.
 
 ## Einsatzgrenze

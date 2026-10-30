@@ -15,6 +15,12 @@
 
 ## Neu
 
+- Jeder IPSView-Client kann lokal und instanzbezogen mit einem lesbaren
+  Bediengerätenamen versehen werden. Unmittelbar durch seine Bedienaktion
+  erzeugte Ereignisse weisen diesen Namen getrennt von der fachlichen Quelle
+  aus. Der selbst angegebene Name ist keine Berechtigung, wird nach dem Request
+  sicher verworfen und ändert das bestehende CSV-Exportschema nicht.
+
 - Eine herstellerneutrale externe Alarmereignis-Schnittstelle nimmt bestätigte
   Ereignisse eigenständiger Überwachungssoftware wie Frigate oder Blue Iris
   entgegen. Quellen werden eindeutig einem Alarmbereich und erlaubten

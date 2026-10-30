@@ -402,6 +402,15 @@ assertVisualization(
     'The last displayed partition must be retained per module instance on the local client.'
 );
 assertVisualization(
+    str_contains($javascript, 'OpenHomeAlarm.ClientName.${Number(ohaOptions.instanceId)}')
+        && str_contains($javascript, 'function ohaReadStoredClientName()')
+        && str_contains($javascript, 'function ohaStoreClientName(clientName)')
+        && str_contains($javascript, 'function ohaEventClientName(event)')
+        && str_contains($javascript, "ohaTranslate('Operating device')")
+        && str_contains($javascript, 'ohaEventClientName(event)'),
+    'IPSView operating-device names must remain local per instance and appear separately from event sources.'
+);
+assertVisualization(
     str_contains($module, 'private const RECENT_EVENT_DISPLAY_LIMIT = 20;')
         && substr_count($module, 'self::RECENT_EVENT_DISPLAY_LIMIT') === 2,
     'The shared control state must expose the latest 20 global and partition-specific events.'

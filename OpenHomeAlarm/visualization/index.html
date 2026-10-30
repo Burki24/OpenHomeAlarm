@@ -29,6 +29,13 @@
             </div>
             <div class="oha-hero-meta">
                 <span class="oha-mode-pill" id="modeLabel">Mode</span>
+                <button class="oha-client-name-button" id="clientNameButton" type="button" hidden>
+                    <i class="fa-light fa-gear" aria-hidden="true"></i>
+                    <span class="oha-client-name-copy">
+                        <span id="clientNameButtonLabel"></span>
+                        <strong id="clientNameButtonValue"></strong>
+                    </span>
+                </button>
                 <div class="oha-countdown" id="heroCountdown" hidden>
                     <strong id="delayRemaining">0</strong>
                     <span id="countdownUnit"></span>
@@ -372,6 +379,37 @@
                 <i class="fa-light fa-shield-check" aria-hidden="true"></i>
                 <span id="modalResetFalseAlarmLabel"></span>
             </button>
+        </section>
+    </div>
+
+    <div class="oha-client-settings-overlay" id="clientSettingsOverlay" hidden>
+        <section class="oha-client-settings" role="dialog" aria-modal="true" aria-labelledby="clientSettingsTitle" aria-describedby="clientSettingsDescription">
+            <header class="oha-client-settings-head">
+                <div class="oha-client-settings-title-wrap">
+                    <span class="oha-client-settings-icon" aria-hidden="true">
+                        <i class="fa-light fa-tablet-screen-button"></i>
+                    </span>
+                    <div>
+                        <h2 id="clientSettingsTitle"></h2>
+                        <p id="clientSettingsDescription"></p>
+                    </div>
+                </div>
+                <button class="oha-client-settings-close" id="clientSettingsClose" type="button">
+                    <i class="fa-light fa-xmark" aria-hidden="true"></i>
+                </button>
+            </header>
+
+            <label class="oha-client-settings-field" for="clientNameInput">
+                <span id="clientNameInputLabel"></span>
+                <input id="clientNameInput" type="text" maxlength="64" autocomplete="off" spellcheck="false">
+            </label>
+            <p class="oha-client-settings-hint" id="clientNameHint"></p>
+            <div class="oha-client-settings-error" id="clientNameError" role="alert" hidden></div>
+
+            <footer class="oha-client-settings-actions">
+                <button class="oha-secondary-button" id="clientSettingsCancel" type="button"></button>
+                <button class="oha-client-settings-save" id="clientSettingsSave" type="button"></button>
+            </footer>
         </section>
     </div>
 

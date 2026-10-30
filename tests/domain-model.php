@@ -554,6 +554,7 @@ $history = AlarmEventHistory::normalize(
 );
 $normalizedValidEntry = $validEntry;
 $normalizedValidEntry['PartitionID'] = '';
+$normalizedValidEntry['ClientName'] = '';
 assertDomainSame([$normalizedValidEntry], $history, 'Invalid event history entries must be discarded and legacy entries retained.');
 
 $newEntry = [
@@ -562,8 +563,14 @@ $newEntry = [
     'Mode'        => 0,
     'State'       => 0,
     'Source'      => '',
-    'PartitionID' => 'main'
+    'PartitionID' => 'main',
+    'ClientName'  => 'Tablet Flur'
 ];
+assertDomainSame(
+    [$newEntry],
+    AlarmEventHistory::normalize([$newEntry], [0, 1, 2, 3], [0, 1, 2, 3, 4], 10),
+    'An optional IPSView operating-device name must survive event-history normalization.'
+);
 assertDomainSame(
     [$newEntry],
     AlarmEventHistory::prepend($history, $newEntry, 1),

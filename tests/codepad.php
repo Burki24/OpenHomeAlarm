@@ -110,11 +110,12 @@ assertCodepad(
 );
 assertCodepad(
     !str_contains($javascript, 'sessionStorage')
-        && substr_count($javascript, 'window.localStorage.setItem(') === 1
+        && substr_count($javascript, 'window.localStorage.setItem(') === 2
         && str_contains($javascript, 'window.localStorage.setItem(ohaSelectedPartitionStorageKey, partitionID);')
+        && str_contains($javascript, 'window.localStorage.setItem(ohaClientNameStorageKey, normalized);')
         && !str_contains($javascript, 'localStorage.setItem(ohaCode')
         && !str_contains($javascript, 'localStorage.setItem(ohaState'),
-    'Browser storage may retain only the selected partition, never a disarm code or control state.'
+    'Browser storage may retain only the selected partition and self-declared operating-device name, never a disarm code or control state.'
 );
 assertCodepad(
     !str_contains($module, "RegisterVariableString('DisarmCode") && !str_contains($module, 'IDENT_DISARM_CODE_INPUT'),

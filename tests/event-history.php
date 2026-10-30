@@ -499,6 +499,61 @@ $entryHistory = readEventHistory($entryDelay);
 assertEventHistory(($entryHistory[0]['Event'] ?? null) === 'entry_delay_started', 'Starting entry delay must be logged.');
 assertEventHistory(($entryHistory[0]['Source'] ?? null) === 'Terrassentür', 'Entry-delay events must retain the initiating sensor.');
 
+// IPSView may add a self-declared local operating-device name to events caused by that request only.
+$testValues[5001] = false;
+$clientAttribution = new OpenHomeAlarm();
+$clientAttribution->Create();
+$clientAttribution->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$clientAttribution->TestSetPropertyString(
+    'Sensors',
+    json_encode([eventHistorySensor(5001, 'Haustür')], JSON_THROW_ON_ERROR)
+);
+$clientRequest = new ReflectionMethod(OpenHomeAlarm::class, 'ExecuteVisualizationActionForClient');
+$clientRequest->setAccessible(true);
+$clientRequest->invoke(
+    $clientAttribution,
+    'ArmPartition',
+    ['PartitionID' => 'main', 'Value' => 'away'],
+    "  Tablet\nFlur  "
+);
+$clientHistory = readEventHistory($clientAttribution);
+assertEventHistory(
+    ($clientHistory[0]['Event'] ?? null) === 'armed'
+    && ($clientHistory[0]['ClientName'] ?? null) === 'Tablet Flur',
+    'An IPSView action must store its normalized local operating-device name separately in the event history.'
+);
+assertEventHistory($clientAttribution->Disarm() === true, 'The attributed IPSView arming test must remain disarmable through another transport.');
+$clientHistory = readEventHistory($clientAttribution);
+assertEventHistory(
+    ($clientHistory[0]['Event'] ?? null) === 'disarmed'
+    && ($clientHistory[0]['ClientName'] ?? null) === '',
+    'The IPSView operating-device context must be cleared immediately after its request.'
+);
+$clientRequest->invoke(
+    $clientAttribution,
+    'ArmPartition',
+    ['PartitionID' => 'main', 'Value' => 'away'],
+    str_repeat('x', 100)
+);
+$clientHistory = readEventHistory($clientAttribution);
+assertEventHistory(
+    ($clientHistory[0]['ClientName'] ?? null) === str_repeat('x', 64),
+    'The self-declared operating-device name must be bounded before it enters persistent history.'
+);
+assertEventHistory($clientAttribution->Disarm() === true, 'The bounded-name attribution test must remain disarmable.');
+$clientRequest->invoke(
+    $clientAttribution,
+    'ArmPartition',
+    ['PartitionID' => 'main', 'Value' => 'away'],
+    ['invalid transport metadata']
+);
+$clientHistory = readEventHistory($clientAttribution);
+assertEventHistory(
+    ($clientHistory[0]['Event'] ?? null) === 'armed'
+    && ($clientHistory[0]['ClientName'] ?? null) === '',
+    'Invalid optional client metadata must be ignored without blocking a security action.'
+);
+
 for ($attempt = 0; $attempt < 110; ++$attempt) {
     assertEventHistory($instance->DisarmWithCode('0000') === false, 'Wrong code attempts used for history limit testing must remain rejected.');
     $instance->TestSetAttributeInteger('DisarmFailedAttempts', 0);

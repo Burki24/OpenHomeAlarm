@@ -352,6 +352,7 @@ class OpenHomeAlarm extends IPSModuleStrict
     private array $alarmDebugCalls = [];
     private string $alarmDebugOperation = '';
     private int $alarmDebugSequence = 0;
+    private string $visualizationClientName = '';
 
     /**
      * Registers the persistent configuration, runtime state, timers and status variables.
@@ -5115,7 +5116,11 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
 
             try {
-                $interaction = $this->ExecuteVisualizationAction($action, $value);
+                $interaction = $this->ExecuteVisualizationActionForClient(
+                    $action,
+                    $value,
+                    $request['clientName'] ?? null
+                );
                 $this->OutputIPSViewResponse($this->ControlStatePayload($interaction));
             } catch (InvalidArgumentException $exception) {
                 $this->OutputIPSViewResponse(['Error' => $exception->getMessage()], 400);
@@ -8444,6 +8449,45 @@ HTML;
         } finally {
             $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
         }
+    }
+
+    /** @return array<string,mixed>|null */
+    private function ExecuteVisualizationActionForClient(
+        string $ident,
+        mixed $value,
+        mixed $clientName
+    ): ?array {
+        $previousClientName = $this->visualizationClientName;
+        $this->visualizationClientName = $this->NormalizeVisualizationClientName($clientName);
+        try {
+            return $this->ExecuteVisualizationAction($ident, $value);
+        } finally {
+            $this->visualizationClientName = $previousClientName;
+        }
+    }
+
+    private function NormalizeVisualizationClientName(mixed $clientName): string
+    {
+        if (!is_string($clientName)) {
+            return '';
+        }
+
+        $clientName = function_exists('mb_substr')
+            ? mb_substr($clientName, 0, 256, 'UTF-8')
+            : substr($clientName, 0, 1024);
+        $normalized = preg_replace('/[\p{Cc}\p{Cf}\s]+/u', ' ', $clientName);
+        if (!is_string($normalized)) {
+            return '';
+        }
+
+        $normalized = trim($normalized);
+        if ($normalized === '') {
+            return '';
+        }
+
+        return function_exists('mb_substr')
+            ? mb_substr($normalized, 0, 64, 'UTF-8')
+            : substr($normalized, 0, 64);
     }
 
     /** @param array<string,mixed> $payload */
@@ -12019,7 +12063,7 @@ HTML;
     }
 
     /**
-     * @return list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string}>
+     * @return list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string,ClientName:string}>
      */
     private function ReadEventHistory(): array
     {
@@ -12080,6 +12124,7 @@ HTML;
             'Ereignis'          => $event,
             'Bereich'           => $partitionID ?? 'Standardbereich',
             'QuelleOderBlocker' => $source,
+            'Bediengerät'       => $this->visualizationClientName,
             'Modus'             => $mode,
             'Zustand'           => $state
         ]);
@@ -12093,7 +12138,8 @@ HTML;
                     'Mode'        => $mode ?? $this->ReadAlarmMode(),
                     'State'       => $state ?? $this->ReadAlarmState(),
                     'Source'      => $source,
-                    'PartitionID' => $partitionID ?? $this->DefaultPartitionID()
+                    'PartitionID' => $partitionID ?? $this->DefaultPartitionID(),
+                    'ClientName'  => $this->visualizationClientName
                 ],
                 self::EVENT_HISTORY_LIMIT
             )

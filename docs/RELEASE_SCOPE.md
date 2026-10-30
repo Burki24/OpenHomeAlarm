@@ -79,7 +79,11 @@ Der Release umfasst verbindlich:
 37. eine optionale, herstellerneutrale Schnittstelle für bestätigte externe
     Alarmereignisse mit ausdrücklicher Quellen-, Bereichs- und Modusfreigabe,
     getrennt versioniertem JSON-Vertrag, token-geschütztem WebHook und
-    persistentem Wiederholungsschutz.
+    persistentem Wiederholungsschutz,
+38. einen frei wählbaren, ausschließlich clientlokal gespeicherten Namen für
+    jedes IPSView-Bediengerät. Der Name wird bei einer Bedienaktion als
+    optionale Zuordnungsinformation in das Ereignisprotokoll übernommen, ist
+    aber weder Gerätekennung noch Authentifizierungs- oder Berechtigungsmerkmal.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -139,6 +143,9 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 - Alle sichtbaren Befehle liefern einen eindeutigen Erfolg oder eine verständliche Ablehnung, ohne einen unzulässigen Zwischenzustand zu hinterlassen.
 - Die HTML-SDK-Kachel bleibt auf Desktop- und kleinen mobilen Darstellungen vollständig bedienbar.
 - IPSView akzeptiert ausschließlich den vorgesehenen WebHook, gültige Token, POST und freigegebene Aktionen.
+- Ein in IPSView vergebener Bediengerätename bleibt auf den jeweiligen Client
+  und die jeweilige OpenHomeAlarm-Instanz begrenzt. Ein fehlender, ungültiger
+  oder nicht speicherbarer Name darf keine Alarmaktion blockieren.
 - Der externe Alarmereignis-WebHook akzeptiert ausschließlich aktivierte
   Instanzen, POST mit JSON, einen gültigen instanzbezogenen Schlüssel und den
   dokumentierten Ereignisvertrag.
@@ -146,6 +153,9 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
 ### Sicherheit und Datenschutz
 
 - Der Unscharfschaltcode erscheint weder in Statusvariablen noch in Bedienzustand, Debug-Ausgaben oder Ereignishistorie.
+- Der vom Client selbst angegebene IPSView-Bediengerätename ist ausdrücklich
+  nicht vertrauenswürdig und darf niemals Codeschutz, WebHook-Token oder
+  andere Berechtigungsprüfungen ersetzen.
 - Ein falscher oder während einer Sperre eingegebener Code verändert den Alarmzustand nicht.
 - Deaktivierte IPSView-Ausgabe darf keinen weiter nutzbaren Bedien-WebHook hinterlassen.
 - Eine deaktivierte externe Alarmereignis-Schnittstelle nimmt keine Ereignisse
