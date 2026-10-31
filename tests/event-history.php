@@ -411,21 +411,62 @@ assertEventHistory(
     'Trusted-source disarming must retain its source in the security event history.'
 );
 
-$armingSourceMethods = [
-    'Arm'           => 'source',
-    'ArmHome'       => 'source',
-    'ArmAway'       => 'source',
-    'ArmNight'      => 'source',
-    'ArmPartition'  => 'source',
-    'ArmPartitions' => 'source'
+$legacyArmingMethods = [
+    'Arm'           => ['mode', 'delaySeconds', 'silent', 'bypassActiveSensors'],
+    'ArmHome'       => ['delaySeconds', 'silent', 'bypassActiveSensors'],
+    'ArmAway'       => ['delaySeconds', 'silent', 'bypassActiveSensors'],
+    'ArmNight'      => ['delaySeconds', 'silent', 'bypassActiveSensors'],
+    'ArmPartition'  => ['partitionID', 'mode', 'delaySeconds', 'silent', 'bypassActiveSensors'],
+    'ArmPartitions' => ['partitionIDs', 'mode', 'delaySeconds', 'silent', 'bypassActiveSensors']
 ];
-foreach ($armingSourceMethods as $methodName => $expectedLastParameter) {
+foreach ($legacyArmingMethods as $methodName => $expectedParameters) {
     $parameters = (new ReflectionMethod(OpenHomeAlarm::class, $methodName))->getParameters();
     assertEventHistory(
-        $parameters !== []
-        && end($parameters)->getName() === $expectedLastParameter
-        && end($parameters)->isOptional(),
-        sprintf('%s must expose the optional source as its final backward-compatible parameter.', $methodName)
+        array_map(static fn (ReflectionParameter $parameter): string => $parameter->getName(), $parameters) === $expectedParameters,
+        sprintf('%s must retain its published parameter list for existing Symcon scripts.', $methodName)
+    );
+}
+
+$sourceArmingMethods = [
+    'ArmWithSource'           => ['mode', 'delaySeconds', 'silent', 'bypassActiveSensors', 'source'],
+    'ArmHomeWithSource'       => ['delaySeconds', 'silent', 'bypassActiveSensors', 'source'],
+    'ArmAwayWithSource'       => ['delaySeconds', 'silent', 'bypassActiveSensors', 'source'],
+    'ArmNightWithSource'      => ['delaySeconds', 'silent', 'bypassActiveSensors', 'source'],
+    'ArmPartitionWithSource'  => ['partitionID', 'mode', 'delaySeconds', 'silent', 'bypassActiveSensors', 'source'],
+    'ArmPartitionsWithSource' => ['partitionIDs', 'mode', 'delaySeconds', 'silent', 'bypassActiveSensors', 'source']
+];
+foreach ($sourceArmingMethods as $methodName => $expectedParameters) {
+    assertEventHistory(
+        method_exists(OpenHomeAlarm::class, $methodName),
+        sprintf('%s must provide the explicit source-aware arming command.', $methodName)
+    );
+    $parameters = (new ReflectionMethod(OpenHomeAlarm::class, $methodName))->getParameters();
+    assertEventHistory(
+        array_map(static fn (ReflectionParameter $parameter): string => $parameter->getName(), $parameters) === $expectedParameters
+        && end($parameters)->isOptional() === false,
+        sprintf('%s must require its final source parameter explicitly.', $methodName)
+    );
+}
+
+$sourceArmingCommands = [
+    'ArmWithSource'      => [['away', 0, null, false, 'Allgemeines Skript'], 2, 'Allgemeines Skript'],
+    'ArmHomeWithSource'  => [[0, null, false, 'Skript Zuhause'], 1, 'Skript Zuhause'],
+    'ArmAwayWithSource'  => [[0, null, false, 'Skript Abwesend'], 2, 'Skript Abwesend'],
+    'ArmNightWithSource' => [[0, null, false, 'Skript Nacht'], 3, 'Skript Nacht']
+];
+foreach ($sourceArmingCommands as $methodName => [$arguments, $expectedMode, $expectedSource]) {
+    $sourceCommand = new OpenHomeAlarm();
+    $sourceCommand->Create();
+    assertEventHistory(
+        $sourceCommand->{$methodName}(...$arguments) === true,
+        sprintf('%s must arm successfully with its explicit source.', $methodName)
+    );
+    $sourceCommandHistory = readEventHistory($sourceCommand);
+    assertEventHistory(
+        ($sourceCommandHistory[0]['Event'] ?? null) === 'armed'
+        && ($sourceCommandHistory[0]['Mode'] ?? null) === $expectedMode
+        && ($sourceCommandHistory[0]['Source'] ?? null) === $expectedSource,
+        sprintf('%s must write its mode and explicit source to the event history.', $methodName)
     );
 }
 
@@ -437,23 +478,23 @@ $armingSource->TestSetPropertyString(
     json_encode([eventHistorySensor(5001, 'Haustür')], JSON_THROW_ON_ERROR)
 );
 assertEventHistory(
-    $armingSource->ArmAway(0, null, false, 'Skript Haustür') === true,
-    'A trusted automation must be able to arm with an optional source.'
+    $armingSource->ArmAwayWithSource(0, null, false, 'Skript Haustür') === true,
+    'A trusted automation must be able to arm with an explicit source.'
 );
 $armingSourceHistory = readEventHistory($armingSource);
 assertEventHistory(
     ($armingSourceHistory[0]['Event'] ?? null) === 'armed'
     && ($armingSourceHistory[0]['Source'] ?? null) === 'Skript Haustür',
-    'Immediate arming must retain its optional automation source.'
+    'Immediate arming must retain its explicit automation source.'
 );
 assertEventHistory($armingSource->Disarm() === true, 'The trusted-source arming test must remain disarmable.');
 $historyBeforeInvalidArmingSource = $armingSource->GetEventHistory();
 assertEventHistory(
-    $armingSource->ArmAway(0, null, false, "Skript\nHaustür") === false,
+    $armingSource->ArmAwayWithSource(0, null, false, "Skript\nHaustür") === false,
     'An arming source containing control characters must be rejected.'
 );
 assertEventHistory(
-    $armingSource->ArmAway(0, null, false, str_repeat('x', 81)) === false,
+    $armingSource->ArmAwayWithSource(0, null, false, str_repeat('x', 81)) === false,
     'An overlong arming source must be rejected.'
 );
 assertEventHistory(
@@ -469,14 +510,14 @@ $delayedArmingSource->TestSetPropertyString(
     json_encode([eventHistorySensor(5001, 'Haustür')], JSON_THROW_ON_ERROR)
 );
 assertEventHistory(
-    $delayedArmingSource->ArmAway(null, null, false, 'Wochenplan Abwesend') === true,
+    $delayedArmingSource->ArmAwayWithSource(null, null, false, 'Wochenplan Abwesend') === true,
     'A trusted source must be accepted for delayed arming.'
 );
 $delayedSourceHistory = readEventHistory($delayedArmingSource);
 assertEventHistory(
     ($delayedSourceHistory[0]['Event'] ?? null) === 'exit_delay_started'
     && ($delayedSourceHistory[0]['Source'] ?? null) === 'Wochenplan Abwesend',
-    'Starting an exit delay must retain the optional automation source.'
+    'Starting an exit delay must retain the explicit automation source.'
 );
 $pendingArmingSources = json_decode(
     $delayedArmingSource->TestAttributeString('PendingArmingSources'),
@@ -530,7 +571,7 @@ $cancelledArmingSource->TestSetPropertyString(
     json_encode([eventHistorySensor(5001, 'Haustür')], JSON_THROW_ON_ERROR)
 );
 assertEventHistory(
-    $cancelledArmingSource->ArmAway(null, null, false, 'Automatik Haustür') === true,
+    $cancelledArmingSource->ArmAwayWithSource(null, null, false, 'Automatik Haustür') === true,
     'The cancellation source test must start its delayed arming.'
 );
 $testValues[5001] = true;
@@ -553,8 +594,8 @@ $partitionArmingSource->TestSetPropertyString(
     '[{"Enabled":true,"ID":"main","Name":"Gesamtanlage","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false}]'
 );
 assertEventHistory(
-    $partitionArmingSource->ArmPartition('garage', 'away', null, null, false, 'Garagentaster') === true,
-    'A single alarm partition must accept the optional arming source.'
+    $partitionArmingSource->ArmPartitionWithSource('garage', 'away', null, null, false, 'Garagentaster') === true,
+    'A single alarm partition must accept the explicit arming source.'
 );
 $partitionArmingSource->TestSetAttributeString(
     'PartitionRuntime',
@@ -578,7 +619,7 @@ assertEventHistory(
     ($partitionSourceHistory[0]['Event'] ?? null) === 'armed'
     && ($partitionSourceHistory[0]['PartitionID'] ?? null) === 'garage'
     && ($partitionSourceHistory[0]['Source'] ?? null) === 'Garagentaster',
-    'Completing a partition exit delay must retain its optional automation source.'
+    'Completing a partition exit delay must retain its explicit automation source.'
 );
 assertEventHistory(
     json_decode(
@@ -598,7 +639,7 @@ $groupArmingSource->TestSetPropertyString(
     '[{"Enabled":true,"ID":"main","Name":"Gesamtanlage","Default":true},{"Enabled":true,"ID":"garage","Name":"Garage","Default":false},{"Enabled":true,"ID":"schuppen","Name":"Schuppen","Default":false}]'
 );
 assertEventHistory(
-    $groupArmingSource->ArmPartitions(
+    $groupArmingSource->ArmPartitionsWithSource(
         ['garage', 'schuppen'],
         'away',
         0,
@@ -606,14 +647,14 @@ assertEventHistory(
         false,
         'Skript Nebengebäude'
     ) === true,
-    'A freely selected partition group must accept the optional arming source.'
+    'A freely selected partition group must accept the explicit arming source.'
 );
 $groupSourceHistory = readEventHistory($groupArmingSource);
 assertEventHistory(
     count($groupSourceHistory) === 2
     && array_values(array_unique(array_column($groupSourceHistory, 'Source'))) === ['Skript Nebengebäude']
     && array_values(array_unique(array_column($groupSourceHistory, 'PartitionID'))) === ['schuppen', 'garage'],
-    'Group arming must write the optional automation source to every selected partition event.'
+    'Group arming must write the explicit automation source to every selected partition event.'
 );
 
 assertEventHistory($instance->DisarmWithCode('9999') === false, 'A wrong code must remain rejected.');

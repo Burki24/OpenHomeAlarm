@@ -254,7 +254,7 @@ vollständiges Ereignisskript beschreibt Kapitel
 Ein Symcon-Skript anlegen und folgenden Befehl verwenden:
 
 ```php
-OHA_ArmPartition(12345, 'garage', 'away', null);
+OHA_ArmPartition(12345, 'garage', 'away', null, null, false);
 ```
 
 - `12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen.
@@ -264,14 +264,15 @@ OHA_ArmPartition(12345, 'garage', 'away', null);
   Verzögerung scharf; eine positive Zahl überschreibt die Verzögerung für
   diesen einzelnen Aufruf.
 - Der Befehl verändert keinen anderen Alarmbereich.
-- Ein optionaler fünfter Parameter wählt die Alarmierungsart: `true` für still,
-  `false` für normal und ohne Angabe die Bereichsvorgabe.
+- Der fünfte Parameter wählt die Alarmierungsart: `true` für still, `false` für
+  normal und `null` für die Bereichsvorgabe. Der sechste Parameter steuert die
+  einmalige automatische Sensorüberbrückung und ist ohne Überbrückung `false`.
 
 Für die Gesamtanlage verwenden Sie `main` beziehungsweise die bestehenden Befehle ohne Bereichs-ID:
 
 ```php
 // Alle aktiven Bereiche im Abwesend-Modus scharfschalten
-OHA_ArmAway(12345, null);
+OHA_ArmAway(12345, null, null, false);
 
 // Alle aktiven Bereiche unscharf schalten
 OHA_Disarm(12345);
@@ -288,7 +289,9 @@ OHA_ArmPartitions(
     12345,
     ['garage', 'schuppen'],
     'away',
-    null
+    null,
+    null,
+    false
 );
 
 // Vertrauenswürdige Automation: dieselben beiden Bereiche unscharf schalten
@@ -329,26 +332,23 @@ Deaktivierung auf genau diesen Bereich begrenzt. Die codefreie Funktion
 `OHA_DisarmPartitions()` ist ausschließlich für vertrauenswürdige eigene
 Automationen gedacht.
 
-Bei `OHA_ArmPartition()`, `OHA_ArmHome()`, `OHA_ArmAway()` und `OHA_ArmNight()`
-muss der Parameter für die Ausgangsverzögerung im von Symcon erzeugten
-`OHA_*`-Befehl immer angegeben werden. `null` verwendet die in der Instanz
-konfigurierte Ausgangsverzögerung, `0` schaltet ohne Verzögerung scharf und eine
-positive Zahl überschreibt die Verzögerung für diesen einzelnen Aufruf. Für den
-allgemeinen Befehl gilt entsprechend zum Beispiel `OHA_Arm(12345, 'away', null)`.
-Als optionaler Parameter kann bei allen Scharfbefehlen `true` (still)
-oder `false` (normal) übergeben werden, beispielsweise
-`OHA_ArmPartition(12345, 'garage', 'away', null, true)`. Ohne diesen Parameter
-verwendet jeder Bereich seine eigene Vorgabe **Standardmäßig stiller Alarm**.
-Bei einer Gesamtschaltung überschreibt ein ausdrücklich angegebener Wert die
-Vorgabe aller Bereiche nur für diesen Scharfschaltzyklus.
-Der danach folgende Parameter aktiviert mit `true` für diesen Aufruf
-die automatische Überbrückung bereits ausgelöster, am Sensor einzeln
-freigegebener Kontakte. Beispiel für einen Symcon-Wochenplan:
+Symcon erzeugt für öffentliche Modulmethoden feste `OHA_*`-Funktionen und
+übernimmt deren PHP-Standardwerte nicht. Deshalb müssen bei allen
+Scharfschaltbefehlen sämtliche aufgeführten Parameter ausdrücklich übergeben
+werden. `null` als Verzögerung verwendet die in der Instanz konfigurierte
+Ausgangsverzögerung, `0` schaltet sofort und eine positive Zahl überschreibt die
+Verzögerung einmalig. Für den allgemeinen Befehl gilt beispielsweise
+`OHA_Arm(12345, 'away', null, null, false)`.
+
+Der Parameter `$Still` ist `true` für still, `false` für normal oder `null` für
+die Bereichsvorgabe. `$AktiveSensorenÜberbrücken` aktiviert mit `true` für
+diesen Aufruf die automatische Überbrückung bereits ausgelöster, am Sensor
+einzeln freigegebener Kontakte. Beispiel für einen Symcon-Wochenplan:
 `OHA_ArmPartition(12345, 'garage', 'night', null, null, true)`.
-Ohne diesen Parameter bleibt die Bereitschaftsprüfung unverändert streng.
-Als letzter optionaler Parameter kann anschließend eine kurze Quellenbezeichnung
-für das Ereignisprotokoll übergeben werden, beispielsweise
-`OHA_ArmPartition(12345, 'garage', 'night', null, null, true, 'Wochenplan Garage')`.
+
+Für eine protokollierte Quelle wird der entsprechende Befehl mit dem Suffix
+`WithSource` verwendet, beispielsweise
+`OHA_ArmPartitionWithSource(12345, 'garage', 'night', null, null, true, 'Wochenplan Garage')`.
 Die Quelle darf höchstens 80 Zeichen lang sein und keine Steuerzeichen enthalten.
 Eine ungültige Quelle lehnt den vollständigen Scharfschaltauftrag ab, bevor sich
 ein Bereichszustand ändert.
@@ -371,7 +371,7 @@ $alarmInstanzID = 12345;
 
 if ((int) $_IPS['VALUE'] === 16) {
     // Karte eingesteckt: Abwesend ohne Ausgangsverzögerung scharfschalten
-    OHA_ArmAway($alarmInstanzID, 0);
+    OHA_ArmAway($alarmInstanzID, 0, null, false);
 } elseif ((int) $_IPS['VALUE'] === 0) {
     // Keine Karte: Gesamtanlage unscharf schalten
     OHA_Disarm($alarmInstanzID);
@@ -379,9 +379,10 @@ if ((int) $_IPS['VALUE'] === 16) {
 ```
 
 `12345` wieder durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen. Soll beim
-Einstecken der Karte die konfigurierte Ausgangsverzögerung laufen, im Aufruf
-`OHA_ArmAway($alarmInstanzID, null)` statt `0` verwenden. Die Werte `16` und `0`
-müssen zu den tatsächlichen Werten der verwendeten Variable passen.
+Einstecken der Karte die konfigurierte Ausgangsverzögerung laufen, im zweiten
+Parameter des Aufrufs `OHA_ArmAway($alarmInstanzID, null, null, false)` den Wert
+`null` anstelle von `0` verwenden. Die Werte `16` und `0` müssen zu den
+tatsächlichen Werten der verwendeten Variable passen.
 
 **4. Nur die Garage unscharf schalten**
 
@@ -1382,7 +1383,7 @@ Quittierung beendet keinen aktiven Alarm und schaltet keinen Bereich unscharf.
 
 OpenHomeAlarm führt ein persistentes, auf die letzten 100 Einträge begrenztes Sicherheits-Ereignisprotokoll. Das Protokoll bleibt über `ApplyChanges()` und einen Symcon-Neustart erhalten und wird für die spätere Visualisierung strukturiert als JSON bereitgestellt. Der jeweils neueste Eintrag steht an erster Stelle. Kachel und IPSView zeigen davon die neuesten 20 Meldungen; die übrigen gespeicherten Einträge bleiben über API und Export verfügbar.
 
-Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbaren Ereignistyp, den zum Ereignis gehörenden `Mode` und `State`, die technische `PartitionID` sowie optional `Source` und `ClientName`. Ältere gespeicherte Einträge ohne Bereichs- oder Bediengeräteangabe bleiben lesbar und erhalten dafür leere Werte. Als Quelle werden bei Alarmen, Eingangsverzögerungen und Sensorüberbrückungen die betroffenen Sensornamen gespeichert. Eine an die öffentlichen Scharfschaltfunktionen übergebene Quellenbezeichnung erscheint beim Start und erfolgreichen Abschluss der Scharfschaltung; bei einer Ausgangsverzögerung bleibt sie bereichsbezogen über `ApplyChanges()` und Neustarts erhalten. Wird die abschließende Scharfschaltung blockiert, nennt das Abbruchereignis weiterhin die blockierenden Sensoren und das danach erzeugte Unscharf-Ereignis die aufrufende Quelle. `ClientName` enthält bei einem unmittelbar durch die Kachel oder IPSView erzeugten Ereignis den auf diesem Bediengerät lokal vergebenen Namen. Beginnt die Aktion eine Ausgangsverzögerung, gilt dieselbe Zuordnung auch für deren abschließende Scharfschaltung oder den kontrollierten Abbruch. Andere spätere Timer-, Sensor- und Alarmereignisse übernehmen sie nicht.
+Jeder Eintrag enthält `Time` als Unix-Zeitstempel, `Event` als maschinenlesbaren Ereignistyp, den zum Ereignis gehörenden `Mode` und `State`, die technische `PartitionID` sowie optional `Source` und `ClientName`. Ältere gespeicherte Einträge ohne Bereichs- oder Bediengeräteangabe bleiben lesbar und erhalten dafür leere Werte. Als Quelle werden bei Alarmen, Eingangsverzögerungen und Sensorüberbrückungen die betroffenen Sensornamen gespeichert. Eine an eine `OHA_Arm*WithSource()`-Funktion übergebene Quellenbezeichnung erscheint beim Start und erfolgreichen Abschluss der Scharfschaltung; bei einer Ausgangsverzögerung bleibt sie bereichsbezogen über `ApplyChanges()` und Neustarts erhalten. Wird die abschließende Scharfschaltung blockiert, nennt das Abbruchereignis weiterhin die blockierenden Sensoren und das danach erzeugte Unscharf-Ereignis die aufrufende Quelle. `ClientName` enthält bei einem unmittelbar durch die Kachel oder IPSView erzeugten Ereignis den auf diesem Bediengerät lokal vergebenen Namen. Beginnt die Aktion eine Ausgangsverzögerung, gilt dieselbe Zuordnung auch für deren abschließende Scharfschaltung oder den kontrollierten Abbruch. Andere spätere Timer-, Sensor- und Alarmereignisse übernehmen sie nicht.
 
 Protokolliert werden erfolgreiche und abgelehnte Scharfschaltungen, der Start einer Eingangs- oder Ausgangsverzögerung, Alarm, Rücksetzungen des Alarmausgangs, Unscharfschalten, temporäre Sensorüberbrückungen, Freigabe, Beginn, Abschluss und Ablauf eines Durchgangs, das Löschen des Alarmgedächtnisses, neu aufgetretene bzw. behobene Systemstörungen, erfolgreich ausgeführte Alarm-Eskalationsaktionen, versandte Symcon- beziehungsweise Pushover-Alarmbenachrichtigungen sowie abgewiesene Code-Eingaben und ausgelöste temporäre Code-Sperren. Bei einer Alarmaktion enthält `Source` den Namen der Eskalationsstufe und der Aktion; sind beide Namen identisch, wird der Name nur einmal gespeichert. Alarmaktionen und Alarmbenachrichtigungen werden einmal systemweit ausgeführt und deshalb mit einer leeren `PartitionID` protokolliert, statt sie fälschlich `main` zuzuordnen. Ein technischer Ausführungsfehler wird weiterhin im Debug-Protokoll gemeldet und nicht fälschlich als erfolgreich ausgeführt protokolliert. Weder der konfigurierte Unscharfschaltcode noch ein eingegebener Code werden im Ereignisprotokoll gespeichert.
 
@@ -1675,7 +1676,7 @@ müssen durch die IDs der eigenen Installation ersetzt werden.
 | `$BereichIDs` | Liste technischer Bereichs-IDs, beispielsweise `['garage', 'schuppen']`; `main` hat je nach dokumentiertem Befehl die Bedeutung Gesamtanlage oder ausdrücklich genannter Hauptbereich |
 | `$VariableID` | Objekt-ID der als Sensor konfigurierten Symcon-Variable, beispielsweise `23456` |
 | `$Quelle` | Kurze, verständliche Bezeichnung einer bereits extern geprüften Berechtigung, beispielsweise `Zutrittskontrolle Haustür` |
-| `$Frist` | Dauer einer temporären Durchgangsfreigabe in Sekunden; zulässig sind `1` bis `3600`, Standardwert ist `60` |
+| `$Frist` | Dauer einer temporären Durchgangsfreigabe in Sekunden; zulässig sind `1` bis `3600`. Für eine Minute wird ausdrücklich `60` übergeben. |
 | `$Modus` | `home`, `away` oder `night` |
 | `$Verzögerung` | `null` verwendet die konfigurierte Ausgangsverzögerung, `0` schaltet sofort, ein positiver Wert überschreibt sie einmalig |
 | `$Still` | `null` verwendet die Bereichsvorgabe, `true` schaltet still, `false` normal |
@@ -1685,6 +1686,13 @@ Ein `bool`-Befehl liefert `true`, wenn die Aktion angenommen beziehungsweise
 erfolgreich ausgeführt wurde. `false` bedeutet eine sichere Ablehnung, etwa
 wegen eines falschen Zustands, ungültiger Parameter, fehlender Bereitschaft
 oder eines falschen Codes.
+
+Wichtig: Symcon stellt öffentliche Modulmethoden als feste `OHA_*`-Funktionen
+bereit. PHP-Standardwerte der Modulmethoden machen deren Parameter im
+erzeugten Wrapper nicht optional. Deshalb müssen immer alle in den folgenden
+Signaturen aufgeführten Parameter übergeben werden. `null`, `false`, `0` oder
+ein leerer Filter werden ausdrücklich dort eingesetzt, wo die jeweilige
+Standardwirkung gewünscht ist.
 
 ### Status, Diagnose und Sicherung
 
@@ -1696,9 +1704,9 @@ oder eines falschen Codes.
 | `OHA_TriggerExternalAlarmEvent($InstanzID, $EreignisJSON)` | `string` | Verarbeitet ein bestätigtes externes Alarmereignis nach denselben Quellen-, Bereichs-, Modus-, Zeit- und Wiederholungsregeln wie der HTTP-WebHook. Nur für vertrauenswürdige lokale Module und Skripte. |
 | `OHA_RotateExternalAlarmEventToken($InstanzID)` | `string` | Erzeugt bei vollständig unscharfer Anlage einen neuen vertraulichen WebHook-Schlüssel. Vorhandene HTTP-Anbindungen müssen anschließend aktualisiert werden. |
 | `OHA_GetDiagnostics($InstanzID)` | `string` | Liefert einen lesenden Diagnose-Snapshot aller Sensoren und Störungseingänge als JSON. |
-| `OHA_ExportDiagnostics($InstanzID, $Format = 'json')` | `string` | Exportiert die Diagnose als `json` oder `csv`; andere Formate werden abgewiesen. |
+| `OHA_ExportDiagnostics($InstanzID, $Format)` | `string` | Exportiert die Diagnose als `json` oder `csv`; andere Formate werden abgewiesen. |
 | `OHA_GetEventHistory($InstanzID)` | `string` | Liefert das persistente Sicherheits-Ereignisprotokoll als JSON, neuester Eintrag zuerst. |
-| `OHA_ExportEventHistory($InstanzID, $Format = 'json', $VonZeitstempel = 0, $BisZeitstempel = 0, $Ereignistyp = '')` | `string` | Exportiert die gefilterte Historie als `json` oder `csv`. `0` beziehungsweise ein leerer Ereignistyp deaktivieren den Filter. |
+| `OHA_ExportEventHistory($InstanzID, $Format, $VonZeitstempel, $BisZeitstempel, $Ereignistyp)` | `string` | Exportiert die gefilterte Historie als `json` oder `csv`. `0` beziehungsweise ein leerer Ereignistyp deaktivieren den Filter. |
 | `OHA_ClearEventHistory($InstanzID)` | `bool` | Leert das vollständige persistente Ereignisprotokoll. |
 | `OHA_CheckSensorIntegrity($InstanzID)` | `void` | Prüft sofort alle konfigurierten Sensor- und Störungsvariablen und aktualisiert Bereitschaft und Systemstörung. |
 | `OHA_ExportConfigurationBackup($InstanzID)` | `string` | Exportiert alle Moduleinstellungen als versioniertes JSON. Das Ergebnis kann Codes, Pushover-Zugangsdaten und andere Geheimnisse enthalten. |
@@ -1723,12 +1731,18 @@ $garageState = $state['Partitions']['garage']['State']['Name'] ?? 'disarmed';
 
 | PHP-Befehl | Rückgabe | Bedeutung |
 | --- | --- | --- |
-| `OHA_Arm($InstanzID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false, $Quelle = '')` | `bool` | Schaltet alle aktiven Bereiche im angegebenen Modus scharf. Bei einem Blocker bleibt die Gesamtanlage unverändert. |
-| `OHA_ArmHome($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false, $Quelle = '')` | `bool` | Komfortbefehl für **Zuhause**. |
-| `OHA_ArmAway($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false, $Quelle = '')` | `bool` | Komfortbefehl für **Abwesend**. |
-| `OHA_ArmNight($InstanzID, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false, $Quelle = '')` | `bool` | Komfortbefehl für **Nacht**. |
-| `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false, $Quelle = '')` | `bool` | Schaltet einen einzelnen Bereich scharf. `main` steht für alle aktiven Bereiche. |
-| `OHA_ArmPartitions($InstanzID, $BereichIDs, $Modus, $Verzögerung, $Still = null, $AktiveSensorenÜberbrücken = false, $Quelle = '')` | `bool` | Schaltet eine Liste ausgewählter Bereiche atomar scharf. Ist einer nicht schaltbar, bleibt die gesamte Auswahl unverändert. Enthält die Liste `main`, gilt sie für alle aktiven Bereiche. |
+| `OHA_Arm($InstanzID, $Modus, $Verzögerung, $Still, $AktiveSensorenÜberbrücken)` | `bool` | Schaltet alle aktiven Bereiche im angegebenen Modus scharf. Bei einem Blocker bleibt die Gesamtanlage unverändert. |
+| `OHA_ArmHome($InstanzID, $Verzögerung, $Still, $AktiveSensorenÜberbrücken)` | `bool` | Komfortbefehl für **Zuhause**. |
+| `OHA_ArmAway($InstanzID, $Verzögerung, $Still, $AktiveSensorenÜberbrücken)` | `bool` | Komfortbefehl für **Abwesend**. |
+| `OHA_ArmNight($InstanzID, $Verzögerung, $Still, $AktiveSensorenÜberbrücken)` | `bool` | Komfortbefehl für **Nacht**. |
+| `OHA_ArmPartition($InstanzID, $BereichID, $Modus, $Verzögerung, $Still, $AktiveSensorenÜberbrücken)` | `bool` | Schaltet einen einzelnen Bereich scharf. `main` steht für alle aktiven Bereiche. |
+| `OHA_ArmPartitions($InstanzID, $BereichIDs, $Modus, $Verzögerung, $Still, $AktiveSensorenÜberbrücken)` | `bool` | Schaltet eine Liste ausgewählter Bereiche atomar scharf. Ist einer nicht schaltbar, bleibt die gesamte Auswahl unverändert. Enthält die Liste `main`, gilt sie für alle aktiven Bereiche. |
+| `OHA_ArmWithSource($InstanzID, $Modus, $Verzögerung, $Still, $AktiveSensorenÜberbrücken, $Quelle)` | `bool` | Schaltet alle aktiven Bereiche scharf und protokolliert die angegebene Quelle. |
+| `OHA_ArmHomeWithSource($InstanzID, $Verzögerung, $Still, $AktiveSensorenÜberbrücken, $Quelle)` | `bool` | Quellenbezogener Komfortbefehl für **Zuhause**. |
+| `OHA_ArmAwayWithSource($InstanzID, $Verzögerung, $Still, $AktiveSensorenÜberbrücken, $Quelle)` | `bool` | Quellenbezogener Komfortbefehl für **Abwesend**. |
+| `OHA_ArmNightWithSource($InstanzID, $Verzögerung, $Still, $AktiveSensorenÜberbrücken, $Quelle)` | `bool` | Quellenbezogener Komfortbefehl für **Nacht**. |
+| `OHA_ArmPartitionWithSource($InstanzID, $BereichID, $Modus, $Verzögerung, $Still, $AktiveSensorenÜberbrücken, $Quelle)` | `bool` | Schaltet einen einzelnen Bereich scharf und protokolliert die angegebene Quelle. |
+| `OHA_ArmPartitionsWithSource($InstanzID, $BereichIDs, $Modus, $Verzögerung, $Still, $AktiveSensorenÜberbrücken, $Quelle)` | `bool` | Schaltet die ausgewählten Bereiche atomar scharf und protokolliert die Quelle für jeden Bereich. |
 | `OHA_Disarm($InstanzID)` | `bool` | Schaltet alle Bereiche als vertrauenswürdige Automation ohne Code-Prüfung unscharf. |
 | `OHA_DisarmWithSource($InstanzID, $Quelle)` | `bool` | Schaltet alle Bereiche über eine vertrauenswürdige Automation unscharf und schreibt die angegebene Quelle, etwa `Zutrittskontrolle Haustür`, in das Ereignisprotokoll. Die Quelle ist nur eine Zuordnung und ersetzt keine Authentifizierung. |
 | `OHA_DisarmWithCode($InstanzID, $Code)` | `bool` | Prüft Code und Sperrstatus und schaltet bei Erfolg alle Bereiche unscharf. Für benutzerseitige Oberflächen verwenden. |
@@ -1741,14 +1755,15 @@ modulspezifischen Prüfung darf das Skript die Funktion mit einer kurzen,
 verständlichen Quellenbezeichnung aufrufen. Ein
 beliebiger Text in `$Quelle` berechtigt nicht zum Unscharfschalten.
 
-Bei allen sechs Scharfschaltfunktionen kann derselbe Typ Quellenbezeichnung als
-letzter optionaler Parameter übergeben werden. Bestehende Aufrufe bleiben
-unverändert gültig. Die Quelle dient ausschließlich der nachvollziehbaren
-Zuordnung im Ereignisprotokoll und gewährt ebenfalls keine Berechtigung. Sie
-wird bei einer Ausgangsverzögerung bis zur Scharfschaltung oder zum Abbruch
-neustartsicher mitgeführt und danach entfernt. Abgelehnte beziehungsweise
-abgebrochene Scharfschaltungen behalten im eigentlichen Ablehnungsereignis die
-blockierenden Sensoren als wichtigeren Grund.
+Die sechs bisherigen Scharfschaltfunktionen behalten ihre veröffentlichte
+Parameterzahl und erzeugen Ereignisse ohne frei gewählte Automationsquelle.
+Für eine Quellenangabe steht zu jedem Befehl eine gleich aufgebaute Variante
+mit dem Suffix `WithSource` bereit. Die Quelle dient ausschließlich der
+nachvollziehbaren Zuordnung im Ereignisprotokoll und gewährt keine
+Berechtigung. Sie wird bei einer Ausgangsverzögerung bis zur Scharfschaltung
+oder zum Abbruch neustartsicher mitgeführt und danach entfernt. Abgelehnte
+beziehungsweise abgebrochene Scharfschaltungen behalten im eigentlichen
+Ablehnungsereignis die blockierenden Sensoren als wichtigeren Grund.
 
 ```php
 // Das aufrufende Skript hat die Zutrittsberechtigung bereits sicher geprüft.
@@ -1760,25 +1775,26 @@ if (!$success) {
 }
 ```
 
-Im von Symcon erzeugten `OHA_*`-Wrapper muss `$Verzögerung` bei den
-Scharfschaltbefehlen ausdrücklich übergeben werden. Verwenden Sie `null`, wenn
-die konfigurierte Ausgangsverzögerung gelten soll:
+Im von Symcon erzeugten `OHA_*`-Wrapper müssen sämtliche Parameter der
+gewählten Funktion ausdrücklich übergeben werden. Verwenden Sie `null`, wenn
+die konfigurierte Ausgangsverzögerung oder Bereichsvorgabe gelten soll, und
+`false`, wenn keine automatische Sensorüberbrückung gewünscht ist:
 
 ```php
 // Gesamtanlage mit der konfigurierten Verzögerung scharfschalten
-OHA_ArmAway(12345, null);
+OHA_ArmAway(12345, null, null, false);
 
 // Derselbe Auftrag mit nachvollziehbarer Quelle im Systemprotokoll
-OHA_ArmAway(12345, null, null, false, 'Wochenplan Abwesend');
+OHA_ArmAwayWithSource(12345, null, null, false, 'Wochenplan Abwesend');
 
 // Garage sofort und still scharfschalten
-OHA_ArmPartition(12345, 'garage', 'away', 0, true);
+OHA_ArmPartition(12345, 'garage', 'away', 0, true, false);
 
 // Bereits ausgelöste, dafür freigegebene Sensoren einmalig überbrücken
 OHA_ArmPartition(12345, 'garage', 'night', null, null, true);
 
 // Garage und Schuppen gemeinsam, aber nicht alle Bereiche scharfschalten
-OHA_ArmPartitions(12345, ['garage', 'schuppen'], 'away', null, null, false, 'Skript Nebengebäude');
+OHA_ArmPartitionsWithSource(12345, ['garage', 'schuppen'], 'away', null, null, false, 'Skript Nebengebäude');
 ```
 
 Für neue allgemeine Automationen ist `OHA_Arm()` der bevorzugte Einstieg. Die
@@ -1795,12 +1811,13 @@ Kompatibilitätsschnittstellen erhalten.
 | `OHA_RemoveSensorBypassPartition($InstanzID, $BereichID, $VariableID)` | `bool` | Entfernt eine einzelne Überbrückung im angegebenen unscharfen Bereich. |
 | `OHA_ClearSensorBypasses($InstanzID)` | `bool` | Entfernt alle Überbrückungen, wenn alle Bereiche unscharf sind. |
 | `OHA_ClearSensorBypassesPartition($InstanzID, $BereichID)` | `bool` | Entfernt alle Überbrückungen eines einzelnen unscharfen Bereichs. |
-| `OHA_GrantPassage($InstanzID, $VariableID, $Frist = 60)` | `bool` | Gibt einen dafür zugelassenen Sensor im scharfen Hauptbereich für einen Auslöse-/Normalzyklus frei. |
-| `OHA_GrantPassagePartition($InstanzID, $BereichID, $VariableID, $Frist = 60)` | `bool` | Gibt den Sensor ausschließlich im angegebenen scharfen Bereich frei. |
-| `OHA_GrantPassagePartitions($InstanzID, $BereichIDs, $VariableID, $Frist = 60)` | `bool` | Gibt denselben Sensor in allen genannten scharfen Bereichen atomar frei. Ist eine Zuordnung unzulässig, entsteht nirgends eine Teilfreigabe. |
+| `OHA_GrantPassage($InstanzID, $VariableID, $Frist)` | `bool` | Gibt einen dafür zugelassenen Sensor im scharfen Hauptbereich für einen Auslöse-/Normalzyklus frei. |
+| `OHA_GrantPassagePartition($InstanzID, $BereichID, $VariableID, $Frist)` | `bool` | Gibt den Sensor ausschließlich im angegebenen scharfen Bereich frei. |
+| `OHA_GrantPassagePartitions($InstanzID, $BereichIDs, $VariableID, $Frist)` | `bool` | Gibt denselben Sensor in allen genannten scharfen Bereichen atomar frei. Ist eine Zuordnung unzulässig, entsteht nirgends eine Teilfreigabe. |
 
-Für alle drei Durchgangsbefehle wird `Frist` in Sekunden angegeben. Der
-Standardwert beträgt `60`, der zulässige Bereich `1` bis `3600`. Ein
+Für alle drei Durchgangsbefehle wird `Frist` in Sekunden ausdrücklich
+angegeben. Für eine Minute wird `60` verwendet; der zulässige Bereich ist
+`1` bis `3600`. Ein
 ungültiger Wert oder der Versuch, eine laufende Freigabe zu verlängern, liefert
 `false`.
 

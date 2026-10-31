@@ -1690,7 +1690,28 @@ class OpenHomeAlarm extends IPSModuleStrict
      * Arms one enabled alarm partition. The configured main/default partition
      * represents the complete system and therefore arms every enabled area.
      */
-    public function ArmPartition(string $partitionID, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
+    public function ArmPartition(string $partitionID, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereich' => $partitionID, 'Modus' => $mode, 'VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            return $debugResult = $this->ArmPartitionWithSource($partitionID, $mode, $delaySeconds, $silent, $bypassActiveSensors, '');
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /** Arms one enabled alarm partition and records an explicit automation source. */
+    public function ArmPartitionWithSource(string $partitionID, string $mode, ?int $delaySeconds, ?bool $silent, bool $bypassActiveSensors, string $source): bool
     {
         $debugResult = null;
         $debugFailed = false;
@@ -1698,7 +1719,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         try {
             $source = $this->NormalizeAutomationSource($source);
             if ($source === null) {
-                $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Scharfschaltung abgelehnt: Die optionale Quellenbezeichnung ist länger als 80 Zeichen oder enthält Steuerzeichen.');
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Scharfschaltung abgelehnt: Die Quellenbezeichnung ist länger als 80 Zeichen oder enthält Steuerzeichen.');
                 return $debugResult = false;
             }
             if ($delaySeconds !== null && $delaySeconds < 0) {
@@ -1712,7 +1733,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return $debugResult = false;
             }
             if ($partitionID === $this->DefaultPartitionID()) {
-                return $debugResult = $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors, $source);
+                return $debugResult = $this->ArmWithSource($mode, $delaySeconds, $silent, $bypassActiveSensors, $source);
             }
 
             return $debugResult = $this->ArmSinglePartition($partitionID, $mode, $delaySeconds, $silent, $bypassActiveSensors, $source);
@@ -1736,7 +1757,32 @@ class OpenHomeAlarm extends IPSModuleStrict
      *
      * @param list<string> $partitionIDs
      */
-    public function ArmPartitions(array $partitionIDs, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
+    public function ArmPartitions(array $partitionIDs, string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Bereiche' => $partitionIDs, 'Modus' => $mode, 'VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            return $debugResult = $this->ArmPartitionsWithSource($partitionIDs, $mode, $delaySeconds, $silent, $bypassActiveSensors, '');
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /**
+     * Arms a freely selected set of alarm partitions and records an explicit automation source.
+     *
+     * @param list<string> $partitionIDs
+     */
+    public function ArmPartitionsWithSource(array $partitionIDs, string $mode, ?int $delaySeconds, ?bool $silent, bool $bypassActiveSensors, string $source): bool
     {
         $debugResult = null;
         $debugFailed = false;
@@ -1744,7 +1790,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         try {
             $source = $this->NormalizeAutomationSource($source);
             if ($source === null) {
-                $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Scharfschaltung abgelehnt: Die optionale Quellenbezeichnung ist länger als 80 Zeichen oder enthält Steuerzeichen.');
+                $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Scharfschaltung abgelehnt: Die Quellenbezeichnung ist länger als 80 Zeichen oder enthält Steuerzeichen.');
                 return $debugResult = false;
             }
             if ($delaySeconds !== null && $delaySeconds < 0) {
@@ -1760,7 +1806,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 return $debugResult = false;
             }
             if (in_array($this->DefaultPartitionID(), $partitionIDs, true)) {
-                return $debugResult = $this->Arm($mode, $delaySeconds, $silent, $bypassActiveSensors, $source);
+                return $debugResult = $this->ArmWithSource($mode, $delaySeconds, $silent, $bypassActiveSensors, $source);
             }
 
             $states = $this->ReadPartitionRuntime();
@@ -2005,7 +2051,28 @@ class OpenHomeAlarm extends IPSModuleStrict
      * Supported mode names are home, away and night. Invalid names are rejected
      * without changing the current alarm state.
      */
-    public function Arm(string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
+    public function Arm(string $mode, ?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['Modus' => $mode, 'VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            return $debugResult = $this->ArmWithSource($mode, $delaySeconds, $silent, $bypassActiveSensors, '');
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /** Arms one user-facing mode and records an explicit automation source. */
+    public function ArmWithSource(string $mode, ?int $delaySeconds, ?bool $silent, bool $bypassActiveSensors, string $source): bool
     {
         $debugResult = null;
         $debugFailed = false;
@@ -2016,7 +2083,7 @@ class OpenHomeAlarm extends IPSModuleStrict
 
             if ($source === null || $modeValue === null || ($delaySeconds !== null && $delaySeconds < 0)) {
                 if ($source === null) {
-                    $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Scharfschaltung abgelehnt: Die optionale Quellenbezeichnung ist länger als 80 Zeichen oder enthält Steuerzeichen.');
+                    $this->AlarmDebug(__FUNCTION__, __LINE__, 'AKTION', 'Scharfschaltung abgelehnt: Die Quellenbezeichnung ist länger als 80 Zeichen oder enthält Steuerzeichen.');
                 }
                 $this->PublishVisualizationState();
 
@@ -2223,13 +2290,34 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Arms the system in Home mode when every sensor assigned to Home is ready.
      */
-    public function ArmHome(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
+    public function ArmHome(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
     {
         $debugResult = null;
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
-            return $debugResult = $this->Arm('home', $delaySeconds, $silent, $bypassActiveSensors, $source);
+            return $debugResult = $this->ArmWithSource('home', $delaySeconds, $silent, $bypassActiveSensors, '');
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /** Arms the system in Home mode and records an explicit automation source. */
+    public function ArmHomeWithSource(?int $delaySeconds, ?bool $silent, bool $bypassActiveSensors, string $source): bool
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            return $debugResult = $this->ArmWithSource('home', $delaySeconds, $silent, $bypassActiveSensors, $source);
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -2246,13 +2334,34 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Arms the system in Away mode when every sensor assigned to Away is ready.
      */
-    public function ArmAway(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
+    public function ArmAway(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
     {
         $debugResult = null;
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
-            return $debugResult = $this->Arm('away', $delaySeconds, $silent, $bypassActiveSensors, $source);
+            return $debugResult = $this->ArmWithSource('away', $delaySeconds, $silent, $bypassActiveSensors, '');
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /** Arms the system in Away mode and records an explicit automation source. */
+    public function ArmAwayWithSource(?int $delaySeconds, ?bool $silent, bool $bypassActiveSensors, string $source): bool
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            return $debugResult = $this->ArmWithSource('away', $delaySeconds, $silent, $bypassActiveSensors, $source);
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -2269,13 +2378,34 @@ class OpenHomeAlarm extends IPSModuleStrict
     /**
      * Arms the system in Night mode when every sensor assigned to Night is ready.
      */
-    public function ArmNight(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false, string $source = ''): bool
+    public function ArmNight(?int $delaySeconds = null, ?bool $silent = null, bool $bypassActiveSensors = false): bool
     {
         $debugResult = null;
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
         try {
-            return $debugResult = $this->Arm('night', $delaySeconds, $silent, $bypassActiveSensors, $source);
+            return $debugResult = $this->ArmWithSource('night', $delaySeconds, $silent, $bypassActiveSensors, '');
+        } catch (Throwable $debugException) {
+            $debugFailed = true;
+            $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
+                'Ursache'     => $this->ExplainAlarmDebugError($debugException->getMessage()),
+                'Fehlertyp'   => $debugException::class,
+                'Fehlerzeile' => $debugException->getLine()
+            ]);
+            throw $debugException;
+        } finally {
+            $this->EndAlarmDebug(__FUNCTION__, __LINE__, $debugResult, $debugFailed, false);
+        }
+    }
+
+    /** Arms the system in Night mode and records an explicit automation source. */
+    public function ArmNightWithSource(?int $delaySeconds, ?bool $silent, bool $bypassActiveSensors, string $source): bool
+    {
+        $debugResult = null;
+        $debugFailed = false;
+        $this->BeginAlarmDebug(__FUNCTION__, __LINE__, ['VerzögerungSekunden' => $delaySeconds, 'Still' => $silent, 'AktiveSensorenÜberbrücken' => $bypassActiveSensors]);
+        try {
+            return $debugResult = $this->ArmWithSource('night', $delaySeconds, $silent, $bypassActiveSensors, $source);
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [

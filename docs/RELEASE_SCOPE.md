@@ -85,10 +85,12 @@ Der Release umfasst verbindlich:
     Abschluss oder Abbruch ihrer Ausgangsverzögerung als optionale
     Zuordnungsinformation in das Ereignisprotokoll übernommen, ist aber weder
     Gerätekennung noch Authentifizierungs- oder Berechtigungsmerkmal,
-39. eine optionale Quellenbezeichnung als letzter Parameter aller vorhandenen
-    öffentlichen Scharfschaltfunktionen. Sie wird für Start und Abschluss des
-    Scharfschaltvorgangs protokolliert, während einer Ausgangsverzögerung
-    bereichsbezogen und neustartsicher vorgehalten und danach entfernt.
+39. zu jedem vorhandenen öffentlichen Scharfschaltbefehl eine getrennte,
+    ausdrücklich mit `WithSource` benannte Variante. Die bisherigen
+    Parameterlisten bleiben kompatibel; die Quellenangabe wird für Start und
+    Abschluss des Scharfschaltvorgangs protokolliert, während einer
+    Ausgangsverzögerung bereichsbezogen und neustartsicher vorgehalten und
+    danach entfernt.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der

@@ -4,6 +4,14 @@
 
 ## Korrigiert
 
+- Die sechs bestehenden `OHA_Arm*()`-Befehle behalten wieder exakt ihre
+  veröffentlichte Parameterzahl, sodass vorhandene Symcon-Skripte nach dem
+  Quellen-Update unverändert weiterlaufen. Da Symcon Standardwerte öffentlicher
+  PHP-Methoden nicht als optionale Wrapper-Parameter übernimmt, stehen für die
+  Protokollquelle jetzt getrennte, eindeutig benannte `*WithSource()`-Befehle
+  bereit. Die Befehlsreferenz nennt alle im Wrapper tatsächlich erforderlichen
+  Parameter ausdrücklich.
+
 - Über die Mehrfachsuche angelegte Störungseingänge übernehmen jetzt wie
   Sensoren den Namen ihres direkten Parent-Objekts und bleiben dadurch bei
   gleichnamigen Variablen ohne sichtbare Objekt-ID unterscheidbar.
@@ -20,13 +28,13 @@
 
 ## Neu
 
-- Die vorhandenen Scharfschaltfunktionen `OHA_Arm()`, `OHA_ArmHome()`,
-  `OHA_ArmAway()`, `OHA_ArmNight()`, `OHA_ArmPartition()` und
-  `OHA_ArmPartitions()` akzeptieren als letzten optionalen Parameter eine
-  Quellenbezeichnung für das Ereignisprotokoll. Die Zuordnung bleibt während
-  einer Ausgangsverzögerung bereichsbezogen und neustartsicher erhalten und
-  wird nach Scharfschaltung oder Abbruch entfernt. Bestehende Aufrufe bleiben
-  unverändert kompatibel.
+- Die neuen Scharfschaltfunktionen `OHA_ArmWithSource()`,
+  `OHA_ArmHomeWithSource()`, `OHA_ArmAwayWithSource()`,
+  `OHA_ArmNightWithSource()`, `OHA_ArmPartitionWithSource()` und
+  `OHA_ArmPartitionsWithSource()` protokollieren eine ausdrücklich angegebene
+  Quellenbezeichnung. Die Zuordnung bleibt während einer Ausgangsverzögerung
+  bereichsbezogen und neustartsicher erhalten und wird nach Scharfschaltung
+  oder Abbruch entfernt.
 
 - Jeder Kachel- oder IPSView-Client kann lokal und instanzbezogen mit einem
   lesbaren Bediengerätenamen versehen werden. Die Kachel stellt die Einstellung

@@ -542,18 +542,20 @@ assertArming(
 $moduleReadme = (string) file_get_contents(dirname(__DIR__) . '/OpenHomeAlarm/README.md');
 $rootReadme = (string) file_get_contents(dirname(__DIR__) . '/README.md');
 assertArming(
-    str_contains($moduleReadme, 'OHA_ArmAway(12345, null);')
-        && !str_contains($moduleReadme, 'OHA_ArmAway(12345);')
+    str_contains($moduleReadme, 'OHA_ArmAway(12345, null, null, false);')
+        && !str_contains($moduleReadme, 'OHA_ArmAway(12345, null);')
+        && str_contains($moduleReadme, "OHA_ArmAwayWithSource(12345, null, null, false, 'Wochenplan Abwesend')")
         && str_contains($moduleReadme, "(int) \$_IPS['VALUE'] === 16")
         && str_contains($moduleReadme, "(int) \$_IPS['VALUE'] === 0"),
-    'The module README must document wrapper-safe arming calls and the integer card-switch action script.'
+    'The module README must document fixed-arity wrapper calls, explicit source commands and the integer card-switch action script.'
 );
 foreach ([$moduleReadme, $rootReadme] as $readme) {
     assertArming(
-        str_contains($readme, 'OHA_ArmAway(12345, null)')
+        str_contains($readme, 'OHA_ArmAway(12345, null, null, false)')
+            && str_contains($readme, 'OHA_ArmAwayWithSource(12345, null, null, false')
             && str_contains($readme, '`null`')
             && str_contains($readme, '`0`'),
-        'Both READMEs must document the required delay argument and its null/zero semantics.'
+        'Both READMEs must document the complete wrapper arguments, explicit source command and null/zero semantics.'
     );
 }
 

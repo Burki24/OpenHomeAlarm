@@ -71,13 +71,13 @@ Beispiel: Eine Garage soll unabhängig vom Hauptbereich geschaltet werden.
 
 ```php
 // Nur die Garage im Abwesend-Modus scharfschalten
-OHA_ArmPartition(12345, 'garage', 'away', null);
+OHA_ArmPartition(12345, 'garage', 'away', null, null, false);
 
 // Nur die Garage unscharf schalten
 OHA_DisarmPartition(12345, 'garage');
 
 // Garage und Schuppen gemeinsam, aber nicht alle Bereiche scharfschalten
-OHA_ArmPartitions(12345, ['garage', 'schuppen'], 'away', null);
+OHA_ArmPartitions(12345, ['garage', 'schuppen'], 'away', null, null, false);
 ```
 
 `12345` durch die Objekt-ID der OpenHomeAlarm-Instanz ersetzen. Zulässige Modi
@@ -85,18 +85,21 @@ sind `home`, `away` und `night`. Andere Alarmbereiche werden durch diese Befehle
 nicht verändert. Bei `OHA_ArmPartition()` ist der vierte Parameter die
 Ausgangsverzögerung: `null` verwendet die konfigurierte Verzögerung, `0`
 schaltet sofort scharf und eine positive Zahl überschreibt sie einmalig.
-Mit dem optionalen fünften Parameter `true` wird die Garage für diesen
-Scharfschaltzyklus still, mit `false` ausdrücklich normal geschaltet. Ohne ihn
-gilt die Einstellung **Standardmäßig stiller Alarm** des Bereichs.
-Ein optionaler sechster Parameter `true` überbrückt bei diesem Aufruf nur
+Der fünfte Parameter legt die Alarmierungsart fest: `true` schaltet still,
+`false` normal und `null` verwendet die Bereichsvorgabe. Der sechste Parameter
+`true` überbrückt bei diesem Aufruf nur
 bereits ausgelöste Sensoren, die unter **Sensoren und Auslöser** einzeln dafür
 freigegeben wurden, zum Beispiel
 `OHA_ArmPartition(12345, 'garage', 'away', null, null, true)`. Sobald ein so
 überbrückter Sensor wieder normal ist, wird er erneut überwacht.
-Als siebter und letzter Parameter kann eine kurze Quelle für das
-Ereignisprotokoll folgen, beispielsweise
-`OHA_ArmPartition(12345, 'garage', 'away', null, null, false, 'Skript Garage')`.
-Die vorhandenen Aufrufe ohne Quelle bleiben unverändert gültig.
+Symcon erwartet in den erzeugten `OHA_*`-Funktionen alle aufgeführten
+Parameter ausdrücklich; Standardwerte der PHP-Modulmethoden werden nicht in
+die Wrapper übernommen.
+
+Soll zusätzlich eine kurze Quelle im Ereignisprotokoll erscheinen, wird der
+gesonderte Befehl mit dem Suffix `WithSource` verwendet, beispielsweise
+`OHA_ArmPartitionWithSource(12345, 'garage', 'away', null, null, false, 'Skript Garage')`.
+Die bisherigen Befehle und ihre Parameterzahl bleiben dadurch unverändert.
 
 `OHA_ArmPartitions()` prüft zuerst die gesamte angegebene Liste. Ist ein
 gewählter Bereich blockiert oder ungültig, wird keiner der Bereiche
@@ -131,21 +134,23 @@ Beispiel `OHA_DisarmWithSource(12345, 'Zutrittskontrolle Haustür')`. Die Quelle
 dient ausschließlich dem Ereignisprotokoll und ersetzt keine
 Berechtigungsprüfung.
 
-Auch die vorhandenen Scharfschaltfunktionen akzeptieren als letzten optionalen
-Parameter eine solche Quellenbezeichnung. Beispiel:
-`OHA_ArmAway(12345, null, null, false, 'Wochenplan Abwesend')`. Bei einer
+Für eine protokollierte Quelle stehen getrennte Scharfschaltbefehle mit dem
+Suffix `WithSource` zur Verfügung. Beispiel:
+`OHA_ArmAwayWithSource(12345, null, null, false, 'Wochenplan Abwesend')`. Bei einer
 Ausgangsverzögerung bleibt sie bis zur abschließenden Scharfschaltung oder zum
 Abbruch erhalten und wird anschließend entfernt.
 
 Für alle aktiven Bereiche gemeinsam verwenden Sie beispielsweise
-`OHA_ArmHome(12345, null)`, `OHA_ArmAway(12345, null)`,
-`OHA_ArmNight(12345, null)` oder `OHA_Disarm(12345)`. Bei den drei
-Scharfschaltbefehlen muss der zweite Parameter im von Symcon erzeugten
-`OHA_*`-Befehl immer angegeben werden: `null` verwendet die konfigurierte
-Ausgangsverzögerung, `0` schaltet ohne Verzögerung scharf und eine positive Zahl
-überschreibt die Verzögerung für diesen Aufruf. Ein Scharfschaltversuch über den
-Hauptbereich wird nur ausgeführt, wenn jeder aktive Bereich bereit ist; bei
-einem Blocker bleibt kein Bereich teilweise scharfgeschaltet.
+`OHA_ArmHome(12345, null, null, false)`,
+`OHA_ArmAway(12345, null, null, false)`,
+`OHA_ArmNight(12345, null, null, false)` oder `OHA_Disarm(12345)`. Bei den drei
+Scharfschaltbefehlen müssen alle Parameter im von Symcon erzeugten
+`OHA_*`-Befehl angegeben werden. `null` als Verzögerung verwendet die
+konfigurierte Ausgangsverzögerung, `0` schaltet ohne Verzögerung scharf und eine
+positive Zahl überschreibt die Verzögerung für diesen Aufruf. Ein
+Scharfschaltversuch über den Hauptbereich wird nur ausgeführt, wenn jeder aktive
+Bereich bereit ist; bei einem Blocker bleibt kein Bereich teilweise
+scharfgeschaltet.
 
 ### Status eines Alarmbereichs im Script abfragen
 

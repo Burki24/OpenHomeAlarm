@@ -41,8 +41,10 @@ dort aktiv.
 
 Der optionale Unscharfschaltcode wird als lokale Instanzeigenschaft gespeichert und im Konfigurationsformular verdeckt dargestellt. Er wird weder in Statusvariablen noch im Bedienzustand, Debug-Log oder Ereignisprotokoll ausgegeben. Der Zugriff auf die Symcon-Konfiguration, Sicherungen und JSON-RPC-Schnittstellen muss trotzdem angemessen geschützt werden. `OHA_Disarm()`, `OHA_DisarmWithSource()`, `OHA_DisarmPartition()` und `OHA_DisarmPartitions()` sind bewusst vertrauenswürdige Automationsschnittstellen ohne Code-Prüfung; benutzerseitige Oberflächen müssen `OHA_DisarmWithCode()` beziehungsweise die codegeschützte Kachelaktion verwenden. Bei `OHA_DisarmWithSource()` dient die Quelle ausschließlich der Protokollzuordnung und stellt keine Authentifizierung dar. Die aufrufende Automation muss die Berechtigung vorher selbst sicher prüfen. Auch `OHA_GrantPassage()`, `OHA_GrantPassagePartition()` und `OHA_GrantPassagePartitions()` sind ausschließlich für vertrauenswürdige Automationen vorgesehen: Die aufrufende Logik muss ein berechtigtes Öffnen sicher erkennen, bevor sie einen dafür ausdrücklich konfigurierten Sensor zeitlich begrenzt freigibt.
 
-Die öffentlichen Scharfschaltfunktionen akzeptieren optional ebenfalls eine
-selbst angegebene Quellenbezeichnung. Sie wird auf höchstens 80 Zeichen und
+Die ausdrücklich mit `WithSource` benannten öffentlichen
+Scharfschaltfunktionen akzeptieren eine selbst angegebene Quellenbezeichnung.
+Die bisherigen Scharfschaltbefehle bleiben davon getrennt und behalten ihre
+veröffentlichte Parameterzahl. Eine Quelle wird auf höchstens 80 Zeichen und
 Steuerzeichen geprüft, ausschließlich zur Protokollzuordnung verwendet und
 gewährt keine Berechtigung. Während einer Ausgangsverzögerung hält das Modul
 die Quelle bereichsbezogen bis zum Abschluss oder Abbruch vor und entfernt sie
