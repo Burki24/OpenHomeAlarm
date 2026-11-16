@@ -69,7 +69,9 @@ Berechtigungsmerkmal und darf Codeschutz, HTML-SDK-Aktionsweg oder
 WebHook-Token niemals ersetzen. Ein fehlender oder ungültiger Name blockiert
 keine Bedienaktion.
 
-Das Ereignisprotokoll dient Bedienung und Diagnose. Es ist kein manipulationssicheres Audit-Log.
+Das Ereignisprotokoll dient Bedienung und Diagnose. Es ist kein manipulationssicheres Audit-Log. Die Gesamtansicht darf gleichartige, gleichzeitig in mehreren Alarmbereichen entstandene Ereignisse ausschließlich für die Anzeige zusammenfassen; die persistente Historie und Exporte behalten die bereichsbezogenen Originaleinträge.
+
+Eine Quittierung des Alarmgedächtnisses über den Hauptbereich `main` löscht die Speicher aller Alarmbereiche nur als gemeinsamen, vorab geprüften Vorgang. Alarmiert noch ein Bereich oder ist dort ein Alarmausgang aktiv, wird die Quittierung vollständig abgelehnt. Sie beendet weder einen Alarm noch schaltet sie einen Bereich unscharf. Die Quittierung eines ausdrücklich gewählten Zusatzbereichs bleibt auf dessen Alarmgedächtnis beschränkt.
 
 ## Einsatzgrenze
 

@@ -43,6 +43,15 @@ Unter **Ansicht → Sichtbare Bedienelemente** kann die gemeinsame Kachel- und
 IPSView-Ausgabe bei Bedarf vereinfacht werden. Der zuletzt angezeigte
 Alarmbereich wird lokal auf dem jeweiligen Bediengerät gemerkt.
 
+Das Systemprotokoll hält bis zu 200 Ereignisse vor. In der Gesamtansicht
+`main` werden dabei gleichartige Ereignisse, die derselbe Vorgang in mehreren
+Alarmbereichen erzeugt, zu einem lesbaren Eintrag zusammengefasst. Die
+bereichsbezogenen Ansichten und Exporte behalten weiterhin jeden einzelnen
+Originaleintrag. Wird das Alarmgedächtnis über `main` quittiert, werden alle
+Bereichsspeicher gemeinsam gelöscht. Solange noch ein Bereich alarmiert oder
+sein Alarmausgang aktiv ist, wird die gesamte Quittierung ohne Teiländerung
+abgelehnt.
+
 ## Zustandsmodell
 
 Jeder aktive Alarmbereich durchläuft unabhängig die Zustände **Unscharf**,

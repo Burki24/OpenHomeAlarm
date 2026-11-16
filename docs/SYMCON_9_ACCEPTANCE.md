@@ -34,10 +34,11 @@ festgehalten.
 | Bereichs-Countdown H-50 | Offen | Kachel und IPSView auf Desktop, Mobilgerät und mit reduzierter Bewegung praktisch prüfen |
 | Lokaler Bediengerätename H-54 | Offen | Speicherung, Ereigniszuordnung und Sicherheitsgrenze in Kachel, IPSView-Webclient und nativer App praktisch prüfen |
 | Scharfschaltquelle H-55 | Offen | Quellenzuordnung, Abbruch, Neustart und Entfernung nach dem Schaltvorgang praktisch prüfen |
+| Gesamtprotokoll und Gesamtquittierung H-56 | Offen | Zusammenfassung gleichartiger Mehrbereichsereignisse, 200er-Grenzen und atomare `main`-Quittierung praktisch prüfen |
 | HTML-SDK-Kachel | Bestanden | Bedienung und Darstellung sind auf Desktop und Mobilgerät bestanden |
 | IPSView | Bestanden | WebContent, WebHook und Token-Prüfung sind bestanden |
 | Update/Migration | Bestanden | Bestehende Instanz wird ohne Konfigurations- oder Zustandsverlust aktualisiert |
-| Release Candidate | Nicht freigegeben | Die neuen Praxisprüfungen H-47 bis H-55 sind noch durchzuführen; anschließend sind der endgültige Commit und dessen zentrale CI festzuhalten |
+| Release Candidate | Nicht freigegeben | Die neuen Praxisprüfungen H-47 bis H-56 sind noch durchzuführen; anschließend sind der endgültige Commit und dessen zentrale CI festzuhalten |
 
 `Bestanden` bezeichnet hier den zuletzt lokal geprüften Repository-Stand. Vor
 jedem Release Candidate müssen die automatisierten Prüfungen erneut ausgeführt
@@ -236,6 +237,7 @@ kurze Beobachtung mit Zeitstempel eintragen.
 | H-53 | Einen Zusatzbereich über einen benutzerbezogenen Code und über `OHA_DisarmWithSource()` unscharfschalten; danach abwechselnd `main` und den Zusatzbereich anzeigen | Die Ereignisquelle ist jeweils ausdrücklich als **Quelle** gekennzeichnet. `main` zeigt die neuesten Ereignisse der gesamten Anlage, der Zusatzbereich nur seine eigenen Einträge. Ein erneuter Unscharfschaltaufruf im bereits vollständig unscharfen Zustand erzeugt keinen zusätzlichen Eintrag | Offen | |
 | H-54 | In nativer Kachel, IPSView-Webclient und nativer IPSView-App derselben Instanz unterschiedliche Bediengerätenamen vergeben, die Ansichten und Apps neu starten und anschließend je eine erfolgreiche sowie eine abgewiesene Schaltaktion ausführen; eine Ausgangsverzögerung bis Scharf und einmal bis zum Abbruch laufen lassen, während einer weiteren Ausgangsverzögerung Symcon neu starten; danach einen Namen leeren und den lokalen App-/WebView-Speicher eines Clients löschen | Jeder Client behält seinen Namen unabhängig und instanzbezogen über normale Seiten- und App-Neustarts. Unmittelbar durch seine Aktion erzeugte Protokolleinträge sowie Abschluss oder Abbruch derselben Ausgangsverzögerung zeigen den Namen getrennt von der Ereignisquelle; andere spätere Timer- und Sensorereignisse übernehmen ihn nicht. Die Zuordnung übersteht nur für den laufenden Scharfschaltvorgang den Symcon-Neustart und wird danach entfernt. Ein leerer oder gelöschter lokaler Name führt zu Aktionen ohne Bediengeräteangabe und blockiert keine Schaltung. Der selbst angegebene Name gewährt keine Berechtigung und umgeht weder HTML-SDK-Aktionsweg, WebHook-Token noch Codeschutz | Offen | |
 | H-55 | Die sechs bisherigen `OHA_Arm*()`-Befehle mit ihrer veröffentlichten Parameterzahl aufrufen; anschließend Gesamtanlage, einen einzelnen Zusatzbereich und eine frei gewählte Bereichsgruppe über die jeweils entsprechende `OHA_Arm*WithSource()`-Funktion scharfschalten. Dabei eine Ausgangsverzögerung regulär abschließen, einmal durch einen Blocker abbrechen und einmal Symcon während der Verzögerung neu starten; zusätzlich eine überlange und eine Steuerzeichen enthaltende Quelle versuchen | Bestehende Aufrufe funktionieren unverändert und erzeugen keine frei gewählte Automationsquelle. Eine gültige Quelle der neuen Funktionen erscheint beim Start und erfolgreichen Abschluss; beim Abbruch nennt das Abbruchereignis weiterhin den Blocker und das Unscharf-Ereignis die aufrufende Quelle. Die Zuordnung bleibt bereichsbezogen über den Neustart erhalten und wird nach dem Schaltvorgang entfernt. Ungültige Quellen werden vor jeder Zustandsänderung abgelehnt und sind weder Berechtigung noch Authentifizierung | Offen | |
+| H-56 | Einen Sensor derselben Variablen mindestens `main` und zwei Zusatzbereichen zuordnen, über `main` mit automatischer Überbrückung scharfschalten und anschließend denselben Mehrbereichssensor ohne Überbrückung auslösen. Gesamtanlage und Einzelbereiche im Systemprotokoll vergleichen, Rohhistorie exportieren, während des aktiven Alarms über `main` quittieren und die Quittierung nach dem Unscharfschalten wiederholen; zusätzlich mehr als 200 Ereignisse erzeugen | Die Gesamtanlagenansicht zeigt je gleichartigem Mehrbereichsvorgang nur eine zusammengefasste Meldung mit Bereichsanzahl. Jeder Einzelbereich und der Export behalten seine bereichsgenauen Rohereignisse. Die Quittierung während eines noch aktiven Bereichsalarms wird vollständig abgelehnt und erhält alle Gedächtnisse; nach dem Unscharfschalten löscht `main` alle Bereichsgedächtnisse gemeinsam und protokolliert genau ein Gesamtanlagenereignis. Historie sowie Kachel und IPSView stellen höchstens die neuesten 200 Einträge bereit | Offen | |
 
 ## Automatisierte Vorprüfung
 
@@ -266,7 +268,7 @@ Ein Commit darf als Release Candidate markiert werden, wenn:
 
 1. alle automatisierten Checks und beide CI-Checks für exakt diesen Commit bestanden sind,
 2. alle für den aktuellen Funktionsumfang einschlägigen Pflichtfälle A-01 bis
-   H-55 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden
+   H-56 auf mindestens einer repräsentativen Symcon-9.x-Installation bestanden
    oder durch die dokumentierte wiederholte Praxisabnahme unter Symcon 9.0 und
    9.1 bestätigt sind,
 3. Desktop- und Mobilbedienung der HTML-SDK-Kachel geprüft wurden,

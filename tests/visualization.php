@@ -375,16 +375,19 @@ assertVisualization(
 );
 assertVisualization(
     str_contains($javascript, 'const recentEvents = partition.ID === fallbackID')
-        && str_contains($javascript, '? (Array.isArray(state.RecentEvents) ? state.RecentEvents : [])')
+        && str_contains($javascript, '? (Array.isArray(state.RecentEventsSummary) ? state.RecentEventsSummary : [])')
         && str_contains($javascript, ': (Array.isArray(partition.RecentEvents) ? partition.RecentEvents : [])')
         && str_contains($javascript, 'RecentEvents: recentEvents')
+        && str_contains($javascript, 'Alarm: partition.ID === fallbackID ? state.Alarm : partition.Alarm')
+        && str_contains($javascript, 'Capabilities: partition.ID === fallbackID ? state.Capabilities : partition.Capabilities')
         && str_contains($javascript, 'ohaSystemEventTypes.has(event.Event)')
         && str_contains($javascript, "ohaTranslate('System')")
         && str_contains($javascript, 'ohaPartitionName(event.PartitionID, state)')
         && str_contains($javascript, "ohaTranslate('Event source')")
         && str_contains($javascript, 'ohaEventSource(event)')
+        && str_contains($javascript, 'ohaEventPartitionCount(event)')
         && str_contains($javascript, "join(': ')"),
-    'The system log must use global events for main, area-specific events elsewhere and visibly label event sources.'
+    'The system log must use summarized complete-system events for main, area-specific raw events elsewhere and visibly label event sources.'
 );
 assertVisualization(
     str_contains($javascript, "panel.hidden = !ohaOptionEnabled('showEventHistory') || events.length === 0;")
@@ -421,9 +424,10 @@ assertVisualization(
     'The tile operating-device settings button must appear directly before the refresh button.'
 );
 assertVisualization(
-    str_contains($module, 'private const RECENT_EVENT_DISPLAY_LIMIT = 20;')
-        && substr_count($module, 'self::RECENT_EVENT_DISPLAY_LIMIT') === 2,
-    'The shared control state must expose the latest 20 global and partition-specific events.'
+    str_contains($module, 'private const EVENT_HISTORY_LIMIT = 200;')
+        && str_contains($module, 'private const RECENT_EVENT_DISPLAY_LIMIT = 200;')
+        && substr_count($module, 'self::RECENT_EVENT_DISPLAY_LIMIT') === 3,
+    'The persistent history and shared control state must expose up to 200 global and partition-specific events.'
 );
 assertVisualization(
     str_contains($javascript, 'button.dataset.operationValue = String(value);')
@@ -584,6 +588,7 @@ foreach ([
     'Sensor management',
     'System log',
     'Event source',
+    'areas',
     'Recent activity',
     'System diagnostics',
     'Inputs and communication',

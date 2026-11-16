@@ -147,8 +147,8 @@ class OpenHomeAlarm extends IPSModuleStrict
     private const EVENT_ALARM_ACTION_EXECUTED = 'alarm_action_executed';
     private const EVENT_ALARM_NOTIFICATION_SENT = 'alarm_notification_sent';
 
-    private const EVENT_HISTORY_LIMIT = 100;
-    private const RECENT_EVENT_DISPLAY_LIMIT = 20;
+    private const EVENT_HISTORY_LIMIT = 200;
+    private const RECENT_EVENT_DISPLAY_LIMIT = 200;
     private const DEFAULT_DISARM_MAX_ATTEMPTS = 5;
     private const DEFAULT_DISARM_LOCKOUT_SECONDS = 60;
     private const MAX_DISARM_ATTEMPTS = 20;
@@ -1201,6 +1201,8 @@ class OpenHomeAlarm extends IPSModuleStrict
             $alarmOutputActive = $this->GetValue(self::IDENT_ALARM_OUTPUT_ACTIVE) === true;
             $signalGeneratorActive = $this->GetValue(self::IDENT_SIGNAL_GENERATOR_ACTIVE) === true;
             $partitionAlarmStates = $this->ReadPartitionAlarmStates();
+            $partitionRuntime = $this->ReadPartitionRuntime();
+            $eventHistory = $this->ReadEventHistory();
             $mainSilent = $mode === self::MODE_NONE && $alarmOutputActive
                 ? $defaultPartition['SilentByDefault']
                 : $this->ReadAttributeInteger(self::ATTRIBUTE_MAIN_SILENT_ARMING) === 1;
@@ -1209,25 +1211,28 @@ class OpenHomeAlarm extends IPSModuleStrict
             }
             $codeProtection = $this->ReadDisarmCodeProtectionStatus();
             $identity = AlarmControlStateAdapter::identity($mode, $state);
+            $mainCapabilities = AlarmControlStateAdapter::capabilities(
+                $mode,
+                $state,
+                $this->IsDisarmCodeProtectionEnabled(),
+                $alarmMemory,
+                $alarmOutputActive,
+                $signalGeneratorActive && !$mainSilent,
+                $state === self::STATE_ALARM && $this->CanRearmPartition(
+                    $defaultPartition['ID'],
+                    ['Mode' => $mode, 'State' => $state]
+                )
+            );
+            $mainCapabilities['CanClearAlarmMemory'] = $alarmMemory
+                && $this->CanClearCompleteSystemAlarmMemory($partitionRuntime, $partitionAlarmStates);
 
             $partitionState = [
                 'Mode'            => $identity['Mode'],
                 'State'           => $identity['State'],
                 'Silent'          => $mainSilent,
                 'SilentByDefault' => $defaultPartition['SilentByDefault'],
-                'Capabilities'    => AlarmControlStateAdapter::capabilities(
-                    $mode,
-                    $state,
-                    $this->IsDisarmCodeProtectionEnabled(),
-                    $alarmMemory,
-                    $alarmOutputActive,
-                    $signalGeneratorActive && !$mainSilent,
-                    $state === self::STATE_ALARM && $this->CanRearmPartition(
-                        $defaultPartition['ID'],
-                        ['Mode' => $mode, 'State' => $state]
-                    )
-                ),
-                'Modes' => [
+                'Capabilities'    => $mainCapabilities,
+                'Modes'           => [
                     'home'  => $this->BuildControlModeStatus(self::MODE_HOME, $readiness['home'], $isDisarmed, $sensors, $faultInputs, $configurationError),
                     'away'  => $this->BuildControlModeStatus(self::MODE_AWAY, $readiness['away'], $isDisarmed, $sensors, $faultInputs, $configurationError),
                     'night' => $this->BuildControlModeStatus(self::MODE_NIGHT, $readiness['night'], $isDisarmed, $sensors, $faultInputs, $configurationError)
@@ -1262,12 +1267,16 @@ class OpenHomeAlarm extends IPSModuleStrict
                     'LockoutUntil'       => $codeProtection['LockoutUntil'],
                     'LockoutRemaining'   => $codeProtection['LockoutRemaining']
                 ],
-                'BypassedSensors' => $this->BuildControlBypassedSensorDetails($sensors),
-                'Passage'         => $this->BuildControlPassageState($defaultPartition['ID'], $sensors),
-                'RecentEvents'    => array_slice($this->ReadEventHistory(), 0, self::RECENT_EVENT_DISPLAY_LIMIT)
+                'BypassedSensors'     => $this->BuildControlBypassedSensorDetails($sensors),
+                'Passage'             => $this->BuildControlPassageState($defaultPartition['ID'], $sensors),
+                'RecentEvents'        => array_slice($eventHistory, 0, self::RECENT_EVENT_DISPLAY_LIMIT),
+                'RecentEventsSummary' => AlarmEventHistory::summarizeForCompleteSystem(
+                    $eventHistory,
+                    $defaultPartition['ID'],
+                    self::RECENT_EVENT_DISPLAY_LIMIT
+                )
             ];
             $partitionPayload = [];
-            $partitionRuntime = $this->ReadPartitionRuntime();
             foreach ($partitions as $partition) {
                 if (!$partition['Enabled']) {
                     continue;
@@ -1292,6 +1301,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                     $partitionSilent = false;
                 }
                 $current = $partitionState;
+                unset($current['RecentEventsSummary']);
                 $current['Mode'] = $partitionIdentity['Mode'];
                 $current['State'] = $partitionIdentity['State'];
                 $current['Silent'] = $partitionSilent;
@@ -1335,7 +1345,7 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $current['BypassedSensors'] = $this->BuildControlBypassedSensorDetails($partitionSensors);
                 $current['Passage'] = $this->BuildControlPassageState($partition['ID'], $partitionSensors);
                 $current['RecentEvents'] = array_slice(array_values(array_filter(
-                    $this->ReadEventHistory(),
+                    $eventHistory,
                     static fn (array $event): bool => $event['PartitionID'] === $partition['ID']
                 )), 0, self::RECENT_EVENT_DISPLAY_LIMIT);
                 $partitionPayload[$partition['ID']] = array_merge([
@@ -2996,7 +3006,7 @@ class OpenHomeAlarm extends IPSModuleStrict
         $debugFailed = false;
         $this->BeginAlarmDebug(__FUNCTION__, __LINE__);
         try {
-            return $debugResult = $this->ClearAlarmMemoryPartition($this->DefaultPartitionID());
+            return $debugResult = $this->ClearCompleteSystemAlarmMemory();
         } catch (Throwable $debugException) {
             $debugFailed = true;
             $this->AlarmDebug(__FUNCTION__, __LINE__, 'FEHLER', 'Funktion durch Ausnahme abgebrochen.', [
@@ -3021,6 +3031,9 @@ class OpenHomeAlarm extends IPSModuleStrict
                 $partitionID = $this->ResolveEnabledPartitionID($partitionID);
             } catch (UnexpectedValueException) {
                 return $debugResult = false;
+            }
+            if ($partitionID === $this->DefaultPartitionID()) {
+                return $debugResult = $this->ClearCompleteSystemAlarmMemory();
             }
             $runtime = $this->ReadPartitionRuntime();
             if ($runtime[$partitionID]['State'] === self::STATE_ALARM) {
@@ -5392,6 +5405,55 @@ class OpenHomeAlarm extends IPSModuleStrict
     protected function VisualizationAssetDirectory(): string
     {
         return __DIR__ . '/visualization';
+    }
+
+    /** Clears every inactive partition memory as one complete-system transaction. */
+    private function ClearCompleteSystemAlarmMemory(): bool
+    {
+        $runtime = $this->ReadPartitionRuntime();
+        $states = $this->ReadPartitionAlarmStates();
+        if (!$this->CanClearCompleteSystemAlarmMemory($runtime, $states)) {
+            return false;
+        }
+
+        $hadMemory = AlarmPartitionAlarmRegistry::aggregate($states)['MemoryActive'];
+        foreach ($states as $partitionID => $state) {
+            $states[$partitionID] = AlarmPartitionAlarmRegistry::clearMemory($state);
+        }
+        $this->WritePartitionAlarmStates($states);
+        $this->SynchronizePartitionAlarmSummary($states);
+        if ($hadMemory) {
+            $this->AppendEvent(
+                self::EVENT_ALARM_MEMORY_CLEARED,
+                '',
+                $runtime[$this->DefaultPartitionID()]['Mode'] ?? self::MODE_NONE,
+                $runtime[$this->DefaultPartitionID()]['State'] ?? self::STATE_DISARMED,
+                $this->DefaultPartitionID()
+            );
+        }
+        $this->PublishVisualizationState();
+
+        return true;
+    }
+
+    /**
+     * @param array<string,array{Mode:int,State:int,Deadline:int,DelaySource:string,PendingSourceID:int,Silent:bool}> $runtime
+     * @param array<string,array{OutputActive:bool,ForceNormal:bool,AlarmSources:list<string>,OutputDeadline:int,MemoryActive:bool,LastSource:string,LastTimestamp:int}> $alarmStates
+     */
+    private function CanClearCompleteSystemAlarmMemory(array $runtime, array $alarmStates): bool
+    {
+        foreach ($runtime as $state) {
+            if ($state['State'] === self::STATE_ALARM) {
+                return false;
+            }
+        }
+        foreach ($alarmStates as $state) {
+            if ($state['OutputActive']) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function NormalizeAutomationSource(string $source, bool $required = false): ?string

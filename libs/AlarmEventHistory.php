@@ -83,4 +83,87 @@ final class AlarmEventHistory
 
         return array_slice($history, 0, $limit);
     }
+
+    /**
+     * Builds a display-only complete-system summary without changing the raw
+     * partition events. Entries are combined only when every matching record
+     * belongs to a different partition; repeated events from the same partition
+     * therefore remain individually visible.
+     *
+     * @param list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string,ClientName:string}> $history
+     *
+     * @return list<array{Time:int,Event:string,Mode:int,State:int,Source:string,PartitionID:string,ClientName:string,PartitionIDs:list<string>,PartitionCount:int}>
+     */
+    public static function summarizeForCompleteSystem(
+        array $history,
+        string $mainPartitionID,
+        int $limit
+    ): array {
+        if ($limit < 1) {
+            return [];
+        }
+
+        $signatures = [];
+        foreach ($history as $index => $entry) {
+            $signature = serialize([
+                $entry['Time'],
+                $entry['Event'],
+                $entry['Mode'],
+                $entry['State'],
+                $entry['Source'],
+                $entry['ClientName']
+            ]);
+            $signatures[$signature][] = $index;
+        }
+
+        $result = [];
+        $handled = [];
+        foreach ($history as $index => $entry) {
+            if (isset($handled[$index])) {
+                continue;
+            }
+
+            $signature = serialize([
+                $entry['Time'],
+                $entry['Event'],
+                $entry['Mode'],
+                $entry['State'],
+                $entry['Source'],
+                $entry['ClientName']
+            ]);
+            $matchingIndexes = $signatures[$signature] ?? [$index];
+            $partitionIDs = array_map(
+                static fn (int $matchingIndex): string => $history[$matchingIndex]['PartitionID'],
+                $matchingIndexes
+            );
+            $uniquePartitionIDs = array_values(array_unique($partitionIDs));
+            $canSummarize = count($matchingIndexes) > 1
+                && count($uniquePartitionIDs) === count($matchingIndexes);
+
+            if ($canSummarize) {
+                foreach ($matchingIndexes as $matchingIndex) {
+                    $handled[$matchingIndex] = true;
+                }
+                sort($uniquePartitionIDs, SORT_STRING);
+                $mainIndex = array_search($mainPartitionID, $uniquePartitionIDs, true);
+                if ($mainIndex !== false) {
+                    unset($uniquePartitionIDs[$mainIndex]);
+                    array_unshift($uniquePartitionIDs, $mainPartitionID);
+                    $uniquePartitionIDs = array_values($uniquePartitionIDs);
+                }
+                $entry['PartitionID'] = $mainPartitionID;
+            } else {
+                $uniquePartitionIDs = [$entry['PartitionID']];
+            }
+
+            $entry['PartitionIDs'] = $uniquePartitionIDs;
+            $entry['PartitionCount'] = count($uniquePartitionIDs);
+            $result[] = $entry;
+            if (count($result) >= $limit) {
+                break;
+            }
+        }
+
+        return $result;
+    }
 }

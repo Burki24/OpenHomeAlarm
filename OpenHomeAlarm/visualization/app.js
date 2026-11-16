@@ -227,6 +227,14 @@ function ohaEventClientName(event) {
     return clientName === '' ? '' : `${ohaTranslate('Operating device')}: ${clientName}`;
 }
 
+function ohaEventPartitionCount(event) {
+    const partitionCount = Number(event?.PartitionCount);
+
+    return Number.isInteger(partitionCount) && partitionCount > 1
+        ? `${partitionCount} ${ohaTranslate('areas')}`
+        : '';
+}
+
 function ohaFormatEventTime(timestamp) {
     const numericTimestamp = Number(timestamp);
     if (!Number.isFinite(numericTimestamp) || numericTimestamp <= 0) {
@@ -312,7 +320,7 @@ function ohaSelectedState(state = ohaState) {
     }
     const partition = state.Partitions[ohaSelectedPartitionID] ?? partitions[0];
     const recentEvents = partition.ID === fallbackID
-        ? (Array.isArray(state.RecentEvents) ? state.RecentEvents : [])
+        ? (Array.isArray(state.RecentEventsSummary) ? state.RecentEventsSummary : [])
         : (Array.isArray(partition.RecentEvents) ? partition.RecentEvents : []);
     const diagnosticItems = Array.isArray(state.Diagnostics?.Items)
         ? state.Diagnostics.Items.filter((item) => item.PartitionID === partition.ID)
@@ -321,6 +329,8 @@ function ohaSelectedState(state = ohaState) {
 
     return {
         ...partition,
+        Alarm: partition.ID === fallbackID ? state.Alarm : partition.Alarm,
+        Capabilities: partition.ID === fallbackID ? state.Capabilities : partition.Capabilities,
         ApiVersion: state.ApiVersion,
         DefaultPartition: state.DefaultPartition,
         Partitions: state.Partitions,
@@ -1152,7 +1162,12 @@ function ohaRenderEventHistory(state) {
                 : '');
         title.textContent = [scopeName, ohaEventCaption(event.Event)].filter(Boolean).join(': ');
         const detail = document.createElement('span');
-        detail.textContent = [ohaEventSource(event), ohaEventClientName(event), ohaFormatEventTime(event.Time)]
+        detail.textContent = [
+            ohaEventSource(event),
+            ohaEventPartitionCount(event),
+            ohaEventClientName(event),
+            ohaFormatEventTime(event.Time)
+        ]
             .filter(Boolean)
             .join(' · ');
         copy.append(title, detail);

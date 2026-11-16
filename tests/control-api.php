@@ -951,13 +951,22 @@ assertControlApi(
         && ($partitionState['Alarm']['OutputActive'] ?? null) === false,
     'Disarming the main/default partition must reset all active areas and their outputs.'
 );
-assertControlApi($partitionInstance->ClearAlarmMemoryPartition('main'), 'The main partition memory must be acknowledgeable.');
-assertControlApi($partitionInstance->ClearAlarmMemoryPartition('garage'), 'The second partition memory must be acknowledgeable.');
+assertControlApi($partitionInstance->ClearAlarmMemoryPartition('garage'), 'One additional partition memory must remain independently acknowledgeable.');
+$partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertControlApi(
+    ($partitionState['Partitions']['main']['Alarm']['MemoryActive'] ?? null) === true
+        && ($partitionState['Partitions']['garage']['Alarm']['MemoryActive'] ?? null) === false
+        && ($partitionState['Alarm']['MemoryActive'] ?? null) === true,
+    'Acknowledging one additional partition must preserve every other area memory and the aggregate summary.'
+);
+assertControlApi($partitionInstance->ClearAlarmMemoryPartition('main'), 'The complete-system memory must be acknowledgeable through main.');
 $partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
 assertControlApi(
     ($partitionState['Alarm']['OutputActive'] ?? null) === false
-        && ($partitionState['Alarm']['MemoryActive'] ?? null) === false,
-    'The aggregate alarm summary must clear after every local output and memory was cleared.'
+        && ($partitionState['Alarm']['MemoryActive'] ?? null) === false
+        && ($partitionState['Partitions']['main']['Alarm']['MemoryActive'] ?? null) === false
+        && ($partitionState['Partitions']['garage']['Alarm']['MemoryActive'] ?? null) === false,
+    'Acknowledging main must clear the aggregate and every partition-local alarm memory.'
 );
 $partitionInstance->RequestAction('ArmPartition', '{"PartitionID":"garage","Value":"night"}');
 $partitionState = json_decode($partitionInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);

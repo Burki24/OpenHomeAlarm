@@ -4,6 +4,19 @@
 
 ## Korrigiert
 
+- Das Quittieren des Alarmgedächtnisses über `main` löscht nach einer
+  gemeinsamen Vorprüfung alle Bereichsgedächtnisse atomar. Solange noch ein
+  Bereich alarmiert oder ein Alarmausgang aktiv ist, bleibt die vollständige
+  Quittierung ohne Teiländerung abgelehnt; die gezielte Quittierung eines
+  Zusatzbereichs bleibt davon unabhängig.
+
+- Das sichtbare Systemprotokoll von `main` fasst gleichartige Ereignisse
+  desselben Zeitpunkts, derselben Quelle und unterschiedlicher Bereiche zu
+  einer Gesamtanlagenmeldung mit Bereichsanzahl zusammen. Bereichsansichten,
+  öffentliche Rohhistorie und Exporte behalten weiterhin jeden einzelnen
+  Bereichseintrag. Persistenz und sichtbare Listen wurden von 100
+  beziehungsweise 20 auf jeweils höchstens 200 Ereignisse erweitert.
+
 - Die sechs bestehenden `OHA_Arm*()`-Befehle behalten wieder exakt ihre
   veröffentlichte Parameterzahl, sodass vorhandene Symcon-Skripte nach dem
   Quellen-Update unverändert weiterlaufen. Da Symcon Standardwerte öffentlicher

@@ -1037,13 +1037,128 @@ assertEventHistory(
     'ApplyChanges must discard stale automation sources when no matching exit delay is active.'
 );
 
-for ($attempt = 0; $attempt < 110; ++$attempt) {
+// The complete-system view must summarize duplicate area events without changing the raw audit history.
+$testValues[5001] = true;
+$summaryInstance = new OpenHomeAlarm();
+$summaryInstance->Create();
+$summaryInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$summaryInstance->TestSetPropertyString(
+    'Partitions',
+    json_encode([
+        ['Enabled' => true, 'ID' => 'main', 'Name' => 'House'],
+        ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage'],
+        ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+    ], JSON_THROW_ON_ERROR)
+);
+$summarySensor = eventHistorySensor(5001, 'Shared door');
+$summarySensor['AllowAutomaticBypass'] = true;
+$summarySensor['Partition_main'] = true;
+$summarySensor['Partition_garage'] = true;
+$summarySensor['Partition_shed'] = true;
+$summaryInstance->TestSetPropertyString('Sensors', json_encode([$summarySensor], JSON_THROW_ON_ERROR));
+$summaryInstance->ApplyChanges();
+assertEventHistory(
+    $summaryInstance->ArmAway(null, null, true),
+    'The summary regression setup must arm every area with the shared sensor bypassed.'
+);
+$summaryState = json_decode($summaryInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+$rawBypassEvents = array_values(array_filter(
+    $summaryState['RecentEvents'] ?? [],
+    static fn (array $event): bool => ($event['Event'] ?? null) === 'sensor_auto_bypassed'
+));
+$summaryBypassEvents = array_values(array_filter(
+    $summaryState['RecentEventsSummary'] ?? [],
+    static fn (array $event): bool => ($event['Event'] ?? null) === 'sensor_auto_bypassed'
+));
+assertEventHistory(
+    count($rawBypassEvents) === 3,
+    'The complete audit history must retain one automatic-bypass event per affected area.'
+);
+assertEventHistory(
+    count($summaryBypassEvents) === 1
+        && ($summaryBypassEvents[0]['PartitionID'] ?? null) === 'main'
+        && ($summaryBypassEvents[0]['PartitionCount'] ?? null) === 3
+        && ($summaryBypassEvents[0]['PartitionIDs'] ?? null) === ['main', 'garage', 'shed'],
+    'The complete-system display must summarize equal shared-sensor events across areas.'
+);
+
+// Acknowledging main must clear every area atomically, but never while one area is still alarming.
+$testValues[5001] = false;
+$mainMemoryInstance = new OpenHomeAlarm();
+$mainMemoryInstance->Create();
+$mainMemoryInstance->TestSetPropertyInteger('ExitDelaySeconds', 0);
+$mainMemoryInstance->TestSetPropertyString(
+    'Partitions',
+    json_encode([
+        ['Enabled' => true, 'ID' => 'main', 'Name' => 'House'],
+        ['Enabled' => true, 'ID' => 'garage', 'Name' => 'Garage'],
+        ['Enabled' => true, 'ID' => 'shed', 'Name' => 'Shed']
+    ], JSON_THROW_ON_ERROR)
+);
+$memorySensor = eventHistorySensor(5001, 'Shared door');
+$memorySensor['Partition_main'] = true;
+$memorySensor['Partition_garage'] = true;
+$memorySensor['Partition_shed'] = true;
+$mainMemoryInstance->TestSetPropertyString('Sensors', json_encode([$memorySensor], JSON_THROW_ON_ERROR));
+$mainMemoryInstance->ApplyChanges();
+assertEventHistory($mainMemoryInstance->ArmAway(), 'The main-memory regression setup must arm every area.');
+$testValues[5001] = true;
+$mainMemoryInstance->MessageSink(1, 5001, VM_UPDATE, [true, false, 0]);
+$activeMemoryState = json_decode($mainMemoryInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+$summaryAlarmEvents = array_values(array_filter(
+    $activeMemoryState['RecentEventsSummary'] ?? [],
+    static fn (array $event): bool => ($event['Event'] ?? null) === 'alarm'
+));
+assertEventHistory(
+    count($summaryAlarmEvents) === 1
+        && ($summaryAlarmEvents[0]['PartitionID'] ?? null) === 'main'
+        && ($summaryAlarmEvents[0]['PartitionCount'] ?? null) === 3,
+    'One shared sensor alarm must appear once in the complete-system display while retaining every area memory.'
+);
+assertEventHistory(
+    !$mainMemoryInstance->ClearAlarmMemoryPartition('main'),
+    'Acknowledging main must be rejected atomically while any area is still alarming.'
+);
+$activeMemoryState = json_decode($mainMemoryInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertEventHistory(
+    array_reduce(
+        $activeMemoryState['Partitions'] ?? [],
+        static fn (bool $carry, array $partition): bool => $carry && ($partition['Alarm']['MemoryActive'] ?? false) === true,
+        true
+    ),
+    'A rejected complete-system acknowledgement must preserve every area memory.'
+);
+assertEventHistory($mainMemoryInstance->Disarm(), 'The main-memory regression setup must disarm every area.');
+assertEventHistory(
+    $mainMemoryInstance->ClearAlarmMemoryPartition('main'),
+    'Acknowledging main must clear every inactive area memory in one transaction.'
+);
+$clearedMemoryState = json_decode($mainMemoryInstance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertEventHistory(
+    array_reduce(
+        $clearedMemoryState['Partitions'] ?? [],
+        static fn (bool $carry, array $partition): bool => $carry && ($partition['Alarm']['MemoryActive'] ?? true) === false,
+        true
+    )
+        && ($clearedMemoryState['Alarm']['MemoryActive'] ?? true) === false,
+    'A complete-system acknowledgement must clear the aggregate and every area memory.'
+);
+$memoryClearedEvents = array_values(array_filter(
+    readEventHistory($mainMemoryInstance),
+    static fn (array $event): bool => ($event['Event'] ?? null) === 'alarm_memory_cleared'
+));
+assertEventHistory(
+    count($memoryClearedEvents) === 1 && ($memoryClearedEvents[0]['PartitionID'] ?? null) === 'main',
+    'A complete-system acknowledgement must create one main event instead of one event per area.'
+);
+
+for ($attempt = 0; $attempt < 210; ++$attempt) {
     assertEventHistory($instance->DisarmWithCode('0000') === false, 'Wrong code attempts used for history limit testing must remain rejected.');
     $instance->TestSetAttributeInteger('DisarmFailedAttempts', 0);
     $instance->TestSetAttributeInteger('DisarmLockoutUntil', 0);
 }
 $history = readEventHistory($instance);
-assertEventHistory(count($history) === 100, 'The persistent event history must be bounded to 100 entries.');
+assertEventHistory(count($history) === 200, 'The persistent event history must be bounded to 200 entries.');
 assertEventHistory(
     array_reduce(
         $history,
@@ -1051,6 +1166,13 @@ assertEventHistory(
         true
     ),
     'History trimming must retain complete, valid event records.'
+);
+$boundedControlState = json_decode($instance->GetControlState(), true, 512, JSON_THROW_ON_ERROR);
+assertEventHistory(
+    count($boundedControlState['RecentEvents'] ?? []) === 200
+        && count($boundedControlState['RecentEventsSummary'] ?? []) === 200
+        && count($boundedControlState['Partitions']['main']['RecentEvents'] ?? []) === 200,
+    'The complete-system and area control states must expose up to 200 recent events.'
 );
 
 fwrite(STDOUT, "OpenHomeAlarm event history checks passed.\n");

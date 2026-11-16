@@ -90,7 +90,13 @@ Der Release umfasst verbindlich:
     Parameterlisten bleiben kompatibel; die Quellenangabe wird für Start und
     Abschluss des Scharfschaltvorgangs protokolliert, während einer
     Ausgangsverzögerung bereichsbezogen und neustartsicher vorgehalten und
-    danach entfernt.
+    danach entfernt,
+40. eine auf 200 Einträge begrenzte persistente Sicherheits-Ereignishistorie.
+    Die Gesamtanlagenansicht fasst gleichartige Ereignisse desselben Zeitpunkts
+    und derselben Quelle über mehrere Alarmbereiche zusammen, ohne die
+    bereichsgenauen Rohereignisse oder Exporte zu verändern. Eine Quittierung
+    über `main` löscht nach vollständiger Vorprüfung alle Bereichsgedächtnisse
+    atomar; bereichsbezogene Quittierungen bleiben unabhängig.
 
 Eine Funktion gilt nur dann als Bestandteil des freigegebenen Releases, wenn
 ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
@@ -132,6 +138,13 @@ ihre zugehörigen automatisierten Prüfungen und Praxisfälle der
   bei gemeinsam geschalteten Bereichen nicht pro Bereich
   vervielfacht werden.
 - Alarmgedächtnis, Ereignishistorie, Sperrzeit und laufende Fristen verhalten sich über `ApplyChanges()` und Neustarts wie dokumentiert.
+- Eine Gesamtquittierung über `main` wird vollständig abgelehnt, solange ein
+  Bereich alarmiert oder sein Alarmausgang aktiv ist. Nach dem Ende aller
+  Alarme werden sämtliche Bereichsgedächtnisse gemeinsam gelöscht und genau
+  ein Gesamtanlagenereignis gespeichert.
+- Die Gesamtanlagenansicht verdichtet ausschließlich die sichtbare
+  Ereignisliste. Bereichsansichten, öffentliche Rohhistorie und Exporte
+  behalten jedes einzelne Bereichsereignis.
 - Eine optionale Scharfschaltquelle verändert keine Berechtigung und keinen
   Schaltweg. Ungültige Quellen werden vor jeder Zustandsänderung abgewiesen;
   gültige Quellen bleiben nur für den zugehörigen verzögerten Schaltvorgang
