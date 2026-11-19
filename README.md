@@ -1,5 +1,7 @@
 # OpenHomeAlarm
 
+[![PayPal.Me](https://img.shields.io/badge/PayPal-Me-lightblue.svg)](#spenden)
+
 ![OpenHomeAlarm – Dein Zuhause. Sicher im Blick.](docs/images/openhomealarm-readme-hero.png)
 
 OpenHomeAlarm ist eine herstellerunabhängige Alarm- und Sicherheitszentrale für die Hausautomation auf Basis von Symcon.
@@ -203,3 +205,9 @@ Dieses Projekt steht unter der
 [PolyForm Noncommercial License 1.0.0](LICENSE) mit dem Required Notice
 `Copyright 2026 Burkhard Kneiseler. OpenHomeAlarm.` Kommerzielle Nutzung ist
 damit nicht gestattet, sofern keine gesonderte Erlaubnis erteilt wurde.
+
+## Spenden
+
+Mit einer freiwilligen Spende kannst du die Weiterentwicklung dieses Projekts unterstützen.
+
+[![PayPal.Me](https://img.shields.io/badge/PayPal-Me-lightblue.svg)](https://www.paypal.me/BurkhardKneiseler)
